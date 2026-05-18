@@ -4,26 +4,24 @@ services:
   backend:
     build:
       context: ./backend
-      # Use an appropriate Dockerfile for Laravel
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/var/www/html
     environment:
       - APP_ENV=local
-      - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
+      - DB_CONNECTION=mysql
+      - DB_HOST=mariadb
+      - DB_PORT=3306
       - DB_DATABASE=tutorvio
-      - DB_USERNAME=sail
-      - DB_PASSWORD=password
+      - DB_USERNAME=tutorvio
+      - DB_PASSWORD=tutorvio_password
     depends_on:
-      - db
+      - mariadb
 
   frontend:
     build:
       context: ./frontend
-      # Use an appropriate Dockerfile for Vue+Vite
     ports:
       - "5173:5173"
     volumes:
@@ -32,16 +30,17 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
 
-  db:
-    image: postgres:15
+  mariadb:
+    image: mariadb:10.11
     ports:
-      - "5432:5432"
+      - "3307:3306"
     environment:
-      - POSTGRES_DB=tutorvio
-      - POSTGRES_USER=sail
-      - POSTGRES_PASSWORD=password
+      - MYSQL_DATABASE=tutorvio
+      - MYSQL_USER=tutorvio
+      - MYSQL_PASSWORD=tutorvio_password
+      - MYSQL_ROOT_PASSWORD=tutorvio_root_password
     volumes:
-      - tutorvio-pgsql:/var/lib/postgresql/data
+      - mariadb_data:/var/lib/mysql
 
 volumes:
-  tutorvio-pgsql:
+  mariadb_data:

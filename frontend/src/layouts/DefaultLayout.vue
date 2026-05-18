@@ -1,26 +1,24 @@
-<script setup lang="ts">
-// Base Layout component
-</script>
-
 <template>
-  <div class="layout">
+  <div class="app-layout">
     <header>
-      <!-- Navigation goes here -->
-      <h1>Tutorvio Portal</h1>
+      <nav>
+        <router-link to="/">Home</router-link>
+      </nav>
     </header>
-    
     <main>
-      <slot></slot>
+      <router-view />
     </main>
-
     <footer>
-      <!-- Footer content goes here -->
+      <p>&copy; 2026 Tutorvio</p>
     </footer>
   </div>
 </template>
 
+<script setup lang="ts">
+</script>
+
 <style scoped>
-.layout {
+.app-layout {
   display: flex;
   flex-direction: column;
   min-height: 100vh;

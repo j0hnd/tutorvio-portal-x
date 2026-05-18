@@ -1,28 +1,35 @@
-# Tutorvio Monorepo
+# Tutorvio Portal
 
-This repository contains the backend and frontend applications for Tutorvio.
+This is a monorepo containing the Tutorvio platform, separated into a Laravel API backend and a Vue 3 frontend.
 
-## Structure
+## Project Structure
 
-- `/backend` - Laravel API application.
-- `/frontend` - Vue 3 + Vite + TypeScript application.
+- `backend/`: Laravel 11 API Backend
+- `frontend/`: Vue 3 + Vite + TypeScript Frontend
+- `docker-compose.yml`: Docker configuration for local development
 
-## Prerequisites
+## Local Development Setup
 
-- Node.js & npm
-- PHP & Composer
-- Docker (optional, for local environment)
+1. Make sure you have Docker and Docker Compose installed.
+2. Clone the repository.
+3. Start the containers:
+   ```bash
+   docker compose up -d
+   ```
+4. Setup Backend:
+   ```bash
+   docker compose exec backend composer install
+   docker compose exec backend php artisan key:generate
+   docker compose exec backend php artisan migrate
+   ```
+5. Setup Frontend:
+   ```bash
+   docker compose exec frontend npm install
+   docker compose exec frontend npm run dev
+   ```
 
-## Getting Started
+## Services
 
-### Backend
-1. `cd backend`
-2. `composer install`
-3. `cp .env.example .env`
-4. `php artisan key:generate`
-5. `php artisan serve`
-
-### Frontend
-1. `cd frontend`
-2. `npm install`
-3. `npm run dev`
+- **Backend API**: http://localhost:8000
+- **Frontend App**: http://localhost:5173
+- **MariaDB Database**: localhost:3307 (User: tutorvio, Pass: tutorvio_password)

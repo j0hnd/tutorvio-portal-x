@@ -1,25 +1,45 @@
-# Node
-node_modules/
-dist/
-npm-debug.log
-yarn-error.log
-
 # Laravel
-vendor/
-.env
-.phpunit.result.cache
-storage/*.key
-Homestead.json
-Homestead.yaml
+/backend/vendor/
+/backend/node_modules/
+/backend/public/hot
+/backend/public/storage
+/backend/storage/*.key
+/backend/.env
+/backend/.env.backup
+/backend/.phpunit.result.cache
+/backend/docker-compose.override.yml
+/backend/auth.json
+/backend/Homestead.json
+/backend/Homestead.yaml
+/backend/npm-debug.log
+/backend/yarn-error.log
+/backend/.buildpath
+/backend/.project
+/backend/.settings
+/backend/Coverage/
+/backend/phpunit.report/
+/backend/.idea/
+/backend/.vscode/
+
+# Node
+/frontend/node_modules
+/frontend/dist
+/frontend/dist-ssr
+/frontend/*.local
+/frontend/.npm-debug.log
+/frontend/.yarn-error.log
+/frontend/.pnpm-debug.log
+
+# IDE
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
 
 # Docker
+.docker/
 docker-compose.override.yml
-
-# OS Files
-.DS_Store
-Thumbs.db
-
-# IDE Files
-.idea/
-.vscode/
-*.swp
