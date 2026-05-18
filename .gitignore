@@ -1,0 +1,25 @@
+# Node
+node_modules/
+dist/
+npm-debug.log
+yarn-error.log
+
+# Laravel
+vendor/
+.env
+.phpunit.result.cache
+storage/*.key
+Homestead.json
+Homestead.yaml
+
+# Docker
+docker-compose.override.yml
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.idea/
+.vscode/
+*.swp
