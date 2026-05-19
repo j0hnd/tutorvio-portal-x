@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\Auth\LoginController;
@@ -42,6 +43,25 @@ Route::prefix('v1')->group(function () {
             Route::get('/users', function () {
                 return response()->json(['status' => 'ok']);
             })->middleware('permission:users.view');
+        });
+
+        Route::prefix('users')->middleware('role:admin|staff')->group(function () {
+            Route::get('/', [UserManagementController::class, 'index'])
+                ->middleware('permission:users.view');
+            Route::post('/', [UserManagementController::class, 'store'])
+                ->middleware('permission:users.create');
+            Route::get('/{user}', [UserManagementController::class, 'show'])
+                ->middleware('permission:users.view');
+            Route::match(['put', 'patch'], '/{user}', [UserManagementController::class, 'update'])
+                ->middleware('permission:users.update');
+            Route::post('/{user}/activate', [UserManagementController::class, 'activate'])
+                ->middleware('permission:users.activate');
+            Route::post('/{user}/deactivate', [UserManagementController::class, 'deactivate'])
+                ->middleware('permission:users.deactivate');
+            Route::post('/{user}/roles', [UserManagementController::class, 'syncRoles'])
+                ->middleware('permission:users.assign_roles');
+            Route::get('/{user}/status-history', [UserManagementController::class, 'statusHistory'])
+                ->middleware('permission:users.view');
         });
     });
 });
