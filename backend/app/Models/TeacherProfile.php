@@ -13,9 +13,14 @@ class TeacherProfile extends Model
     protected $fillable = [
         'user_id',
         'specialization',
+        'bio',
+        'expertise',
+        'class_load',
         'teaching_availability',
+        'performance_summary',
         'internal_status',
         'teaching_notes',
+        'internal_remarks',
         'document_contract_status',
     ];
 
@@ -29,5 +34,15 @@ class TeacherProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function assignedStudents()
+    {
+        return $this->hasMany(StudentProfile::class, 'assigned_teacher_id', 'user_id');
+    }
+
+    public function lessons()
+    {
+        return $this->hasMany(Lesson::class, 'teacher_id', 'user_id');
     }
 }

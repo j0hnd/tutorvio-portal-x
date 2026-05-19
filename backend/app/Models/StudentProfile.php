@@ -13,11 +13,14 @@ class StudentProfile extends Model
     protected $fillable = [
         'user_id',
         'english_level',
+        'current_level',
         'course',
         'assigned_teacher_id',
         'class_type',
         'start_date',
         'notes',
+        'teacher_notes',
+        'internal_notes',
         'preferences',
         'goals',
         'learning_concerns',
@@ -38,5 +41,27 @@ class StudentProfile extends Model
     public function assignedTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_teacher_id');
+    }
+
+    public function lessons()
+    {
+        return $this->hasMany(Lesson::class, 'student_id', 'user_id');
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class, 'student_id', 'user_id');
+    }
+
+    public function materials()
+    {
+        return $this->belongsToMany(Material::class, 'student_materials', 'student_id', 'material_id')
+                    ->withPivot(['assigned_at', 'completed_at'])
+                    ->withTimestamps();
+    }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class, 'user_id', 'user_id');
     }
 }
