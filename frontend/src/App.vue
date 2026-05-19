@@ -1,13 +1,6 @@
-<script setup lang="ts">
-import DefaultLayout from './layouts/DefaultLayout.vue'
-</script>
-
 <template>
-  <DefaultLayout>
-    <router-view />
-  </DefaultLayout>
+  <RouterView />
 </template>
 
-<style scoped>
-/* App styles */
-</style>
+<script setup lang="ts">
+</script>

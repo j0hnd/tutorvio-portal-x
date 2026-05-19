@@ -1,0 +1,5 @@
+export { default as TVButton } from './TVButton.vue'
+export { default as TVInput } from './TVInput.vue'
+export { default as TVSelect } from './TVSelect.vue'
+export { default as TVCard } from './TVCard.vue'
+export { default as TVBadge } from './TVBadge.vue'
