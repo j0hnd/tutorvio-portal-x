@@ -168,10 +168,10 @@ const statusFilter = ref<'active' | 'inactive' | ''>('')
 const columns: DataTableColumn[] = [
   { key: 'name',      label: 'Name',    sortable: true,  sortKey: '_fullName' },
   { key: 'email',     label: 'Email',   sortable: true,  hide: 'sm' },
-  { key: 'role',      label: 'Role',    sortable: true },
-  { key: 'status',    label: 'Status',  sortable: false },
+  { key: 'role',      label: 'Role',    sortable: true,  width: '120px' },
+  { key: 'status',    label: 'Status',  sortable: false, width: '120px' },
   { key: 'createdAt', label: 'Joined',  sortable: true,  hide: 'md', muted: true },
-  { key: 'actions',   label: 'Actions', align: 'right',  stopClick: true },
+  { key: 'actions',   label: 'Actions', align: 'right',  stopClick: true, width: '80px' },
 ]
 
 const roleOptions: SelectOption[] = [
