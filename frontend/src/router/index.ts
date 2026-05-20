@@ -95,6 +95,26 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN'] },
   },
 
+  /* ── Admin: User Management ── */
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/views/admin/UsersView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+  },
+  {
+    path: '/admin/users/create',
+    name: 'AdminUserCreate',
+    component: () => import('@/views/admin/UserCreateView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+  },
+  {
+    path: '/admin/users/:id/edit',
+    name: 'AdminUserEdit',
+    component: () => import('@/views/admin/UserEditView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+  },
+
   /* ── Error pages ── */
   {
     path: '/unauthorized',
