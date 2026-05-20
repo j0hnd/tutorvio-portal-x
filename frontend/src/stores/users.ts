@@ -11,23 +11,23 @@ import type {
 const MOCK_USERS: ManagedUser[] = [
   {
     id: 'u1',
-    firstName: 'Ana',
+    firstName: 'Emma',
     lastName: 'Santos',
-    email: 'ana.santos@example.com',
+    email: 'student@tutorvio.com',
     role: 'STUDENT',
     timezone: 'Asia/Manila',
-    createdAt: '2024-01-10T08:00:00Z',
+    createdAt: '2024-01-15T00:00:00Z',
     isActive: true,
-    lastLoginAt: '2025-05-18T14:22:00Z',
+    lastLoginAt: '2026-05-20T14:22:00Z',
     studentProfile: {
       englishLevel: 'INTERMEDIATE',
       program: 'Business English',
-      assignedTeacherId: 'u5',
+      assignedTeacherId: 'u26',
       classType: 'ONLINE',
-      startDate: '2024-01-15',
-      goals: 'Improve professional communication skills',
-      learningConcerns: 'Grammar and business vocabulary',
-      notes: 'Prefers morning sessions',
+      startDate: '2024-01-20',
+      goals: 'Improve professional communication and presentation skills for corporate settings',
+      learningConcerns: 'Grammar in formal writing, business vocabulary, and confident speaking in meetings',
+      notes: 'Quick learner. Prefers morning sessions. Needs challenging material to stay engaged.',
     },
   },
   {
@@ -104,7 +104,7 @@ const MOCK_USERS: ManagedUser[] = [
       availabilitySummary: 'Mon–Fri 9am–5pm GMT',
       internalStatus: 'ACTIVE',
       teachingNotes: 'Experienced with corporate clients. Prefers structured lesson plans.',
-      assignedStudentIds: ['u1', 'u4'],
+      assignedStudentIds: ['u4'],
       documentStatus: 'APPROVED',
       contractStatus: 'APPROVED',
     },
@@ -148,34 +148,34 @@ const MOCK_USERS: ManagedUser[] = [
   },
   {
     id: 'u8',
-    firstName: 'Admin',
-    lastName: 'User',
+    firstName: 'Maria',
+    lastName: 'Cruz',
     email: 'admin@tutorvio.com',
     role: 'ADMIN',
     timezone: 'Asia/Manila',
-    createdAt: '2023-11-01T08:00:00Z',
+    createdAt: '2023-12-01T00:00:00Z',
     isActive: true,
-    lastLoginAt: '2025-05-20T09:00:00Z',
+    lastLoginAt: '2026-05-20T09:00:00Z',
     adminStaffProfile: {
       department: 'Operations',
       permissions: ['VIEW_BILLING', 'EDIT_STUDENTS', 'VIEW_PAYROLL', 'MANAGE_SCHEDULE', 'SEND_COMMUNICATIONS'],
-      accessLimitations: 'None',
+      accessLimitations: 'None — Full administrative access',
     },
   },
   {
     id: 'u9',
-    firstName: 'Rachel',
-    lastName: 'Mendoza',
-    email: 'rachel.mendoza@example.com',
+    firstName: 'Carlos',
+    lastName: 'Dela Rosa',
+    email: 'staff@tutorvio.com',
     role: 'STAFF',
     timezone: 'Asia/Manila',
-    createdAt: '2024-02-20T08:00:00Z',
+    createdAt: '2024-02-01T00:00:00Z',
     isActive: true,
-    lastLoginAt: '2025-05-19T17:00:00Z',
+    lastLoginAt: '2026-05-20T10:00:00Z',
     adminStaffProfile: {
       department: 'Student Support',
       permissions: ['EDIT_STUDENTS', 'MANAGE_SCHEDULE', 'SEND_COMMUNICATIONS'],
-      accessLimitations: 'Cannot access billing or payroll',
+      accessLimitations: 'Cannot access billing or payroll records',
     },
   },
   {
@@ -466,6 +466,26 @@ const MOCK_USERS: ManagedUser[] = [
       learningConcerns: 'Idioms and informal expressions',
     },
   },
+  {
+    id: 'u26',
+    firstName: 'James',
+    lastName: 'Reyes',
+    email: 'teacher@tutorvio.com',
+    role: 'TEACHER',
+    timezone: 'Asia/Manila',
+    createdAt: '2024-01-10T00:00:00Z',
+    isActive: true,
+    lastLoginAt: '2026-05-20T08:30:00Z',
+    teacherProfile: {
+      specialization: 'Business English, Executive Communication',
+      availabilitySummary: 'Mon–Fri 8am–5pm PHT, Sat 9am–12pm PHT',
+      internalStatus: 'ACTIVE',
+      teachingNotes: 'Excellent with corporate professionals. Adapts lesson content to individual pace. Consistently high student satisfaction scores.',
+      assignedStudentIds: ['u1'],
+      documentStatus: 'APPROVED',
+      contractStatus: 'APPROVED',
+    },
+  },
 ]
 
 type CreateUserPayload = Omit<ManagedUser, 'id' | 'createdAt'>
@@ -486,6 +506,10 @@ export const useUsersStore = defineStore('users', () => {
 
   function getUserById(id: string): ManagedUser | undefined {
     return users.value.find(u => u.id === id)
+  }
+
+  function getUserByEmail(email: string): ManagedUser | undefined {
+    return users.value.find(u => u.email.toLowerCase() === email.toLowerCase())
   }
 
   function getTeachers(): ManagedUser[] {
@@ -562,6 +586,7 @@ export const useUsersStore = defineStore('users', () => {
     error,
     fetchUsers,
     getUserById,
+    getUserByEmail,
     getTeachers,
     filteredUsers,
     createUser,

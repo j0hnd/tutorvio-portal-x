@@ -115,6 +115,20 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['ADMIN'] },
   },
 
+  /* ── Profile pages ── */
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/profile/ProfileView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/profile/:id',
+    name: 'UserProfile',
+    component: () => import('@/views/profile/ProfileView.vue'),
+    meta: { requiresAuth: true },
+  },
+
   /* ── Error pages ── */
   {
     path: '/unauthorized',
