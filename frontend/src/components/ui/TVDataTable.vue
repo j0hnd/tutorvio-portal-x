@@ -433,6 +433,7 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
 /* ── Table ── */
 .tv-dt__table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--tv-text-sm);
 }
@@ -516,6 +517,7 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
   padding: var(--tv-space-3) var(--tv-space-4);
   vertical-align: middle;
   color: var(--tv-text);
+  overflow: hidden;
 }
 
 .tv-dt__td--right { text-align: right; }
