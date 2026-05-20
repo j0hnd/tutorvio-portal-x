@@ -147,3 +147,59 @@ export interface NavItem {
   roles: UserRole[]
   children?: NavItem[]
 }
+
+/* --- User Management --- */
+export type StaffPermission =
+  | 'VIEW_BILLING'
+  | 'EDIT_STUDENTS'
+  | 'VIEW_PAYROLL'
+  | 'MANAGE_SCHEDULE'
+  | 'SEND_COMMUNICATIONS'
+
+export type ClassType = 'ONLINE' | 'IN_PERSON' | 'HYBRID'
+
+export type EnglishLevel =
+  | 'BEGINNER'
+  | 'ELEMENTARY'
+  | 'INTERMEDIATE'
+  | 'UPPER_INTERMEDIATE'
+  | 'ADVANCED'
+  | 'PROFICIENCY'
+
+export type TeacherInternalStatus = 'ACTIVE' | 'ON_LEAVE' | 'PROBATION' | 'INACTIVE'
+
+export type DocumentStatus = 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+
+export interface StudentProfile {
+  englishLevel?: EnglishLevel
+  program?: string
+  assignedTeacherId?: string
+  classType?: ClassType
+  startDate?: string
+  notes?: string
+  goals?: string
+  learningConcerns?: string
+}
+
+export interface TeacherProfile {
+  specialization?: string
+  availabilitySummary?: string
+  internalStatus?: TeacherInternalStatus
+  teachingNotes?: string
+  assignedStudentIds?: string[]
+  documentStatus?: DocumentStatus
+  contractStatus?: DocumentStatus
+}
+
+export interface AdminStaffProfile {
+  department?: string
+  permissions?: StaffPermission[]
+  accessLimitations?: string
+}
+
+export interface ManagedUser extends User {
+  lastLoginAt?: string
+  studentProfile?: StudentProfile
+  teacherProfile?: TeacherProfile
+  adminStaffProfile?: AdminStaffProfile
+}
