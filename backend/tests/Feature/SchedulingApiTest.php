@@ -4,11 +4,16 @@ namespace Tests\Feature;
 
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\Holiday;
+use App\Models\Scheduling\ScheduleReminder;
 use App\Models\Scheduling\TeacherAvailability;
 use App\Models\Scheduling\TeacherUnavailableDate;
 use App\Models\User;
+use App\Notifications\Scheduling\ClassScheduleReminderNotification;
+use App\Services\Scheduling\ScheduleReminderService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -919,5 +924,143 @@ class SchedulingApiTest extends TestCase
             ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->id)
             ->assertJsonPath('data.booked_lessons.0.student.id', $this->student->id)
             ->assertJsonPath('data.booked_lessons.0.status', ClassSchedule::STATUS_COMPLETED);
+    }
+
+    public function test_reminder_service_queues_student_and_teacher_reminders_without_duplicates(): void
+    {
+        $service = app(ScheduleReminderService::class);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Conversation practice',
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        $now = CarbonImmutable::parse('2026-05-31 01:30:00', 'UTC');
+
+        $this->assertSame(4, $service->queueUpcoming(48, $now));
+        $this->assertSame(0, $service->queueUpcoming(48, $now));
+
+        $this->assertDatabaseCount('schedule_reminders', 4);
+        $this->assertDatabaseHas('schedule_reminders', [
+            'user_id' => $this->student->id,
+            'channel' => 'email',
+            'status' => ScheduleReminder::STATUS_PENDING,
+            'scheduled_for' => '2026-05-31 02:00:00',
+        ]);
+        $this->assertDatabaseHas('schedule_reminders', [
+            'user_id' => $this->teacher->id,
+            'channel' => 'email',
+            'status' => ScheduleReminder::STATUS_PENDING,
+            'scheduled_for' => '2026-06-01 01:00:00',
+        ]);
+    }
+
+    public function test_reminder_service_only_queues_valid_upcoming_scheduled_classes(): void
+    {
+        $service = app(ScheduleReminderService::class);
+        $now = CarbonImmutable::parse('2026-05-31 01:30:00', 'UTC');
+
+        foreach ([
+            ClassSchedule::STATUS_CANCELLED,
+            ClassSchedule::STATUS_COMPLETED,
+            ClassSchedule::STATUS_MISSED_BY_STUDENT,
+            ClassSchedule::STATUS_MISSED_BY_TEACHER,
+            ClassSchedule::STATUS_RESCHEDULED,
+            ClassSchedule::STATUS_PENDING_CONFIRMATION,
+        ] as $index => $status) {
+            ClassSchedule::create([
+                'student_id' => $this->student->id,
+                'teacher_id' => $this->teacher->id,
+                'status' => $status,
+                'timezone' => 'Asia/Manila',
+                'starts_at' => CarbonImmutable::parse('2026-06-01 02:00:00', 'UTC')->addHours($index),
+                'ends_at' => CarbonImmutable::parse('2026-06-01 03:00:00', 'UTC')->addHours($index),
+            ]);
+        }
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 08:00:00',
+            'ends_at' => '2026-06-01 09:00:00',
+        ]);
+
+        $this->assertSame(4, $service->queueUpcoming(48, $now));
+        $this->assertDatabaseCount('schedule_reminders', 4);
+    }
+
+    public function test_reminder_service_sends_due_email_and_tracks_status(): void
+    {
+        Notification::fake();
+
+        $service = app(ScheduleReminderService::class);
+        $schedule = ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Grammar review',
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        ScheduleReminder::create([
+            'class_schedule_id' => $schedule->id,
+            'user_id' => $this->student->id,
+            'channel' => 'email',
+            'status' => ScheduleReminder::STATUS_PENDING,
+            'scheduled_for' => '2026-06-01 01:00:00',
+        ]);
+
+        $now = CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC');
+
+        $this->assertSame(1, $service->sendDue($now));
+
+        Notification::assertSentTo($this->student, ClassScheduleReminderNotification::class);
+        $this->assertDatabaseHas('schedule_reminders', [
+            'class_schedule_id' => $schedule->id,
+            'user_id' => $this->student->id,
+            'status' => ScheduleReminder::STATUS_SENT,
+            'sent_at' => '2026-06-01 01:00:00',
+        ]);
+    }
+
+    public function test_due_reminders_for_ineligible_classes_are_cancelled_not_sent(): void
+    {
+        Notification::fake();
+
+        $service = app(ScheduleReminderService::class);
+        $schedule = ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_CANCELLED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        ScheduleReminder::create([
+            'class_schedule_id' => $schedule->id,
+            'user_id' => $this->teacher->id,
+            'channel' => 'email',
+            'status' => ScheduleReminder::STATUS_PENDING,
+            'scheduled_for' => '2026-06-01 01:00:00',
+        ]);
+
+        $this->assertSame(0, $service->sendDue(CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC')));
+
+        Notification::assertNothingSent();
+        $this->assertDatabaseHas('schedule_reminders', [
+            'class_schedule_id' => $schedule->id,
+            'user_id' => $this->teacher->id,
+            'status' => ScheduleReminder::STATUS_CANCELLED,
+        ]);
     }
 }

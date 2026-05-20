@@ -13,6 +13,8 @@ class ScheduleReminder extends Model
 
     public const STATUS_PENDING = 'pending';
 
+    public const STATUS_SENDING = 'sending';
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_CANCELLED = 'cancelled';
@@ -21,6 +23,7 @@ class ScheduleReminder extends Model
 
     public const STATUSES = [
         self::STATUS_PENDING,
+        self::STATUS_SENDING,
         self::STATUS_SENT,
         self::STATUS_CANCELLED,
         self::STATUS_FAILED,
