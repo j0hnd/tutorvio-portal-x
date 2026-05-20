@@ -388,6 +388,8 @@ onMounted(() => {
 .role-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 72px;
   padding: 2px var(--tv-space-2);
   border-radius: var(--tv-radius-full);
   font-size: var(--tv-text-xs);
@@ -414,6 +416,11 @@ onMounted(() => {
 .role-pill--staff {
   background: hsl(38, 92%, 91%);
   color: hsl(38, 92%, 28%);
+}
+
+:deep(.tv-badge) {
+  justify-content: center;
+  min-width: 72px;
 }
 
 .users-page__empty-icon {

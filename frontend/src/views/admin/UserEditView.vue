@@ -214,7 +214,8 @@
               </div>
               <label class="summary-card__photo-btn" aria-label="Upload profile photo" title="Upload photo">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <path d="M1 10.5V12h1.5l4.5-4.5-1.5-1.5L1 10.5zM11.7 3.3a.996.996 0 0 0 0-1.41L10.11.7a.996.996 0 0 0-1.41 0L7.41 2l2.83 2.83 1.46-1.53z" fill="currentColor"/>
+                  <path d="M5.2 3l.8-1h2l.8 1H11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h2.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                  <circle cx="7" cy="7.2" r="1.7" stroke="currentColor" stroke-width="1.3"/>
                 </svg>
                 <input type="file" accept="image/*" class="photo-upload__input" @change="handlePhotoChange" />
               </label>
