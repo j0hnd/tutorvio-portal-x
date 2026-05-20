@@ -98,22 +98,32 @@
 
       <template #cell-actions="{ row }">
         <div class="user-actions" @click.stop>
-          <TVButton
-            variant="ghost"
-            size="sm"
-            aria-label="Edit user"
+          <button
+            class="icon-btn icon-btn--edit"
+            :aria-label="`Edit ${row._fullName}`"
+            :title="`Edit ${row._fullName}`"
             @click="router.push(`/admin/users/${row.id}/edit`)"
           >
-            Edit
-          </TVButton>
-          <TVButton
-            :variant="row.isActive ? 'danger' : 'success'"
-            size="sm"
-            :aria-label="row.isActive ? 'Deactivate user' : 'Activate user'"
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <path d="M10.5 2.5l2 2L5 12H3v-2l7.5-7.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button
+            class="icon-btn"
+            :class="row.isActive ? 'icon-btn--deactivate' : 'icon-btn--activate'"
+            :aria-label="row.isActive ? `Deactivate ${row._fullName}` : `Activate ${row._fullName}`"
+            :title="row.isActive ? 'Deactivate' : 'Activate'"
             @click="handleToggleActive(String(row.id))"
           >
-            {{ row.isActive ? 'Deactivate' : 'Activate' }}
-          </TVButton>
+            <svg v-if="row.isActive" width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M5 7.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <svg v-else width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M5.5 7.5l1.5 1.5 2.5-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       </template>
 
@@ -321,9 +331,42 @@ onMounted(() => {
 
 .user-actions {
   display: flex;
-  gap: var(--tv-space-2);
+  gap: var(--tv-space-1);
   justify-content: flex-end;
   align-items: center;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--tv-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--tv-transition-fast), border-color var(--tv-transition-fast), color var(--tv-transition-fast);
+  color: var(--tv-text-muted);
+  flex-shrink: 0;
+}
+
+.icon-btn--edit:hover {
+  background: var(--tv-primary-soft);
+  border-color: var(--tv-primary-muted);
+  color: var(--tv-primary);
+}
+
+.icon-btn--deactivate:hover {
+  background: hsl(0, 72%, 96%);
+  border-color: hsl(0, 72%, 85%);
+  color: var(--tv-danger);
+}
+
+.icon-btn--activate:hover {
+  background: hsl(142, 70%, 94%);
+  border-color: hsl(142, 70%, 75%);
+  color: var(--tv-success);
 }
 
 .tv-dt-muted {
