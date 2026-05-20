@@ -43,6 +43,55 @@ class ClassScheduleService
     /**
      * @param  array<string, mixed>  $payload
      */
+    public function bookOneTimeLesson(array $payload, User $student): ClassSchedule
+    {
+        if (! $student->hasRole('student')) {
+            throw ValidationException::withMessages([
+                'student_id' => 'Only students can book lessons.',
+            ]);
+        }
+
+        $assignedTeacherId = $student->studentProfile?->assigned_teacher_id;
+
+        if (! $assignedTeacherId) {
+            throw ValidationException::withMessages([
+                'teacher_id' => 'The student does not have an assigned teacher.',
+            ]);
+        }
+
+        if ((int) $payload['teacher_id'] !== (int) $assignedTeacherId) {
+            throw ValidationException::withMessages([
+                'teacher_id' => 'Students can only book lessons with their assigned teacher.',
+            ]);
+        }
+
+        [$startsAtUtc, $endsAtUtc] = $this->utcRange($payload['starts_at'], $payload['ends_at'], $payload['timezone']);
+        $teacher = User::findOrFail($payload['teacher_id']);
+
+        return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc): ClassSchedule {
+            $this->availabilityService->assertTeacherCanBeBooked(
+                $teacher,
+                $startsAtUtc,
+                $endsAtUtc,
+                $payload['timezone'],
+                student: $student
+            );
+
+            return ClassSchedule::create([
+                ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
+                'student_id' => $student->id,
+                'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
+                'starts_at' => $startsAtUtc,
+                'ends_at' => $endsAtUtc,
+                'created_by' => $student->id,
+                'updated_by' => $student->id,
+            ]);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     public function update(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
         [$startsAtUtc, $endsAtUtc] = $this->utcRange(
@@ -63,7 +112,7 @@ class ClassScheduleService
         $changesBookingWindow = array_intersect(array_keys($payload), ['student_id', 'teacher_id', 'timezone', 'starts_at', 'ends_at', 'status']) !== [];
 
         if ($changesBookingWindow && in_array($payload['status'] ?? $schedule->status, ClassSchedule::BOOKED_STATUSES, true)) {
-            $this->availabilityService->assertTeacherCanBeBooked($teacher, $startsAtUtc, $endsAtUtc, $payload['timezone'] ?? $schedule->timezone, $schedule->id);
+            $this->availabilityService->assertTeacherCanBeBooked($teacher, $startsAtUtc, $endsAtUtc, $payload['timezone'] ?? $schedule->timezone, $schedule->id, $student);
         }
 
         $schedule->fill([

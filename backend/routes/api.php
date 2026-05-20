@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
 use App\Http\Controllers\Api\Scheduling\HolidayController;
+use App\Http\Controllers\Api\Scheduling\LessonBookingController;
 use App\Http\Controllers\Api\Scheduling\ScheduleReminderController;
 use App\Http\Controllers\Api\Scheduling\TeacherAvailabilityController;
 use App\Http\Controllers\Api\Scheduling\TeacherUnavailableDateController;
@@ -80,6 +81,7 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('scheduling')->group(function () {
             Route::get('calendar', CalendarController::class);
+            Route::post('lesson-bookings', [LessonBookingController::class, 'store'])->middleware('role:student');
 
             Route::apiResource('class-schedules', ClassScheduleController::class)
                 ->parameters(['class-schedules' => 'classSchedule']);

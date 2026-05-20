@@ -17,7 +17,8 @@ class SchedulingAvailabilityService
         CarbonImmutable $startsAtUtc,
         CarbonImmutable $endsAtUtc,
         string $timezone,
-        ?int $exceptScheduleId = null
+        ?int $exceptScheduleId = null,
+        ?User $student = null
     ): void {
         if (! $teacher->hasRole('teacher')) {
             throw ValidationException::withMessages([
@@ -35,6 +36,10 @@ class SchedulingAvailabilityService
         $this->assertNoUnavailableDate($teacher, $startsAtUtc, $endsAtUtc);
         $this->assertNoHoliday($startsAtUtc, $endsAtUtc, $timezone);
         $this->assertNoBookedScheduleConflict($teacher, $startsAtUtc, $endsAtUtc, $exceptScheduleId);
+
+        if ($student) {
+            $this->assertNoStudentScheduleConflict($student, $startsAtUtc, $endsAtUtc, $exceptScheduleId);
+        }
     }
 
     private function assertInsideAvailabilityWindow(
@@ -127,6 +132,27 @@ class SchedulingAvailabilityService
         if ($conflicts) {
             throw ValidationException::withMessages([
                 'starts_at' => 'The teacher already has a class scheduled during this time.',
+            ]);
+        }
+    }
+
+    private function assertNoStudentScheduleConflict(
+        User $student,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $endsAtUtc,
+        ?int $exceptScheduleId
+    ): void {
+        $conflicts = ClassSchedule::query()
+            ->where('student_id', $student->id)
+            ->whereIn('status', ClassSchedule::BOOKED_STATUSES)
+            ->where('starts_at', '<', $endsAtUtc)
+            ->where('ends_at', '>', $startsAtUtc)
+            ->when($exceptScheduleId, fn ($query) => $query->whereKeyNot($exceptScheduleId))
+            ->exists();
+
+        if ($conflicts) {
+            throw ValidationException::withMessages([
+                'starts_at' => 'The student already has a class scheduled during this time.',
             ]);
         }
     }
