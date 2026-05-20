@@ -20,7 +20,8 @@
           <h2 class="form-section__title">Profile Photo</h2>
           <div class="photo-upload">
             <div class="photo-upload__avatar" aria-label="Profile photo preview">
-              <span class="photo-upload__initials">{{ previewInitials }}</span>
+              <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Profile photo preview" />
+              <span v-else class="photo-upload__initials">{{ previewInitials }}</span>
             </div>
             <div class="photo-upload__actions">
               <label class="photo-upload__label" tabindex="0" role="button" aria-label="Upload photo">
@@ -216,7 +217,8 @@
       <aside class="user-form-layout__aside">
         <div class="summary-card">
           <div class="summary-card__avatar" aria-hidden="true">
-            <span>{{ previewInitials }}</span>
+            <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Profile photo" />
+            <span v-else>{{ previewInitials }}</span>
           </div>
           <p class="summary-card__name">{{ previewName || 'New User' }}</p>
           <p class="summary-card__role">{{ form.role ? roleLabel(form.role) : 'No role selected' }}</p>
@@ -242,7 +244,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
@@ -287,6 +289,11 @@ const adminStaffProfile = ref<AdminStaffProfile>({ permissions: [] })
 
 const errors = ref<Record<string, string>>({})
 const submitting = ref(false)
+const photoPreviewUrl = ref<string | null>(null)
+
+onUnmounted(() => {
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+})
 
 /* ── Computed ── */
 const previewInitials = computed(() => {
@@ -388,8 +395,11 @@ function togglePermission(perm: StaffPermission): void {
   }
 }
 
-function handlePhotoChange(_e: Event): void {
-  /* Photo upload UI only — backend integration deferred */
+function handlePhotoChange(e: Event): void {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+  photoPreviewUrl.value = URL.createObjectURL(file)
 }
 
 /* ── Validation ── */
@@ -542,8 +552,15 @@ async function handleSubmit(): Promise<void> {
   align-items: center;
   justify-content: center;
   font-size: var(--tv-text-xl);
+  overflow: hidden;
   font-weight: var(--tv-font-bold);
   flex-shrink: 0;
+}
+
+.photo-upload__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .photo-upload__initials { line-height: 1; }

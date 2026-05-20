@@ -40,7 +40,8 @@
             <h2 class="form-section__title">Profile Photo</h2>
             <div class="photo-upload">
               <div class="photo-upload__avatar" aria-label="Profile photo preview">
-                <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName" />
+                <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Profile photo preview" />
+                <img v-else-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName" />
                 <span v-else>{{ previewInitials }}</span>
               </div>
               <div class="photo-upload__actions">
@@ -50,7 +51,7 @@
                     <path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                   </svg>
                   Change photo
-                  <input type="file" accept="image/*" class="photo-upload__input" />
+                  <input type="file" accept="image/*" class="photo-upload__input" @change="handlePhotoChange" />
                 </label>
                 <p class="photo-upload__hint">JPG, PNG or WEBP · max 2MB</p>
               </div>
@@ -263,7 +264,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
@@ -289,6 +290,11 @@ const toast = useToast()
 const user = ref<ManagedUser | undefined>(undefined)
 const submitting = ref(false)
 const confirmingToggle = ref(false)
+const photoPreviewUrl = ref<string | null>(null)
+
+onUnmounted(() => {
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+})
 
 /* ── Form state ── */
 const form = ref({
@@ -444,6 +450,13 @@ function togglePermission(perm: StaffPermission): void {
 }
 
 /* ── Toggle active ── */
+function handlePhotoChange(e: Event): void {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+  photoPreviewUrl.value = URL.createObjectURL(file)
+}
+
 function handleToggleActive(): void {
   if (!user.value) return
   const newState = store.toggleActive(user.value.id)
