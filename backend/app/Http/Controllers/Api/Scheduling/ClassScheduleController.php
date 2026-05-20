@@ -53,6 +53,62 @@ class ClassScheduleController extends Controller
         return response()->json(['data' => $schedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])], 201);
     }
 
+    public function recurring(Request $request): JsonResponse
+    {
+        Gate::authorize('create', ClassSchedule::class);
+
+        $validated = $request->validate([
+            'student_id' => ['required', 'integer', 'exists:users,id'],
+            'teacher_id' => ['required', 'integer', 'exists:users,id'],
+            'title' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string'],
+            'status' => ['sometimes', 'string', Rule::in(ClassSchedule::STATUSES)],
+            'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required_without:occurrence_count', 'date'],
+            'occurrence_count' => ['required_without:end_date', 'integer', 'min:1', 'max:260'],
+            'day_of_week' => ['required_without:days_of_week', 'integer', 'min:0', 'max:6'],
+            'days_of_week' => ['required_without:day_of_week', 'array', 'min:1', 'max:7'],
+            'days_of_week.*' => ['integer', 'distinct', 'min:0', 'max:6'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time' => ['required', 'date_format:H:i'],
+            'meeting_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'notes' => ['sometimes', 'nullable', 'string'],
+        ]);
+
+        if (isset($validated['end_date'], $validated['occurrence_count'])) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'occurrence_count' => ['Use either end_date or occurrence_count, not both.'],
+                ],
+            ], 422);
+        }
+
+        if (isset($validated['day_of_week'], $validated['days_of_week'])) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'days_of_week' => ['Use either day_of_week or days_of_week, not both.'],
+                ],
+            ], 422);
+        }
+
+        $result = $this->scheduleService->createRecurring($validated, $request->user());
+
+        return response()->json([
+            'data' => [
+                'created_count' => count($result['created']),
+                'skipped_count' => count($result['skipped']),
+                'requested_occurrences' => $result['requested_occurrences'],
+                'created' => collect($result['created'])
+                    ->map(fn (ClassSchedule $schedule) => $schedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone']))
+                    ->values(),
+                'skipped' => $result['skipped'],
+            ],
+        ], 201);
+    }
+
     public function show(ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('view', $classSchedule);

@@ -104,9 +104,26 @@ class SchedulingAvailabilityService
         $blocked = Holiday::query()
             ->where('is_active', true)
             ->where('timezone', $timezone)
-            ->whereDate('date', '>=', $localStart->toDateString())
-            ->whereDate('date', '<=', $localEnd->toDateString())
-            ->exists();
+            ->get()
+            ->contains(function (Holiday $holiday) use ($localStart, $localEnd): bool {
+                $holidayDate = CarbonImmutable::parse($holiday->date->toDateString(), $holiday->timezone);
+
+                if ($holiday->repeats_annually) {
+                    $cursor = $localStart->startOfDay();
+
+                    while ($cursor->lessThanOrEqualTo($localEnd->startOfDay())) {
+                        if ($holidayDate->month === $cursor->month && $holidayDate->day === $cursor->day) {
+                            return true;
+                        }
+
+                        $cursor = $cursor->addDay();
+                    }
+
+                    return false;
+                }
+
+                return $holidayDate->betweenIncluded($localStart->startOfDay(), $localEnd->startOfDay());
+            });
 
         if ($blocked) {
             throw ValidationException::withMessages([

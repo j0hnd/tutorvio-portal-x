@@ -83,6 +83,7 @@ Route::prefix('v1')->group(function () {
             Route::get('calendar', CalendarController::class);
             Route::post('lesson-bookings', [LessonBookingController::class, 'store'])->middleware('role:student');
 
+            Route::post('class-schedules/recurring', [ClassScheduleController::class, 'recurring']);
             Route::apiResource('class-schedules', ClassScheduleController::class)
                 ->parameters(['class-schedules' => 'classSchedule']);
             Route::post('class-schedules/{classSchedule}/cancel', [ClassScheduleController::class, 'cancel']);

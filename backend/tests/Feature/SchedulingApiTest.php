@@ -314,6 +314,185 @@ class SchedulingApiTest extends TestCase
             ->assertJsonValidationErrors('starts_at');
     }
 
+    public function test_admin_can_create_recurring_class_schedules(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        $response = $this->postJson('/api/v1/scheduling/class-schedules/recurring', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Weekly English',
+            'timezone' => 'Asia/Manila',
+            'start_date' => '2026-06-01',
+            'occurrence_count' => 3,
+            'day_of_week' => 1,
+            'start_time' => '10:00',
+            'end_time' => '11:00',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.created_count', 3)
+            ->assertJsonPath('data.skipped_count', 0)
+            ->assertJsonPath('data.requested_occurrences', 3)
+            ->assertJsonCount(3, 'data.created')
+            ->assertJsonCount(0, 'data.skipped');
+
+        $this->assertDatabaseHas('class_schedules', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Weekly English',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        $this->assertDatabaseHas('class_schedules', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-06-15 02:00:00',
+            'ends_at' => '2026-06-15 03:00:00',
+        ]);
+    }
+
+    public function test_recurring_class_schedule_returns_skipped_conflicting_and_blocked_dates(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-08 02:30:00',
+            'ends_at' => '2026-06-08 03:30:00',
+        ]);
+
+        TeacherUnavailableDate::create([
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-15 01:30:00',
+            'ends_at' => '2026-06-15 02:30:00',
+            'reason' => 'Training',
+        ]);
+
+        Holiday::create([
+            'name' => 'Foundation Day',
+            'date' => '2026-06-22',
+            'timezone' => 'Asia/Manila',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/v1/scheduling/class-schedules/recurring', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-22',
+            'day_of_week' => 1,
+            'start_time' => '10:00',
+            'end_time' => '11:00',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.created_count', 1)
+            ->assertJsonPath('data.skipped_count', 3)
+            ->assertJsonPath('data.requested_occurrences', 4)
+            ->assertJsonPath('data.skipped.0.date', '2026-06-08')
+            ->assertJsonPath('data.skipped.1.date', '2026-06-15')
+            ->assertJsonPath('data.skipped.2.date', '2026-06-22');
+
+        $this->assertDatabaseHas('class_schedules', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        $this->assertDatabaseMissing('class_schedules', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-06-15 02:00:00',
+            'ends_at' => '2026-06-15 03:00:00',
+        ]);
+    }
+
+    public function test_recurring_class_schedule_blocks_student_conflicts_and_annual_holidays(): void
+    {
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
+        $otherTeacher->assignRole('teacher');
+
+        Sanctum::actingAs($this->admin);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $otherTeacher->id,
+            'status' => ClassSchedule::STATUS_PENDING_CONFIRMATION,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:30:00',
+            'ends_at' => '2026-06-01 03:30:00',
+        ]);
+
+        Holiday::create([
+            'name' => 'Annual Foundation Day',
+            'date' => '2024-06-08',
+            'timezone' => 'Asia/Manila',
+            'repeats_annually' => true,
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/v1/scheduling/class-schedules/recurring', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'start_date' => '2026-06-01',
+            'occurrence_count' => 3,
+            'day_of_week' => 1,
+            'start_time' => '10:00',
+            'end_time' => '11:00',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.created_count', 1)
+            ->assertJsonPath('data.skipped_count', 2)
+            ->assertJsonPath('data.skipped.0.date', '2026-06-01')
+            ->assertJsonPath('data.skipped.0.reason', 'The student already has a class scheduled during this time.')
+            ->assertJsonPath('data.skipped.1.date', '2026-06-08')
+            ->assertJsonPath('data.skipped.1.reason', 'The class falls on a configured holiday.');
+
+        $this->assertDatabaseHas('class_schedules', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-06-15 02:00:00',
+            'ends_at' => '2026-06-15 03:00:00',
+        ]);
+    }
+
     public function test_teacher_can_manage_only_their_own_availability(): void
     {
         $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
