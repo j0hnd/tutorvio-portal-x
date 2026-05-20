@@ -53,6 +53,25 @@
         </li>
       </ul>
     </nav>
+
+    <!-- Sign out -->
+    <div class="sidebar__footer">
+      <button
+        class="sidebar__signout"
+        :title="collapsed ? 'Sign out' : undefined"
+        @click="$emit('logout')"
+      >
+        <span class="sidebar__nav-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M13 10H3M13 10l-3-3M13 10l-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <Transition name="label-fade">
+          <span v-if="!collapsed" class="sidebar__nav-label">Sign out</span>
+        </Transition>
+      </button>
+    </div>
   </aside>
 </template>
 
@@ -89,6 +108,7 @@ const emit = defineEmits<{
   navigate: [path: string]
   'mobile-close': []
   'role-change': [role: string]
+  logout: []
 }>()
 
 const roleOptions = [
@@ -195,6 +215,39 @@ watch(() => props.viewAsRole, v => { localViewAs.value = v as string })
   border-radius: var(--tv-radius-full);
   line-height: 1.4;
   flex-shrink: 0;
+}
+
+/* Footer / Sign out */
+.sidebar__footer {
+  padding: var(--tv-space-2) var(--tv-space-2) var(--tv-space-3);
+  border-top: 1px solid var(--tv-border);
+  flex-shrink: 0;
+}
+
+.sidebar__signout {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-space-3);
+  width: 100%;
+  padding: var(--tv-space-2) var(--tv-space-3);
+  border-radius: var(--tv-radius);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tv-text-secondary);
+  font-size: var(--tv-text-sm);
+  font-weight: var(--tv-font-medium);
+  min-height: 44px;
+  white-space: nowrap;
+  text-align: left;
+  transition: background-color var(--tv-transition-fast), color var(--tv-transition-fast);
+}
+.sidebar__signout:hover { background: var(--tv-danger-soft); color: var(--tv-danger-fg); }
+
+.sidebar--collapsed .sidebar__signout {
+  justify-content: center;
+  padding: var(--tv-space-2);
+  gap: 0;
 }
 
 /* Transitions */

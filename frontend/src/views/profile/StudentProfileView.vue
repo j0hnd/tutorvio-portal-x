@@ -45,6 +45,44 @@
     <div class="sp-layout">
       <div class="sp-layout__main">
 
+        <!-- Personal Details -->
+        <section class="sp-section">
+          <h2 class="sp-section__title">Personal Details</h2>
+          <div class="sp-grid-2">
+            <div class="sp-detail">
+              <span class="sp-detail__label">Full Name</span>
+              <span class="sp-detail__value">{{ fullName }}</span>
+            </div>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Timezone</span>
+              <span class="sp-detail__value">{{ user.timezone }}</span>
+            </div>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Member Since</span>
+              <span class="sp-detail__value">{{ fmt(user.createdAt) }}</span>
+            </div>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Status</span>
+              <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
+            </div>
+          </div>
+        </section>
+
+        <!-- Contact Information -->
+        <section class="sp-section">
+          <h2 class="sp-section__title">Contact Information</h2>
+          <div class="sp-grid-2">
+            <div class="sp-detail">
+              <span class="sp-detail__label">Email Address</span>
+              <span class="sp-detail__value">{{ user.email }}</span>
+            </div>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Phone</span>
+              <span class="sp-detail__value sp-detail__value--muted">Not provided</span>
+            </div>
+          </div>
+        </section>
+
         <!-- Learning Profile -->
         <section class="sp-section">
           <h2 class="sp-section__title">Learning Profile</h2>
@@ -81,19 +119,6 @@
               </div>
             </div>
             <span v-else class="sp-detail__value sp-detail__value--muted">No teacher assigned</span>
-          </div>
-        </section>
-
-        <!-- Goals & Concerns -->
-        <section class="sp-section">
-          <h2 class="sp-section__title">Goals & Concerns</h2>
-          <div class="sp-detail">
-            <span class="sp-detail__label">Learning Goals</span>
-            <p class="sp-detail__text">{{ profile.goals || 'Not specified' }}</p>
-          </div>
-          <div class="sp-detail">
-            <span class="sp-detail__label">Areas of Concern</span>
-            <p class="sp-detail__text">{{ profile.learningConcerns || 'None specified' }}</p>
           </div>
         </section>
 
@@ -144,24 +169,17 @@
           </div>
         </section>
 
-        <!-- Recent Materials -->
+        <!-- Goals & Concerns -->
         <section class="sp-section">
-          <h2 class="sp-section__title">Recent Materials</h2>
-          <ul class="sp-materials">
-            <li v-for="mat in MOCK_MATERIALS" :key="mat.id" class="sp-material">
-              <div class="sp-material__icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-                  <path d="M9 2v4h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <div class="sp-material__info">
-                <span class="sp-material__name">{{ mat.title }}</span>
-                <span class="sp-material__meta">{{ mat.type }} · Accessed {{ fmt(mat.accessedAt) }}</span>
-              </div>
-              <span class="sp-material__type-tag">{{ mat.type }}</span>
-            </li>
-          </ul>
+          <h2 class="sp-section__title">Goals & Concerns</h2>
+          <div class="sp-detail">
+            <span class="sp-detail__label">Learning Goals</span>
+            <p class="sp-detail__text">{{ profile.goals || 'Not specified' }}</p>
+          </div>
+          <div class="sp-detail">
+            <span class="sp-detail__label">Areas of Concern</span>
+            <p class="sp-detail__text">{{ profile.learningConcerns || 'None specified' }}</p>
+          </div>
         </section>
 
       </div>
@@ -169,7 +187,28 @@
       <!-- Aside -->
       <div class="sp-layout__aside">
 
-        <!-- Package -->
+        <!-- Attendance Record -->
+        <div class="sp-card">
+          <h3 class="sp-card__title">Attendance Record</h3>
+          <div class="sp-attend-big">
+            <span class="sp-attend-big__num">{{ MOCK_ATTENDANCE.percentage }}%</span>
+            <span class="sp-attend-big__label">Attendance Rate</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat__label">Total sessions</span>
+            <span class="sp-stat__value">{{ MOCK_ATTENDANCE.total }}</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat__label">Attended</span>
+            <span class="sp-stat__value sp-stat__value--success">{{ MOCK_ATTENDANCE.attended }}</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat__label">Missed</span>
+            <span class="sp-stat__value sp-stat__value--danger">{{ MOCK_ATTENDANCE.missed }}</span>
+          </div>
+        </div>
+
+        <!-- Subscription Package -->
         <div class="sp-card">
           <h3 class="sp-card__title">Subscription Package</h3>
           <p class="sp-card__plan">{{ MOCK_PACKAGE.name }}</p>
@@ -193,25 +232,24 @@
           </div>
         </div>
 
-        <!-- Attendance -->
+        <!-- Recent Materials -->
         <div class="sp-card">
-          <h3 class="sp-card__title">Attendance</h3>
-          <div class="sp-attend-big">
-            <span class="sp-attend-big__num">{{ MOCK_ATTENDANCE.percentage }}%</span>
-            <span class="sp-attend-big__label">Attendance Rate</span>
-          </div>
-          <div class="sp-stat-row">
-            <span class="sp-stat__label">Total sessions</span>
-            <span class="sp-stat__value">{{ MOCK_ATTENDANCE.total }}</span>
-          </div>
-          <div class="sp-stat-row">
-            <span class="sp-stat__label">Attended</span>
-            <span class="sp-stat__value sp-stat__value--success">{{ MOCK_ATTENDANCE.attended }}</span>
-          </div>
-          <div class="sp-stat-row">
-            <span class="sp-stat__label">Missed</span>
-            <span class="sp-stat__value sp-stat__value--danger">{{ MOCK_ATTENDANCE.missed }}</span>
-          </div>
+          <h3 class="sp-card__title">Recent Materials</h3>
+          <ul class="sp-materials">
+            <li v-for="mat in MOCK_MATERIALS" :key="mat.id" class="sp-material">
+              <div class="sp-material__icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                  <path d="M9 2v4h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="sp-material__info">
+                <span class="sp-material__name">{{ mat.title }}</span>
+                <span class="sp-material__meta">Accessed {{ fmt(mat.accessedAt) }}</span>
+              </div>
+              <span class="sp-material__type-tag">{{ mat.type }}</span>
+            </li>
+          </ul>
         </div>
 
         <!-- Account Info (admin/teacher) -->
@@ -599,40 +637,6 @@ function fmt(iso: string): string {
 .sp-status--missed    { background: var(--tv-danger-soft);  color: var(--tv-danger-fg); }
 .sp-status--upcoming  { background: var(--tv-primary-soft); color: var(--tv-primary); }
 
-/* Materials list */
-.sp-materials { list-style: none; display: flex; flex-direction: column; gap: 0; }
-.sp-material {
-  display: flex;
-  align-items: center;
-  gap: var(--tv-space-3);
-  padding: var(--tv-space-3) 0;
-  border-bottom: 1px solid var(--tv-border);
-}
-.sp-material:last-child { border-bottom: none; }
-.sp-material__icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--tv-radius-sm);
-  background: var(--tv-bg-soft);
-  color: var(--tv-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.sp-material__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.sp-material__name { font-size: var(--tv-text-sm); color: var(--tv-text); font-weight: var(--tv-font-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sp-material__meta { font-size: var(--tv-text-xs); color: var(--tv-text-muted); }
-.sp-material__type-tag {
-  font-size: 10px;
-  font-weight: var(--tv-font-bold);
-  color: var(--tv-text-muted);
-  background: var(--tv-bg-soft);
-  padding: 2px var(--tv-space-1);
-  border-radius: var(--tv-radius-sm);
-  flex-shrink: 0;
-}
-
 /* Aside cards */
 .sp-card {
   background: var(--tv-bg-card);
@@ -712,6 +716,40 @@ function fmt(iso: string): string {
 .sp-stat__value { font-weight: var(--tv-font-medium); color: var(--tv-text); }
 .sp-stat__value--success { color: var(--tv-success-fg); }
 .sp-stat__value--danger  { color: var(--tv-danger-fg); }
+
+/* Materials list (in aside card) */
+.sp-materials { list-style: none; display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; }
+.sp-material {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-space-2);
+  padding: var(--tv-space-2) 0;
+  border-bottom: 1px solid var(--tv-border);
+}
+.sp-material:last-child { border-bottom: none; }
+.sp-material__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-bg-soft);
+  color: var(--tv-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sp-material__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sp-material__name { font-size: var(--tv-text-xs); color: var(--tv-text); font-weight: var(--tv-font-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-material__meta { font-size: 11px; color: var(--tv-text-muted); }
+.sp-material__type-tag {
+  font-size: 10px;
+  font-weight: var(--tv-font-bold);
+  color: var(--tv-text-muted);
+  background: var(--tv-bg-soft);
+  padding: 2px var(--tv-space-1);
+  border-radius: var(--tv-radius-sm);
+  flex-shrink: 0;
+}
 
 /* Responsive */
 @media (max-width: 1100px) {

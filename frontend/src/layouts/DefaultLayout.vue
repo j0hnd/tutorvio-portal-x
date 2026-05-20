@@ -20,6 +20,7 @@
       @navigate="handleNavigate"
       @mobile-close="mobileOpen = false"
       @role-change="handleRoleChange"
+      @logout="handleLogout"
     />
 
     <main class="app-main" id="main-content" tabindex="-1">

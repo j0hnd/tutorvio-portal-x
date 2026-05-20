@@ -60,12 +60,6 @@ const ALL_NAV: NavItem[] = [
     roles: ['STUDENT', 'TEACHER', 'ADMIN', 'STAFF'],
   },
   {
-    path: '/profile',
-    label: 'My Profile',
-    icon: ICONS.profile,
-    roles: ['STUDENT', 'TEACHER', 'ADMIN', 'STAFF'],
-  },
-  {
     path: '/billing',
     label: 'Billing',
     icon: ICONS.billing,
@@ -94,6 +88,12 @@ const ALL_NAV: NavItem[] = [
     label: 'Payroll',
     icon: ICONS.payroll,
     roles: ['TEACHER', 'ADMIN'],
+  },
+  {
+    path: '/profile',
+    label: 'My Profile',
+    icon: ICONS.profile,
+    roles: ['STUDENT', 'TEACHER', 'ADMIN', 'STAFF'],
   },
 ]
 

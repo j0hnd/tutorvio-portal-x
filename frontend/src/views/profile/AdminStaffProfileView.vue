@@ -139,26 +139,6 @@
           </div>
         </div>
 
-        <!-- Permissions Summary -->
-        <div class="ap-card">
-          <h3 class="ap-card__title">Permissions</h3>
-          <div class="ap-perm-summary">
-            <p class="ap-perm-summary__count">
-              <span class="ap-perm-summary__num">{{ grantedCount }}</span>
-              <span class="ap-perm-summary__label">of {{ ALL_PERMISSIONS.length }} granted</span>
-            </p>
-            <div class="ap-perm-bar">
-              <div class="ap-perm-bar__fill" :style="{ width: permPercent + '%' }" />
-            </div>
-          </div>
-          <div class="ap-perm-tags">
-            <span v-for="perm in profile.permissions" :key="perm" class="ap-perm-tag">
-              {{ permLabel(perm) }}
-            </span>
-            <span v-if="!profile.permissions?.length" class="ap-card__val" style="color: var(--tv-text-muted)">None</span>
-          </div>
-        </div>
-
       </aside>
     </div>
 
@@ -260,7 +240,7 @@ const MOCK_ACTIVITY = [
   display: flex;
   gap: var(--tv-space-5);
   align-items: flex-start;
-  margin-bottom: var(--tv-space-7);
+  margin-bottom: var(--tv-space-8, 2rem);
   padding: var(--tv-space-6);
   background: var(--tv-surface);
   border: 1px solid var(--tv-border);
