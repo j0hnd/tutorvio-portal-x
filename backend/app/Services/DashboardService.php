@@ -164,12 +164,18 @@ class DashboardService
     private function staffSummary(User $user): array
     {
         $summary = [];
+        $widgets = [];
 
         if ($user->can('users.view')) {
             $summary['users'] = [
                 'total' => User::count(),
                 'active' => User::where('status', User::STATUS_ACTIVE)->count(),
                 'invited' => User::where('status', User::STATUS_INVITED)->count(),
+            ];
+            $widgets[] = [
+                'key' => 'users',
+                'label' => 'Users',
+                'data' => $summary['users'],
             ];
         }
 
@@ -181,10 +187,34 @@ class DashboardService
                     ->whereDoesntHave('studentProfile', fn ($query) => $query->whereNotNull('assigned_teacher_id'))
                     ->count(),
             ];
+            $widgets[] = [
+                'key' => 'students',
+                'label' => 'Students',
+                'data' => $summary['students'],
+            ];
         }
 
         if ($user->can('classes.view')) {
             $summary['classes'] = $this->classSummary(Lesson::query());
+            $widgets[] = [
+                'key' => 'classes',
+                'label' => 'Classes',
+                'data' => $summary['classes'],
+            ];
+        }
+
+        if ($widgets !== []) {
+            $summary['dashboard_widgets'] = $widgets;
+        }
+
+        if ($user->can('dashboard.tasks.view')) {
+            // TODO: Return persisted staff tasks when a task table exists.
+            $summary['assigned_tasks'] = [];
+        }
+
+        if ($user->can('dashboard.operational_notices.view')) {
+            // TODO: Return persisted operational notices when a notice table exists.
+            $summary['operational_notices'] = [];
         }
 
         return $summary;
@@ -479,6 +509,14 @@ class DashboardService
 
         if ($user->can('classes.view')) {
             $sections[] = 'classes';
+        }
+
+        if ($user->can('dashboard.tasks.view')) {
+            $sections[] = 'assigned_tasks';
+        }
+
+        if ($user->can('dashboard.operational_notices.view')) {
+            $sections[] = 'operational_notices';
         }
 
         return $sections;

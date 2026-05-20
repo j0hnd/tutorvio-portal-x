@@ -21,6 +21,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'users.activate', 'users.deactivate', 'users.assign_roles',
             'students.view', 'students.create', 'students.update', 'students.delete',
             'classes.view', 'classes.create', 'classes.update', 'classes.delete',
+            'dashboard.tasks.view', 'dashboard.operational_notices.view',
             'admin.access',
         ];
 
@@ -49,11 +50,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'classes.update',
         ]);
 
-        $staffRole->syncPermissions([
-            'users.view',
-            'students.view',
-            'classes.view',
-        ]);
+        $staffRole->syncPermissions([]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }

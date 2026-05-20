@@ -9,7 +9,6 @@ use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -232,11 +231,9 @@ class DashboardApiTest extends TestCase
 
     public function test_staff_dashboard_only_includes_permitted_sections(): void
     {
-        Role::findByName('staff')->syncPermissions(['students.view']);
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
         $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $staff->assignRole('staff');
+        $staff->givePermissionTo('students.view');
 
         $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $student->assignRole('student');
@@ -247,9 +244,56 @@ class DashboardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.role', 'staff')
             ->assertJsonPath('data.summary.students.total', 1)
+            ->assertJsonPath('data.summary.dashboard_widgets.0.key', 'students')
             ->assertJsonPath('data.sections', ['students'])
             ->assertJsonMissingPath('data.summary.users')
-            ->assertJsonMissingPath('data.summary.classes');
+            ->assertJsonMissingPath('data.summary.classes')
+            ->assertJsonMissingPath('data.summary.assigned_tasks')
+            ->assertJsonMissingPath('data.summary.operational_notices');
+    }
+
+    public function test_staff_dashboard_with_no_permissions_has_no_admin_data(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        User::factory()->create(['status' => User::STATUS_ACTIVE])->assignRole('student');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'staff')
+            ->assertJsonPath('data.summary', [])
+            ->assertJsonPath('data.sections', [])
+            ->assertJsonMissingPath('data.summary.operations')
+            ->assertJsonMissingPath('data.summary.users')
+            ->assertJsonMissingPath('data.summary.students')
+            ->assertJsonMissingPath('data.summary.classes')
+            ->assertJsonMissingPath('data.summary.dashboard_widgets');
+    }
+
+    public function test_staff_dashboard_includes_permission_allowed_empty_sections(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $staff->givePermissionTo([
+            'dashboard.tasks.view',
+            'dashboard.operational_notices.view',
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'staff')
+            ->assertJsonPath('data.summary.assigned_tasks', [])
+            ->assertJsonPath('data.summary.operational_notices', [])
+            ->assertJsonPath('data.sections', ['assigned_tasks', 'operational_notices'])
+            ->assertJsonMissingPath('data.summary.users')
+            ->assertJsonMissingPath('data.summary.students')
+            ->assertJsonMissingPath('data.summary.classes')
+            ->assertJsonMissingPath('data.summary.dashboard_widgets');
     }
 
     public function test_admin_dashboard_returns_admin_summary(): void
