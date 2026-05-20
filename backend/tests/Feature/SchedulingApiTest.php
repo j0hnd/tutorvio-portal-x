@@ -168,6 +168,37 @@ class SchedulingApiTest extends TestCase
             ->assertJsonValidationErrors('starts_at');
     }
 
+    public function test_active_holiday_blocks_cannot_overlap_for_same_timezone(): void
+    {
+        Holiday::create([
+            'name' => 'Foundation Day',
+            'date' => '2026-06-01',
+            'timezone' => 'Asia/Manila',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson('/api/v1/scheduling/holidays', [
+            'name' => 'Duplicate Foundation Day',
+            'date' => '2026-06-01',
+            'timezone' => 'Asia/Manila',
+            'is_active' => true,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('date');
+
+        $this->postJson('/api/v1/scheduling/holidays', [
+            'name' => 'Annual Foundation Day',
+            'date' => '2024-06-01',
+            'timezone' => 'Asia/Manila',
+            'repeats_annually' => true,
+            'is_active' => true,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('date');
+    }
+
     public function test_student_can_book_one_time_lesson_with_assigned_teacher(): void
     {
         $this->student->studentProfile()->create([
@@ -668,6 +699,53 @@ class SchedulingApiTest extends TestCase
         ]);
     }
 
+    public function test_teacher_unavailable_dates_cannot_overlap(): void
+    {
+        TeacherUnavailableDate::create([
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 01:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+            'reason' => 'Training',
+        ]);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson('/api/v1/scheduling/teacher-unavailable-dates', [
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-06-01 10:00:00',
+            'ends_at' => '2026-06-01 12:00:00',
+            'timezone' => 'Asia/Manila',
+            'reason' => 'Workshop',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('starts_at');
+    }
+
+    public function test_all_day_unavailable_dates_are_normalized_in_their_timezone(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson('/api/v1/scheduling/teacher-unavailable-dates', [
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-06-01',
+            'ends_at' => '2026-06-01',
+            'timezone' => 'Asia/Manila',
+            'is_all_day' => true,
+            'reason' => 'Leave',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_all_day', true);
+
+        $this->assertDatabaseHas('teacher_unavailable_dates', [
+            'teacher_id' => $this->teacher->id,
+            'starts_at' => '2026-05-31 16:00:00',
+            'ends_at' => '2026-06-01 15:59:59',
+            'timezone' => 'Asia/Manila',
+            'is_all_day' => true,
+        ]);
+    }
+
     public function test_admin_calendar_view_returns_all_scheduling_blocks_for_requested_month(): void
     {
         $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
@@ -716,6 +794,24 @@ class SchedulingApiTest extends TestCase
             ->assertJsonCount(1, 'data.booked_lessons')
             ->assertJsonCount(1, 'data.unavailable_dates')
             ->assertJsonCount(1, 'data.holiday_blocks');
+    }
+
+    public function test_calendar_includes_annual_holiday_blocks_across_year_boundaries(): void
+    {
+        Holiday::create([
+            'name' => 'New Year',
+            'date' => '2024-01-01',
+            'timezone' => 'Asia/Manila',
+            'repeats_annually' => true,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/scheduling/calendar?view=week&date=2026-12-28&timezone=Asia/Manila')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.holiday_blocks')
+            ->assertJsonPath('data.holiday_blocks.0.date', '2027-01-01');
     }
 
     public function test_teacher_calendar_is_scoped_to_own_schedule_and_availability(): void

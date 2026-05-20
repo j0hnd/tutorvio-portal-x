@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
 use App\Models\Scheduling\Holiday;
+use App\Services\Scheduling\HolidayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -11,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 class HolidayController extends Controller
 {
+    public function __construct(private readonly HolidayService $holidayService) {}
+
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Holiday::class);
@@ -37,11 +40,7 @@ class HolidayController extends Controller
 
         $validated = $this->validatePayload($request, true);
 
-        if (array_key_exists('country_code', $validated) && $validated['country_code'] !== null) {
-            $validated['country_code'] = strtoupper($validated['country_code']);
-        }
-
-        return response()->json(['data' => Holiday::create($validated)], 201);
+        return response()->json(['data' => $this->holidayService->create($validated)], 201);
     }
 
     public function show(Holiday $holiday): JsonResponse
@@ -57,13 +56,7 @@ class HolidayController extends Controller
 
         $validated = $this->validatePayload($request, false);
 
-        if (array_key_exists('country_code', $validated) && $validated['country_code'] !== null) {
-            $validated['country_code'] = strtoupper($validated['country_code']);
-        }
-
-        $holiday->fill($validated)->save();
-
-        return response()->json(['data' => $holiday->refresh()]);
+        return response()->json(['data' => $this->holidayService->update($holiday, $validated)]);
     }
 
     public function destroy(Holiday $holiday): JsonResponse

@@ -224,28 +224,36 @@ class CalendarService
             })
             ->orderBy('date')
             ->get()
-            ->map(function (Holiday $holiday) use ($startsAt, $timezone) {
+            ->flatMap(function (Holiday $holiday) use ($startsAt, $endsAt, $timezone) {
                 $date = CarbonImmutable::parse($holiday->date->toDateString(), $timezone);
+                $years = $holiday->repeats_annually
+                    ? range($startsAt->year, $endsAt->year)
+                    : [$date->year];
 
-                if ($holiday->repeats_annually) {
-                    $date = $date->year($startsAt->year);
-                }
+                return collect($years)->map(function (int $year) use ($holiday, $date) {
+                    $occurrenceDate = $holiday->repeats_annually ? $date->year($year) : $date;
 
-                return [
-                    'id' => $holiday->id,
-                    'type' => 'holiday_block',
-                    'name' => $holiday->name,
-                    'date' => $date->toDateString(),
-                    'starts_at' => $date->startOfDay()->toIso8601String(),
-                    'ends_at' => $date->endOfDay()->toIso8601String(),
-                    'timezone' => $holiday->timezone,
-                    'country_code' => $holiday->country_code,
-                    'repeats_annually' => $holiday->repeats_annually,
-                    'notes' => $holiday->notes,
-                ];
+                    return [
+                        'id' => $holiday->id,
+                        'type' => 'holiday_block',
+                        'name' => $holiday->name,
+                        'date' => $occurrenceDate->toDateString(),
+                        'starts_at' => $occurrenceDate->startOfDay()->toIso8601String(),
+                        'ends_at' => $occurrenceDate->endOfDay()->toIso8601String(),
+                        'timezone' => $holiday->timezone,
+                        'country_code' => $holiday->country_code,
+                        'repeats_annually' => $holiday->repeats_annually,
+                        'notes' => $holiday->notes,
+                    ];
+                });
             })
-            ->filter(fn (array $holiday) => $holiday['starts_at'] <= $endsAt->toIso8601String()
-                && $holiday['ends_at'] >= $startsAt->toIso8601String())
+            ->filter(function (array $holiday) use ($startsAt, $endsAt, $timezone): bool {
+                $holidayStartsAt = CarbonImmutable::parse($holiday['starts_at'], $timezone);
+                $holidayEndsAt = CarbonImmutable::parse($holiday['ends_at'], $timezone);
+
+                return $holidayStartsAt->lessThanOrEqualTo($endsAt) && $holidayEndsAt->greaterThanOrEqualTo($startsAt);
+            })
+            ->sortBy('starts_at')
             ->values()
             ->all();
     }

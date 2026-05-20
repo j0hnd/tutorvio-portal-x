@@ -58,6 +58,7 @@ class TeacherAvailabilityService
     public function createUnavailableDate(array $payload): TeacherUnavailableDate
     {
         $this->assertTeacher($payload['teacher_id']);
+        $payload = $this->normalizeUnavailableDatePayload($payload);
 
         [$startsAtUtc, $endsAtUtc] = $this->utcRange($payload['starts_at'], $payload['ends_at'], $payload['timezone']);
         $this->assertNoBookedScheduleConflict($payload['teacher_id'], $startsAtUtc, $endsAtUtc);
@@ -78,6 +79,8 @@ class TeacherAvailabilityService
         if (array_key_exists('teacher_id', $payload)) {
             $this->assertTeacher($payload['teacher_id']);
         }
+
+        $payload = $this->normalizeUnavailableDatePayload($payload, $unavailableDate);
 
         [$startsAtUtc, $endsAtUtc] = $this->utcRange(
             $payload['starts_at'] ?? $unavailableDate->starts_at,
@@ -232,6 +235,28 @@ class TeacherAvailabilityService
     private function timeValue(mixed $time): string
     {
         return CarbonImmutable::parse($time)->format('H:i:s');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeUnavailableDatePayload(array $payload, ?TeacherUnavailableDate $existing = null): array
+    {
+        $isAllDay = (bool) ($payload['is_all_day'] ?? $existing?->is_all_day ?? false);
+
+        if (! $isAllDay) {
+            return $payload;
+        }
+
+        $timezone = (string) ($payload['timezone'] ?? $existing?->timezone);
+        $startsAt = $payload['starts_at'] ?? $existing?->starts_at;
+        $endsAt = $payload['ends_at'] ?? $existing?->ends_at ?? $startsAt;
+
+        $payload['starts_at'] = CarbonImmutable::parse($startsAt, $timezone)->startOfDay()->toDateTimeString();
+        $payload['ends_at'] = CarbonImmutable::parse($endsAt, $timezone)->endOfDay()->toDateTimeString();
+
+        return $payload;
     }
 
     /**
