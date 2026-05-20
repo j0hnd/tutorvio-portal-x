@@ -81,7 +81,9 @@
       </template>
 
       <template #cell-role="{ row }">
-        <TVBadge :label="roleLabel(String(row.role))" :variant="roleBadgeVariant(String(row.role))" />
+        <span class="role-pill" :class="`role-pill--${String(row.role).toLowerCase()}`">
+          {{ roleLabel(String(row.role)) }}
+        </span>
       </template>
 
       <template #cell-status="{ row }">
@@ -153,7 +155,7 @@ import TVSelect from '@/components/ui/TVSelect.vue'
 import TVBadge from '@/components/ui/TVBadge.vue'
 import TVDataTable from '@/components/ui/TVDataTable.vue'
 import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
-import type { UserRole, BadgeVariant, SelectOption, ManagedUser } from '@/types'
+import type { UserRole, SelectOption, ManagedUser } from '@/types'
 
 const router = useRouter()
 const store = useUsersStore()
@@ -207,12 +209,6 @@ function roleLabel(role: string): string {
   return map[role] ?? role
 }
 
-function roleBadgeVariant(role: string): BadgeVariant {
-  const map: Record<string, BadgeVariant> = {
-    STUDENT: 'info', TEACHER: 'scheduled', ADMIN: 'warning', STAFF: 'pending',
-  }
-  return map[role] ?? 'neutral'
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -371,6 +367,38 @@ onMounted(() => {
 
 .tv-dt-muted {
   color: var(--tv-text-muted);
+}
+
+/* Role pills */
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--tv-space-2);
+  border-radius: var(--tv-radius-full);
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-semibold);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.role-pill--student {
+  background: hsl(199, 89%, 92%);
+  color: hsl(199, 89%, 28%);
+}
+
+.role-pill--teacher {
+  background: hsl(142, 70%, 90%);
+  color: hsl(142, 70%, 25%);
+}
+
+.role-pill--admin {
+  background: hsl(262, 70%, 93%);
+  color: hsl(262, 70%, 38%);
+}
+
+.role-pill--staff {
+  background: hsl(38, 92%, 91%);
+  color: hsl(38, 92%, 28%);
 }
 
 .users-page__empty-icon {
