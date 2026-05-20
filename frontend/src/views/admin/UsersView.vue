@@ -36,14 +36,14 @@
         <TVSelect
           v-model="roleFilter"
           :options="roleOptions"
-          placeholder="All roles"
-          aria-label="Filter by role"
+          placeholder="All Roles"
+          aria-label="Filter by Role"
         />
         <TVSelect
           v-model="statusFilter"
           :options="statusOptions"
-          placeholder="All statuses"
-          aria-label="Filter by status"
+          placeholder="All Statuses"
+          aria-label="Filter by Status"
         />
       </div>
     </div>
@@ -175,7 +175,7 @@ const columns: DataTableColumn[] = [
 ]
 
 const roleOptions: SelectOption[] = [
-  { value: '', label: 'All roles' },
+  { value: '', label: 'All Roles' },
   { value: 'ADMIN', label: 'Admin' },
   { value: 'STAFF', label: 'Staff' },
   { value: 'TEACHER', label: 'Teacher' },
@@ -183,7 +183,7 @@ const roleOptions: SelectOption[] = [
 ]
 
 const statusOptions: SelectOption[] = [
-  { value: '', label: 'All statuses' },
+  { value: '', label: 'All Statuses' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ]
