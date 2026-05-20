@@ -15,28 +15,6 @@
       <!-- Left: main form -->
       <div class="user-form-layout__main">
 
-        <!-- Photo upload -->
-        <section class="form-section">
-          <h2 class="form-section__title">Profile Photo</h2>
-          <div class="photo-upload">
-            <div class="photo-upload__avatar" aria-label="Profile photo preview">
-              <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Profile photo preview" />
-              <span v-else class="photo-upload__initials">{{ previewInitials }}</span>
-            </div>
-            <div class="photo-upload__actions">
-              <label class="photo-upload__label" tabindex="0" role="button" aria-label="Upload photo">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M8 3v8M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-                Upload photo
-                <input type="file" accept="image/*" class="photo-upload__input" @change="handlePhotoChange" />
-              </label>
-              <p class="photo-upload__hint">JPG, PNG or WEBP · max 2MB</p>
-            </div>
-          </div>
-        </section>
-
         <!-- Basic info -->
         <section class="form-section">
           <h2 class="form-section__title">Basic Information</h2>
@@ -216,9 +194,17 @@
       <!-- Right: summary card -->
       <aside class="user-form-layout__aside">
         <div class="summary-card">
-          <div class="summary-card__avatar" aria-hidden="true">
-            <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Profile photo" />
-            <span v-else>{{ previewInitials }}</span>
+          <div class="summary-card__photo-wrap">
+            <div class="summary-card__avatar">
+              <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Profile photo" />
+              <span v-else>{{ previewInitials }}</span>
+            </div>
+            <label class="summary-card__photo-btn" aria-label="Upload profile photo" title="Upload photo">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M1 10.5V12h1.5l4.5-4.5-1.5-1.5L1 10.5zM11.7 3.3a.996.996 0 0 0 0-1.41L10.11.7a.996.996 0 0 0-1.41 0L7.41 2l2.83 2.83 1.46-1.53z" fill="currentColor"/>
+              </svg>
+              <input type="file" accept="image/*" class="photo-upload__input" @change="handlePhotoChange" />
+            </label>
           </div>
           <p class="summary-card__name">{{ previewName || 'New User' }}</p>
           <p class="summary-card__role">{{ form.role ? roleLabel(form.role) : 'No role selected' }}</p>
@@ -535,71 +521,8 @@ async function handleSubmit(): Promise<void> {
   gap: var(--tv-space-4);
 }
 
-/* Photo upload */
-.photo-upload {
-  display: flex;
-  align-items: center;
-  gap: var(--tv-space-5);
-}
-
-.photo-upload__avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--tv-radius-full);
-  background: var(--tv-primary-soft);
-  color: var(--tv-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--tv-text-xl);
-  overflow: hidden;
-  font-weight: var(--tv-font-bold);
-  flex-shrink: 0;
-}
-
-.photo-upload__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.photo-upload__initials { line-height: 1; }
-
-.photo-upload__actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--tv-space-2);
-}
-
-.photo-upload__label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tv-space-2);
-  padding: var(--tv-space-2) var(--tv-space-4);
-  border: 1px solid var(--tv-border);
-  border-radius: var(--tv-radius);
-  font-size: var(--tv-text-sm);
-  font-weight: var(--tv-font-medium);
-  color: var(--tv-text);
-  background: var(--tv-bg-card);
-  cursor: pointer;
-  transition: border-color var(--tv-transition-fast), background-color var(--tv-transition-fast);
-}
-
-.photo-upload__label:hover {
-  border-color: var(--tv-primary);
-  background: var(--tv-primary-soft);
-  color: var(--tv-primary);
-}
-
 .photo-upload__input {
   display: none;
-}
-
-.photo-upload__hint {
-  font-size: var(--tv-text-xs);
-  color: var(--tv-text-muted);
-  margin: 0;
 }
 
 /* Toggle */
@@ -730,6 +653,13 @@ async function handleSubmit(): Promise<void> {
   text-align: center;
 }
 
+.summary-card__photo-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin-bottom: var(--tv-space-1);
+}
+
 .summary-card__avatar {
   width: 72px;
   height: 72px;
@@ -741,7 +671,34 @@ async function handleSubmit(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: var(--tv-space-1);
+  overflow: hidden;
+}
+
+.summary-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.summary-card__photo-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--tv-radius-full);
+  background: var(--tv-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid var(--tv-bg-card);
+  transition: filter var(--tv-transition-fast);
+}
+
+.summary-card__photo-btn:hover {
+  filter: brightness(0.9);
 }
 
 .summary-card__name {
@@ -808,7 +765,5 @@ async function handleSubmit(): Promise<void> {
   .form-row { grid-template-columns: 1fr; }
 
   .permissions-grid { grid-template-columns: 1fr; }
-
-  .photo-upload { flex-direction: column; align-items: flex-start; }
 }
 </style>
