@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="users-page">
     <!-- Header -->
     <div class="users-page__header">
@@ -21,7 +21,7 @@
       <div class="users-page__search">
         <TVInput
           v-model="search"
-          placeholder="Search by name or email…"
+          placeholder="Search by name or email..."
           aria-label="Search users"
         >
           <template #icon-start>
@@ -48,110 +48,87 @@
       </div>
     </div>
 
-    <!-- Loading -->
-    <div v-if="store.loading" class="users-page__loading" aria-live="polite">
-      <span class="users-page__spinner" aria-hidden="true" />
-      Loading users…
-    </div>
+    <!-- Data table -->
+    <TVDataTable
+      :columns="columns"
+      :rows="rows"
+      :loading="store.loading"
+      loading-text="Loading users..."
+      row-key="id"
+      :page-size="10"
+      :page-size-options="[10, 25, 50]"
+      clickable
+      aria-label="User list"
+      empty-title="No users found"
+      empty-subtitle="Try adjusting your search or filters"
+      @row-click="(row) => router.push(`/admin/users/${row.id}/edit`)"
+    >
+      <template #cell-name="{ row }">
+        <div class="user-cell">
+          <div class="user-cell__avatar" aria-hidden="true">
+            <img v-if="row.avatarUrl" :src="String(row.avatarUrl)" :alt="String(row._fullName)" />
+            <span v-else>{{ row._initials }}</span>
+          </div>
+          <div class="user-cell__info">
+            <span class="user-cell__name">{{ row._fullName }}</span>
+            <span class="user-cell__email-sub">{{ row.email }}</span>
+          </div>
+        </div>
+      </template>
 
-    <!-- Table -->
-    <div v-else-if="rows.length" class="users-page__table-wrap">
-      <table class="users-table" aria-label="User list">
-        <thead>
-          <tr>
-            <th class="users-table__th">Name</th>
-            <th class="users-table__th users-table__th--hide-sm">Email</th>
-            <th class="users-table__th">Role</th>
-            <th class="users-table__th">Status</th>
-            <th class="users-table__th users-table__th--hide-md">Joined</th>
-            <th class="users-table__th users-table__th--actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="user in rows"
-            :key="user.id"
-            class="users-table__row"
-            @click="router.push(`/admin/users/${user.id}/edit`)"
+      <template #cell-email="{ row }">
+        <span class="tv-dt-muted">{{ row.email }}</span>
+      </template>
+
+      <template #cell-role="{ row }">
+        <TVBadge :label="roleLabel(String(row.role))" :variant="roleBadgeVariant(String(row.role))" />
+      </template>
+
+      <template #cell-status="{ row }">
+        <TVBadge
+          :label="row.isActive ? 'Active' : 'Inactive'"
+          :variant="row.isActive ? 'active' : 'neutral'"
+          dot
+        />
+      </template>
+
+      <template #cell-createdAt="{ row }">
+        <span class="tv-dt-muted">{{ formatDate(String(row.createdAt)) }}</span>
+      </template>
+
+      <template #cell-actions="{ row }">
+        <div class="user-actions" @click.stop>
+          <TVButton
+            variant="ghost"
+            size="sm"
+            aria-label="Edit user"
+            @click="router.push(`/admin/users/${row.id}/edit`)"
           >
-            <!-- Name + avatar -->
-            <td class="users-table__td">
-              <div class="users-table__user">
-                <div class="users-table__avatar" :data-initials="initials(user)" aria-hidden="true">
-                  <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName(user)" />
-                  <span v-else>{{ initials(user) }}</span>
-                </div>
-                <div class="users-table__user-info">
-                  <span class="users-table__name">{{ fullName(user) }}</span>
-                  <span class="users-table__email-mobile">{{ user.email }}</span>
-                </div>
-              </div>
-            </td>
+            Edit
+          </TVButton>
+          <TVButton
+            :variant="row.isActive ? 'danger' : 'success'"
+            size="sm"
+            :aria-label="row.isActive ? 'Deactivate user' : 'Activate user'"
+            @click="handleToggleActive(String(row.id))"
+          >
+            {{ row.isActive ? 'Deactivate' : 'Activate' }}
+          </TVButton>
+        </div>
+      </template>
 
-            <!-- Email (hidden on small screens) -->
-            <td class="users-table__td users-table__td--hide-sm users-table__td--muted">
-              {{ user.email }}
-            </td>
-
-            <!-- Role -->
-            <td class="users-table__td">
-              <TVBadge :label="roleLabel(user.role)" :variant="roleBadgeVariant(user.role)" />
-            </td>
-
-            <!-- Status -->
-            <td class="users-table__td">
-              <TVBadge
-                :label="user.isActive ? 'Active' : 'Inactive'"
-                :variant="user.isActive ? 'active' : 'neutral'"
-                dot
-              />
-            </td>
-
-            <!-- Joined (hidden on medium screens) -->
-            <td class="users-table__td users-table__td--hide-md users-table__td--muted">
-              {{ formatDate(user.createdAt) }}
-            </td>
-
-            <!-- Actions -->
-            <td class="users-table__td users-table__td--actions" @click.stop>
-              <TVButton
-                variant="ghost"
-                size="sm"
-                aria-label="Edit user"
-                @click="router.push(`/admin/users/${user.id}/edit`)"
-              >
-                Edit
-              </TVButton>
-              <TVButton
-                :variant="user.isActive ? 'danger' : 'success'"
-                size="sm"
-                :aria-label="user.isActive ? 'Deactivate user' : 'Activate user'"
-                @click="handleToggleActive(user.id)"
-              >
-                {{ user.isActive ? 'Deactivate' : 'Activate' }}
-              </TVButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <p class="users-page__count" aria-live="polite">
-        Showing {{ rows.length }} of {{ store.users.length }} users
-      </p>
-    </div>
-
-    <!-- Empty state -->
-    <div v-else class="users-page__empty" aria-live="polite">
-      <div class="users-page__empty-icon" aria-hidden="true">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-          <circle cx="15" cy="12" r="6" stroke="currentColor" stroke-width="1.8"/>
-          <path d="M4 32c0-6.627 4.925-10 11-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M27 22v8M23 26h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <p class="users-page__empty-title">No users found</p>
-      <p class="users-page__empty-sub">Try adjusting your search or filters</p>
-    </div>
+      <template #empty>
+        <div class="users-page__empty-icon" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <circle cx="15" cy="12" r="6" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M4 32c0-6.627 4.925-10 11-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M27 22v8M23 26h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="users-page__empty-title">No users found</p>
+        <p class="users-page__empty-sub">Try adjusting your search or filters</p>
+      </template>
+    </TVDataTable>
   </div>
 </template>
 
@@ -164,6 +141,8 @@ import TVButton from '@/components/ui/TVButton.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
 import TVBadge from '@/components/ui/TVBadge.vue'
+import TVDataTable from '@/components/ui/TVDataTable.vue'
+import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import type { UserRole, BadgeVariant, SelectOption, ManagedUser } from '@/types'
 
 const router = useRouter()
@@ -173,6 +152,15 @@ const toast = useToast()
 const search = ref('')
 const roleFilter = ref<UserRole | ''>('')
 const statusFilter = ref<'active' | 'inactive' | ''>('')
+
+const columns: DataTableColumn[] = [
+  { key: 'name',      label: 'Name',    sortable: true,  sortKey: '_fullName' },
+  { key: 'email',     label: 'Email',   sortable: true,  hide: 'sm' },
+  { key: 'role',      label: 'Role',    sortable: true },
+  { key: 'status',    label: 'Status',  sortable: false },
+  { key: 'createdAt', label: 'Joined',  sortable: true,  hide: 'md', muted: true },
+  { key: 'actions',   label: 'Actions', align: 'right',  stopClick: true },
+]
 
 const roleOptions: SelectOption[] = [
   { value: '', label: 'All roles' },
@@ -189,39 +177,31 @@ const statusOptions: SelectOption[] = [
 ]
 
 const rows = computed(() =>
-  store.filteredUsers({
-    role: roleFilter.value,
-    status: statusFilter.value,
-    search: search.value,
-  }),
+  store
+    .filteredUsers({
+      role: roleFilter.value,
+      status: statusFilter.value,
+      search: search.value,
+    })
+    .map(user => ({
+      ...user,
+      _fullName: `${user.firstName} ${user.lastName}`,
+      _initials: `${user.firstName[0]}${user.lastName[0]}`.toUpperCase(),
+    })),
 )
 
-function fullName(user: ManagedUser): string {
-  return `${user.firstName} ${user.lastName}`
-}
-
-function initials(user: ManagedUser): string {
-  return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-}
-
-function roleLabel(role: UserRole): string {
-  const map: Record<UserRole, string> = {
-    STUDENT: 'Student',
-    TEACHER: 'Teacher',
-    ADMIN: 'Admin',
-    STAFF: 'Staff',
+function roleLabel(role: string): string {
+  const map: Record<string, string> = {
+    STUDENT: 'Student', TEACHER: 'Teacher', ADMIN: 'Admin', STAFF: 'Staff',
   }
-  return map[role]
+  return map[role] ?? role
 }
 
-function roleBadgeVariant(role: UserRole): BadgeVariant {
-  const map: Record<UserRole, BadgeVariant> = {
-    STUDENT: 'info',
-    TEACHER: 'scheduled',
-    ADMIN: 'warning',
-    STAFF: 'pending',
+function roleBadgeVariant(role: string): BadgeVariant {
+  const map: Record<string, BadgeVariant> = {
+    STUDENT: 'info', TEACHER: 'scheduled', ADMIN: 'warning', STAFF: 'pending',
   }
-  return map[role]
+  return map[role] ?? 'neutral'
 }
 
 function formatDate(iso: string): string {
@@ -229,11 +209,11 @@ function formatDate(iso: string): string {
 }
 
 async function handleToggleActive(id: string): Promise<void> {
-  const user = store.getUserById(id)
+  const user = store.getUserById(id) as ManagedUser | undefined
   if (!user) return
   const wasActive = user.isActive
   store.toggleActive(id)
-  const name = fullName(user)
+  const name = `${user.firstName} ${user.lastName}`
   if (wasActive) {
     toast.warning(`${name} has been deactivated.`)
   } else {
@@ -254,7 +234,6 @@ onMounted(() => {
   gap: var(--tv-space-5);
 }
 
-/* Header */
 .users-page__header {
   display: flex;
   align-items: flex-start;
@@ -277,7 +256,6 @@ onMounted(() => {
   margin: 0;
 }
 
-/* Filters */
 .users-page__filters {
   display: flex;
   gap: var(--tv-space-3);
@@ -297,103 +275,13 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-/* Loading */
-.users-page__loading {
-  display: flex;
-  align-items: center;
-  gap: var(--tv-space-3);
-  padding: var(--tv-space-10);
-  justify-content: center;
-  color: var(--tv-text-muted);
-  font-size: var(--tv-text-sm);
-}
-
-.users-page__spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--tv-border);
-  border-top-color: var(--tv-primary);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Table wrapper */
-.users-page__table-wrap {
-  background: var(--tv-bg-card);
-  border: 1px solid var(--tv-border);
-  border-radius: var(--tv-radius-md);
-  box-shadow: var(--tv-shadow-sm);
-  overflow: hidden;
-}
-
-/* Table */
-.users-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--tv-text-sm);
-}
-
-.users-table__th {
-  padding: var(--tv-space-3) var(--tv-space-4);
-  text-align: left;
-  font-weight: var(--tv-font-semibold);
-  font-size: var(--tv-text-xs);
-  color: var(--tv-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--tv-bg-soft);
-  border-bottom: 1px solid var(--tv-border);
-  white-space: nowrap;
-}
-
-.users-table__th--actions {
-  text-align: right;
-}
-
-.users-table__row {
-  cursor: pointer;
-  transition: background-color var(--tv-transition-fast);
-}
-
-.users-table__row:hover {
-  background: var(--tv-bg-soft);
-}
-
-.users-table__row:not(:last-child) .users-table__td {
-  border-bottom: 1px solid var(--tv-border);
-}
-
-.users-table__td {
-  padding: var(--tv-space-3) var(--tv-space-4);
-  vertical-align: middle;
-}
-
-.users-table__td--muted {
-  color: var(--tv-text-muted);
-}
-
-.users-table__td--actions {
-  text-align: right;
-}
-
-.users-table__td--actions {
-  display: flex;
-  gap: var(--tv-space-2);
-  justify-content: flex-end;
-  align-items: center;
-}
-
-/* User cell */
-.users-table__user {
+.user-cell {
   display: flex;
   align-items: center;
   gap: var(--tv-space-3);
 }
 
-.users-table__avatar {
+.user-cell__avatar {
   width: 36px;
   height: 36px;
   border-radius: var(--tv-radius-full);
@@ -408,50 +296,38 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.users-table__avatar img {
+.user-cell__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.users-table__user-info {
+.user-cell__info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.users-table__name {
+.user-cell__name {
   font-weight: var(--tv-font-medium);
   color: var(--tv-text);
 }
 
-.users-table__email-mobile {
+.user-cell__email-sub {
   display: none;
   font-size: var(--tv-text-xs);
   color: var(--tv-text-muted);
 }
 
-/* Count */
-.users-page__count {
-  padding: var(--tv-space-3) var(--tv-space-4);
-  font-size: var(--tv-text-xs);
-  color: var(--tv-text-muted);
-  border-top: 1px solid var(--tv-border);
-  margin: 0;
+.user-actions {
+  display: flex;
+  gap: var(--tv-space-2);
+  justify-content: flex-end;
+  align-items: center;
 }
 
-/* Empty */
-.users-page__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--tv-space-3);
-  padding: var(--tv-space-16) var(--tv-space-6);
-  background: var(--tv-bg-card);
-  border: 1px solid var(--tv-border);
-  border-radius: var(--tv-radius-md);
-  text-align: center;
+.tv-dt-muted {
+  color: var(--tv-text-muted);
 }
 
 .users-page__empty-icon {
@@ -478,44 +354,12 @@ onMounted(() => {
   margin: 0;
 }
 
-/* Responsive */
-@media (max-width: 1100px) {
-  .users-table__th--hide-md,
-  .users-table__td--hide-md {
-    display: none;
-  }
-}
-
 @media (max-width: 767px) {
-  .users-page {
-    padding: var(--tv-space-4);
-  }
-
-  .users-page__search {
-    max-width: 100%;
-    width: 100%;
-  }
-
-  .users-page__filter-selects {
-    width: 100%;
-  }
-
-  .users-page__filter-selects > * {
-    flex: 1;
-  }
-
-  .users-table__th--hide-sm,
-  .users-table__td--hide-sm {
-    display: none;
-  }
-
-  .users-table__email-mobile {
-    display: block;
-  }
-
-  .users-table__td--actions {
-    flex-direction: column;
-    gap: var(--tv-space-1);
-  }
+  .users-page { padding: var(--tv-space-4); }
+  .users-page__search { max-width: 100%; width: 100%; }
+  .users-page__filter-selects { width: 100%; }
+  .users-page__filter-selects > * { flex: 1; }
+  .user-cell__email-sub { display: block; }
+  .user-actions { flex-direction: column; gap: var(--tv-space-1); }
 }
 </style>
