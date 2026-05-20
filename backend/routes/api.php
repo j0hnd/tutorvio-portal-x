@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\Profile\ProfileController;
+use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
 use App\Http\Controllers\Api\Scheduling\HolidayController;
 use App\Http\Controllers\Api\Scheduling\ScheduleReminderController;
@@ -78,6 +79,8 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::prefix('scheduling')->group(function () {
+            Route::get('calendar', CalendarController::class);
+
             Route::apiResource('class-schedules', ClassScheduleController::class)
                 ->parameters(['class-schedules' => 'classSchedule']);
             Route::post('class-schedules/{classSchedule}/cancel', [ClassScheduleController::class, 'cancel']);

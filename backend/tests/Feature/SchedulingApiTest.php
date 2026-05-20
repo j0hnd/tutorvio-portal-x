@@ -342,4 +342,161 @@ class SchedulingApiTest extends TestCase
             'timezone' => 'Asia/Manila',
         ]);
     }
+
+    public function test_admin_calendar_view_returns_all_scheduling_blocks_for_requested_month(): void
+    {
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
+        $otherTeacher->assignRole('teacher');
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $otherTeacher->id,
+            'status' => ClassSchedule::STATUS_PENDING_CONFIRMATION,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-02 01:00:00',
+            'ends_at' => '2026-06-02 02:00:00',
+        ]);
+
+        TeacherUnavailableDate::create([
+            'teacher_id' => $otherTeacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-03 01:00:00',
+            'ends_at' => '2026-06-03 02:00:00',
+            'reason' => 'Training',
+        ]);
+
+        Holiday::create([
+            'name' => 'Foundation Day',
+            'date' => '2026-06-04',
+            'timezone' => 'Asia/Manila',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/scheduling/calendar?view=month&date=2026-06-01&timezone=Asia/Manila')
+            ->assertOk()
+            ->assertJsonPath('data.view', 'month')
+            ->assertJsonPath('data.timezone', 'Asia/Manila')
+            ->assertJsonPath('data.booked_lessons.0.status', ClassSchedule::STATUS_PENDING_CONFIRMATION)
+            ->assertJsonCount(5, 'data.availability')
+            ->assertJsonCount(1, 'data.booked_lessons')
+            ->assertJsonCount(1, 'data.unavailable_dates')
+            ->assertJsonCount(1, 'data.holiday_blocks');
+    }
+
+    public function test_teacher_calendar_is_scoped_to_own_schedule_and_availability(): void
+    {
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
+        $otherTeacher->assignRole('teacher');
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $otherTeacher->id,
+            'day_of_week' => 1,
+            'start_time' => '13:00',
+            'end_time' => '16:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 01:00:00',
+            'ends_at' => '2026-06-01 02:00:00',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $otherTeacher->id,
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 05:00:00',
+            'ends_at' => '2026-06-01 06:00:00',
+        ]);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/scheduling/calendar?view=day&date=2026-06-01&timezone=Asia/Manila')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.availability')
+            ->assertJsonCount(1, 'data.booked_lessons')
+            ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.booked_lessons.0.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.booked_lessons.0.starts_at', '2026-06-01T09:00:00+08:00');
+    }
+
+    public function test_student_calendar_only_includes_own_classes_and_assigned_teacher_availability(): void
+    {
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
+        $otherStudent->assignRole('student');
+
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
+        $otherTeacher->assignRole('teacher');
+
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $otherTeacher->id,
+            'day_of_week' => 1,
+            'start_time' => '13:00',
+            'end_time' => '16:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_COMPLETED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 01:00:00',
+            'ends_at' => '2026-06-01 02:00:00',
+        ]);
+
+        ClassSchedule::create([
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 03:00:00',
+            'ends_at' => '2026-06-01 04:00:00',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/scheduling/calendar?view=week&date=2026-06-01&timezone=Asia/Manila')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.availability')
+            ->assertJsonCount(1, 'data.booked_lessons')
+            ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.booked_lessons.0.student.id', $this->student->id)
+            ->assertJsonPath('data.booked_lessons.0.status', ClassSchedule::STATUS_COMPLETED);
+    }
 }
