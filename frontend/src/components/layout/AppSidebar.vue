@@ -92,10 +92,10 @@ const emit = defineEmits<{
 }>()
 
 const roleOptions = [
-  { value: 'STUDENT', label: 'Student' },
-  { value: 'TEACHER', label: 'Teacher' },
   { value: 'ADMIN',   label: 'Admin' },
   { value: 'STAFF',   label: 'Staff' },
+  { value: 'TEACHER', label: 'Teacher' },
+  { value: 'STUDENT', label: 'Student' },
 ]
 
 const localViewAs = ref<string>(props.viewAsRole as string)
