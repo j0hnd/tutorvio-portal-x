@@ -2,6 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Scheduling\ClassSchedule;
+use App\Models\Scheduling\Holiday;
+use App\Models\Scheduling\ScheduleReminder;
+use App\Models\Scheduling\TeacherAvailability;
+use App\Models\Scheduling\TeacherUnavailableDate;
+use App\Policies\ClassSchedulePolicy;
+use App\Policies\HolidayPolicy;
+use App\Policies\ScheduleReminderPolicy;
+use App\Policies\TeacherAvailabilityPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Gate::policy(ClassSchedule::class, ClassSchedulePolicy::class);
+        Gate::policy(TeacherAvailability::class, TeacherAvailabilityPolicy::class);
+        Gate::policy(TeacherUnavailableDate::class, TeacherAvailabilityPolicy::class);
+        Gate::policy(Holiday::class, HolidayPolicy::class);
+        Gate::policy(ScheduleReminder::class, ScheduleReminderPolicy::class);
     }
 }

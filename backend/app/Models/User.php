@@ -3,6 +3,10 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Scheduling\ClassSchedule;
+use App\Models\Scheduling\ScheduleReminder;
+use App\Models\Scheduling\TeacherAvailability;
+use App\Models\Scheduling\TeacherUnavailableDate;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -83,6 +87,31 @@ class User extends Authenticatable
     public function updatedUsers(): HasMany
     {
         return $this->hasMany(self::class, 'updated_by');
+    }
+
+    public function studentClassSchedules(): HasMany
+    {
+        return $this->hasMany(ClassSchedule::class, 'student_id');
+    }
+
+    public function teacherClassSchedules(): HasMany
+    {
+        return $this->hasMany(ClassSchedule::class, 'teacher_id');
+    }
+
+    public function teacherAvailabilities(): HasMany
+    {
+        return $this->hasMany(TeacherAvailability::class, 'teacher_id');
+    }
+
+    public function teacherUnavailableDates(): HasMany
+    {
+        return $this->hasMany(TeacherUnavailableDate::class, 'teacher_id');
+    }
+
+    public function scheduleReminders(): HasMany
+    {
+        return $this->hasMany(ScheduleReminder::class);
     }
 
     public function createdBy(): BelongsTo

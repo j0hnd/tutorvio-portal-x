@@ -8,6 +8,11 @@ use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\Profile\ProfileController;
+use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
+use App\Http\Controllers\Api\Scheduling\HolidayController;
+use App\Http\Controllers\Api\Scheduling\ScheduleReminderController;
+use App\Http\Controllers\Api\Scheduling\TeacherAvailabilityController;
+use App\Http\Controllers\Api\Scheduling\TeacherUnavailableDateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -70,6 +75,22 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:users.assign_roles');
             Route::get('/{user}/status-history', [UserManagementController::class, 'statusHistory'])
                 ->middleware('permission:users.view');
+        });
+
+        Route::prefix('scheduling')->group(function () {
+            Route::apiResource('class-schedules', ClassScheduleController::class)
+                ->parameters(['class-schedules' => 'classSchedule']);
+            Route::post('class-schedules/{classSchedule}/cancel', [ClassScheduleController::class, 'cancel']);
+            Route::post('class-schedules/{classSchedule}/reschedule', [ClassScheduleController::class, 'reschedule']);
+            Route::patch('class-schedules/{classSchedule}/status', [ClassScheduleController::class, 'status']);
+
+            Route::apiResource('teacher-availabilities', TeacherAvailabilityController::class)
+                ->parameters(['teacher-availabilities' => 'teacherAvailability']);
+            Route::apiResource('teacher-unavailable-dates', TeacherUnavailableDateController::class)
+                ->parameters(['teacher-unavailable-dates' => 'teacherUnavailableDate']);
+            Route::apiResource('holidays', HolidayController::class);
+            Route::apiResource('schedule-reminders', ScheduleReminderController::class)
+                ->parameters(['schedule-reminders' => 'scheduleReminder']);
         });
     });
 });
