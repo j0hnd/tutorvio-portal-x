@@ -171,7 +171,7 @@ const columns: DataTableColumn[] = [
   { key: 'role',      label: 'Role',    sortable: true,  width: '10%' },
   { key: 'status',    label: 'Status',  sortable: false, width: '10%' },
   { key: 'createdAt', label: 'Joined',  sortable: true,  hide: 'md', muted: true, width: '10%' },
-  { key: 'actions',   label: 'Actions', align: 'right',  stopClick: true,      width: '10%' },
+  { key: 'actions',   label: 'Actions', stopClick: true,      width: '10%' },
 ]
 
 const roleOptions: SelectOption[] = [
@@ -333,7 +333,6 @@ onMounted(() => {
 .user-actions {
   display: flex;
   gap: var(--tv-space-1);
-  justify-content: flex-end;
   align-items: center;
 }
 
