@@ -281,6 +281,11 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.users-page__filter-selects > * {
+  width: 148px;
+  flex-shrink: 0;
+}
+
 .user-cell {
   display: flex;
   align-items: center;
@@ -429,7 +434,7 @@ onMounted(() => {
   .users-page { padding: var(--tv-space-4); }
   .users-page__search { max-width: 100%; width: 100%; }
   .users-page__filter-selects { width: 100%; }
-  .users-page__filter-selects > * { flex: 1; }
+  .users-page__filter-selects > * { width: auto; flex: 1; }
   .user-cell__email-sub { display: block; }
   .user-actions { flex-direction: column; gap: var(--tv-space-1); }
 }
