@@ -24,12 +24,14 @@ class TeacherUnavailableDateController extends Controller
         ]);
 
         $user = $request->user();
+        $assignedTeacherId = $user->studentProfile?->assigned_teacher_id;
 
         return response()->json([
             'data' => TeacherUnavailableDate::query()
                 ->with('teacher:id,name,email,timezone')
                 ->when($validated['teacher_id'] ?? null, fn ($query, int $teacherId) => $query->where('teacher_id', $teacherId))
                 ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $user->id))
+                ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $assignedTeacherId ?? 0))
                 ->orderBy('starts_at')
                 ->get(),
         ]);
