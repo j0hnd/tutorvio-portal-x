@@ -45,10 +45,10 @@
     <div class="sp-layout">
       <div class="sp-layout__main">
 
-        <!-- Personal Details -->
-        <section class="sp-section">
-          <h2 class="sp-section__title">Personal Details</h2>
-          <div class="sp-grid-2">
+        <!-- Personal Details + Contact Information (side by side) -->
+        <div class="sp-row-2">
+          <section class="sp-section">
+            <h2 class="sp-section__title">Personal Details</h2>
             <div class="sp-detail">
               <span class="sp-detail__label">Full Name</span>
               <span class="sp-detail__value">{{ fullName }}</span>
@@ -63,15 +63,14 @@
             </div>
             <div class="sp-detail">
               <span class="sp-detail__label">Status</span>
-              <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
+              <span class="sp-status-inline" :class="user.isActive ? 'sp-status-inline--active' : 'sp-status-inline--inactive'">
+                {{ user.isActive ? 'Active' : 'Inactive' }}
+              </span>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- Contact Information -->
-        <section class="sp-section">
-          <h2 class="sp-section__title">Contact Information</h2>
-          <div class="sp-grid-2">
+          <section class="sp-section">
+            <h2 class="sp-section__title">Contact Information</h2>
             <div class="sp-detail">
               <span class="sp-detail__label">Email Address</span>
               <span class="sp-detail__value">{{ user.email }}</span>
@@ -80,13 +79,13 @@
               <span class="sp-detail__label">Phone</span>
               <span class="sp-detail__value sp-detail__value--muted">Not provided</span>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <!-- Learning Profile -->
-        <section class="sp-section">
-          <h2 class="sp-section__title">Learning Profile</h2>
-          <div class="sp-grid-2">
+        <!-- Learning Profile + Goals & Concerns (side by side) -->
+        <div class="sp-row-2">
+          <section class="sp-section">
+            <h2 class="sp-section__title">Learning Profile</h2>
             <div class="sp-detail">
               <span class="sp-detail__label">English Level</span>
               <span class="sp-level" :class="`sp-level--${levelClass}`">{{ levelLabel }}</span>
@@ -96,31 +95,43 @@
               <span class="sp-detail__value">{{ classTypeLabel }}</span>
             </div>
             <div class="sp-detail">
-              <span class="sp-detail__label">Program / Course</span>
+              <span class="sp-detail__label">Assigned Program / Course</span>
               <span class="sp-detail__value">{{ profile.program || '—' }}</span>
             </div>
             <div class="sp-detail">
               <span class="sp-detail__label">Start Date</span>
               <span class="sp-detail__value">{{ profile.startDate ? fmt(profile.startDate) : '—' }}</span>
             </div>
-          </div>
-          <div class="sp-detail">
-            <span class="sp-detail__label">Assigned Teacher</span>
-            <div v-if="assignedTeacher" class="sp-teacher">
-              <div class="sp-teacher__avatar" aria-hidden="true">{{ teacherInitials }}</div>
-              <div>
-                <button
-                  v-if="viewerRole === 'ADMIN'"
-                  class="sp-link-btn"
-                  @click="router.push(`/profile/${assignedTeacher.id}`)"
-                >{{ teacherName }}</button>
-                <span v-else class="sp-detail__value">{{ teacherName }}</span>
-                <p class="sp-teacher__spec">{{ assignedTeacher.teacherProfile?.specialization }}</p>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Assigned Teacher</span>
+              <div v-if="assignedTeacher" class="sp-teacher">
+                <div class="sp-teacher__avatar" aria-hidden="true">{{ teacherInitials }}</div>
+                <div>
+                  <button
+                    v-if="viewerRole === 'ADMIN'"
+                    class="sp-link-btn"
+                    @click="router.push(`/profile/${assignedTeacher.id}`)"
+                  >{{ teacherName }}</button>
+                  <span v-else class="sp-detail__value">{{ teacherName }}</span>
+                  <p class="sp-teacher__spec">{{ assignedTeacher.teacherProfile?.specialization }}</p>
+                </div>
               </div>
+              <span v-else class="sp-detail__value sp-detail__value--muted">No teacher assigned</span>
             </div>
-            <span v-else class="sp-detail__value sp-detail__value--muted">No teacher assigned</span>
-          </div>
-        </section>
+          </section>
+
+          <section class="sp-section">
+            <h2 class="sp-section__title">Goals & Concerns</h2>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Learning Goals</span>
+              <p class="sp-detail__text">{{ profile.goals || 'Not specified' }}</p>
+            </div>
+            <div class="sp-detail">
+              <span class="sp-detail__label">Areas of Concern</span>
+              <p class="sp-detail__text">{{ profile.learningConcerns || 'None specified' }}</p>
+            </div>
+          </section>
+        </div>
 
         <!-- Internal Notes — hidden from student -->
         <section
@@ -166,19 +177,6 @@
                 </tr>
               </tbody>
             </table>
-          </div>
-        </section>
-
-        <!-- Goals & Concerns -->
-        <section class="sp-section">
-          <h2 class="sp-section__title">Goals & Concerns</h2>
-          <div class="sp-detail">
-            <span class="sp-detail__label">Learning Goals</span>
-            <p class="sp-detail__text">{{ profile.goals || 'Not specified' }}</p>
-          </div>
-          <div class="sp-detail">
-            <span class="sp-detail__label">Areas of Concern</span>
-            <p class="sp-detail__text">{{ profile.learningConcerns || 'None specified' }}</p>
           </div>
         </section>
 
@@ -479,6 +477,13 @@ function fmt(iso: string): string {
   align-items: start;
 }
 .sp-layout__main { display: flex; flex-direction: column; gap: var(--tv-space-4); }
+
+.sp-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-4);
+  align-items: start;
+}
 .sp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); position: sticky; top: calc(var(--tv-header-height) + var(--tv-space-4)); }
 
 /* Sections */
@@ -549,6 +554,25 @@ function fmt(iso: string): string {
 .sp-detail__value { font-size: var(--tv-text-sm); color: var(--tv-text); }
 .sp-detail__value--muted { color: var(--tv-text-muted); font-style: italic; }
 .sp-detail__text { font-size: var(--tv-text-sm); color: var(--tv-text); margin: 0; line-height: 1.6; }
+
+.sp-status-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--tv-text-sm);
+  font-weight: var(--tv-font-medium);
+}
+.sp-status-inline::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sp-status-inline--active { color: var(--tv-success-fg); }
+.sp-status-inline--active::before { background: var(--tv-success); }
+.sp-status-inline--inactive { color: var(--tv-text-muted); }
+.sp-status-inline--inactive::before { background: var(--tv-text-muted); }
 
 /* English Level badge */
 .sp-level {
@@ -762,6 +786,7 @@ function fmt(iso: string): string {
   .sp-page { padding: var(--tv-space-4); }
   .sp-hero { flex-direction: column; }
   .sp-grid-2 { grid-template-columns: 1fr; }
+  .sp-row-2 { grid-template-columns: 1fr; }
   .sp-layout__aside { flex-direction: column; }
 }
 </style>

@@ -109,9 +109,22 @@
           </svg>
         </button>
 
-        <!-- Dropdown — sign out only -->
+        <!-- Dropdown -->
         <Transition name="dropdown">
           <div v-if="userMenuOpen" class="app-header__dropdown" role="menu">
+            <button
+              class="app-header__dropdown-item"
+              role="menuitem"
+              @click="userMenuOpen = false; router.push('/profile')"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/>
+                <circle cx="8" cy="6.5" r="2" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M3.5 13c.5-2 2.3-3.2 4.5-3.2s4 1.2 4.5 3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              My Profile
+            </button>
+            <div class="app-header__dropdown-divider" />
             <button
               class="app-header__dropdown-item app-header__dropdown-item--danger"
               role="menuitem"
@@ -131,6 +144,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { UserRole } from '@/types'
 
 interface HeaderUser {
@@ -158,6 +172,7 @@ const emit = defineEmits<{
   logout: []
 }>()
 
+const router = useRouter()
 const searchQuery = ref('')
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
@@ -437,7 +452,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 .app-header__user-chevron { color: var(--tv-text-muted); flex-shrink: 0; transition: transform 200ms ease; }
 .app-header__user-chevron--open { transform: rotate(180deg); }
 
-/* Dropdown — sign out only */
+/* Dropdown */
 .app-header__dropdown {
   position: absolute;
   top: calc(100% + var(--tv-space-2));
@@ -468,6 +483,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 .app-header__dropdown-item--danger { color: var(--tv-danger-fg); }
 .app-header__dropdown-item--danger:hover { background: var(--tv-danger-soft); color: var(--tv-danger-fg); }
+
+.app-header__dropdown-divider {
+  height: 1px;
+  background: var(--tv-border);
+  margin: var(--tv-space-1) 0;
+}
 
 /* Dropdown transition */
 .dropdown-enter-active { transition: opacity 150ms ease, transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1); }

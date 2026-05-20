@@ -50,18 +50,51 @@
     <div class="tp-layout">
       <div class="tp-layout__main">
 
-        <!-- Professional Profile -->
-        <section class="tp-section">
+        <!-- Personal Details + Teacher Bio (side by side) -->
+        <div class="tp-row-2">
+          <section class="tp-section">
+            <h2 class="tp-section__title">Personal Details</h2>
+            <div class="tp-detail">
+              <span class="tp-detail__label">Full Name</span>
+              <span class="tp-detail__value">{{ fullName }}</span>
+            </div>
+            <div class="tp-detail">
+              <span class="tp-detail__label">Email Address</span>
+              <span class="tp-detail__value">{{ user.email }}</span>
+            </div>
+            <div class="tp-detail">
+              <span class="tp-detail__label">Timezone</span>
+              <span class="tp-detail__value">{{ user.timezone }}</span>
+            </div>
+            <div class="tp-detail">
+              <span class="tp-detail__label">Member Since</span>
+              <span class="tp-detail__value">{{ fmt(user.createdAt) }}</span>
+            </div>
+            <div class="tp-detail">
+              <span class="tp-detail__label">Status</span>
+              <span class="tp-status-inline" :class="user.isActive ? 'tp-status-inline--active' : 'tp-status-inline--inactive'">
+                {{ user.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+          </section>
+
+          <section class="tp-section">
+            <h2 class="tp-section__title">Teacher Bio</h2>
+            <div class="tp-detail">
+              <span class="tp-detail__label">Specialization</span>
+              <span class="tp-detail__value">{{ profile.specialization || '—' }}</span>
+            </div>
+            <div class="tp-detail">
+              <span class="tp-detail__label">About</span>
+              <p class="tp-detail__text">{{ MOCK_BIO }}</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- Professional Profile (admin/staff: doc statuses) -->
+        <section v-if="viewerRole === 'ADMIN' || viewerRole === 'STAFF'" class="tp-section">
           <h2 class="tp-section__title">Professional Profile</h2>
-          <div class="tp-detail">
-            <span class="tp-detail__label">Specialization</span>
-            <span class="tp-detail__value">{{ profile.specialization || '—' }}</span>
-          </div>
-          <div class="tp-detail">
-            <span class="tp-detail__label">Availability</span>
-            <span class="tp-detail__value">{{ profile.availabilitySummary || '—' }}</span>
-          </div>
-          <div v-if="viewerRole === 'ADMIN' || viewerRole === 'STAFF'" class="tp-grid-2">
+          <div class="tp-grid-2">
             <div class="tp-detail">
               <span class="tp-detail__label">Document Status</span>
               <TVBadge :label="docLabel(profile.documentStatus)" :variant="docVariant(profile.documentStatus)" />
@@ -109,9 +142,9 @@
           <p v-else class="tp-empty-note">No students assigned yet.</p>
         </section>
 
-        <!-- Internal Teaching Notes — admin only -->
+        <!-- Internal Remarks — admin + own teacher -->
         <section
-          v-if="viewerRole === 'ADMIN' && profile.teachingNotes"
+          v-if="(viewerRole === 'ADMIN' || isOwnProfile) && profile.teachingNotes"
           class="tp-section tp-section--internal"
         >
           <h2 class="tp-section__title tp-section__title--internal">
@@ -119,7 +152,7 @@
               <rect x="2" y="6" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
               <path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
             </svg>
-            Internal Teaching Notes
+            Internal Remarks
           </h2>
           <p class="tp-detail__text">{{ profile.teachingNotes }}</p>
         </section>
@@ -136,10 +169,14 @@
             <span class="tp-big-stat__num">{{ assignedStudents.length }}</span>
             <span class="tp-big-stat__label">Active Students</span>
           </div>
-          <div class="tp-stat-row">
-            <span class="tp-stat__label">Availability</span>
-            <span class="tp-stat__value">{{ profile.availabilitySummary || '—' }}</span>
-          </div>
+          <div class="tp-card__sub-title">Availability</div>
+          <ul v-if="availabilitySlots.length" class="tp-avail-list">
+            <li v-for="slot in availabilitySlots" :key="slot" class="tp-avail-item">
+              <span class="tp-avail-dot" aria-hidden="true" />
+              {{ slot }}
+            </li>
+          </ul>
+          <p v-else class="tp-empty-note">Not set</p>
         </div>
 
         <!-- Performance -->
@@ -203,6 +240,7 @@ const router = useRouter()
 const store = useUsersStore()
 
 const MOCK_PERF = { avgRating: 4.8, totalLessons: 312, completionRate: 96, retentionRate: 89 }
+const MOCK_BIO = 'Experienced English language instructor with a focus on professional communication and business contexts. Passionate about helping students build confidence and fluency through practical, real-world scenarios.'
 
 const profile = computed(() => props.user.teacherProfile ?? {})
 const fullName = computed(() => `${props.user.firstName} ${props.user.lastName}`)
@@ -213,6 +251,12 @@ const assignedStudents = computed(() =>
     .map(id => store.getUserById(id))
     .filter((u): u is ManagedUser => !!u),
 )
+
+const availabilitySlots = computed(() => {
+  const raw = profile.value.availabilitySummary
+  if (!raw || raw === 'TBD') return raw ? [raw] : []
+  return raw.split(/,\s*/).map(s => s.trim()).filter(Boolean)
+})
 
 const INTERNAL_STATUS: Record<string, { label: string; variant: string }> = {
   ACTIVE:    { label: 'Active',    variant: 'active' },
@@ -368,6 +412,14 @@ function fmt(iso: string): string {
 .tp-layout__main { display: flex; flex-direction: column; gap: var(--tv-space-4); }
 .tp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); position: sticky; top: calc(var(--tv-header-height) + var(--tv-space-4)); }
 
+/* Row of two sections */
+.tp-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-4);
+  align-items: start;
+}
+
 /* Sections */
 .tp-section {
   background: var(--tv-bg-card);
@@ -424,6 +476,26 @@ function fmt(iso: string): string {
 .tp-detail__value { font-size: var(--tv-text-sm); color: var(--tv-text); }
 .tp-detail__text { font-size: var(--tv-text-sm); color: var(--tv-text); margin: 0; line-height: 1.6; }
 
+/* Status inline */
+.tp-status-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--tv-text-sm);
+  font-weight: var(--tv-font-medium);
+}
+.tp-status-inline::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tp-status-inline--active { color: var(--tv-success-fg); }
+.tp-status-inline--active::before { background: var(--tv-success); }
+.tp-status-inline--inactive { color: var(--tv-text-muted); }
+.tp-status-inline--inactive::before { background: var(--tv-text-muted); }
+
 /* Student list */
 .tp-students { list-style: none; display: flex; flex-direction: column; gap: 0; }
 .tp-student {
@@ -477,6 +549,14 @@ function fmt(iso: string): string {
   padding-bottom: var(--tv-space-2);
   border-bottom: 1px solid var(--tv-border);
 }
+.tp-card__sub-title {
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-semibold);
+  color: var(--tv-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: var(--tv-space-1);
+}
 
 .tp-big-stat {
   display: flex;
@@ -491,6 +571,30 @@ function fmt(iso: string): string {
   line-height: 1;
 }
 .tp-big-stat__label { font-size: var(--tv-text-xs); color: var(--tv-text-muted); margin-top: var(--tv-space-1); }
+
+/* Availability bullet list */
+.tp-avail-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-2);
+  margin: 0;
+  padding: 0;
+}
+.tp-avail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-space-2);
+  font-size: var(--tv-text-sm);
+  color: var(--tv-text);
+}
+.tp-avail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(142, 70%, 40%);
+  flex-shrink: 0;
+}
 
 .tp-stat-row {
   display: flex;
@@ -514,6 +618,7 @@ function fmt(iso: string): string {
 @media (max-width: 767px) {
   .tp-page { padding: var(--tv-space-4); }
   .tp-hero { flex-direction: column; }
+  .tp-row-2 { grid-template-columns: 1fr; }
   .tp-grid-2 { grid-template-columns: 1fr; }
   .tp-layout__aside { flex-direction: column; }
 }
