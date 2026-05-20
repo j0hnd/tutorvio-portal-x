@@ -132,21 +132,84 @@ class DashboardService
      */
     private function studentSummary(User $user): array
     {
+        $profile = $user->studentProfile()->with('assignedTeacher')->first();
         $subscription = Subscription::where('user_id', $user->id)
             ->latest('ends_at')
             ->latest()
             ->first();
 
+        $upcomingLessons = Lesson::with('teacher:id,name')
+            ->where('student_id', $user->id)
+            ->where('start_time', '>=', now())
+            ->orderBy('start_time')
+            ->limit(5)
+            ->get();
+
+        $materials = Material::query()
+            ->select('materials.id', 'materials.title', 'materials.description', 'materials.url', 'student_materials.assigned_at', 'student_materials.completed_at')
+            ->join('student_materials', 'materials.id', '=', 'student_materials.material_id')
+            ->where('student_materials.student_id', $user->id)
+            ->orderByDesc('student_materials.assigned_at')
+            ->limit(5)
+            ->get();
+
+        $assignedMaterials = DB::table('student_materials')->where('student_id', $user->id)->count();
+        $completedMaterials = DB::table('student_materials')
+            ->where('student_id', $user->id)
+            ->whereNotNull('completed_at')
+            ->count();
+
         return [
             'classes' => $this->classSummary(Lesson::where('student_id', $user->id)),
-            'materials' => [
-                'assigned' => DB::table('student_materials')->where('student_id', $user->id)->count(),
-                'completed' => DB::table('student_materials')
-                    ->where('student_id', $user->id)
-                    ->whereNotNull('completed_at')
-                    ->count(),
-                'available' => Material::count(),
+            'upcoming_lessons' => $upcomingLessons
+                ->map(fn (Lesson $lesson) => $this->studentLessonPayload($lesson))
+                ->all(),
+            'next_lesson' => $upcomingLessons->first()
+                ? $this->studentLessonJoinPayload($upcomingLessons->first())
+                : null,
+            'latest_teacher_note' => $profile?->teacher_notes,
+            'learning_progress' => [
+                'completed_lessons' => Lesson::where('student_id', $user->id)->where('status', 'completed')->count(),
+                'scheduled_lessons' => Lesson::where('student_id', $user->id)->where('status', 'scheduled')->count(),
+                'completed_materials' => $completedMaterials,
+                'assigned_materials' => $assignedMaterials,
             ],
+            'assigned_course' => [
+                'course' => $profile?->course,
+                'english_level' => $profile?->english_level,
+                'current_level' => $profile?->current_level,
+                'class_type' => $profile?->class_type,
+                'assigned_teacher' => $profile?->assignedTeacher ? [
+                    'id' => $profile->assignedTeacher->id,
+                    'name' => $profile->assignedTeacher->name,
+                ] : null,
+            ],
+            // TODO: Return student-scoped reminders/announcements when those tables are added.
+            'reminders' => [],
+            'announcements' => [],
+            'lesson_balance' => null, // TODO: Populate when lesson credit/balance tracking exists.
+            'active_plan' => $subscription ? [
+                'status' => $subscription->status,
+                'plan_name' => $subscription->plan_name,
+                'starts_at' => $subscription->starts_at,
+                'ends_at' => $subscription->ends_at,
+            ] : null,
+            'materials' => [
+                'assigned' => $assignedMaterials,
+                'completed' => $completedMaterials,
+                'available' => max(0, $assignedMaterials - $completedMaterials),
+            ],
+            'recent_materials' => $materials
+                ->map(fn (Material $material) => [
+                    'id' => $material->id,
+                    'title' => $material->title,
+                    'description' => $material->description,
+                    'url' => $material->url,
+                    'assigned_at' => $material->assigned_at,
+                    'completed_at' => $material->completed_at,
+                ])
+                ->all(),
+            'homework' => [], // TODO: Return student-scoped homework when a homework table exists.
             'subscription' => [
                 'status' => $subscription?->status,
                 'plan_name' => $subscription?->plan_name,
@@ -167,6 +230,35 @@ class DashboardService
             'completed' => (clone $query)->where('status', 'completed')->count(),
             'cancelled' => (clone $query)->where('status', 'cancelled')->count(),
             'upcoming' => (clone $query)->where('start_time', '>=', now())->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function studentLessonPayload(Lesson $lesson): array
+    {
+        return [
+            'id' => $lesson->id,
+            'start_time' => $lesson->start_time,
+            'end_time' => $lesson->end_time,
+            'status' => $lesson->status,
+            'teacher' => $lesson->teacher ? [
+                'id' => $lesson->teacher->id,
+                'name' => $lesson->teacher->name,
+            ] : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function studentLessonJoinPayload(Lesson $lesson): array
+    {
+        return [
+            ...$this->studentLessonPayload($lesson),
+            'join_url' => null, // TODO: Populate when lesson meeting/join fields exist.
+            'join_starts_at' => $lesson->start_time,
         ];
     }
 

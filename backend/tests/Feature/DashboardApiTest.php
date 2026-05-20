@@ -41,12 +41,31 @@ class DashboardApiTest extends TestCase
         $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $teacher->assignRole('teacher');
 
+        $student->studentProfile()->create([
+            'assigned_teacher_id' => $teacher->id,
+            'course' => 'General English',
+            'english_level' => 'A2',
+            'current_level' => 'A2.2',
+            'class_type' => '1:1',
+            'teacher_notes' => 'Practice short answers this week.',
+            'internal_notes' => 'Billing issue hidden from student.',
+        ]);
+
         Lesson::create([
             'student_id' => $student->id,
             'teacher_id' => $teacher->id,
             'start_time' => now()->addDay(),
             'end_time' => now()->addDay()->addHour(),
             'status' => 'scheduled',
+            'notes' => 'Internal lesson preparation note.',
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->subDay(),
+            'end_time' => now()->subDay()->addHour(),
+            'status' => 'completed',
         ]);
 
         Lesson::create([
@@ -63,6 +82,11 @@ class DashboardApiTest extends TestCase
             'completed_at' => now(),
         ]);
 
+        $otherMaterial = Material::create(['title' => 'Other Student Material']);
+        $otherMaterial->students()->attach($otherStudent->id, [
+            'assigned_at' => now(),
+        ]);
+
         Subscription::create([
             'user_id' => $student->id,
             'plan_name' => 'Starter',
@@ -76,12 +100,32 @@ class DashboardApiTest extends TestCase
         $this->getJson('/api/v1/dashboard')
             ->assertOk()
             ->assertJsonPath('data.role', 'student')
-            ->assertJsonPath('data.summary.classes.total', 1)
+            ->assertJsonPath('data.summary.classes.total', 2)
             ->assertJsonPath('data.summary.materials.assigned', 1)
             ->assertJsonPath('data.summary.materials.completed', 1)
             ->assertJsonPath('data.summary.subscription.plan_name', 'Starter')
+            ->assertJsonPath('data.summary.active_plan.plan_name', 'Starter')
+            ->assertJsonPath('data.summary.latest_teacher_note', 'Practice short answers this week.')
+            ->assertJsonPath('data.summary.learning_progress.completed_lessons', 1)
+            ->assertJsonPath('data.summary.learning_progress.scheduled_lessons', 1)
+            ->assertJsonPath('data.summary.assigned_course.course', 'General English')
+            ->assertJsonPath('data.summary.assigned_course.current_level', 'A2.2')
+            ->assertJsonPath('data.summary.reminders', [])
+            ->assertJsonPath('data.summary.announcements', [])
+            ->assertJsonPath('data.summary.homework', [])
+            ->assertJsonPath('data.summary.lesson_balance', null)
+            ->assertJsonPath('data.summary.next_lesson.teacher.id', $teacher->id)
+            ->assertJsonPath('data.summary.next_lesson.join_url', null)
+            ->assertJsonCount(1, 'data.summary.upcoming_lessons')
+            ->assertJsonCount(1, 'data.summary.recent_materials')
+            ->assertJsonPath('data.summary.recent_materials.0.title', 'Placement Prep')
             ->assertJsonMissingPath('data.summary.users')
             ->assertJsonMissingPath('data.summary.students');
+
+        $payload = $this->getJson('/api/v1/dashboard')->json();
+        $this->assertStringNotContainsString('Internal lesson preparation note.', json_encode($payload));
+        $this->assertStringNotContainsString('Billing issue hidden from student.', json_encode($payload));
+        $this->assertStringNotContainsString('Other Student Material', json_encode($payload));
     }
 
     public function test_teacher_dashboard_only_returns_teacher_scoped_summary(): void
