@@ -13,20 +13,22 @@
     :class="['sidebar', { 'sidebar--collapsed': collapsed, 'sidebar--mobile-open': mobileOpen }]"
     aria-label="Main navigation"
   >
-    <!-- View As selector -->
-    <div class="sidebar__view-as">
-      <span class="sidebar__view-as-label">VIEW AS</span>
-      <TVSelect
-        v-model="selectedRole"
-        :options="roleOptions"
-        @update:model-value="$emit('role-change', $event as string)"
-      />
-    </div>
+    <!-- VIEW AS — admin only, hidden when sidebar is collapsed -->
+    <Transition name="label-fade">
+      <div v-if="showViewAs && !collapsed" class="sidebar__viewas">
+        <span class="sidebar__viewas-label">VIEW AS</span>
+        <TVSelect
+          v-model="localViewAs"
+          :options="roleOptions"
+          @update:model-value="emit('role-change', $event as string)"
+        />
+      </div>
+    </Transition>
 
     <!-- Nav items -->
     <nav class="sidebar__nav" aria-label="Primary navigation">
       <ul role="list">
-        <li v-for="item in navItems" :key="item.path">
+        <li v-for="item in navItems" :key="item.path + item.label">
           <a
             :href="item.path"
             :class="['sidebar__nav-item', { 'sidebar__nav-item--active': active === item.path }]"
@@ -39,7 +41,11 @@
               <span v-if="!collapsed" class="sidebar__nav-label">{{ item.label }}</span>
             </Transition>
             <Transition name="label-fade">
-              <span v-if="!collapsed && item.badge" class="sidebar__nav-badge" :aria-label="`${item.badge} unread`">
+              <span
+                v-if="!collapsed && item.badge"
+                class="sidebar__nav-badge"
+                :aria-label="`${item.badge} unread`"
+              >
                 {{ item.badge }}
               </span>
             </Transition>
@@ -47,31 +53,13 @@
         </li>
       </ul>
     </nav>
-
-    <!-- User profile at bottom -->
-    <div class="sidebar__footer">
-      <div class="sidebar__user">
-        <div class="sidebar__user-avatar-wrap">
-          <div class="sidebar__user-avatar">
-            <img v-if="user.avatar" :src="user.avatar" :alt="user.name" />
-            <span v-else>{{ initials }}</span>
-          </div>
-          <span class="sidebar__user-dot" aria-label="Online" />
-        </div>
-        <Transition name="label-fade">
-          <div v-if="!collapsed" class="sidebar__user-info">
-            <span class="sidebar__user-name">{{ user.name }}</span>
-            <span class="sidebar__user-role">{{ user.role }}</span>
-          </div>
-        </Transition>
-      </div>
-    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
+import type { UserRole } from '@/types'
 
 interface NavItem {
   path: string
@@ -80,33 +68,28 @@ interface NavItem {
   badge?: number
 }
 
-interface SidebarUser {
-  name: string
-  role: string
-  avatar?: string
-}
-
 interface Props {
   navItems: NavItem[]
-  user: SidebarUser
   active?: string
   collapsed?: boolean
   mobileOpen?: boolean
+  showViewAs?: boolean
+  viewAsRole?: UserRole | string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   active: '/dashboard',
   collapsed: false,
   mobileOpen: false,
+  showViewAs: false,
+  viewAsRole: 'ADMIN',
 })
 
-defineEmits<{
+const emit = defineEmits<{
   navigate: [path: string]
   'mobile-close': []
   'role-change': [role: string]
 }>()
-
-const selectedRole = ref(props.user.role.toUpperCase().replace(' ', '_'))
 
 const roleOptions = [
   { value: 'STUDENT', label: 'Student' },
@@ -115,14 +98,9 @@ const roleOptions = [
   { value: 'STAFF',   label: 'Staff' },
 ]
 
-const initials = computed(() =>
-  props.user.name
-    .split(' ')
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-)
+const localViewAs = ref<string>(props.viewAsRole as string)
+
+watch(() => props.viewAsRole, v => { localViewAs.value = v as string })
 </script>
 
 <style scoped>
@@ -144,26 +122,22 @@ const initials = computed(() =>
 
 .sidebar--collapsed { width: var(--tv-sidebar-collapsed); }
 
-/* View As */
-.sidebar__view-as {
-  padding: var(--tv-space-4) var(--tv-space-4) var(--tv-space-3);
+/* VIEW AS */
+.sidebar__viewas {
+  padding: var(--tv-space-3) var(--tv-space-4) var(--tv-space-3);
   border-bottom: 1px solid var(--tv-border);
   flex-shrink: 0;
-  transition: opacity 150ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-2);
 }
 
-.sidebar--collapsed .sidebar__view-as {
-  display: none;
-}
-
-.sidebar__view-as-label {
-  display: block;
+.sidebar__viewas-label {
   font-size: 10px;
   font-weight: var(--tv-font-bold);
   color: var(--tv-text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: var(--tv-space-2);
 }
 
 /* Nav */
@@ -196,20 +170,10 @@ const initials = computed(() =>
   gap: 0;
 }
 
-.sidebar__nav-item:hover {
-  background: var(--tv-bg-soft);
-  color: var(--tv-text);
-}
+.sidebar__nav-item:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
-.sidebar__nav-item--active {
-  background: var(--tv-primary-soft);
-  color: var(--tv-primary);
-}
-
-.sidebar__nav-item--active:hover {
-  background: var(--tv-primary-soft);
-  color: var(--tv-primary);
-}
+.sidebar__nav-item--active { background: var(--tv-primary-soft); color: var(--tv-primary); }
+.sidebar__nav-item--active:hover { background: var(--tv-primary-soft); color: var(--tv-primary); }
 
 .sidebar__nav-icon {
   display: flex;
@@ -233,90 +197,6 @@ const initials = computed(() =>
   flex-shrink: 0;
 }
 
-/* Footer / User */
-.sidebar__footer {
-  display: flex;
-  align-items: center;
-  padding: var(--tv-space-3) var(--tv-space-3);
-  border-top: 1px solid var(--tv-border);
-  flex-shrink: 0;
-  gap: var(--tv-space-2);
-}
-
-.sidebar--collapsed .sidebar__footer {
-  justify-content: center;
-  padding: var(--tv-space-3) var(--tv-space-2);
-}
-
-.sidebar--collapsed .sidebar__user {
-  justify-content: center;
-  flex: unset;
-}
-
-.sidebar__user {
-  display: flex;
-  align-items: center;
-  gap: var(--tv-space-2);
-  min-width: 0;
-  flex: 1;
-}
-
-.sidebar__user-avatar-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.sidebar__user-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--tv-primary-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-size: 11px;
-  font-weight: var(--tv-font-bold);
-  color: var(--tv-primary);
-  border: 2px solid var(--tv-primary-muted);
-}
-
-.sidebar__user-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-.sidebar__user-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 11px;
-  height: 11px;
-  background: var(--tv-success);
-  border-radius: 50%;
-  border: 2px solid var(--tv-bg-card);
-}
-
-.sidebar__user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.sidebar__user-name {
-  font-size: var(--tv-text-sm);
-  font-weight: var(--tv-font-semibold);
-  color: var(--tv-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sidebar__user-role {
-  font-size: var(--tv-text-xs);
-  color: var(--tv-text-muted);
-  white-space: nowrap;
-}
-
 /* Transitions */
 .label-fade-enter-active,
 .label-fade-leave-active { transition: opacity 120ms ease; }
@@ -328,7 +208,6 @@ const initials = computed(() =>
 .backdrop-enter-from,
 .backdrop-leave-to { opacity: 0; }
 
-/* Backdrop */
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
@@ -337,7 +216,6 @@ const initials = computed(() =>
   z-index: calc(var(--tv-z-sticky) - 1);
 }
 
-/* Mobile */
 @media (max-width: 767px) {
   .sidebar {
     position: fixed;

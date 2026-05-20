@@ -1,12 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import type { UserRole } from '@/types'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean
+    roles?: UserRole[]
+    layout?: 'auth' | 'default'
+  }
+}
 
 const routes: RouteRecordRaw[] = [
-  {
-    // TEMP: Skip login for Phase 1 preview — redirect to dashboard directly
-    path: '/',
-    redirect: '/dashboard',
-  },
+  /* ── Root redirect ── */
+  { path: '/', redirect: '/dashboard' },
+
+  /* ── Auth pages (public, layout: auth) ── */
   {
     path: '/login',
     name: 'Login',
@@ -20,10 +29,24 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, layout: 'auth' },
   },
   {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('@/views/auth/ResetPasswordView.vue'),
+    meta: { requiresAuth: false, layout: 'auth' },
+  },
+  {
+    path: '/activate',
+    name: 'ActivateAccount',
+    component: () => import('@/views/auth/ActivateAccountView.vue'),
+    meta: { requiresAuth: false, layout: 'auth' },
+  },
+
+  /* ── Protected pages (all roles) ── */
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: false }, // TEMP: open for Phase 1 preview
+    meta: { requiresAuth: true },
   },
   {
     path: '/schedule',
@@ -32,15 +55,17 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/lessons',
-    name: 'Lessons',
-    component: () => import('@/views/LessonsView.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/materials',
     name: 'Materials',
     component: () => import('@/views/MaterialsView.vue'),
+    meta: { requiresAuth: true },
+  },
+
+  /* ── Student-only ── */
+  {
+    path: '/lessons',
+    name: 'Lessons',
+    component: () => import('@/views/LessonsView.vue'),
     meta: { requiresAuth: true },
   },
   {
@@ -49,11 +74,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/BillingView.vue'),
     meta: { requiresAuth: true, roles: ['STUDENT', 'ADMIN'] },
   },
+
+  /* ── Teacher / Admin / Staff ── */
   {
     path: '/students',
     name: 'Students',
     component: () => import('@/views/StudentsView.vue'),
-    meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN'] },
+    meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN', 'STAFF'] },
   },
   {
     path: '/availability',
@@ -66,6 +93,14 @@ const routes: RouteRecordRaw[] = [
     name: 'Payroll',
     component: () => import('@/views/PayrollView.vue'),
     meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN'] },
+  },
+
+  /* ── Error pages ── */
+  {
+    path: '/unauthorized',
+    name: 'Unauthorized',
+    component: () => import('@/views/errors/UnauthorizedView.vue'),
+    meta: { requiresAuth: false },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -83,16 +118,29 @@ const router = createRouter({
   },
 })
 
-router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('tv_token')
-  const isAuthenticated = !!token
+/* ── Navigation guard ── */
+router.beforeEach((to, _from) => {
+  const auth = useAuthStore()
 
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next({ name: 'Login', query: { redirect: to.fullPath } })
-  } else if (!to.meta.requiresAuth && isAuthenticated && to.name === 'Login') {
-    next({ name: 'Dashboard' })
-  } else {
-    next()
+  const isAuthenticated = auth.isAuthenticated
+  const requiresAuth = to.meta.requiresAuth !== false
+  const allowedRoles = to.meta.roles
+
+  /* 1. Unauthenticated user → protected page */
+  if (requiresAuth && !isAuthenticated) {
+    return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+
+  /* 2. Authenticated user → auth page (login, forgot-password, etc.) */
+  if (!requiresAuth && isAuthenticated && to.meta.layout === 'auth') {
+    return { path: auth.getDashboardRoute() }
+  }
+
+  /* 3. Role-based access control */
+  if (isAuthenticated && allowedRoles && auth.user) {
+    if (!allowedRoles.includes(auth.user.role)) {
+      return { name: 'Unauthorized' }
+    }
   }
 })
 

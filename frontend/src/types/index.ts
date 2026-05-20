@@ -14,6 +14,7 @@ export interface User {
   avatarUrl?: string
   timezone: string
   createdAt: string
+  isActive?: boolean
 }
 
 export interface AuthState {

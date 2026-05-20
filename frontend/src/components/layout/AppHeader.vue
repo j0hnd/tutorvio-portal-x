@@ -1,6 +1,6 @@
 <template>
   <header class="app-header" role="banner">
-    <!-- Mobile hamburger — shown before the logo on small screens -->
+    <!-- Mobile hamburger -->
     <button
       class="app-header__menu-btn"
       aria-label="Open navigation"
@@ -11,16 +11,14 @@
       </svg>
     </button>
 
-    <!-- Logo section — same width as sidebar -->
+    <!-- Logo -->
     <div :class="['app-header__logo', { 'app-header__logo--collapsed': sidebarCollapsed }]">
-      <!-- Full logo when expanded -->
       <img
         v-if="!sidebarCollapsed"
         src="/images/tutorvio-logo.png"
         alt="Tutorvio"
         class="app-header__logo-img"
       />
-      <!-- Temporary icon logo when collapsed -->
       <div v-else class="app-header__logo-icon" aria-label="Tutorvio">
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
           <rect width="28" height="28" rx="7" fill="var(--tv-primary)"/>
@@ -29,17 +27,13 @@
       </div>
     </div>
 
-    <!-- Collapse toggle — always on the boundary between logo and search -->
+    <!-- Collapse toggle -->
     <button
-      class="app-header__collapse-btn"
+      :class="['app-header__collapse-btn', { 'app-header__collapse-btn--collapsed': sidebarCollapsed }]"
       :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
       @click="$emit('toggle-sidebar')"
     >
-      <svg
-        width="16" height="16" viewBox="0 0 16 16" fill="none"
-        :style="{ transform: sidebarCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 250ms ease' }"
-        aria-hidden="true"
-      >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
@@ -65,11 +59,13 @@
 
     <!-- Right: balance + bell + user -->
     <div class="app-header__right">
+      <!-- Balance — always visible -->
       <div class="app-header__balance" aria-label="Wallet balance">
         <span class="app-header__balance-label">Balance:</span>
-        <span class="app-header__balance-amount">{{ balance }}</span>
+        <span class="app-header__balance-amount">{{ balance || 'Kč0' }}</span>
       </div>
 
+      <!-- Notifications -->
       <button class="app-header__icon-btn" :aria-label="`${notificationCount} notifications`">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <path d="M10 2a5.5 5.5 0 0 0-5.5 5.5c0 3.2-1.5 4.8-1.5 4.8h14s-1.5-1.6-1.5-4.8A5.5 5.5 0 0 0 10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
@@ -80,26 +76,67 @@
         </span>
       </button>
 
-      <button class="app-header__user" aria-label="Open user menu" aria-haspopup="true">
-        <div class="app-header__user-avatar">
-          <img v-if="user.avatar" :src="user.avatar" :alt="user.name" />
-          <span v-else class="app-header__user-initials">{{ initials }}</span>
-        </div>
-        <span class="app-header__user-name">{{ user.name }}</span>
-        <svg class="app-header__user-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path d="M4 5.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <!-- User menu -->
+      <div class="app-header__user-wrap" ref="userMenuRef">
+        <button
+          class="app-header__user"
+          :aria-label="`Open user menu for ${user.name}`"
+          :aria-expanded="userMenuOpen"
+          aria-haspopup="true"
+          @click="userMenuOpen = !userMenuOpen"
+        >
+          <!-- Avatar with status dot -->
+          <div class="app-header__user-avatar-wrap">
+            <div class="app-header__user-avatar">
+              <img v-if="user.avatar" :src="user.avatar" :alt="user.name" />
+              <span v-else class="app-header__user-initials">{{ initials }}</span>
+            </div>
+            <span class="app-header__user-status" aria-label="Online" />
+          </div>
+
+          <!-- Name + role -->
+          <div class="app-header__user-info">
+            <span class="app-header__user-name">{{ user.name }}</span>
+            <span v-if="formattedRole" class="app-header__user-role">{{ formattedRole }}</span>
+          </div>
+
+          <svg
+            class="app-header__user-chevron"
+            :class="{ 'app-header__user-chevron--open': userMenuOpen }"
+            width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"
+          >
+            <path d="M4 5.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- Dropdown — sign out only -->
+        <Transition name="dropdown">
+          <div v-if="userMenuOpen" class="app-header__dropdown" role="menu">
+            <button
+              class="app-header__dropdown-item app-header__dropdown-item--danger"
+              role="menuitem"
+              @click="handleLogout"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l4-4-4-4M14 7H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Sign out
+            </button>
+          </div>
+        </Transition>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import type { UserRole } from '@/types'
 
 interface HeaderUser {
   name: string
   avatar?: string
+  role?: UserRole
 }
 
 interface Props {
@@ -115,12 +152,15 @@ const props = withDefaults(defineProps<Props>(), {
   sidebarCollapsed: false,
 })
 
-defineEmits<{
+const emit = defineEmits<{
   'toggle-sidebar': []
   'open-menu': []
+  logout: []
 }>()
 
 const searchQuery = ref('')
+const userMenuOpen = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
 
 const initials = computed(() =>
   props.user.name
@@ -128,8 +168,32 @@ const initials = computed(() =>
     .map(n => n[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase()
+    .toUpperCase(),
 )
+
+const formattedRole = computed(() => {
+  const map: Record<string, string> = {
+    STUDENT: 'Student',
+    TEACHER: 'Teacher',
+    ADMIN: 'Administrator',
+    STAFF: 'Staff',
+  }
+  return props.user.role ? (map[props.user.role] ?? props.user.role) : ''
+})
+
+function handleLogout(): void {
+  userMenuOpen.value = false
+  emit('logout')
+}
+
+function handleClickOutside(e: MouseEvent): void {
+  if (userMenuRef.value && !userMenuRef.value.contains(e.target as Node)) {
+    userMenuOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 </script>
 
 <style scoped>
@@ -146,7 +210,7 @@ const initials = computed(() =>
   top: 0;
 }
 
-/* Logo section — matches sidebar width */
+/* Logo */
 .app-header__logo {
   display: flex;
   align-items: center;
@@ -176,10 +240,9 @@ const initials = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 
-/* Collapse toggle — icon only, no border */
+/* Collapse toggle */
 .app-header__collapse-btn {
   display: flex;
   align-items: center;
@@ -192,10 +255,10 @@ const initials = computed(() =>
   transition: background-color var(--tv-transition-fast), color var(--tv-transition-fast);
 }
 
-.app-header__collapse-btn:hover {
-  background: var(--tv-bg-soft);
-  color: var(--tv-text);
-}
+.app-header__collapse-btn svg { transition: transform 250ms ease; }
+.app-header__collapse-btn--collapsed svg { transform: rotate(180deg); }
+
+.app-header__collapse-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
 /* Search */
 .app-header__search {
@@ -247,6 +310,7 @@ const initials = computed(() =>
   flex-shrink: 0;
 }
 
+/* Balance */
 .app-header__balance {
   display: flex;
   align-items: center;
@@ -261,6 +325,7 @@ const initials = computed(() =>
 .app-header__balance-label { color: var(--tv-text-muted); }
 .app-header__balance-amount { font-weight: var(--tv-font-semibold); color: var(--tv-text); }
 
+/* Notifications */
 .app-header__icon-btn {
   position: relative;
   width: 38px;
@@ -294,6 +359,9 @@ const initials = computed(() =>
   line-height: 1;
 }
 
+/* User button */
+.app-header__user-wrap { position: relative; }
+
 .app-header__user {
   display: flex;
   align-items: center;
@@ -306,6 +374,12 @@ const initials = computed(() =>
 
 .app-header__user:hover { background: var(--tv-bg-soft); }
 
+/* Avatar with status dot */
+.app-header__user-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .app-header__user-avatar {
   width: 32px;
   height: 32px;
@@ -316,7 +390,6 @@ const initials = computed(() =>
   justify-content: center;
   overflow: hidden;
   border: 2px solid var(--tv-primary-muted);
-  flex-shrink: 0;
 }
 
 .app-header__user-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -327,16 +400,81 @@ const initials = computed(() =>
   color: var(--tv-primary);
 }
 
+.app-header__user-status {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  background: var(--tv-success);
+  border-radius: 50%;
+  border: 2px solid var(--tv-bg-card);
+}
+
+/* Name + role stacked */
+.app-header__user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
 .app-header__user-name {
   font-size: var(--tv-text-sm);
   font-weight: var(--tv-font-medium);
   color: var(--tv-text);
   white-space: nowrap;
+  line-height: 1.2;
 }
 
-.app-header__user-chevron { color: var(--tv-text-muted); flex-shrink: 0; }
+.app-header__user-role {
+  font-size: 11px;
+  color: var(--tv-text-muted);
+  white-space: nowrap;
+  line-height: 1.2;
+}
 
-/* Mobile hamburger — hidden on desktop */
+.app-header__user-chevron { color: var(--tv-text-muted); flex-shrink: 0; transition: transform 200ms ease; }
+.app-header__user-chevron--open { transform: rotate(180deg); }
+
+/* Dropdown — sign out only */
+.app-header__dropdown {
+  position: absolute;
+  top: calc(100% + var(--tv-space-2));
+  right: 0;
+  min-width: 160px;
+  background: var(--tv-bg-card);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-md);
+  box-shadow: var(--tv-shadow-lg);
+  overflow: hidden;
+  z-index: var(--tv-z-dropdown);
+}
+
+.app-header__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-space-3);
+  width: 100%;
+  padding: var(--tv-space-3) var(--tv-space-4);
+  font-size: var(--tv-text-sm);
+  font-weight: var(--tv-font-medium);
+  color: var(--tv-text-secondary);
+  transition: background-color var(--tv-transition-fast), color var(--tv-transition-fast);
+  text-align: left;
+}
+
+.app-header__dropdown-item:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
+
+.app-header__dropdown-item--danger { color: var(--tv-danger-fg); }
+.app-header__dropdown-item--danger:hover { background: var(--tv-danger-soft); color: var(--tv-danger-fg); }
+
+/* Dropdown transition */
+.dropdown-enter-active { transition: opacity 150ms ease, transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.dropdown-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
+.dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: translateY(-6px) scale(0.97); }
+
+/* Mobile hamburger */
 .app-header__menu-btn {
   display: none;
   align-items: center;
@@ -349,21 +487,14 @@ const initials = computed(() =>
   transition: background-color var(--tv-transition-fast), color var(--tv-transition-fast);
 }
 
-.app-header__menu-btn:hover {
-  background: var(--tv-bg-soft);
-  color: var(--tv-text);
-}
+.app-header__menu-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
 @media (max-width: 767px) {
   .app-header__menu-btn { display: flex; }
-  .app-header__logo {
-    width: auto;
-    border-right: none;
-    padding: 0 var(--tv-space-2);
-  }
+  .app-header__logo { width: auto; border-right: none; padding: 0 var(--tv-space-2); }
   .app-header__collapse-btn { display: none; }
   .app-header__balance { display: none; }
-  .app-header__user-name { display: none; }
+  .app-header__user-role { display: none; }
   .app-header__right { gap: var(--tv-space-2); padding: 0 var(--tv-space-3); }
   .app-header__search { padding: 0 var(--tv-space-3); }
 }

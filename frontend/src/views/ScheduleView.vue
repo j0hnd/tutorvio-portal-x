@@ -1,4 +1,7 @@
 <template>
-  <div class="placeholder"><h1>Schedule — Coming in Phase 3</h1></div>
+  <ComingSoon title="Schedule" :phase="3" />
 </template>
-<script setup lang="ts"></script>
+
+<script setup lang="ts">
+import ComingSoon from '@/components/ui/ComingSoon.vue'
+</script>
