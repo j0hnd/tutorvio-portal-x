@@ -30,7 +30,7 @@
           <span class="tp-role-pill">Teacher</span>
           <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
           <TVBadge
-            v-if="profile.internalStatus"
+            v-if="profile.internalStatus && profile.internalStatus !== 'ACTIVE'"
             :label="internalStatusLabel"
             :variant="internalStatusVariant"
           />
@@ -54,27 +54,23 @@
         <div class="tp-row-2">
           <section class="tp-section">
             <h2 class="tp-section__title">Personal Details</h2>
-            <div class="tp-detail">
-              <span class="tp-detail__label">Full Name</span>
-              <span class="tp-detail__value">{{ fullName }}</span>
-            </div>
-            <div class="tp-detail">
-              <span class="tp-detail__label">Email Address</span>
-              <span class="tp-detail__value">{{ user.email }}</span>
-            </div>
-            <div class="tp-detail">
-              <span class="tp-detail__label">Timezone</span>
-              <span class="tp-detail__value">{{ user.timezone }}</span>
-            </div>
-            <div class="tp-detail">
-              <span class="tp-detail__label">Member Since</span>
-              <span class="tp-detail__value">{{ fmt(user.createdAt) }}</span>
-            </div>
-            <div class="tp-detail">
-              <span class="tp-detail__label">Status</span>
-              <span class="tp-status-inline" :class="user.isActive ? 'tp-status-inline--active' : 'tp-status-inline--inactive'">
-                {{ user.isActive ? 'Active' : 'Inactive' }}
-              </span>
+            <div class="tp-grid-2">
+              <div class="tp-detail">
+                <span class="tp-detail__label">Full Name</span>
+                <span class="tp-detail__value">{{ fullName }}</span>
+              </div>
+              <div class="tp-detail">
+                <span class="tp-detail__label">Email Address</span>
+                <span class="tp-detail__value">{{ user.email }}</span>
+              </div>
+              <div class="tp-detail">
+                <span class="tp-detail__label">Timezone</span>
+                <span class="tp-detail__value">{{ user.timezone }}</span>
+              </div>
+              <div class="tp-detail">
+                <span class="tp-detail__label">Member Since</span>
+                <span class="tp-detail__value">{{ fmt(user.createdAt) }}</span>
+              </div>
             </div>
           </section>
 
@@ -412,12 +408,12 @@ function fmt(iso: string): string {
 .tp-layout__main { display: flex; flex-direction: column; gap: var(--tv-space-4); }
 .tp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); position: sticky; top: calc(var(--tv-header-height) + var(--tv-space-4)); }
 
-/* Row of two sections */
+/* Row of two sections — stretch so both cards share the same height */
 .tp-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--tv-space-4);
-  align-items: start;
+  align-items: stretch;
 }
 
 /* Sections */
