@@ -19,7 +19,7 @@
       :view-as-role="viewAsRole"
       @navigate="handleNavigate"
       @mobile-close="mobileOpen = false"
-      @role-change="viewAsRole = $event as UserRole"
+      @role-change="handleRoleChange"
     />
 
     <main class="app-main" id="main-content" tabindex="-1">
@@ -68,6 +68,11 @@ const balance = computed(() => auth.isStudent ? 'Kč 0' : 'Kč1,250')
 function handleNavigate(path: string): void {
   mobileOpen.value = false
   router.push(path)
+}
+
+function handleRoleChange(role: string): void {
+  viewAsRole.value = role as UserRole
+  router.push('/dashboard')
 }
 
 async function handleLogout(): Promise<void> {
