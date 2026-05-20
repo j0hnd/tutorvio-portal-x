@@ -345,29 +345,39 @@ onMounted(() => {
   height: 30px;
   border-radius: var(--tv-radius-sm);
   border: 1px solid transparent;
-  background: transparent;
   cursor: pointer;
-  transition: background-color var(--tv-transition-fast), border-color var(--tv-transition-fast), color var(--tv-transition-fast);
-  color: var(--tv-text-muted);
+  transition: background-color var(--tv-transition-fast), border-color var(--tv-transition-fast), filter var(--tv-transition-fast);
   flex-shrink: 0;
 }
 
-.icon-btn--edit:hover {
+.icon-btn--edit {
   background: var(--tv-primary-soft);
   border-color: var(--tv-primary-muted);
   color: var(--tv-primary);
 }
 
-.icon-btn--deactivate:hover {
+.icon-btn--edit:hover {
+  filter: brightness(0.92);
+}
+
+.icon-btn--deactivate {
   background: hsl(0, 72%, 96%);
   border-color: hsl(0, 72%, 85%);
   color: var(--tv-danger);
 }
 
-.icon-btn--activate:hover {
+.icon-btn--deactivate:hover {
+  filter: brightness(0.92);
+}
+
+.icon-btn--activate {
   background: hsl(142, 70%, 94%);
   border-color: hsl(142, 70%, 75%);
   color: var(--tv-success);
+}
+
+.icon-btn--activate:hover {
+  filter: brightness(0.92);
 }
 
 .tv-dt-muted {
