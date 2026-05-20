@@ -127,6 +127,47 @@ class DashboardApiTest extends TestCase
         $this->assertStringNotContainsString('Other Student Material', json_encode($payload));
     }
 
+    public function test_student_dashboard_does_not_expose_teacher_or_admin_sections(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $student->studentProfile()->create([
+            'assigned_teacher_id' => $teacher->id,
+            'course' => 'Student Course',
+            'teacher_notes' => 'Student-visible note.',
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDay()->addHour(),
+            'status' => 'scheduled',
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'student')
+            ->assertJsonPath('data.sections', ['classes', 'materials', 'subscription'])
+            ->assertJsonMissingPath('data.summary.operations')
+            ->assertJsonMissingPath('data.summary.users')
+            ->assertJsonMissingPath('data.summary.students')
+            ->assertJsonMissingPath('data.summary.teachers')
+            ->assertJsonMissingPath('data.summary.enrollments')
+            ->assertJsonMissingPath('data.summary.payment_package_alerts')
+            ->assertJsonMissingPath('data.summary.quick_links')
+            ->assertJsonMissingPath('data.summary.todays_schedule')
+            ->assertJsonMissingPath('data.summary.upcoming_classes')
+            ->assertJsonMissingPath('data.summary.assigned_student_profiles')
+            ->assertJsonMissingPath('data.summary.lesson_documentation_shortcuts');
+    }
+
     public function test_teacher_dashboard_only_returns_teacher_scoped_summary(): void
     {
         $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -229,6 +270,50 @@ class DashboardApiTest extends TestCase
         $this->assertStringNotContainsString('Should not be visible because student is not assigned.', $encoded);
     }
 
+    public function test_teacher_dashboard_does_not_expose_admin_summary_data(): void
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $student->studentProfile()->create([
+            'assigned_teacher_id' => $teacher->id,
+            'teacher_notes' => null,
+        ]);
+
+        $unassignedStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $unassignedStudent->assignRole('student');
+        $unassignedStudent->studentProfile()->create([
+            'teacher_notes' => null,
+        ]);
+
+        Subscription::create([
+            'user_id' => $unassignedStudent->id,
+            'plan_name' => 'Admin Only Billing Context',
+            'status' => 'expired',
+            'starts_at' => now()->subMonths(2),
+            'ends_at' => now()->subDay(),
+        ]);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'teacher')
+            ->assertJsonPath('data.sections', ['students', 'classes'])
+            ->assertJsonMissingPath('data.summary.operations')
+            ->assertJsonMissingPath('data.summary.users')
+            ->assertJsonMissingPath('data.summary.teachers')
+            ->assertJsonMissingPath('data.summary.enrollments')
+            ->assertJsonMissingPath('data.summary.payment_package_alerts')
+            ->assertJsonMissingPath('data.summary.operational_announcements')
+            ->assertJsonMissingPath('data.summary.quick_links');
+
+        $payload = $this->getJson('/api/v1/dashboard')->json();
+        $this->assertStringNotContainsString('Admin Only Billing Context', json_encode($payload));
+    }
+
     public function test_staff_dashboard_only_includes_permitted_sections(): void
     {
         $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -294,6 +379,44 @@ class DashboardApiTest extends TestCase
             ->assertJsonMissingPath('data.summary.students')
             ->assertJsonMissingPath('data.summary.classes')
             ->assertJsonMissingPath('data.summary.dashboard_widgets');
+    }
+
+    public function test_staff_dashboard_excludes_sections_without_matching_permissions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $staff->givePermissionTo('users.view');
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDay()->addHour(),
+            'status' => 'scheduled',
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'staff')
+            ->assertJsonPath('data.summary.users.total', 3)
+            ->assertJsonPath('data.summary.dashboard_widgets.0.key', 'users')
+            ->assertJsonPath('data.sections', ['users'])
+            ->assertJsonMissingPath('data.summary.students')
+            ->assertJsonMissingPath('data.summary.classes')
+            ->assertJsonMissingPath('data.summary.assigned_tasks')
+            ->assertJsonMissingPath('data.summary.operational_notices')
+            ->assertJsonMissingPath('data.summary.operations')
+            ->assertJsonMissingPath('data.summary.enrollments')
+            ->assertJsonMissingPath('data.summary.payment_package_alerts')
+            ->assertJsonMissingPath('data.summary.quick_links');
     }
 
     public function test_admin_dashboard_returns_admin_summary(): void
