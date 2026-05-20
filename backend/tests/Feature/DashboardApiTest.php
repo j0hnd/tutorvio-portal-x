@@ -138,11 +138,40 @@ class DashboardApiTest extends TestCase
 
         $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $student->assignRole('student');
-        $student->studentProfile()->create(['assigned_teacher_id' => $teacher->id]);
+        $student->studentProfile()->create([
+            'assigned_teacher_id' => $teacher->id,
+            'course' => 'IELTS Prep',
+            'english_level' => 'B1',
+            'current_level' => 'B1.2',
+            'teacher_notes' => null,
+            'internal_notes' => 'Admin-only billing context.',
+        ]);
 
         $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $otherStudent->assignRole('student');
-        $otherStudent->studentProfile()->create(['assigned_teacher_id' => $otherTeacher->id]);
+        $otherStudent->studentProfile()->create([
+            'assigned_teacher_id' => $otherTeacher->id,
+            'course' => 'Other Course',
+            'teacher_notes' => 'Other teacher note.',
+            'internal_notes' => 'Other hidden context.',
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->setTime(10, 0),
+            'end_time' => now()->setTime(11, 0),
+            'status' => 'scheduled',
+            'notes' => 'Today teacher preparation note.',
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay()->setTime(10, 0),
+            'end_time' => now()->addDay()->setTime(11, 0),
+            'status' => 'scheduled',
+        ]);
 
         Lesson::create([
             'student_id' => $student->id,
@@ -150,6 +179,15 @@ class DashboardApiTest extends TestCase
             'start_time' => now()->subDay(),
             'end_time' => now()->subDay()->addHour(),
             'status' => 'completed',
+        ]);
+
+        Lesson::create([
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay()->setTime(14, 0),
+            'end_time' => now()->addDay()->setTime(15, 0),
+            'status' => 'scheduled',
+            'notes' => 'Should not be visible because student is not assigned.',
         ]);
 
         Lesson::create([
@@ -166,9 +204,30 @@ class DashboardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.role', 'teacher')
             ->assertJsonPath('data.summary.students.assigned', 1)
-            ->assertJsonPath('data.summary.classes.total', 1)
+            ->assertJsonPath('data.summary.classes.total', 3)
+            ->assertJsonCount(1, 'data.summary.todays_schedule')
+            ->assertJsonCount(1, 'data.summary.upcoming_classes')
+            ->assertJsonCount(1, 'data.summary.students_needing_notes_or_follow_up')
+            ->assertJsonCount(1, 'data.summary.assigned_student_profiles')
+            ->assertJsonCount(1, 'data.summary.lesson_documentation_shortcuts')
+            ->assertJsonPath('data.summary.todays_schedule.0.student.id', $student->id)
+            ->assertJsonPath('data.summary.upcoming_classes.0.student.id', $student->id)
+            ->assertJsonPath('data.summary.students_needing_notes_or_follow_up.0.student.id', $student->id)
+            ->assertJsonPath('data.summary.assigned_student_profiles.0.student.id', $student->id)
+            ->assertJsonPath('data.summary.recent_lesson_submissions', [])
+            ->assertJsonPath('data.summary.admin_announcements', [])
             ->assertJsonMissingPath('data.summary.users')
             ->assertJsonMissingPath('data.summary.materials');
+
+        $payload = $this->getJson('/api/v1/dashboard')->json();
+        $encoded = json_encode($payload);
+
+        $this->assertStringContainsString('IELTS Prep', $encoded);
+        $this->assertStringNotContainsString('Other Course', $encoded);
+        $this->assertStringNotContainsString('Other teacher note.', $encoded);
+        $this->assertStringNotContainsString('Other hidden context.', $encoded);
+        $this->assertStringNotContainsString('Admin-only billing context.', $encoded);
+        $this->assertStringNotContainsString('Should not be visible because student is not assigned.', $encoded);
     }
 
     public function test_staff_dashboard_only_includes_permitted_sections(): void

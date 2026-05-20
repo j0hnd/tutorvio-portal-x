@@ -119,11 +119,83 @@ class DashboardService
      */
     private function teacherSummary(User $user): array
     {
+        $assignedStudentIds = StudentProfile::where('assigned_teacher_id', $user->id)
+            ->pluck('user_id');
+
+        $teacherLessons = Lesson::query()
+            ->where('teacher_id', $user->id)
+            ->whereIn('student_id', $assignedStudentIds);
+
+        $todayStart = now()->startOfDay();
+        $todayEnd = now()->endOfDay();
+
+        $todaysSchedule = (clone $teacherLessons)
+            ->with('student.studentProfile')
+            ->whereBetween('start_time', [$todayStart, $todayEnd])
+            ->orderBy('start_time')
+            ->get();
+
+        $upcomingClasses = (clone $teacherLessons)
+            ->with('student.studentProfile')
+            ->where('start_time', '>', $todayEnd)
+            ->orderBy('start_time')
+            ->limit(10)
+            ->get();
+
+        $studentsNeedingNotes = StudentProfile::query()
+            ->with('user:id,name,email,status')
+            ->where('assigned_teacher_id', $user->id)
+            ->where(function (Builder $query) {
+                $query->whereNull('teacher_notes')
+                    ->orWhere('teacher_notes', '');
+            })
+            ->orderBy('id')
+            ->limit(10)
+            ->get();
+
+        $assignedStudents = StudentProfile::query()
+            ->with('user:id,name,email,status')
+            ->where('assigned_teacher_id', $user->id)
+            ->orderBy('id')
+            ->limit(20)
+            ->get();
+
+        $documentationShortcuts = (clone $teacherLessons)
+            ->with('student.studentProfile')
+            ->where('status', 'completed')
+            ->orderByDesc('start_time')
+            ->limit(10)
+            ->get();
+
         return [
             'students' => [
-                'assigned' => StudentProfile::where('assigned_teacher_id', $user->id)->count(),
+                'assigned' => $assignedStudentIds->count(),
             ],
-            'classes' => $this->classSummary(Lesson::where('teacher_id', $user->id)),
+            'classes' => $this->classSummary($teacherLessons),
+            'todays_schedule' => $todaysSchedule
+                ->map(fn (Lesson $lesson) => $this->teacherLessonPayload($lesson))
+                ->all(),
+            'upcoming_classes' => $upcomingClasses
+                ->map(fn (Lesson $lesson) => $this->teacherLessonPayload($lesson))
+                ->all(),
+            'students_needing_notes_or_follow_up' => $studentsNeedingNotes
+                ->map(fn (StudentProfile $profile) => $this->teacherStudentProfilePayload($profile))
+                ->all(),
+            // TODO: Return teacher-visible lesson submissions when a submissions/homework table exists.
+            'recent_lesson_submissions' => [],
+            // TODO: Return teacher-targeted admin announcements when an announcements table exists.
+            'admin_announcements' => [],
+            'assigned_student_profiles' => $assignedStudents
+                ->map(fn (StudentProfile $profile) => $this->teacherStudentProfilePayload($profile))
+                ->all(),
+            // TODO: Replace with lesson documentation records when a dedicated documentation table exists.
+            'lesson_documentation_shortcuts' => $documentationShortcuts
+                ->map(fn (Lesson $lesson) => [
+                    ...$this->teacherLessonPayload($lesson),
+                    'documentation_url' => null,
+                    'needs_documentation' => blank($lesson->notes),
+                ])
+                ->all(),
         ];
     }
 
@@ -248,6 +320,58 @@ class DashboardService
                 'name' => $lesson->teacher->name,
             ] : null,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function teacherLessonPayload(Lesson $lesson): array
+    {
+        return [
+            'id' => $lesson->id,
+            'start_time' => $lesson->start_time,
+            'end_time' => $lesson->end_time,
+            'status' => $lesson->status,
+            'student' => $lesson->student ? [
+                'id' => $lesson->student->id,
+                'name' => $lesson->student->name,
+                'email' => $lesson->student->email,
+                'profile' => $lesson->student->studentProfile
+                    ? $this->teacherStudentProfilePayload($lesson->student->studentProfile, includeUser: false)
+                    : null,
+            ] : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function teacherStudentProfilePayload(StudentProfile $profile, bool $includeUser = true): array
+    {
+        $payload = [
+            'profile_id' => $profile->id,
+            'student_id' => $profile->user_id,
+            'course' => $profile->course,
+            'english_level' => $profile->english_level,
+            'current_level' => $profile->current_level,
+            'class_type' => $profile->class_type,
+            'start_date' => $profile->start_date,
+            'teacher_notes' => $profile->teacher_notes,
+            'preferences' => $profile->preferences,
+            'goals' => $profile->goals,
+            'learning_concerns' => $profile->learning_concerns,
+        ];
+
+        if ($includeUser) {
+            $payload['student'] = $profile->user ? [
+                'id' => $profile->user->id,
+                'name' => $profile->user->name,
+                'email' => $profile->user->email,
+                'status' => $profile->user->status,
+            ] : null;
+        }
+
+        return $payload;
     }
 
     /**
