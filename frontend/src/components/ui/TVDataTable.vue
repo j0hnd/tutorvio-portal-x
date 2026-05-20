@@ -9,7 +9,7 @@
 
     <!-- Table -->
     <template v-else>
-      <div v-if="sortedRows.length" class="tv-dt__wrap">
+      <div v-if="hasRows" class="tv-dt__wrap">
         <div class="tv-dt__scroll">
           <table class="tv-dt__table" :aria-label="ariaLabel">
             <thead>
@@ -96,8 +96,8 @@
           <p class="tv-dt__count" aria-live="polite">
             Showing
             <strong>{{ fromItem }}</strong>–<strong>{{ toItem }}</strong>
-            of <strong>{{ sortedRows.length }}</strong>
-            {{ sortedRows.length === 1 ? 'entry' : 'entries' }}
+            of <strong>{{ effectiveTotalRows }}</strong>
+            {{ effectiveTotalRows === 1 ? 'entry' : 'entries' }}
           </p>
 
           <div class="tv-dt__pagination" role="navigation" aria-label="Table pagination">
@@ -210,6 +210,13 @@ export interface DataTableColumn {
   stopClick?: boolean
 }
 
+export interface DataTableFetchParams {
+  page: number
+  pageSize: number
+  sortKey: string | null
+  sortDir: 'asc' | 'desc'
+}
+
 type Row = Record<string, unknown>
 type SortDir = 'asc' | 'desc'
 
@@ -226,6 +233,12 @@ const props = withDefaults(
     ariaLabel?: string
     emptyTitle?: string
     emptySubtitle?: string
+    /** Enable server-side mode. The component emits `fetch` on every
+     *  page / sort / page-size change instead of processing rows itself. */
+    serverSide?: boolean
+    /** Total record count from the server — required in server-side mode
+     *  so the component can calculate total pages correctly. */
+    totalRows?: number
   }>(),
   {
     loading: false,
@@ -237,11 +250,16 @@ const props = withDefaults(
     ariaLabel: 'Data table',
     emptyTitle: 'No results found',
     emptySubtitle: 'Try adjusting your search or filters',
+    serverSide: false,
+    totalRows: 0,
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'row-click': [row: Row]
+  /** Fired on mount and whenever page / sort / page-size changes.
+   *  Only active when serverSide === true. */
+  'fetch': [params: DataTableFetchParams]
 }>()
 
 /* ── Unique ID for labels ── */
@@ -268,8 +286,9 @@ function ariaSortAttr(col: DataTableColumn): 'ascending' | 'descending' | 'none'
   return sortDir.value === 'asc' ? 'ascending' : 'descending'
 }
 
-/* ── Sort rows ── */
+/* ── Sort rows (client-side only) ── */
 const sortedRows = computed<Row[]>(() => {
+  if (props.serverSide) return props.rows
   if (!sortKey.value) return props.rows
   const key = sortKey.value
   const dir = sortDir.value === 'asc' ? 1 : -1
@@ -286,9 +305,12 @@ const sortedRows = computed<Row[]>(() => {
 const currentPage = ref(1)
 const localPageSize = ref(props.pageSize)
 
+/* In client mode reset to page 1 when the row set changes (e.g. filter applied).
+   In server mode the parent controls rows, so we must NOT reset — the parent
+   already updates rows in response to the fetch event. */
 watch(
   () => props.rows,
-  () => { currentPage.value = 1 },
+  () => { if (!props.serverSide) currentPage.value = 1 },
 )
 
 function onPageSizeChange(e: Event): void {
@@ -296,19 +318,49 @@ function onPageSizeChange(e: Event): void {
   currentPage.value = 1
 }
 
+/* ── Server-side fetch emitter ── */
+watch(
+  [currentPage, localPageSize, sortKey, sortDir],
+  () => {
+    if (!props.serverSide) return
+    emit('fetch', {
+      page: currentPage.value,
+      pageSize: localPageSize.value,
+      sortKey: sortKey.value,
+      sortDir: sortDir.value,
+    })
+  },
+  { immediate: true },
+)
+
+/* ── Total count used for pagination math ── */
+const effectiveTotalRows = computed(() =>
+  props.serverSide ? props.totalRows : sortedRows.value.length,
+)
+
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil(sortedRows.value.length / localPageSize.value)),
+  Math.max(1, Math.ceil(effectiveTotalRows.value / localPageSize.value)),
 )
 
-const fromItem = computed(() => (currentPage.value - 1) * localPageSize.value + 1)
+const fromItem = computed(() =>
+  effectiveTotalRows.value === 0 ? 0 : (currentPage.value - 1) * localPageSize.value + 1,
+)
+
 const toItem = computed(() =>
-  Math.min(currentPage.value * localPageSize.value, sortedRows.value.length),
+  Math.min(currentPage.value * localPageSize.value, effectiveTotalRows.value),
 )
 
+/* ── Paginated rows (client-side only; server already returns one page) ── */
 const paginatedRows = computed(() => {
+  if (props.serverSide) return props.rows
   const start = (currentPage.value - 1) * localPageSize.value
   return sortedRows.value.slice(start, start + localPageSize.value)
 })
+
+/* ── Whether to show table vs empty state ── */
+const hasRows = computed(() =>
+  props.serverSide ? props.totalRows > 0 : sortedRows.value.length > 0,
+)
 
 /* Page number buttons with ellipsis */
 const pageNumbers = computed<(number | '...')[]>(() => {
