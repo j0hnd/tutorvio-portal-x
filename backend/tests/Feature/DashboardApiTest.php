@@ -259,14 +259,94 @@ class DashboardApiTest extends TestCase
 
         $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $student->assignRole('student');
+        $student->studentProfile()->create([
+            'teacher_notes' => null,
+        ]);
+
+        $assignedStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $assignedStudent->assignRole('student');
+
+        $invitedStudent = User::factory()->create(['status' => User::STATUS_INVITED]);
+        $invitedStudent->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $assignedStudent->studentProfile()->create([
+            'assigned_teacher_id' => $teacher->id,
+            'teacher_notes' => 'Placement complete.',
+        ]);
+
+        $todaysLesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->setTime(9, 0),
+            'end_time' => now()->setTime(10, 0),
+            'status' => 'scheduled',
+        ]);
+
+        $todaysLesson->attendances()->create([
+            'student_id' => $student->id,
+            'status' => 'absent',
+        ]);
+
+        Lesson::create([
+            'student_id' => $assignedStudent->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay()->setTime(11, 0),
+            'end_time' => now()->addDay()->setTime(12, 0),
+            'status' => 'no_show',
+        ]);
+
+        Subscription::create([
+            'user_id' => $student->id,
+            'plan_name' => 'Starter',
+            'status' => 'active',
+            'starts_at' => now()->subMonth(),
+            'ends_at' => now()->addDays(3),
+        ]);
+
+        Subscription::create([
+            'user_id' => $assignedStudent->id,
+            'plan_name' => 'Expired',
+            'status' => 'expired',
+            'starts_at' => now()->subMonths(2),
+            'ends_at' => now()->subDay(),
+        ]);
 
         Sanctum::actingAs($admin);
 
         $this->getJson('/api/v1/dashboard')
             ->assertOk()
             ->assertJsonPath('data.role', 'admin')
-            ->assertJsonPath('data.summary.users.total', 2)
-            ->assertJsonPath('data.summary.students.total', 1)
+            ->assertJsonPath('data.summary.operations.active_students', 2)
+            ->assertJsonPath('data.summary.operations.active_teachers', 1)
+            ->assertJsonPath('data.summary.operations.todays_classes', 1)
+            ->assertJsonPath('data.summary.operations.missed_classes', 2)
+            ->assertJsonPath('data.summary.operations.pending_teacher_notes', 1)
+            ->assertJsonPath('data.summary.users.total', 5)
+            ->assertJsonPath('data.summary.students.total', 3)
+            ->assertJsonPath('data.summary.students.active', 2)
+            ->assertJsonPath('data.summary.teachers.active', 1)
+            ->assertJsonPath('data.summary.enrollments.total_students', 3)
+            ->assertJsonPath('data.summary.enrollments.active_students', 2)
+            ->assertJsonPath('data.summary.enrollments.invited_students', 1)
+            ->assertJsonPath('data.summary.enrollments.assigned_students', 1)
+            ->assertJsonPath('data.summary.enrollments.unassigned_students', 2)
+            ->assertJsonPath('data.summary.payment_package_alerts.expired_subscriptions', 1)
+            ->assertJsonPath('data.summary.payment_package_alerts.expiring_within_7_days', 1)
+            ->assertJsonPath('data.summary.payment_package_alerts.inactive_subscriptions', 1)
+            ->assertJsonPath('data.summary.operational_announcements', [])
+            ->assertJsonPath('data.summary.quick_links', [
+                'user_management',
+                'student_management',
+                'teacher_management',
+                'class_management',
+                'enrollments',
+                'payments',
+                'packages',
+                'announcements',
+            ])
             ->assertJsonPath('data.sections', ['users', 'students', 'classes']);
     }
 }

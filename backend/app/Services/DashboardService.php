@@ -63,7 +63,40 @@ class DashboardService
      */
     private function adminSummary(): array
     {
+        $todayStart = now()->startOfDay();
+        $todayEnd = now()->endOfDay();
+        $paymentAlertWindowEnd = now()->addDays(7)->endOfDay();
+
+        $activeStudents = User::role('student')
+            ->where('status', User::STATUS_ACTIVE)
+            ->count();
+        $activeTeachers = User::role('teacher')
+            ->where('status', User::STATUS_ACTIVE)
+            ->count();
+        $todaysClasses = Lesson::whereBetween('start_time', [$todayStart, $todayEnd])->count();
+        $missedClasses = Lesson::query()
+            ->where(function (Builder $query) {
+                $query->whereIn('status', ['missed', 'no_show'])
+                    ->orWhereHas('attendances', fn (Builder $query) => $query->whereIn('status', ['absent', 'no_show']));
+            })
+            ->count();
+        $pendingTeacherNotes = StudentProfile::query()
+            ->whereHas('user', fn (Builder $query) => $query->where('status', User::STATUS_ACTIVE))
+            ->where(function (Builder $query) {
+                $query->whereNull('teacher_notes')
+                    ->orWhere('teacher_notes', '');
+            })
+            ->count();
+        $assignedStudents = StudentProfile::whereNotNull('assigned_teacher_id')->count();
+
         return [
+            'operations' => [
+                'active_students' => $activeStudents,
+                'active_teachers' => $activeTeachers,
+                'todays_classes' => $todaysClasses,
+                'missed_classes' => $missedClasses,
+                'pending_teacher_notes' => $pendingTeacherNotes,
+            ],
             'users' => [
                 'total' => User::count(),
                 'active' => User::where('status', User::STATUS_ACTIVE)->count(),
@@ -73,12 +106,55 @@ class DashboardService
             ],
             'students' => [
                 'total' => User::role('student')->count(),
-                'assigned' => StudentProfile::whereNotNull('assigned_teacher_id')->count(),
+                'active' => $activeStudents,
+                'assigned' => $assignedStudents,
                 'unassigned' => User::role('student')
                     ->whereDoesntHave('studentProfile', fn ($query) => $query->whereNotNull('assigned_teacher_id'))
                     ->count(),
             ],
+            'teachers' => [
+                'total' => User::role('teacher')->count(),
+                'active' => $activeTeachers,
+            ],
             'classes' => $this->classSummary(Lesson::query()),
+            'enrollments' => [
+                'total_students' => User::role('student')->count(),
+                'active_students' => $activeStudents,
+                'invited_students' => User::role('student')->where('status', User::STATUS_INVITED)->count(),
+                'inactive_students' => User::role('student')->where('status', User::STATUS_INACTIVE)->count(),
+                'suspended_students' => User::role('student')->where('status', User::STATUS_SUSPENDED)->count(),
+                'assigned_students' => $assignedStudents,
+                'unassigned_students' => User::role('student')
+                    ->whereDoesntHave('studentProfile', fn ($query) => $query->whereNotNull('assigned_teacher_id'))
+                    ->count(),
+                'new_this_month' => User::role('student')
+                    ->where('created_at', '>=', now()->startOfMonth())
+                    ->count(),
+            ],
+            'payment_package_alerts' => [
+                'expired_subscriptions' => Subscription::whereNotNull('ends_at')
+                    ->where('ends_at', '<', now())
+                    ->count(),
+                'expiring_within_7_days' => Subscription::where('status', 'active')
+                    ->whereBetween('ends_at', [now(), $paymentAlertWindowEnd])
+                    ->count(),
+                'inactive_subscriptions' => Subscription::where('status', '!=', 'active')->count(),
+                // TODO: Include unpaid invoices/package balances when billing tables exist.
+                'unpaid_invoices' => 0,
+                'low_lesson_balance' => 0,
+            ],
+            // TODO: Return persisted operational announcements when an announcements table exists.
+            'operational_announcements' => [],
+            'quick_links' => [
+                'user_management',
+                'student_management',
+                'teacher_management',
+                'class_management',
+                'enrollments',
+                'payments',
+                'packages',
+                'announcements',
+            ],
         ];
     }
 
