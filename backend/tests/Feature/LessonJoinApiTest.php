@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Lesson;
+use App\Models\LessonJoinAccessLog;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +63,15 @@ class LessonJoinApiTest extends TestCase
             ->assertJsonPath('data.ends_at', '2026-06-01T10:00:00Z')
             ->assertJsonPath('data.available_until', '2026-06-01T10:15:00Z')
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
+
+        $this->assertDatabaseHas('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+            'user_id' => $this->student->id,
+            'user_role' => 'student',
+            'access_result' => LessonJoinAccessLog::RESULT_ALLOWED,
+            'reason' => null,
+            'ip_address' => '127.0.0.1',
+        ]);
     }
 
     public function test_assigned_teacher_can_retrieve_join_link_when_available(): void
@@ -113,6 +123,17 @@ class LessonJoinApiTest extends TestCase
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', json_encode($response->json('data')));
         $this->assertStringNotContainsString('meeting_metadata', json_encode($response->json('data')));
+        $this->assertDatabaseHas('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+            'user_id' => $this->student->id,
+            'user_role' => 'student',
+            'access_result' => LessonJoinAccessLog::RESULT_NOT_YET_AVAILABLE,
+            'reason' => 'not_yet_available',
+        ]);
+        $this->assertDatabaseMissing('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+            'reason' => 'https://meet.example.com/secure-lesson',
+        ]);
     }
 
     public function test_unassigned_student_teacher_and_staff_cannot_access_unrelated_lesson_link(): void
@@ -138,6 +159,12 @@ class LessonJoinApiTest extends TestCase
                 ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
 
             $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
+            $this->assertDatabaseHas('lesson_join_access_logs', [
+                'lesson_id' => $lesson->id,
+                'user_id' => $user->id,
+                'access_result' => LessonJoinAccessLog::RESULT_DENIED,
+                'reason' => 'unauthorized',
+            ]);
         }
     }
 
@@ -211,6 +238,16 @@ class LessonJoinApiTest extends TestCase
                 ->assertJsonPath('data.meeting_link', null);
 
             $this->assertStringNotContainsString('https://meet.example.com/'.$status, $response->getContent());
+            $this->assertDatabaseHas('lesson_join_access_logs', [
+                'lesson_id' => $lesson->id,
+                'user_id' => $this->student->id,
+                'access_result' => match ($status) {
+                    Lesson::STATUS_CANCELLED => LessonJoinAccessLog::RESULT_CANCELLED,
+                    Lesson::STATUS_RESCHEDULED => LessonJoinAccessLog::RESULT_RESCHEDULED,
+                    default => LessonJoinAccessLog::RESULT_DENIED,
+                },
+                'reason' => $reason,
+            ]);
         }
     }
 

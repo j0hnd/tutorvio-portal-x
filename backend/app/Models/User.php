@@ -79,6 +79,11 @@ class User extends Authenticatable
         return $this->hasMany(UserStatusHistory::class);
     }
 
+    public function lessonJoinAccessLogs(): HasMany
+    {
+        return $this->hasMany(LessonJoinAccessLog::class);
+    }
+
     public function createdUsers(): HasMany
     {
         return $this->hasMany(self::class, 'created_by');

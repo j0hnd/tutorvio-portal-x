@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
+use App\Models\LessonJoinAccessLog;
+use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +14,11 @@ class LessonJoinController extends Controller
 {
     public function __invoke(Request $request, Lesson $lesson): JsonResponse
     {
-        if (! $lesson->userCanAccessMeeting($request->user())) {
+        $user = $request->user();
+
+        if (! $lesson->userCanAccessMeeting($user)) {
+            $this->logAccessAttempt($request, $lesson, $user, LessonJoinAccessLog::RESULT_DENIED, 'unauthorized');
+
             return response()->json([
                 'message' => 'Unauthorized.',
                 'reason' => 'unauthorized',
@@ -22,6 +28,11 @@ class LessonJoinController extends Controller
         $availability = $lesson->joinAvailability();
         $canJoin = $availability['can_join'];
         $reason = $availability['reason'];
+        $accessResult = $canJoin
+            ? LessonJoinAccessLog::RESULT_ALLOWED
+            : $this->accessResultForReason($reason);
+
+        $this->logAccessAttempt($request, $lesson, $user, $accessResult, $reason);
 
         $data = [
             'lesson_id' => $lesson->id,
@@ -56,6 +67,31 @@ class LessonJoinController extends Controller
         }
 
         return response()->json(['data' => $data]);
+    }
+
+    private function logAccessAttempt(Request $request, Lesson $lesson, User $user, string $accessResult, ?string $reason): void
+    {
+        LessonJoinAccessLog::create([
+            'lesson_id' => $lesson->id,
+            'user_id' => $user->id,
+            'user_role' => $user->getRoleNames()->implode(',') ?: null,
+            'access_result' => $accessResult,
+            'reason' => $reason,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'accessed_at' => now(),
+        ]);
+    }
+
+    private function accessResultForReason(?string $reason): string
+    {
+        return match ($reason) {
+            'not_yet_available' => LessonJoinAccessLog::RESULT_NOT_YET_AVAILABLE,
+            'lesson_expired' => LessonJoinAccessLog::RESULT_EXPIRED,
+            'lesson_cancelled' => LessonJoinAccessLog::RESULT_CANCELLED,
+            'lesson_rescheduled' => LessonJoinAccessLog::RESULT_RESCHEDULED,
+            default => LessonJoinAccessLog::RESULT_DENIED,
+        };
     }
 
     private function timestamp(?CarbonInterface $date): ?string
