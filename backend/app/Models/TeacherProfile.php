@@ -45,4 +45,9 @@ class TeacherProfile extends Model
     {
         return $this->hasMany(Lesson::class, 'teacher_id', 'user_id');
     }
+
+    public function lessonRecords()
+    {
+        return $this->hasMany(LessonRecord::class, 'teacher_id', 'user_id');
+    }
 }

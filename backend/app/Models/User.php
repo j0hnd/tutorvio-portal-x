@@ -99,6 +99,31 @@ class User extends Authenticatable
         return $this->hasMany(ClassSchedule::class, 'teacher_id');
     }
 
+    public function studentLessonRecords(): HasMany
+    {
+        return $this->hasMany(LessonRecord::class, 'student_id');
+    }
+
+    public function teacherLessonRecords(): HasMany
+    {
+        return $this->hasMany(LessonRecord::class, 'teacher_id');
+    }
+
+    public function createdLessonRecords(): HasMany
+    {
+        return $this->hasMany(LessonRecord::class, 'created_by');
+    }
+
+    public function updatedLessonRecords(): HasMany
+    {
+        return $this->hasMany(LessonRecord::class, 'updated_by');
+    }
+
+    public function completedLessonRecords(): HasMany
+    {
+        return $this->hasMany(LessonRecord::class, 'completed_by');
+    }
+
     public function teacherAvailabilities(): HasMany
     {
         return $this->hasMany(TeacherAvailability::class, 'teacher_id');

@@ -48,6 +48,11 @@ class StudentProfile extends Model
         return $this->hasMany(Lesson::class, 'student_id', 'user_id');
     }
 
+    public function lessonRecords()
+    {
+        return $this->hasMany(LessonRecord::class, 'student_id', 'user_id');
+    }
+
     public function attendances()
     {
         return $this->hasMany(Attendance::class, 'student_id', 'user_id');
@@ -56,8 +61,8 @@ class StudentProfile extends Model
     public function materials()
     {
         return $this->belongsToMany(Material::class, 'student_materials', 'student_id', 'material_id')
-                    ->withPivot(['assigned_at', 'completed_at'])
-                    ->withTimestamps();
+            ->withPivot(['assigned_at', 'completed_at'])
+            ->withTimestamps();
     }
 
     public function subscriptions()
