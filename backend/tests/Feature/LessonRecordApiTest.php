@@ -94,6 +94,50 @@ class LessonRecordApiTest extends TestCase
             ]);
     }
 
+    public function test_lesson_type_validation_rejects_unknown_values(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->postJson('/api/v1/lesson-records', $this->validPayload([
+            'lesson_type' => 'grammar_drills',
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_type');
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_type' => 'grammar_drills',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_type');
+
+        $this->getJson('/api/v1/lesson-records?lesson_type=grammar_drills')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_type');
+    }
+
+    public function test_lesson_status_validation_rejects_unknown_values(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->postJson('/api/v1/lesson-records', $this->validPayload([
+            'lesson_status' => 'waiting_for_feedback',
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_status');
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_status' => 'waiting_for_feedback',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_status');
+
+        $this->getJson('/api/v1/lesson-records?lesson_status=waiting_for_feedback')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_status');
+    }
+
     public function test_admin_can_list_show_update_and_cancel_lesson_record(): void
     {
         Sanctum::actingAs($this->admin);
@@ -148,6 +192,33 @@ class LessonRecordApiTest extends TestCase
         $this->assertSame(LessonRecord::STATUS_COMPLETED, $lessonRecord->lesson_status);
         $this->assertNotNull($lessonRecord->completed_at);
         $this->assertSame($this->admin->id, $lessonRecord->completed_by);
+    }
+
+    public function test_lesson_notes_and_homework_are_saved_on_update(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $lessonRecord = $this->createLessonRecord([
+            'lesson_notes' => 'Initial note.',
+            'homework_details' => 'Initial homework.',
+        ]);
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_notes' => 'Reviewed past tense and pronunciation.',
+            'homework_instructions' => 'Write five sentences using past tense.',
+            'homework_due_date' => '2026-06-09',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lesson_notes', 'Reviewed past tense and pronunciation.')
+            ->assertJsonPath('data.homework_details', 'Write five sentences using past tense.')
+            ->assertJsonPath('data.homework_instructions', 'Write five sentences using past tense.')
+            ->assertJsonPath('data.homework_due_date', '2026-06-09');
+
+        $this->assertDatabaseHas('lesson_records', [
+            'id' => $lessonRecord->id,
+            'lesson_notes' => 'Reviewed past tense and pronunciation.',
+            'homework_details' => 'Write five sentences using past tense.',
+            'homework_due_date' => '2026-06-09 00:00:00',
+        ]);
     }
 
     public function test_lesson_record_can_link_existing_materials(): void
