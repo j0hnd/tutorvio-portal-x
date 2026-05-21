@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
+use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
@@ -47,6 +48,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}/profile', [ProfileController::class, 'showUser']);
         Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
+        Route::post('/lesson-records/{lessonRecord}/cancel', [LessonRecordController::class, 'cancel']);
+        Route::apiResource('lesson-records', LessonRecordController::class)
+            ->parameters(['lesson-records' => 'lessonRecord']);
 
         Route::prefix('admin')->middleware(['role:admin', 'permission:admin.access'])->group(function () {
             Route::get('/access', function () {
