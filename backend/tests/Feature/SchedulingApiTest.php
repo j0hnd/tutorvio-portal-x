@@ -243,6 +243,87 @@ class SchedulingApiTest extends TestCase
         ]);
     }
 
+    public function test_trial_booking_uses_thirty_minute_class_and_one_hour_teacher_block(): void
+    {
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+            'class_type' => 'trial',
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Trial class',
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:00:00+08:00',
+            'ends_at' => '2026-06-01T10:30:00+08:00',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.class_type', ClassSchedule::CLASS_TYPE_TRIAL)
+            ->assertJsonPath('data.ends_at', '2026-06-01T02:30:00.000000Z')
+            ->assertJsonPath('data.teacher_blocked_until', '2026-06-01T03:00:00.000000Z');
+
+        $this->assertDatabaseHas('class_schedules', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'class_type' => ClassSchedule::CLASS_TYPE_TRIAL,
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 02:30:00',
+            'teacher_blocked_until' => '2026-06-01 03:00:00',
+        ]);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'class_type' => ClassSchedule::CLASS_TYPE_REGULAR,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:30:00+08:00',
+            'ends_at' => '2026-06-01T11:30:00+08:00',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('starts_at');
+
+        $this->getJson('/api/v1/scheduling/calendar?view=day&date=2026-06-01&timezone=Asia/Manila')
+            ->assertOk()
+            ->assertJsonPath('data.booked_lessons.0.ends_at', '2026-06-01T10:30:00+08:00')
+            ->assertJsonPath('data.booked_lessons.0.teacher_blocked_until', '2026-06-01T11:00:00+08:00');
+    }
+
+    public function test_trial_booking_requires_availability_for_full_teacher_block(): void
+    {
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+            'class_type' => 'trial',
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '10:00',
+            'end_time' => '10:30',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:00:00+08:00',
+            'ends_at' => '2026-06-01T10:30:00+08:00',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('starts_at');
+    }
+
     public function test_student_booking_requires_assigned_teacher(): void
     {
         $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);

@@ -23,6 +23,7 @@ class LessonBookingController extends Controller
                 ClassSchedule::STATUS_SCHEDULED,
                 ClassSchedule::STATUS_PENDING_CONFIRMATION,
             ])],
+            'class_type' => ['sometimes', 'string', Rule::in(ClassSchedule::CLASS_TYPES)],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date'],

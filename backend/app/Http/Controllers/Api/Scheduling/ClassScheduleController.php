@@ -63,6 +63,7 @@ class ClassScheduleController extends Controller
             'title' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'status' => ['sometimes', 'string', Rule::in(ClassSchedule::STATUSES)],
+            'class_type' => ['sometimes', 'string', Rule::in(ClassSchedule::CLASS_TYPES)],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'start_date' => ['required', 'date'],
             'end_date' => ['required_without:occurrence_count', 'date'],
@@ -164,6 +165,7 @@ class ClassScheduleController extends Controller
             'meeting_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'notes' => ['sometimes', 'nullable', 'string'],
             'status' => ['sometimes', 'string', Rule::in(ClassSchedule::STATUSES)],
+            'class_type' => ['sometimes', 'string', Rule::in(ClassSchedule::CLASS_TYPES)],
         ]);
 
         return response()->json([
@@ -195,6 +197,7 @@ class ClassScheduleController extends Controller
             'title' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'status' => ['sometimes', 'string', Rule::in(ClassSchedule::STATUSES)],
+            'class_type' => ['sometimes', 'string', Rule::in(ClassSchedule::CLASS_TYPES)],
             'timezone' => [$creating ? 'required' : 'sometimes', 'string', Rule::in(timezone_identifiers_list())],
             'starts_at' => [$creating ? 'required' : 'sometimes', 'date'],
             'ends_at' => [$creating ? 'required' : 'sometimes', 'date'],

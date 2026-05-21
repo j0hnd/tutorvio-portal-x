@@ -26,6 +26,15 @@ class ClassSchedule extends Model
 
     public const STATUS_PENDING_CONFIRMATION = 'pending_confirmation';
 
+    public const CLASS_TYPE_REGULAR = 'regular';
+
+    public const CLASS_TYPE_TRIAL = 'trial';
+
+    public const CLASS_TYPES = [
+        self::CLASS_TYPE_REGULAR,
+        self::CLASS_TYPE_TRIAL,
+    ];
+
     public const STATUSES = [
         self::STATUS_SCHEDULED,
         self::STATUS_COMPLETED,
@@ -47,9 +56,11 @@ class ClassSchedule extends Model
         'title',
         'description',
         'status',
+        'class_type',
         'timezone',
         'starts_at',
         'ends_at',
+        'teacher_blocked_until',
         'meeting_url',
         'notes',
         'rescheduled_from_id',
@@ -65,6 +76,7 @@ class ClassSchedule extends Model
         return [
             'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
+            'teacher_blocked_until' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
         ];
     }

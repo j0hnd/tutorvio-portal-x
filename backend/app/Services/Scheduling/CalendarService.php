@@ -157,7 +157,7 @@ class CalendarService
         return ClassSchedule::query()
             ->with(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])
             ->where('starts_at', '<=', $endsAt->utc())
-            ->where('ends_at', '>=', $startsAt->utc())
+            ->whereRaw('COALESCE(teacher_blocked_until, ends_at) >= ?', [$startsAt->utc()])
             ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('teacher_id', $user->id))
             ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('student_id', $user->id))
             ->orderBy('starts_at')
@@ -168,10 +168,12 @@ class CalendarService
                 'title' => $schedule->title,
                 'description' => $schedule->description,
                 'status' => $schedule->status,
+                'class_type' => $schedule->class_type,
                 'student' => $this->userPayload($schedule->student),
                 'teacher' => $this->userPayload($schedule->teacher),
                 'starts_at' => $schedule->starts_at->setTimezone($timezone)->toIso8601String(),
                 'ends_at' => $schedule->ends_at->setTimezone($timezone)->toIso8601String(),
+                'teacher_blocked_until' => ($schedule->teacher_blocked_until ?? $schedule->ends_at)->setTimezone($timezone)->toIso8601String(),
                 'timezone' => $schedule->timezone,
                 'meeting_url' => $schedule->meeting_url,
                 'cancelled_at' => $schedule->cancelled_at?->setTimezone($timezone)->toIso8601String(),

@@ -22,6 +22,8 @@ class ClassScheduleService
         [$startsAtUtc, $endsAtUtc] = $this->utcRange($payload['starts_at'], $payload['ends_at'], $payload['timezone']);
         $teacher = User::findOrFail($payload['teacher_id']);
         $student = User::findOrFail($payload['student_id']);
+        $classType = $this->classType($payload, $student);
+        $teacherBlockedUntilUtc = $this->teacherBlockedUntil($classType, $startsAtUtc, $endsAtUtc, $payload['timezone']);
 
         if (! $student->hasRole('student')) {
             throw ValidationException::withMessages([
@@ -29,13 +31,21 @@ class ClassScheduleService
             ]);
         }
 
-        $this->availabilityService->assertTeacherCanBeBooked($teacher, $startsAtUtc, $endsAtUtc, $payload['timezone']);
+        $this->availabilityService->assertTeacherCanBeBooked(
+            $teacher,
+            $startsAtUtc,
+            $endsAtUtc,
+            $payload['timezone'],
+            teacherBlockedUntilUtc: $teacherBlockedUntilUtc
+        );
 
         return ClassSchedule::create([
             ...Arr::only($payload, ['student_id', 'teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes', 'rescheduled_from_id']),
             'status' => $payload['status'] ?? ClassSchedule::STATUS_SCHEDULED,
+            'class_type' => $classType,
             'starts_at' => $startsAtUtc,
             'ends_at' => $endsAtUtc,
+            'teacher_blocked_until' => $teacherBlockedUntilUtc,
             'created_by' => $actor->id,
             'updated_by' => $actor->id,
         ]);
@@ -63,25 +73,36 @@ class ClassScheduleService
         }
 
         $occurrences = $this->recurringOccurrences($payload);
+        $classType = $this->classType($payload, $student);
         $created = [];
         $skipped = [];
 
-        DB::transaction(function () use ($payload, $actor, $teacher, $student, $occurrences, &$created, &$skipped): void {
+        DB::transaction(function () use ($payload, $actor, $teacher, $student, $occurrences, $classType, &$created, &$skipped): void {
             foreach ($occurrences as $occurrence) {
+                $teacherBlockedUntilUtc = $this->teacherBlockedUntil(
+                    $classType,
+                    $occurrence['starts_at_utc'],
+                    $occurrence['ends_at_utc'],
+                    $payload['timezone']
+                );
+
                 try {
                     $this->availabilityService->assertTeacherCanBeBooked(
                         $teacher,
                         $occurrence['starts_at_utc'],
                         $occurrence['ends_at_utc'],
                         $payload['timezone'],
-                        student: $student
+                        student: $student,
+                        teacherBlockedUntilUtc: $teacherBlockedUntilUtc
                     );
 
                     $created[] = ClassSchedule::create([
                         ...Arr::only($payload, ['student_id', 'teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
                         'status' => $payload['status'] ?? ClassSchedule::STATUS_SCHEDULED,
+                        'class_type' => $classType,
                         'starts_at' => $occurrence['starts_at_utc'],
                         'ends_at' => $occurrence['ends_at_utc'],
+                        'teacher_blocked_until' => $teacherBlockedUntilUtc,
                         'created_by' => $actor->id,
                         'updated_by' => $actor->id,
                     ]);
@@ -130,22 +151,27 @@ class ClassScheduleService
 
         [$startsAtUtc, $endsAtUtc] = $this->utcRange($payload['starts_at'], $payload['ends_at'], $payload['timezone']);
         $teacher = User::findOrFail($payload['teacher_id']);
+        $classType = $this->classType($payload, $student);
+        $teacherBlockedUntilUtc = $this->teacherBlockedUntil($classType, $startsAtUtc, $endsAtUtc, $payload['timezone']);
 
-        return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc): ClassSchedule {
+        return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
             $this->availabilityService->assertTeacherCanBeBooked(
                 $teacher,
                 $startsAtUtc,
                 $endsAtUtc,
                 $payload['timezone'],
-                student: $student
+                student: $student,
+                teacherBlockedUntilUtc: $teacherBlockedUntilUtc
             );
 
             return ClassSchedule::create([
                 ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
                 'student_id' => $student->id,
                 'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
+                'class_type' => $classType,
                 'starts_at' => $startsAtUtc,
                 'ends_at' => $endsAtUtc,
+                'teacher_blocked_until' => $teacherBlockedUntilUtc,
                 'created_by' => $student->id,
                 'updated_by' => $student->id,
             ]);
@@ -165,6 +191,8 @@ class ClassScheduleService
 
         $teacher = User::findOrFail($payload['teacher_id'] ?? $schedule->teacher_id);
         $student = User::findOrFail($payload['student_id'] ?? $schedule->student_id);
+        $classType = $this->classType($payload, $student, $schedule->class_type);
+        $teacherBlockedUntilUtc = $this->teacherBlockedUntil($classType, $startsAtUtc, $endsAtUtc, $payload['timezone'] ?? $schedule->timezone);
 
         if (! $student->hasRole('student')) {
             throw ValidationException::withMessages([
@@ -172,16 +200,18 @@ class ClassScheduleService
             ]);
         }
 
-        $changesBookingWindow = array_intersect(array_keys($payload), ['student_id', 'teacher_id', 'timezone', 'starts_at', 'ends_at', 'status']) !== [];
+        $changesBookingWindow = array_intersect(array_keys($payload), ['student_id', 'teacher_id', 'class_type', 'timezone', 'starts_at', 'ends_at', 'status']) !== [];
 
         if ($changesBookingWindow && in_array($payload['status'] ?? $schedule->status, ClassSchedule::BOOKED_STATUSES, true)) {
-            $this->availabilityService->assertTeacherCanBeBooked($teacher, $startsAtUtc, $endsAtUtc, $payload['timezone'] ?? $schedule->timezone, $schedule->id, $student);
+            $this->availabilityService->assertTeacherCanBeBooked($teacher, $startsAtUtc, $endsAtUtc, $payload['timezone'] ?? $schedule->timezone, $schedule->id, $student, $teacherBlockedUntilUtc);
         }
 
         $schedule->fill([
             ...Arr::only($payload, ['student_id', 'teacher_id', 'title', 'description', 'status', 'timezone', 'meeting_url', 'notes']),
+            'class_type' => $classType,
             'starts_at' => $startsAtUtc,
             'ends_at' => $endsAtUtc,
+            'teacher_blocked_until' => $teacherBlockedUntilUtc,
             'updated_by' => $actor->id,
         ]);
         $schedule->save();
@@ -205,6 +235,7 @@ class ClassScheduleService
                 'teacher_id' => $payload['teacher_id'] ?? $schedule->teacher_id,
                 'title' => $payload['title'] ?? $schedule->title,
                 'description' => $payload['description'] ?? $schedule->description,
+                'class_type' => $payload['class_type'] ?? $schedule->class_type,
                 'timezone' => $payload['timezone'] ?? $schedule->timezone,
                 'starts_at' => $payload['starts_at'],
                 'ends_at' => $payload['ends_at'],
@@ -248,6 +279,43 @@ class ClassScheduleService
             CarbonImmutable::parse($startsAt, $timezone)->utc(),
             CarbonImmutable::parse($endsAt, $timezone)->utc(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function classType(array $payload, User $student, ?string $currentClassType = null): string
+    {
+        $classType = $payload['class_type']
+            ?? $currentClassType
+            ?? $student->studentProfile?->class_type
+            ?? ClassSchedule::CLASS_TYPE_REGULAR;
+
+        return in_array($classType, ['trial', 'trial_class', 'trial-class'], true)
+            ? ClassSchedule::CLASS_TYPE_TRIAL
+            : ClassSchedule::CLASS_TYPE_REGULAR;
+    }
+
+    private function teacherBlockedUntil(
+        string $classType,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $endsAtUtc,
+        string $timezone
+    ): CarbonImmutable {
+        if ($classType !== ClassSchedule::CLASS_TYPE_TRIAL) {
+            return $endsAtUtc;
+        }
+
+        $localStart = $startsAtUtc->setTimezone($timezone);
+        $localEnd = $endsAtUtc->setTimezone($timezone);
+
+        if ($localStart->minute % 30 !== 0 || $localStart->second !== 0 || ! $localEnd->equalTo($localStart->addMinutes(30))) {
+            throw ValidationException::withMessages([
+                'ends_at' => 'Trial classes must be booked as one 30-minute interval.',
+            ]);
+        }
+
+        return $startsAtUtc->addHour();
     }
 
     /**

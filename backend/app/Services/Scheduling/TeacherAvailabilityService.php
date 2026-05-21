@@ -105,10 +105,10 @@ class TeacherAvailabilityService
         $hasBookedSchedules = ClassSchedule::query()
             ->where('teacher_id', $availability->teacher_id)
             ->whereIn('status', ClassSchedule::BOOKED_STATUSES)
-            ->get(['starts_at', 'ends_at'])
+            ->get(['starts_at', 'ends_at', 'teacher_blocked_until'])
             ->contains(function (ClassSchedule $schedule) use ($availability): bool {
                 $localStart = $schedule->starts_at->setTimezone($availability->timezone);
-                $localEnd = $schedule->ends_at->setTimezone($availability->timezone);
+                $localEnd = ($schedule->teacher_blocked_until ?? $schedule->ends_at)->setTimezone($availability->timezone);
 
                 if (! $localStart->isSameDay($localEnd) || $localStart->dayOfWeek !== $availability->day_of_week) {
                     return false;
@@ -222,7 +222,7 @@ class TeacherAvailabilityService
             ->where('teacher_id', $teacherId)
             ->whereIn('status', ClassSchedule::BOOKED_STATUSES)
             ->where('starts_at', '<', $endsAtUtc)
-            ->where('ends_at', '>', $startsAtUtc)
+            ->whereRaw('COALESCE(teacher_blocked_until, ends_at) > ?', [$startsAtUtc])
             ->exists();
 
         if ($conflicts) {
