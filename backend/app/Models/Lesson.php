@@ -7,10 +7,27 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Lesson extends Model
 {
     use HasFactory;
+
+    public const STATUS_SCHEDULED = 'scheduled';
+
+    public const STATUS_PENDING_CONFIRMATION = 'pending_confirmation';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_EXPIRED = 'expired';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUS_RESCHEDULED = 'rescheduled';
+
+    public const STATUS_MISSED_BY_STUDENT = 'missed_by_student';
+
+    public const STATUS_MISSED_BY_TEACHER = 'missed_by_teacher';
 
     public const PROVIDER_GOOGLE_MEET = 'google_meet';
 
@@ -24,12 +41,27 @@ class Lesson extends Model
         self::PROVIDER_OTHER,
     ];
 
+    public const JOINABLE_STATUSES = [
+        self::STATUS_SCHEDULED,
+        self::STATUS_PENDING_CONFIRMATION,
+    ];
+
+    private const NOT_JOINABLE_REASONS = [
+        self::STATUS_CANCELLED => 'lesson_cancelled',
+        self::STATUS_RESCHEDULED => 'lesson_rescheduled',
+        self::STATUS_MISSED_BY_STUDENT => 'lesson_not_joinable',
+        self::STATUS_MISSED_BY_TEACHER => 'lesson_not_joinable',
+        self::STATUS_COMPLETED => 'lesson_expired',
+        self::STATUS_EXPIRED => 'lesson_expired',
+    ];
+
     protected $fillable = [
         'student_id',
         'teacher_id',
         'start_time',
         'end_time',
         'status',
+        'rescheduled_from_id',
         'notes',
         'meeting_link',
         'meeting_provider',
@@ -57,6 +89,16 @@ class Lesson extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function rescheduledFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'rescheduled_from_id');
+    }
+
+    public function replacementLesson(): HasOne
+    {
+        return $this->hasOne(self::class, 'rescheduled_from_id');
     }
 
     public function attendances(): HasMany
@@ -89,17 +131,19 @@ class Lesson extends Model
         $reason = null;
         $secondsUntilAvailable = null;
 
-        if (! $this->meeting_link) {
+        if (array_key_exists((string) $this->status, self::NOT_JOINABLE_REASONS)) {
+            $reason = self::NOT_JOINABLE_REASONS[(string) $this->status];
+        } elseif (! $this->meeting_link) {
             $reason = 'no_meeting_link';
-        } elseif (! in_array($this->status, ['scheduled', 'pending_confirmation'], true)) {
-            $reason = 'unavailable_status';
+        } elseif (! in_array($this->status, self::JOINABLE_STATUSES, true)) {
+            $reason = 'lesson_not_joinable';
         } elseif ($availableFrom === null || $availableUntil === null || $this->start_time === null || $this->end_time === null) {
-            $reason = 'schedule_unavailable';
+            $reason = 'lesson_not_joinable';
         } elseif ($now->lessThan($availableFrom)) {
             $reason = 'not_yet_available';
             $secondsUntilAvailable = max(0, $availableFrom->getTimestamp() - $now->getTimestamp());
         } elseif ($now->greaterThan($availableUntil)) {
-            $reason = 'expired';
+            $reason = 'lesson_expired';
         } else {
             $canJoin = true;
             $secondsUntilAvailable = 0;

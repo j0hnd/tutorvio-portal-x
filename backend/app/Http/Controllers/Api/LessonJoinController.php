@@ -12,10 +12,16 @@ class LessonJoinController extends Controller
 {
     public function __invoke(Request $request, Lesson $lesson): JsonResponse
     {
-        abort_unless($lesson->userCanAccessMeeting($request->user()), 403);
+        if (! $lesson->userCanAccessMeeting($request->user())) {
+            return response()->json([
+                'message' => 'Unauthorized.',
+                'reason' => 'unauthorized',
+            ], 403);
+        }
 
         $availability = $lesson->joinAvailability();
         $canJoin = $availability['can_join'];
+        $reason = $availability['reason'];
 
         $data = [
             'lesson_id' => $lesson->id,
@@ -36,7 +42,17 @@ class LessonJoinController extends Controller
         ];
 
         if (! $canJoin) {
-            $data['reason'] = $availability['reason'];
+            $data['reason'] = $reason;
+
+            if ($reason === 'lesson_rescheduled') {
+                $data['message'] = 'This lesson has been rescheduled.';
+
+                if ($replacementLesson = $lesson->replacementLesson()->first()) {
+                    $data['replacement_lesson'] = [
+                        'id' => $replacementLesson->id,
+                    ];
+                }
+            }
         }
 
         return response()->json(['data' => $data]);

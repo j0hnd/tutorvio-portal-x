@@ -132,9 +132,12 @@ class LessonJoinApiTest extends TestCase
         foreach ([$otherStudent, $otherTeacher, $staff] as $user) {
             Sanctum::actingAs($user);
 
-            $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
                 ->assertForbidden()
+                ->assertJsonPath('reason', 'unauthorized')
                 ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
+
+            $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         }
     }
 
@@ -178,8 +181,86 @@ class LessonJoinApiTest extends TestCase
         $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
             ->assertOk()
             ->assertJsonPath('data.can_join', false)
-            ->assertJsonPath('data.reason', 'expired')
+            ->assertJsonPath('data.reason', 'lesson_expired')
             ->assertJsonPath('data.meeting_link', null);
+    }
+
+    public function test_cancelled_rescheduled_and_missed_lessons_do_not_expose_meeting_links(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
+        Sanctum::actingAs($this->student);
+
+        $expectations = [
+            Lesson::STATUS_CANCELLED => 'lesson_cancelled',
+            Lesson::STATUS_RESCHEDULED => 'lesson_rescheduled',
+            Lesson::STATUS_MISSED_BY_STUDENT => 'lesson_not_joinable',
+            Lesson::STATUS_MISSED_BY_TEACHER => 'lesson_not_joinable',
+        ];
+
+        foreach ($expectations as $status => $reason) {
+            $lesson = $this->createJoinableLesson([
+                'status' => $status,
+                'meeting_link' => 'https://meet.example.com/'.$status,
+            ]);
+
+            $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+                ->assertOk()
+                ->assertJsonPath('data.can_join', false)
+                ->assertJsonPath('data.is_join_available', false)
+                ->assertJsonPath('data.reason', $reason)
+                ->assertJsonPath('data.meeting_link', null);
+
+            $this->assertStringNotContainsString('https://meet.example.com/'.$status, $response->getContent());
+        }
+    }
+
+    public function test_completed_and_expired_status_lessons_do_not_expose_meeting_links(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
+        Sanctum::actingAs($this->student);
+
+        foreach ([Lesson::STATUS_COMPLETED, Lesson::STATUS_EXPIRED] as $status) {
+            $lesson = $this->createJoinableLesson([
+                'status' => $status,
+                'meeting_link' => 'https://meet.example.com/'.$status,
+            ]);
+
+            $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+                ->assertOk()
+                ->assertJsonPath('data.can_join', false)
+                ->assertJsonPath('data.reason', 'lesson_expired')
+                ->assertJsonPath('data.meeting_link', null);
+
+            $this->assertStringNotContainsString('https://meet.example.com/'.$status, $response->getContent());
+        }
+    }
+
+    public function test_rescheduled_lesson_returns_replacement_metadata_without_old_link(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
+        $oldLesson = $this->createJoinableLesson([
+            'status' => Lesson::STATUS_RESCHEDULED,
+            'meeting_link' => 'https://meet.example.com/old-lesson',
+        ]);
+        $replacementLesson = $this->createJoinableLesson([
+            'start_time' => Carbon::parse('2026-06-02 09:00:00'),
+            'end_time' => Carbon::parse('2026-06-02 10:00:00'),
+            'meeting_link' => 'https://meet.example.com/new-lesson',
+            'rescheduled_from_id' => $oldLesson->id,
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $response = $this->getJson('/api/v1/lessons/'.$oldLesson->id.'/join')
+            ->assertOk()
+            ->assertJsonPath('data.can_join', false)
+            ->assertJsonPath('data.reason', 'lesson_rescheduled')
+            ->assertJsonPath('data.message', 'This lesson has been rescheduled.')
+            ->assertJsonPath('data.replacement_lesson.id', $replacementLesson->id)
+            ->assertJsonPath('data.meeting_link', null);
+
+        $this->assertStringNotContainsString('https://meet.example.com/old-lesson', $response->getContent());
+        $this->assertStringNotContainsString('https://meet.example.com/new-lesson', $response->getContent());
     }
 
     private function createJoinableLesson(array $overrides = []): Lesson
@@ -189,7 +270,7 @@ class LessonJoinApiTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'start_time' => Carbon::parse('2026-06-01 09:00:00'),
             'end_time' => Carbon::parse('2026-06-01 10:00:00'),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
             'meeting_link' => 'https://meet.example.com/secure-lesson',
             'meeting_provider' => Lesson::PROVIDER_GOOGLE_MEET,
             'meeting_metadata' => [
