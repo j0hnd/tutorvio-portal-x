@@ -343,7 +343,7 @@ class DashboardService
                 ->map(fn (Lesson $lesson) => $this->studentLessonPayload($lesson))
                 ->all(),
             'next_lesson' => $upcomingLessons->first()
-                ? $this->studentLessonJoinPayload($upcomingLessons->first())
+                ? $this->studentLessonJoinPayload($upcomingLessons->first(), $user)
                 : null,
             'latest_teacher_note' => $profile?->teacher_notes,
             'learning_progress' => [
@@ -421,6 +421,10 @@ class DashboardService
             'start_time' => $lesson->start_time,
             'end_time' => $lesson->end_time,
             'status' => $lesson->status,
+            'meeting_provider' => $lesson->meeting_provider,
+            'join_available_from' => $lesson->join_available_from,
+            'join_available_until' => $lesson->join_available_until,
+            'is_join_available' => $lesson->isJoinAvailable(),
             'teacher' => $lesson->teacher ? [
                 'id' => $lesson->teacher->id,
                 'name' => $lesson->teacher->name,
@@ -438,6 +442,10 @@ class DashboardService
             'start_time' => $lesson->start_time,
             'end_time' => $lesson->end_time,
             'status' => $lesson->status,
+            'meeting_provider' => $lesson->meeting_provider,
+            'join_available_from' => $lesson->join_available_from,
+            'join_available_until' => $lesson->join_available_until,
+            'is_join_available' => $lesson->isJoinAvailable(),
             'student' => $lesson->student ? [
                 'id' => $lesson->student->id,
                 'name' => $lesson->student->name,
@@ -483,12 +491,13 @@ class DashboardService
     /**
      * @return array<string, mixed>
      */
-    private function studentLessonJoinPayload(Lesson $lesson): array
+    private function studentLessonJoinPayload(Lesson $lesson, User $user): array
     {
         return [
             ...$this->studentLessonPayload($lesson),
-            'join_url' => null, // TODO: Populate when lesson meeting/join fields exist.
-            'join_starts_at' => $lesson->start_time,
+            'join_url' => $lesson->userCanJoinMeeting($user) ? $lesson->meeting_link : null,
+            'join_starts_at' => $lesson->join_available_from ?? $lesson->start_time,
+            'join_ends_at' => $lesson->join_available_until ?? $lesson->end_time,
         ];
     }
 

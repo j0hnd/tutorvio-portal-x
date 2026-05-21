@@ -19,7 +19,10 @@ class LessonRecordResource extends JsonResource
             'scheduled_date' => $this->resource->scheduled_date?->toDateString(),
             'start_time' => $this->resource->start_time,
             'end_time' => $this->resource->end_time,
-            'meeting_link' => $this->resource->meeting_link,
+            'meeting_provider' => $this->resource->meeting_provider,
+            'join_available_from' => $this->resource->join_available_from,
+            'join_available_until' => $this->resource->join_available_until,
+            'is_join_available' => $this->resource->isJoinAvailable(),
             'lesson_type' => $this->resource->lesson_type,
             'lesson_status' => $this->resource->lesson_status,
             'lesson_notes' => $this->resource->lesson_notes,
@@ -71,6 +74,11 @@ class LessonRecordResource extends JsonResource
 
         if ($request->user()?->hasAnyRole(['admin', 'staff'])) {
             $data['internal_remarks'] = $this->resource->internal_remarks;
+        }
+
+        if ($this->resource->userCanJoinMeeting($request->user())) {
+            $data['meeting_link'] = $this->resource->meeting_link;
+            $data['meeting_metadata'] = $this->resource->meeting_metadata;
         }
 
         return $data;

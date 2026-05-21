@@ -35,6 +35,10 @@ class UpdateLessonRecordRequest extends FormRequest
             'start_time' => ['sometimes', 'date_format:H:i'],
             'end_time' => ['sometimes', 'date_format:H:i'],
             'meeting_link' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'meeting_provider' => ['sometimes', 'nullable', 'string', Rule::in(LessonRecord::MEETING_PROVIDERS)],
+            'meeting_metadata' => ['sometimes', 'nullable', 'array'],
+            'join_available_from' => ['sometimes', 'nullable', 'date'],
+            'join_available_until' => ['sometimes', 'nullable', 'date'],
             'lesson_type' => ['sometimes', 'string', Rule::in(LessonRecord::LESSON_TYPES)],
             'lesson_status' => ['sometimes', 'string', Rule::in(LessonRecord::STATUSES)],
             'lesson_notes' => ['sometimes', 'nullable', 'string'],
@@ -63,6 +67,13 @@ class UpdateLessonRecordRequest extends FormRequest
 
             if ($startTime >= $endTime) {
                 $validator->errors()->add('end_time', 'The end time field must be after start time.');
+            }
+
+            $joinAvailableFrom = $this->input('join_available_from', $lessonRecord->join_available_from);
+            $joinAvailableUntil = $this->input('join_available_until', $lessonRecord->join_available_until);
+
+            if ($joinAvailableFrom !== null && $joinAvailableUntil !== null && strtotime((string) $joinAvailableUntil) <= strtotime((string) $joinAvailableFrom)) {
+                $validator->errors()->add('join_available_until', 'The join available until field must be after join available from.');
             }
         });
     }

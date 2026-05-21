@@ -7,6 +7,7 @@ use App\Models\Material;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -36,6 +37,13 @@ class LessonRecordApiTest extends TestCase
 
         $this->student = User::factory()->create(['status' => User::STATUS_ACTIVE, 'timezone' => 'Asia/Manila']);
         $this->student->assignRole('student');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_admin_can_create_lesson_record(): void
@@ -136,6 +144,57 @@ class LessonRecordApiTest extends TestCase
         $this->getJson('/api/v1/lesson-records?lesson_status=waiting_for_feedback')
             ->assertUnprocessable()
             ->assertJsonValidationErrors('lesson_status');
+    }
+
+    public function test_meeting_provider_validation_rejects_unknown_values(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->postJson('/api/v1/lesson-records', $this->validPayload([
+            'meeting_provider' => 'zoom',
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('meeting_provider');
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'meeting_provider' => 'zoom',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('meeting_provider');
+    }
+
+    public function test_meeting_link_is_only_exposed_when_lesson_record_is_joinable(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:30:00'));
+        Sanctum::actingAs($this->student);
+
+        $lessonRecord = $this->createLessonRecord([
+            'meeting_provider' => LessonRecord::PROVIDER_GOOGLE_MEET,
+            'meeting_metadata' => [
+                'google_event_id' => 'calendar-event-1',
+                'conference_id' => 'meet-conference-1',
+            ],
+            'join_available_from' => '2026-06-01 08:45:00',
+            'join_available_until' => '2026-06-01 10:15:00',
+        ]);
+
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+            ->assertOk()
+            ->assertJsonPath('data.meeting_provider', LessonRecord::PROVIDER_GOOGLE_MEET)
+            ->assertJsonPath('data.is_join_available', false)
+            ->assertJsonMissingPath('data.meeting_link')
+            ->assertJsonMissingPath('data.meeting_metadata');
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 09:00:00'));
+
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+            ->assertOk()
+            ->assertJsonPath('data.is_join_available', true)
+            ->assertJsonPath('data.meeting_link', 'https://meet.example.com/lesson-1')
+            ->assertJsonPath('data.meeting_metadata.google_event_id', 'calendar-event-1');
+
+        Carbon::setTestNow();
     }
 
     public function test_admin_can_list_show_update_and_cancel_lesson_record(): void

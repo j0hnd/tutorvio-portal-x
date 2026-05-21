@@ -8,6 +8,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -22,6 +23,13 @@ class DashboardApiTest extends TestCase
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->seed(RolesAndPermissionsSeeder::class);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_dashboard_requires_authentication(): void
@@ -166,6 +174,47 @@ class DashboardApiTest extends TestCase
             ->assertJsonMissingPath('data.summary.upcoming_classes')
             ->assertJsonMissingPath('data.summary.assigned_student_profiles')
             ->assertJsonMissingPath('data.summary.lesson_documentation_shortcuts');
+    }
+
+    public function test_student_dashboard_only_exposes_join_url_for_joinable_lesson(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $student->studentProfile()->create([
+            'assigned_teacher_id' => $teacher->id,
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => Carbon::parse('2026-06-01 09:00:00'),
+            'end_time' => Carbon::parse('2026-06-01 10:00:00'),
+            'status' => 'scheduled',
+            'meeting_link' => 'https://meet.example.com/dashboard-lesson',
+            'meeting_provider' => Lesson::PROVIDER_GOOGLE_MEET,
+            'meeting_metadata' => [
+                'google_event_id' => 'dashboard-event-1',
+            ],
+            'join_available_from' => Carbon::parse('2026-06-01 08:45:00'),
+            'join_available_until' => Carbon::parse('2026-06-01 10:15:00'),
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $response = $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.upcoming_lessons.0.meeting_provider', Lesson::PROVIDER_GOOGLE_MEET)
+            ->assertJsonPath('data.summary.upcoming_lessons.0.is_join_available', true)
+            ->assertJsonPath('data.summary.next_lesson.join_url', 'https://meet.example.com/dashboard-lesson');
+
+        $this->assertStringNotContainsString('google_event_id', json_encode($response->json('data.summary.upcoming_lessons')));
+        $this->assertStringNotContainsString('https://meet.example.com/dashboard-lesson', json_encode($response->json('data.summary.upcoming_lessons')));
     }
 
     public function test_teacher_dashboard_only_returns_teacher_scoped_summary(): void
