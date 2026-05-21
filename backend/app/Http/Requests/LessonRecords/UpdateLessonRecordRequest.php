@@ -14,6 +14,15 @@ class UpdateLessonRecordRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('homework_instructions') && ! $this->has('homework_details')) {
+            $this->merge([
+                'homework_details' => $this->input('homework_instructions'),
+            ]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -30,7 +39,11 @@ class UpdateLessonRecordRequest extends FormRequest
             'lesson_status' => ['sometimes', 'string', Rule::in(LessonRecord::STATUSES)],
             'lesson_notes' => ['sometimes', 'nullable', 'string'],
             'homework_details' => ['sometimes', 'nullable', 'string'],
+            'homework_instructions' => ['sometimes', 'nullable', 'string'],
+            'homework_due_date' => ['sometimes', 'nullable', 'date'],
+            'attendance_status' => ['sometimes', 'nullable', 'string', Rule::in(LessonRecord::ATTENDANCE_STATUSES)],
             'is_completed' => ['sometimes', 'boolean'],
+            'internal_remarks' => ['sometimes', 'nullable', 'string'],
         ];
     }
 

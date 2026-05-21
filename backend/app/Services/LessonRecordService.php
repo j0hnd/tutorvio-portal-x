@@ -91,10 +91,12 @@ class LessonRecordService
      */
     private function completionFields(array $payload, User $actor, ?LessonRecord $lessonRecord = null): array
     {
-        $isCompleted = $payload['is_completed'] ?? null;
-        $status = $payload['lesson_status'] ?? null;
+        $hasCompletion = array_key_exists('is_completed', $payload);
+        $hasStatus = array_key_exists('lesson_status', $payload);
+        $isCompleted = $hasCompletion ? (bool) $payload['is_completed'] : null;
+        $status = $hasStatus ? $payload['lesson_status'] : null;
 
-        if ($isCompleted === null && $status !== LessonRecord::STATUS_COMPLETED) {
+        if (! $hasCompletion && $status !== LessonRecord::STATUS_COMPLETED) {
             if ($lessonRecord === null) {
                 return ['is_completed' => false];
             }
@@ -102,18 +104,25 @@ class LessonRecordService
             return [];
         }
 
-        $completed = $isCompleted !== null ? (bool) $isCompleted : $status === LessonRecord::STATUS_COMPLETED;
+        $completed = $isCompleted ?? $status === LessonRecord::STATUS_COMPLETED;
 
         if (! $completed) {
-            return [
+            $fields = [
                 'is_completed' => false,
                 'completed_at' => null,
                 'completed_by' => null,
             ];
+
+            if ($status === LessonRecord::STATUS_COMPLETED || (! $hasStatus && $lessonRecord?->lesson_status === LessonRecord::STATUS_COMPLETED)) {
+                $fields['lesson_status'] = LessonRecord::STATUS_SCHEDULED;
+            }
+
+            return $fields;
         }
 
         return [
             'is_completed' => true,
+            'lesson_status' => LessonRecord::STATUS_COMPLETED,
             'completed_at' => $lessonRecord?->completed_at ?? now(),
             'completed_by' => $lessonRecord?->completed_by ?? $actor->id,
         ];
@@ -135,7 +144,10 @@ class LessonRecordService
             'lesson_status',
             'lesson_notes',
             'homework_details',
+            'homework_due_date',
+            'attendance_status',
             'is_completed',
+            'internal_remarks',
         ];
     }
 }

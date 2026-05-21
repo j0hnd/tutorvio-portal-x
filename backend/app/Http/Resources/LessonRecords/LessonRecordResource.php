@@ -12,7 +12,7 @@ class LessonRecordResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
+        $data = [
             'id' => $this->resource->id,
             'student_id' => $this->resource->student_id,
             'teacher_id' => $this->resource->teacher_id,
@@ -24,6 +24,9 @@ class LessonRecordResource extends JsonResource
             'lesson_status' => $this->resource->lesson_status,
             'lesson_notes' => $this->resource->lesson_notes,
             'homework_details' => $this->resource->homework_details,
+            'homework_instructions' => $this->resource->homework_details,
+            'homework_due_date' => $this->resource->homework_due_date?->toDateString(),
+            'attendance_status' => $this->resource->attendance_status,
             'is_completed' => $this->resource->is_completed,
             'completed_at' => $this->resource->completed_at,
             'completed_by' => $this->resource->completed_by,
@@ -59,5 +62,11 @@ class LessonRecordResource extends JsonResource
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];
+
+        if ($request->user()?->hasAnyRole(['admin', 'staff'])) {
+            $data['internal_remarks'] = $this->resource->internal_remarks;
+        }
+
+        return $data;
     }
 }

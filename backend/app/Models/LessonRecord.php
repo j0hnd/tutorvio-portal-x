@@ -36,6 +36,16 @@ class LessonRecord extends Model
 
     public const STATUS_PENDING_CONFIRMATION = 'pending_confirmation';
 
+    public const ATTENDANCE_PRESENT = 'present';
+
+    public const ATTENDANCE_ABSENT = 'absent';
+
+    public const ATTENDANCE_LATE = 'late';
+
+    public const ATTENDANCE_EXCUSED = 'excused';
+
+    public const ATTENDANCE_NO_SHOW = 'no_show';
+
     public const LESSON_TYPES = [
         self::TYPE_TRIAL_CLASS,
         self::TYPE_FIRST_OFFICIAL_LESSON,
@@ -55,6 +65,14 @@ class LessonRecord extends Model
         self::STATUS_PENDING_CONFIRMATION,
     ];
 
+    public const ATTENDANCE_STATUSES = [
+        self::ATTENDANCE_PRESENT,
+        self::ATTENDANCE_ABSENT,
+        self::ATTENDANCE_LATE,
+        self::ATTENDANCE_EXCUSED,
+        self::ATTENDANCE_NO_SHOW,
+    ];
+
     protected $fillable = [
         'student_id',
         'teacher_id',
@@ -66,9 +84,12 @@ class LessonRecord extends Model
         'lesson_status',
         'lesson_notes',
         'homework_details',
+        'homework_due_date',
+        'attendance_status',
         'is_completed',
         'completed_at',
         'completed_by',
+        'internal_remarks',
         'created_by',
         'updated_by',
     ];
@@ -77,6 +98,7 @@ class LessonRecord extends Model
     {
         return [
             'scheduled_date' => 'date',
+            'homework_due_date' => 'date',
             'is_completed' => 'boolean',
             'completed_at' => 'immutable_datetime',
         ];

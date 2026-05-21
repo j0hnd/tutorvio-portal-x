@@ -43,7 +43,10 @@ class LessonRecordApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/lesson-records', $this->validPayload([
             'lesson_notes' => 'Focused on speaking fluency.',
-            'homework_details' => 'Complete unit 4 exercises.',
+            'homework_instructions' => 'Complete unit 4 exercises.',
+            'homework_due_date' => '2026-06-08',
+            'attendance_status' => LessonRecord::ATTENDANCE_PRESENT,
+            'internal_remarks' => 'Parent asked for a progress review.',
         ]));
 
         $response
@@ -52,6 +55,11 @@ class LessonRecordApiTest extends TestCase
             ->assertJsonPath('data.teacher_id', $this->teacher->id)
             ->assertJsonPath('data.lesson_type', LessonRecord::TYPE_BUSINESS_ENGLISH)
             ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_SCHEDULED)
+            ->assertJsonPath('data.homework_details', 'Complete unit 4 exercises.')
+            ->assertJsonPath('data.homework_instructions', 'Complete unit 4 exercises.')
+            ->assertJsonPath('data.homework_due_date', '2026-06-08')
+            ->assertJsonPath('data.attendance_status', LessonRecord::ATTENDANCE_PRESENT)
+            ->assertJsonPath('data.internal_remarks', 'Parent asked for a progress review.')
             ->assertJsonPath('data.is_completed', false);
 
         $this->assertDatabaseHas('lesson_records', [
@@ -60,6 +68,10 @@ class LessonRecordApiTest extends TestCase
             'scheduled_date' => '2026-06-01 00:00:00',
             'start_time' => '09:00',
             'end_time' => '10:00',
+            'homework_details' => 'Complete unit 4 exercises.',
+            'homework_due_date' => '2026-06-08 00:00:00',
+            'attendance_status' => LessonRecord::ATTENDANCE_PRESENT,
+            'internal_remarks' => 'Parent asked for a progress review.',
             'created_by' => $this->admin->id,
         ]);
     }
@@ -114,6 +126,29 @@ class LessonRecordApiTest extends TestCase
             ->assertJsonPath('data.is_completed', false);
     }
 
+    public function test_completion_flag_sets_status_timestamp_and_actor(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'is_completed' => true,
+            'attendance_status' => LessonRecord::ATTENDANCE_PRESENT,
+            'lesson_notes' => 'Student completed all lesson objectives.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_COMPLETED)
+            ->assertJsonPath('data.is_completed', true)
+            ->assertJsonPath('data.completed_by', $this->admin->id);
+
+        $lessonRecord->refresh();
+
+        $this->assertTrue($lessonRecord->is_completed);
+        $this->assertSame(LessonRecord::STATUS_COMPLETED, $lessonRecord->lesson_status);
+        $this->assertNotNull($lessonRecord->completed_at);
+        $this->assertSame($this->admin->id, $lessonRecord->completed_by);
+    }
+
     public function test_teacher_can_only_see_their_own_lesson_records(): void
     {
         $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -131,7 +166,8 @@ class LessonRecordApiTest extends TestCase
 
         $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
             ->assertOk()
-            ->assertJsonPath('data.id', $ownLessonRecord->id);
+            ->assertJsonPath('data.id', $ownLessonRecord->id)
+            ->assertJsonMissingPath('data.internal_remarks');
 
         $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->id)
             ->assertForbidden();
