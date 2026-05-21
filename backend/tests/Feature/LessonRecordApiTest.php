@@ -120,7 +120,7 @@ class LessonRecordApiTest extends TestCase
         $otherTeacher->assignRole('teacher');
 
         $ownLessonRecord = $this->createLessonRecord();
-        $this->createLessonRecord(['teacher_id' => $otherTeacher->id]);
+        $otherLessonRecord = $this->createLessonRecord(['teacher_id' => $otherTeacher->id]);
 
         Sanctum::actingAs($this->teacher);
 
@@ -128,18 +128,116 @@ class LessonRecordApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $ownLessonRecord->id);
+
+        $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
+            ->assertOk()
+            ->assertJsonPath('data.id', $ownLessonRecord->id);
+
+        $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->id)
+            ->assertForbidden();
+
+        $this->patchJson('/api/v1/lesson-records/'.$ownLessonRecord->id, [
+            'lesson_notes' => 'Teacher attempted update.',
+        ])->assertForbidden();
+    }
+
+    public function test_student_can_only_see_their_own_lesson_records(): void
+    {
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $ownLessonRecord = $this->createLessonRecord();
+        $otherLessonRecord = $this->createLessonRecord(['student_id' => $otherStudent->id]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/lesson-records')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ownLessonRecord->id);
+
+        $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
+            ->assertOk()
+            ->assertJsonPath('data.id', $ownLessonRecord->id);
+
+        $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->id)
+            ->assertForbidden();
+
+        $this->postJson('/api/v1/lesson-records', $this->validPayload())
+            ->assertForbidden();
+
+        $this->patchJson('/api/v1/lesson-records/'.$ownLessonRecord->id, [
+            'lesson_notes' => 'Student attempted update.',
+        ])->assertForbidden();
+
+        $this->deleteJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
+            ->assertForbidden();
+
+        $this->postJson('/api/v1/lesson-records/'.$ownLessonRecord->id.'/cancel')
+            ->assertForbidden();
     }
 
     public function test_staff_with_lesson_record_permission_can_manage_records(): void
     {
         $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $staff->assignRole('staff');
-        $staff->givePermissionTo(['lesson_records.view', 'lesson_records.create']);
+        $staff->givePermissionTo([
+            'lesson_records.view',
+            'lesson_records.create',
+            'lesson_records.update',
+            'lesson_records.delete',
+        ]);
 
         Sanctum::actingAs($staff);
 
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->getJson('/api/v1/lesson-records')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->postJson('/api/v1/lesson-records', $this->validPayload([
+            'scheduled_date' => '2026-06-02',
+        ]))->assertCreated();
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_notes' => 'Staff updated record.',
+        ])->assertOk();
+
+        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->id.'/cancel')
+            ->assertOk()
+            ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_CANCELLED);
+
+        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->id)
+            ->assertNoContent();
+    }
+
+    public function test_staff_without_lesson_record_permissions_is_blocked(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $lessonRecord = $this->createLessonRecord();
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/lesson-records')
+            ->assertForbidden();
+
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+            ->assertForbidden();
+
         $this->postJson('/api/v1/lesson-records', $this->validPayload())
-            ->assertCreated();
+            ->assertForbidden();
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_notes' => 'Staff attempted update.',
+        ])->assertForbidden();
+
+        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->id)
+            ->assertForbidden();
+
+        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->id.'/cancel')
+            ->assertForbidden();
     }
 
     public function test_lesson_record_delete_removes_record(): void
