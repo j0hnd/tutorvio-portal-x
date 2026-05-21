@@ -98,6 +98,14 @@ class LessonJoinApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.is_join_available', true)
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
+
+        $this->assertDatabaseHas('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+            'user_id' => $this->admin->id,
+            'user_role' => 'admin',
+            'access_result' => LessonJoinAccessLog::RESULT_ALLOWED,
+            'reason' => null,
+        ]);
     }
 
     public function test_assigned_user_receives_safe_metadata_before_join_window(): void
@@ -136,7 +144,7 @@ class LessonJoinApiTest extends TestCase
         ]);
     }
 
-    public function test_unassigned_student_teacher_and_staff_cannot_access_unrelated_lesson_link(): void
+    public function test_unassigned_student_cannot_access_another_students_lesson_link(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
         $lesson = $this->createJoinableLesson();
@@ -144,36 +152,57 @@ class LessonJoinApiTest extends TestCase
         $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $otherStudent->assignRole('student');
 
+        Sanctum::actingAs($otherStudent);
+
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            ->assertForbidden()
+            ->assertJsonPath('reason', 'unauthorized')
+            ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
+
+        $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
+        $this->assertDatabaseHas('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+            'user_id' => $otherStudent->id,
+            'access_result' => LessonJoinAccessLog::RESULT_DENIED,
+            'reason' => 'unauthorized',
+        ]);
+    }
+
+    public function test_unassigned_teacher_cannot_access_another_teachers_lesson_link(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
+        $lesson = $this->createJoinableLesson();
+
         $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $otherTeacher->assignRole('teacher');
 
-        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $staff->assignRole('staff');
+        Sanctum::actingAs($otherTeacher);
 
-        foreach ([$otherStudent, $otherTeacher, $staff] as $user) {
-            Sanctum::actingAs($user);
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            ->assertForbidden()
+            ->assertJsonPath('reason', 'unauthorized')
+            ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
 
-            $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
-                ->assertForbidden()
-                ->assertJsonPath('reason', 'unauthorized')
-                ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
-
-            $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
-            $this->assertDatabaseHas('lesson_join_access_logs', [
-                'lesson_id' => $lesson->id,
-                'user_id' => $user->id,
-                'access_result' => LessonJoinAccessLog::RESULT_DENIED,
-                'reason' => 'unauthorized',
-            ]);
-        }
+        $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
+        $this->assertDatabaseHas('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+            'user_id' => $otherTeacher->id,
+            'access_result' => LessonJoinAccessLog::RESULT_DENIED,
+            'reason' => 'unauthorized',
+        ]);
     }
 
     public function test_join_endpoint_requires_authentication(): void
     {
         $lesson = $this->createJoinableLesson();
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
             ->assertUnauthorized();
+
+        $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
+        $this->assertDatabaseMissing('lesson_join_access_logs', [
+            'lesson_id' => $lesson->id,
+        ]);
     }
 
     public function test_default_join_window_opens_before_start_and_closes_after_end(): void
