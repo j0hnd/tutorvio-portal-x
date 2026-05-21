@@ -422,8 +422,8 @@ class DashboardService
             'end_time' => $lesson->end_time,
             'status' => $lesson->status,
             'meeting_provider' => $lesson->meeting_provider,
-            'join_available_from' => $lesson->join_available_from,
-            'join_available_until' => $lesson->join_available_until,
+            'join_available_from' => $lesson->joinAvailableFrom(),
+            'join_available_until' => $lesson->joinAvailableUntil(),
             'is_join_available' => $lesson->isJoinAvailable(),
             'teacher' => $lesson->teacher ? [
                 'id' => $lesson->teacher->id,
@@ -443,8 +443,8 @@ class DashboardService
             'end_time' => $lesson->end_time,
             'status' => $lesson->status,
             'meeting_provider' => $lesson->meeting_provider,
-            'join_available_from' => $lesson->join_available_from,
-            'join_available_until' => $lesson->join_available_until,
+            'join_available_from' => $lesson->joinAvailableFrom(),
+            'join_available_until' => $lesson->joinAvailableUntil(),
             'is_join_available' => $lesson->isJoinAvailable(),
             'student' => $lesson->student ? [
                 'id' => $lesson->student->id,
@@ -496,8 +496,8 @@ class DashboardService
         return [
             ...$this->studentLessonPayload($lesson),
             'join_url' => $lesson->userCanJoinMeeting($user) ? $lesson->meeting_link : null,
-            'join_starts_at' => $lesson->join_available_from ?? $lesson->start_time,
-            'join_ends_at' => $lesson->join_available_until ?? $lesson->end_time,
+            'join_starts_at' => $lesson->joinAvailableFrom(),
+            'join_ends_at' => $lesson->joinAvailableUntil(),
         ];
     }
 

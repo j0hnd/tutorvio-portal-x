@@ -164,8 +164,8 @@ class LessonRecord extends Model
         }
 
         $now ??= now();
-        $availableFrom = $this->join_available_from ?? $this->scheduledDateTime($this->start_time);
-        $availableUntil = $this->join_available_until ?? $this->scheduledDateTime($this->end_time);
+        $availableFrom = $this->joinAvailableFrom();
+        $availableUntil = $this->joinAvailableUntil();
 
         return $availableFrom !== null
             && $availableUntil !== null
@@ -182,6 +182,18 @@ class LessonRecord extends Model
         return $user->hasAnyRole(['admin', 'staff'])
             || (int) $this->student_id === (int) $user->id
             || (int) $this->teacher_id === (int) $user->id;
+    }
+
+    public function joinAvailableFrom(): ?CarbonInterface
+    {
+        return $this->join_available_from
+            ?? $this->scheduledDateTime($this->start_time)?->subMinutes((int) config('lessons.join_window.lead_minutes', 15));
+    }
+
+    public function joinAvailableUntil(): ?CarbonInterface
+    {
+        return $this->join_available_until
+            ?? $this->scheduledDateTime($this->end_time)?->addMinutes((int) config('lessons.join_window.grace_minutes', 15));
     }
 
     private function scheduledDateTime(?string $time): ?CarbonImmutable

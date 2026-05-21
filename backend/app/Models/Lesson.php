@@ -66,18 +66,66 @@ class Lesson extends Model
 
     public function isJoinAvailable(?CarbonInterface $now = null): bool
     {
-        if (! $this->meeting_link || ! in_array($this->status, ['scheduled', 'pending_confirmation'], true)) {
-            return false;
+        return $this->joinAvailability($now)['can_join'];
+    }
+
+    /**
+     * @return array{
+     *     can_join: bool,
+     *     available_from: CarbonInterface|null,
+     *     available_until: CarbonInterface|null,
+     *     starts_at: CarbonInterface|null,
+     *     ends_at: CarbonInterface|null,
+     *     seconds_until_available: int|null,
+     *     reason: string|null
+     * }
+     */
+    public function joinAvailability(?CarbonInterface $now = null): array
+    {
+        $now ??= now();
+        $availableFrom = $this->joinAvailableFrom();
+        $availableUntil = $this->joinAvailableUntil();
+        $canJoin = false;
+        $reason = null;
+        $secondsUntilAvailable = null;
+
+        if (! $this->meeting_link) {
+            $reason = 'no_meeting_link';
+        } elseif (! in_array($this->status, ['scheduled', 'pending_confirmation'], true)) {
+            $reason = 'unavailable_status';
+        } elseif ($availableFrom === null || $availableUntil === null || $this->start_time === null || $this->end_time === null) {
+            $reason = 'schedule_unavailable';
+        } elseif ($now->lessThan($availableFrom)) {
+            $reason = 'not_yet_available';
+            $secondsUntilAvailable = max(0, $availableFrom->getTimestamp() - $now->getTimestamp());
+        } elseif ($now->greaterThan($availableUntil)) {
+            $reason = 'expired';
+        } else {
+            $canJoin = true;
+            $secondsUntilAvailable = 0;
         }
 
-        $now ??= now();
-        $availableFrom = $this->join_available_from ?? $this->start_time;
-        $availableUntil = $this->join_available_until ?? $this->end_time;
+        return [
+            'can_join' => $canJoin,
+            'available_from' => $availableFrom,
+            'available_until' => $availableUntil,
+            'starts_at' => $this->start_time,
+            'ends_at' => $this->end_time,
+            'seconds_until_available' => $secondsUntilAvailable,
+            'reason' => $reason,
+        ];
+    }
 
-        return $availableFrom !== null
-            && $availableUntil !== null
-            && $now->greaterThanOrEqualTo($availableFrom)
-            && $now->lessThanOrEqualTo($availableUntil);
+    public function joinAvailableFrom(): ?CarbonInterface
+    {
+        return $this->join_available_from
+            ?? $this->start_time?->copy()->subMinutes((int) config('lessons.join_window.lead_minutes', 15));
+    }
+
+    public function joinAvailableUntil(): ?CarbonInterface
+    {
+        return $this->join_available_until
+            ?? $this->end_time?->copy()->addMinutes((int) config('lessons.join_window.grace_minutes', 15));
     }
 
     public function userCanJoinMeeting(?User $user, ?CarbonInterface $now = null): bool

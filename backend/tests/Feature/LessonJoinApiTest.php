@@ -56,7 +56,11 @@ class LessonJoinApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.lesson_id', $lesson->id)
             ->assertJsonPath('data.meeting_provider', Lesson::PROVIDER_GOOGLE_MEET)
+            ->assertJsonPath('data.can_join', true)
             ->assertJsonPath('data.is_join_available', true)
+            ->assertJsonPath('data.starts_at', '2026-06-01T09:00:00Z')
+            ->assertJsonPath('data.ends_at', '2026-06-01T10:00:00Z')
+            ->assertJsonPath('data.available_until', '2026-06-01T10:15:00Z')
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
     }
 
@@ -95,7 +99,14 @@ class LessonJoinApiTest extends TestCase
 
         $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
             ->assertOk()
+            ->assertJsonPath('data.can_join', false)
             ->assertJsonPath('data.is_join_available', false)
+            ->assertJsonPath('data.available_from', '2026-06-01T08:45:00Z')
+            ->assertJsonPath('data.available_until', '2026-06-01T10:15:00Z')
+            ->assertJsonPath('data.starts_at', '2026-06-01T09:00:00Z')
+            ->assertJsonPath('data.ends_at', '2026-06-01T10:00:00Z')
+            ->assertJsonPath('data.seconds_until_available', 900)
+            ->assertJsonPath('data.reason', 'not_yet_available')
             ->assertJsonPath('data.join_starts_at', '2026-06-01T08:45:00.000000Z')
             ->assertJsonPath('data.join_ends_at', '2026-06-01T10:15:00.000000Z')
             ->assertJsonPath('data.meeting_link', null);
@@ -133,6 +144,42 @@ class LessonJoinApiTest extends TestCase
 
         $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
             ->assertUnauthorized();
+    }
+
+    public function test_default_join_window_opens_before_start_and_closes_after_end(): void
+    {
+        $lesson = $this->createJoinableLesson([
+            'join_available_from' => null,
+            'join_available_until' => null,
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:44:59'));
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            ->assertOk()
+            ->assertJsonPath('data.can_join', false)
+            ->assertJsonPath('data.available_from', '2026-06-01T08:45:00Z')
+            ->assertJsonPath('data.available_until', '2026-06-01T10:15:00Z')
+            ->assertJsonPath('data.seconds_until_available', 1)
+            ->assertJsonPath('data.reason', 'not_yet_available')
+            ->assertJsonPath('data.meeting_link', null);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:45:00'));
+
+        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            ->assertOk()
+            ->assertJsonPath('data.can_join', true)
+            ->assertJsonPath('data.seconds_until_available', 0)
+            ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
+
+        Carbon::setTestNow(Carbon::parse('2026-06-01 10:15:01'));
+
+        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            ->assertOk()
+            ->assertJsonPath('data.can_join', false)
+            ->assertJsonPath('data.reason', 'expired')
+            ->assertJsonPath('data.meeting_link', null);
     }
 
     private function createJoinableLesson(array $overrides = []): Lesson
