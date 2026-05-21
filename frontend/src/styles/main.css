@@ -1,0 +1,353 @@
+/* ============================================================
+   Tutorvio Design System — Global CSS Variables & Base Styles
+   ============================================================ */
+
+/* --- Color Palette (HSL-based for easy manipulation) --- */
+:root {
+  /* Primary — exact match from Tutorvio Connect Hub source */
+  --tv-primary-h: 187;
+  --tv-primary-s: 99%;
+  --tv-primary-l: 36%;
+  --tv-primary: hsl(var(--tv-primary-h), var(--tv-primary-s), var(--tv-primary-l));
+  --tv-primary-hover: hsl(var(--tv-primary-h), var(--tv-primary-s), 29%);
+  --tv-primary-soft: hsl(var(--tv-primary-h), 80%, 94%);
+  --tv-primary-muted: hsl(var(--tv-primary-h), 60%, 84%);
+
+  /* Accent — kept for future use */
+  --tv-accent: hsl(187, 99%, 36%);
+  --tv-accent-soft: hsl(187, 80%, 94%);
+
+  /* Neutrals — light teal tint, exact match from reference */
+  --tv-bg: hsl(195, 60%, 98%);
+  --tv-bg-soft: hsl(195, 40%, 95%);
+  --tv-bg-card: hsl(0, 0%, 100%);
+  --tv-surface: hsl(195, 50%, 98%);
+
+  /* Slate grays */
+  --tv-text: hsl(215, 25%, 18%);
+  --tv-text-secondary: hsl(215, 15%, 45%);
+  --tv-text-muted: hsl(215, 12%, 65%);
+  --tv-text-inverse: hsl(0, 0%, 100%);
+
+  /* Borders */
+  --tv-border: hsl(195, 30%, 90%);
+  --tv-border-focus: var(--tv-primary);
+
+  /* Status colors */
+  --tv-success: hsl(142, 70%, 45%);
+  --tv-success-soft: hsl(142, 70%, 94%);
+  --tv-success-fg: hsl(142, 70%, 32%);
+  --tv-success-border: hsl(142, 70%, 80%);
+  --tv-success-hover: hsl(142, 70%, 38%);
+
+  --tv-warning: hsl(38, 92%, 50%);
+  --tv-warning-soft: hsl(38, 92%, 94%);
+  --tv-warning-fg: hsl(38, 92%, 36%);
+  --tv-warning-border: hsl(38, 92%, 80%);
+
+  --tv-danger: hsl(0, 72%, 51%);
+  --tv-danger-soft: hsl(0, 72%, 94%);
+  --tv-danger-fg: hsl(0, 72%, 38%);
+  --tv-danger-border: hsl(0, 72%, 80%);
+  --tv-danger-hover: hsl(0, 72%, 44%);
+
+  --tv-info: hsl(199, 89%, 48%);
+  --tv-info-soft: hsl(199, 89%, 94%);
+  --tv-info-fg: hsl(199, 89%, 32%);
+  --tv-info-border: hsl(199, 89%, 78%);
+
+  /* Neutral badge */
+  --tv-neutral: hsl(215, 15%, 55%);
+  --tv-neutral-soft: hsl(215, 15%, 93%);
+  --tv-neutral-border: hsl(215, 15%, 82%);
+
+  /* Purple — trial/premium badges */
+  --tv-purple-soft: hsl(271, 85%, 95%);
+  --tv-purple: hsl(271, 70%, 48%);
+  --tv-purple-border: hsl(271, 70%, 85%);
+
+  /* Teal — softer variant of primary, used for icon badge backgrounds */
+  --tv-teal-soft: hsl(186, 70%, 92%);
+  --tv-teal-fg: hsl(186, 75%, 32%);
+
+  /* --- Spacing Scale --- */
+  --tv-space-1: 0.25rem;
+  --tv-space-2: 0.5rem;
+  --tv-space-3: 0.75rem;
+  --tv-space-4: 1rem;
+  --tv-space-5: 1.25rem;
+  --tv-space-6: 1.5rem;
+  --tv-space-8: 2rem;
+  --tv-space-10: 2.5rem;
+  --tv-space-12: 3rem;
+  --tv-space-16: 4rem;
+
+  /* --- Border Radius --- */
+  --tv-radius-sm: 0.375rem;
+  --tv-radius: 0.625rem;
+  --tv-radius-md: 0.875rem;
+  --tv-radius-lg: 1.25rem;
+  --tv-radius-xl: 1.5rem;
+  --tv-radius-full: 9999px;
+
+  /* --- Shadows --- */
+  --tv-shadow-sm: 0 1px 3px hsla(215, 25%, 18%, 0.06), 0 1px 2px hsla(215, 25%, 18%, 0.04);
+  --tv-shadow: 0 4px 12px hsla(215, 25%, 18%, 0.08), 0 2px 4px hsla(215, 25%, 18%, 0.05);
+  --tv-shadow-md: 0 8px 24px hsla(215, 25%, 18%, 0.10), 0 4px 8px hsla(215, 25%, 18%, 0.06);
+  --tv-shadow-lg: 0 16px 48px hsla(215, 25%, 18%, 0.12), 0 8px 16px hsla(215, 25%, 18%, 0.07);
+  --tv-shadow-primary: 0 4px 16px hsla(var(--tv-primary-h), var(--tv-primary-s), 50%, 0.30);
+
+  /* --- Typography --- */
+  --tv-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --tv-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  --tv-text-xs: 0.75rem;
+  --tv-text-sm: 0.875rem;
+  --tv-text-base: 1rem;
+  --tv-text-lg: 1.125rem;
+  --tv-text-xl: 1.25rem;
+  --tv-text-2xl: 1.5rem;
+  --tv-text-3xl: 1.875rem;
+  --tv-text-4xl: 2.25rem;
+
+  --tv-font-normal: 400;
+  --tv-font-medium: 500;
+  --tv-font-semibold: 600;
+  --tv-font-bold: 700;
+
+  --tv-leading-tight: 1.25;
+  --tv-leading-snug: 1.375;
+  --tv-leading-normal: 1.5;
+  --tv-leading-relaxed: 1.625;
+
+  /* --- Transitions --- */
+  --tv-transition-fast: 120ms ease;
+  --tv-transition: 200ms ease;
+  --tv-transition-slow: 350ms ease;
+
+  /* --- Z-index layers --- */
+  --tv-z-base: 1;
+  --tv-z-dropdown: 100;
+  --tv-z-sticky: 200;
+  --tv-z-modal: 300;
+  --tv-z-toast: 400;
+  --tv-z-tooltip: 500;
+
+  /* --- Sidebar --- */
+  --tv-sidebar-width: 260px;
+  --tv-sidebar-collapsed: 68px;
+  --tv-header-height: 64px;
+}
+
+/* ============================================================
+   CSS Reset & Base
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--tv-font-sans);
+  font-size: var(--tv-text-base);
+  font-weight: var(--tv-font-normal);
+  line-height: var(--tv-leading-normal);
+  color: var(--tv-text);
+  background-color: var(--tv-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Typography Base
+   ============================================================ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: var(--tv-font-semibold);
+  line-height: var(--tv-leading-tight);
+  color: var(--tv-text);
+}
+
+h1 {
+  font-size: var(--tv-text-4xl);
+}
+
+h2 {
+  font-size: var(--tv-text-3xl);
+}
+
+h3 {
+  font-size: var(--tv-text-2xl);
+}
+
+h4 {
+  font-size: var(--tv-text-xl);
+}
+
+h5 {
+  font-size: var(--tv-text-lg);
+}
+
+h6 {
+  font-size: var(--tv-text-base);
+}
+
+p {
+  line-height: var(--tv-leading-relaxed);
+  color: var(--tv-text-secondary);
+}
+
+a {
+  color: var(--tv-primary);
+  text-decoration: none;
+  transition: color var(--tv-transition-fast);
+}
+
+a:hover {
+  color: var(--tv-primary-hover);
+}
+
+/* ============================================================
+   Form Base
+   ============================================================ */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input,
+select,
+textarea {
+  outline: none;
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  transition: border-color var(--tv-transition-fast), box-shadow var(--tv-transition-fast);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--tv-border-focus);
+  box-shadow: 0 0 0 3px hsla(var(--tv-primary-h), var(--tv-primary-s), var(--tv-primary-l), 0.15);
+}
+
+/* ============================================================
+   Scrollbar (webkit)
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tv-border);
+  border-radius: var(--tv-radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tv-text-muted);
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.tv-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--tv-space-6);
+}
+
+/* ============================================================
+   Icon Badge — shared color variants for icon containers
+   Used in stat cards, activity feeds, and any icon-in-circle pattern.
+   ============================================================ */
+.icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-badge span,
+.icon-badge svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.icon-badge--teal {
+  background: var(--tv-teal-soft);
+  color: var(--tv-teal-fg);
+}
+
+.icon-badge--success {
+  background: var(--tv-success-soft);
+  color: var(--tv-success-fg);
+}
+
+.icon-badge--warning {
+  background: var(--tv-warning-soft);
+  color: var(--tv-warning-fg);
+}
+
+.icon-badge--primary {
+  background: var(--tv-primary-soft);
+  color: var(--tv-primary);
+}
+
+/* ============================================================
+   Page Transition
+   ============================================================ */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity var(--tv-transition), transform var(--tv-transition);
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
