@@ -21,12 +21,14 @@ class LessonRecordService
         $this->assertStudentAndTeacherRoles($payload['student_id'], $payload['teacher_id']);
 
         return DB::transaction(function () use ($payload, $actor): LessonRecord {
-            return $this->lessonRecords->create([
+            $lessonRecord = $this->lessonRecords->create([
                 ...Arr::only($payload, $this->mutableFields()),
                 ...$this->completionFields($payload, $actor),
                 'created_by' => $actor->id,
                 'updated_by' => $actor->id,
             ]);
+
+            return $this->syncMaterials($lessonRecord, $payload);
         });
     }
 
@@ -40,11 +42,13 @@ class LessonRecordService
         $this->assertStudentAndTeacherRoles($studentId, $teacherId);
 
         return DB::transaction(function () use ($lessonRecord, $payload, $actor): LessonRecord {
-            return $this->lessonRecords->update($lessonRecord, [
+            $updatedLessonRecord = $this->lessonRecords->update($lessonRecord, [
                 ...Arr::only($payload, $this->mutableFields()),
                 ...$this->completionFields($payload, $actor, $lessonRecord),
                 'updated_by' => $actor->id,
             ]);
+
+            return $this->syncMaterials($updatedLessonRecord, $payload);
         });
     }
 
@@ -149,5 +153,24 @@ class LessonRecordService
             'is_completed',
             'internal_remarks',
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function syncMaterials(LessonRecord $lessonRecord, array $payload): LessonRecord
+    {
+        if (array_key_exists('material_ids', $payload)) {
+            $lessonRecord->materials()->sync($payload['material_ids'] ?? []);
+        }
+
+        return $lessonRecord->refresh()->load([
+            'student:id,name,email,timezone',
+            'teacher:id,name,email,timezone',
+            'completedBy:id,name,email',
+            'createdBy:id,name,email',
+            'updatedBy:id,name,email',
+            'materials:id,title,description,url',
+        ]);
     }
 }

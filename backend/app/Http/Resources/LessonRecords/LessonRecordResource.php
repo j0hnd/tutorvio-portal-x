@@ -59,6 +59,12 @@ class LessonRecordResource extends JsonResource
                 'name' => $this->resource->updatedBy?->name,
                 'email' => $this->resource->updatedBy?->email,
             ]),
+            'materials' => $this->whenLoaded('materials', fn () => $this->resource->materials->map(fn ($material) => [
+                'id' => $material->id,
+                'title' => $material->title,
+                'description' => $material->description,
+                'url' => $material->url,
+            ])->values()),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];

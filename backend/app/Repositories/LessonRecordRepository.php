@@ -72,6 +72,7 @@ class LessonRecordRepository
             'completedBy:id,name,email',
             'createdBy:id,name,email',
             'updatedBy:id,name,email',
+            'materials:id,title,description,url',
         ];
     }
 }

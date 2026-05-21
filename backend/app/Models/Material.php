@@ -19,7 +19,13 @@ class Material extends Model
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'student_materials', 'material_id', 'student_id')
-                    ->withPivot(['assigned_at', 'completed_at'])
-                    ->withTimestamps();
+            ->withPivot(['assigned_at', 'completed_at'])
+            ->withTimestamps();
+    }
+
+    public function lessonRecords(): BelongsToMany
+    {
+        return $this->belongsToMany(LessonRecord::class, 'lesson_record_materials')
+            ->withTimestamps();
     }
 }

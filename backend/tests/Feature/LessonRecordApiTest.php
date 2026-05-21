@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\LessonRecord;
+use App\Models\Material;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -147,6 +148,83 @@ class LessonRecordApiTest extends TestCase
         $this->assertSame(LessonRecord::STATUS_COMPLETED, $lessonRecord->lesson_status);
         $this->assertNotNull($lessonRecord->completed_at);
         $this->assertSame($this->admin->id, $lessonRecord->completed_by);
+    }
+
+    public function test_lesson_record_can_link_existing_materials(): void
+    {
+        $worksheet = Material::create([
+            'title' => 'Unit 4 worksheet',
+            'description' => 'Speaking fluency practice',
+            'url' => 'https://cdn.example.com/unit-4.pdf',
+        ]);
+        $video = Material::create([
+            'title' => 'Pronunciation video',
+            'url' => 'https://cdn.example.com/pronunciation.mp4',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/lesson-records', $this->validPayload([
+            'material_ids' => [$worksheet->id, $video->id],
+        ]));
+
+        $response
+            ->assertCreated()
+            ->assertJsonCount(2, 'data.materials')
+            ->assertJsonPath('data.materials.0.title', 'Unit 4 worksheet')
+            ->assertJsonPath('data.materials.0.url', 'https://cdn.example.com/unit-4.pdf')
+            ->assertJsonPath('data.materials.1.title', 'Pronunciation video');
+
+        $lessonRecordId = $response->json('data.id');
+
+        $this->assertDatabaseHas('lesson_record_materials', [
+            'lesson_record_id' => $lessonRecordId,
+            'material_id' => $worksheet->id,
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecordId)
+            ->assertOk()
+            ->assertJsonCount(2, 'data.materials')
+            ->assertJsonPath('data.materials.0.title', 'Unit 4 worksheet');
+    }
+
+    public function test_lesson_record_materials_can_be_replaced_or_cleared(): void
+    {
+        $worksheet = Material::create(['title' => 'Unit 4 worksheet']);
+        $video = Material::create(['title' => 'Pronunciation video']);
+        $lessonRecord = $this->createLessonRecord();
+        $lessonRecord->materials()->attach($worksheet->id);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'material_ids' => [$video->id],
+        ])
+            ->assertOk()
+            ->assertJsonCount(1, 'data.materials')
+            ->assertJsonPath('data.materials.0.id', $video->id);
+
+        $this->assertDatabaseMissing('lesson_record_materials', [
+            'lesson_record_id' => $lessonRecord->id,
+            'material_id' => $worksheet->id,
+        ]);
+        $this->assertDatabaseHas('lesson_record_materials', [
+            'lesson_record_id' => $lessonRecord->id,
+            'material_id' => $video->id,
+        ]);
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'material_ids' => [],
+        ])
+            ->assertOk()
+            ->assertJsonCount(0, 'data.materials');
+
+        $this->assertDatabaseMissing('lesson_record_materials', [
+            'lesson_record_id' => $lessonRecord->id,
+            'material_id' => $video->id,
+        ]);
     }
 
     public function test_teacher_can_only_see_their_own_lesson_records(): void

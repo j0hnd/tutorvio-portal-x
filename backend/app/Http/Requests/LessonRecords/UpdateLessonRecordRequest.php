@@ -44,6 +44,8 @@ class UpdateLessonRecordRequest extends FormRequest
             'attendance_status' => ['sometimes', 'nullable', 'string', Rule::in(LessonRecord::ATTENDANCE_STATUSES)],
             'is_completed' => ['sometimes', 'boolean'],
             'internal_remarks' => ['sometimes', 'nullable', 'string'],
+            'material_ids' => ['sometimes', 'array'],
+            'material_ids.*' => ['integer', 'distinct', 'exists:materials,id'],
         ];
     }
 
