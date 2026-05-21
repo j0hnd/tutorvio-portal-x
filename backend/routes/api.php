@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
+use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
@@ -48,6 +49,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}/profile', [ProfileController::class, 'showUser']);
         Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
+        Route::get('/lessons/{lesson}/join', LessonJoinController::class);
         Route::post('/lesson-records/{lessonRecord}/cancel', [LessonRecordController::class, 'cancel']);
         Route::apiResource('lesson-records', LessonRecordController::class)
             ->parameters(['lesson-records' => 'lessonRecord']);

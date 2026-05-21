@@ -82,11 +82,20 @@ class Lesson extends Model
 
     public function userCanJoinMeeting(?User $user, ?CarbonInterface $now = null): bool
     {
-        if (! $user || ! $this->isJoinAvailable($now)) {
+        if (! $this->userCanAccessMeeting($user) || ! $this->isJoinAvailable($now)) {
             return false;
         }
 
-        return $user->hasAnyRole(['admin', 'staff'])
+        return true;
+    }
+
+    public function userCanAccessMeeting(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasRole('admin')
             || (int) $this->student_id === (int) $user->id
             || (int) $this->teacher_id === (int) $user->id;
     }
