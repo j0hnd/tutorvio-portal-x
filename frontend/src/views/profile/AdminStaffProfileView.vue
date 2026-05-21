@@ -30,7 +30,6 @@
           <span class="ap-role-pill" :class="user.role === 'ADMIN' ? 'ap-role-pill--admin' : 'ap-role-pill--staff'">
             {{ user.role === 'ADMIN' ? 'Admin' : 'Staff' }}
           </span>
-          <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
         </div>
         <div class="ap-hero__meta">
           <span>{{ user.email }}</span>
@@ -47,99 +46,51 @@
     <div class="ap-layout">
       <div class="ap-layout__main">
 
-        <!-- Profile Details -->
-        <section class="ap-section">
-          <h2 class="ap-section__title">Profile Details</h2>
-          <div class="ap-detail">
-            <span class="ap-detail__label">Full Name</span>
-            <span class="ap-detail__value">{{ fullName }}</span>
-          </div>
-          <div class="ap-detail">
-            <span class="ap-detail__label">Email</span>
-            <span class="ap-detail__value">{{ user.email }}</span>
-          </div>
-          <div class="ap-detail">
-            <span class="ap-detail__label">Role</span>
-            <span class="ap-detail__value">{{ user.role === 'ADMIN' ? 'Administrator' : 'Staff Member' }}</span>
-          </div>
-          <div class="ap-detail">
-            <span class="ap-detail__label">Department</span>
-            <span class="ap-detail__value">{{ profile.department || '—' }}</span>
-          </div>
-          <div class="ap-detail">
-            <span class="ap-detail__label">Timezone</span>
-            <span class="ap-detail__value">{{ user.timezone }}</span>
-          </div>
-          <div v-if="profile.accessLimitations" class="ap-detail">
-            <span class="ap-detail__label">Access Limitations</span>
-            <span class="ap-detail__value">{{ profile.accessLimitations }}</span>
-          </div>
-        </section>
-
-        <!-- Portal Permissions -->
-        <section class="ap-section">
-          <h2 class="ap-section__title">Portal Permissions</h2>
-          <div v-if="profile.permissions && profile.permissions.length" class="ap-permissions">
-            <div
-              v-for="perm in ALL_PERMISSIONS"
-              :key="perm.key"
-              class="ap-perm-row"
-              :class="{ 'ap-perm-row--active': hasPermission(perm.key) }"
-            >
-              <div class="ap-perm-row__icon" :class="{ 'ap-perm-row__icon--active': hasPermission(perm.key) }">
-                <svg v-if="hasPermission(perm.key)" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <svg v-else width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <div>
-                <p class="ap-perm-row__name">{{ perm.label }}</p>
-                <p class="ap-perm-row__desc">{{ perm.description }}</p>
+        <div class="ap-row-2">
+          <!-- Portal Permissions -->
+          <section class="ap-section">
+            <h2 class="ap-section__title">Portal Permissions</h2>
+            <div v-if="profile.permissions && profile.permissions.length" class="ap-permissions">
+              <div
+                v-for="perm in ALL_PERMISSIONS"
+                :key="perm.key"
+                class="ap-perm-row"
+                :class="{ 'ap-perm-row--active': hasPermission(perm.key) }"
+              >
+                <div class="ap-perm-row__icon" :class="{ 'ap-perm-row__icon--active': hasPermission(perm.key) }">
+                  <svg v-if="hasPermission(perm.key)" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <svg v-else width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="ap-perm-row__name">{{ perm.label }}</p>
+                  <p class="ap-perm-row__desc">{{ perm.description }}</p>
+                </div>
               </div>
             </div>
-          </div>
-          <p v-else class="ap-empty-text">No permissions assigned.</p>
-        </section>
+            <p v-else class="ap-empty-text">No permissions assigned.</p>
+          </section>
 
-        <!-- Activity Summary -->
-        <section class="ap-section">
-          <h2 class="ap-section__title">Activity Summary</h2>
-          <div class="ap-activity-list">
-            <div v-for="entry in MOCK_ACTIVITY" :key="entry.id" class="ap-activity-row">
-              <div class="ap-activity-row__dot" />
-              <div class="ap-activity-row__body">
-                <p class="ap-activity-row__action">{{ entry.action }}</p>
-                <p class="ap-activity-row__time">{{ entry.time }}</p>
+          <!-- Activity Summary -->
+          <section class="ap-section">
+            <h2 class="ap-section__title">Activity Summary</h2>
+            <div class="ap-activity-list">
+              <div v-for="entry in MOCK_ACTIVITY" :key="entry.id" class="ap-activity-row">
+                <div class="ap-activity-row__dot" />
+                <div class="ap-activity-row__body">
+                  <p class="ap-activity-row__action">{{ entry.action }}</p>
+                  <p class="ap-activity-row__time">{{ entry.time }}</p>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
       </div>
 
-      <!-- Aside -->
-      <aside class="ap-layout__aside">
-
-        <!-- Account Info -->
-        <div class="ap-card">
-          <h3 class="ap-card__title">Account Info</h3>
-          <div class="ap-card__row">
-            <span class="ap-card__label">Member since</span>
-            <span class="ap-card__val">{{ fmt(user.createdAt) }}</span>
-          </div>
-          <div class="ap-card__row">
-            <span class="ap-card__label">Last login</span>
-            <span class="ap-card__val">{{ user.lastLoginAt ? fmtRelative(user.lastLoginAt) : '—' }}</span>
-          </div>
-          <div class="ap-card__row">
-            <span class="ap-card__label">Status</span>
-            <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
-          </div>
-        </div>
-
-      </aside>
     </div>
 
   </div>
@@ -170,17 +121,7 @@ function fmt(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function fmtRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days}d ago`
-  return fmt(iso)
-}
+
 
 interface PermDef { key: StaffPermission; label: string; description: string }
 const ALL_PERMISSIONS: PermDef[] = [
@@ -214,9 +155,7 @@ const MOCK_ACTIVITY = [
 
 <style scoped>
 .ap-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: var(--tv-space-6) var(--tv-space-4);
+  padding: var(--tv-space-6);
 }
 
 /* ── Back button ── */
@@ -240,7 +179,7 @@ const MOCK_ACTIVITY = [
   display: flex;
   gap: var(--tv-space-5);
   align-items: flex-start;
-  margin-bottom: var(--tv-space-8, 2rem);
+  margin-bottom: var(--tv-space-4);
   padding: var(--tv-space-6);
   background: var(--tv-surface);
   border: 1px solid var(--tv-border);
@@ -251,8 +190,8 @@ const MOCK_ACTIVITY = [
   width: 88px;
   height: 88px;
   border-radius: var(--tv-radius-full);
-  background: hsl(262 60% 92%);
-  color: hsl(262 60% 40%);
+  background: var(--tv-primary-soft);
+  color: var(--tv-primary);
   font-size: var(--tv-text-2xl);
   font-weight: var(--tv-font-bold);
   display: flex;
@@ -303,8 +242,8 @@ const MOCK_ACTIVITY = [
   text-transform: uppercase;
 }
 .ap-role-pill--admin {
-  background: hsl(262 60% 92%);
-  color: hsl(262 60% 38%);
+  background: var(--tv-primary-soft);
+  color: var(--tv-primary);
 }
 .ap-role-pill--staff {
   background: hsl(210 60% 92%);
@@ -330,10 +269,20 @@ const MOCK_ACTIVITY = [
 
 /* ── Layout ── */
 .ap-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-4);
+}
+
+.ap-row-2 {
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: var(--tv-space-6);
-  align-items: start;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-4);
+  align-items: stretch;
+}
+.ap-row-2 > .ap-section {
+  max-height: 540px;
+  overflow-y: auto;
 }
 
 /* ── Section ── */
@@ -342,7 +291,6 @@ const MOCK_ACTIVITY = [
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-lg);
   padding: var(--tv-space-5);
-  margin-bottom: var(--tv-space-4);
 }
 
 .ap-section__title {
@@ -389,8 +337,8 @@ const MOCK_ACTIVITY = [
 }
 .ap-perm-row--active {
   opacity: 1;
-  background: hsl(262 60% 97%);
-  border-color: hsl(262 60% 82%);
+  background: var(--tv-primary-soft);
+  border-color: var(--tv-primary);
 }
 
 .ap-perm-row__icon {
@@ -406,7 +354,7 @@ const MOCK_ACTIVITY = [
   margin-top: 1px;
 }
 .ap-perm-row__icon--active {
-  background: hsl(262 60% 55%);
+  background: var(--tv-primary);
   color: #fff;
 }
 
@@ -443,7 +391,7 @@ const MOCK_ACTIVITY = [
   width: 8px;
   height: 8px;
   border-radius: var(--tv-radius-full);
-  background: hsl(262 60% 55%);
+  background: var(--tv-primary);
   flex-shrink: 0;
   margin-top: 6px;
 }
@@ -465,7 +413,6 @@ const MOCK_ACTIVITY = [
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-lg);
   padding: var(--tv-space-4);
-  margin-bottom: var(--tv-space-4);
 }
 
 .ap-card__title {
@@ -501,7 +448,7 @@ const MOCK_ACTIVITY = [
 .ap-perm-summary__num {
   font-size: var(--tv-text-2xl);
   font-weight: var(--tv-font-bold);
-  color: hsl(262 60% 50%);
+  color: var(--tv-primary);
 }
 .ap-perm-summary__label {
   font-size: var(--tv-text-xs);
@@ -517,7 +464,7 @@ const MOCK_ACTIVITY = [
 .ap-perm-bar__fill {
   height: 100%;
   border-radius: var(--tv-radius-full);
-  background: hsl(262 60% 55%);
+  background: var(--tv-primary);
   transition: width 0.4s ease;
 }
 
@@ -530,15 +477,15 @@ const MOCK_ACTIVITY = [
 .ap-perm-tag {
   padding: 2px 8px;
   border-radius: var(--tv-radius-full);
-  background: hsl(262 60% 92%);
-  color: hsl(262 60% 38%);
+  background: var(--tv-primary-soft);
+  color: var(--tv-primary);
   font-size: var(--tv-text-xs);
   font-weight: var(--tv-font-medium);
 }
 
-/* ── Responsive ── */
-@media (max-width: 1100px) {
-  .ap-layout { grid-template-columns: 1fr; }
+
+@media (max-width: 900px) {
+  .ap-row-2 { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 767px) {

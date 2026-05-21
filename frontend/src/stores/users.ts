@@ -481,7 +481,7 @@ const MOCK_USERS: ManagedUser[] = [
       availabilitySummary: 'Mon–Fri 8am–5pm PHT, Sat 9am–12pm PHT',
       internalStatus: 'ACTIVE',
       teachingNotes: 'Excellent with corporate professionals. Adapts lesson content to individual pace. Consistently high student satisfaction scores.',
-      assignedStudentIds: ['u1'],
+      assignedStudentIds: ['u1', 'u2', 'u3', 'u4', 'u11', 'u12', 'u14'],
       documentStatus: 'APPROVED',
       contractStatus: 'APPROVED',
     },

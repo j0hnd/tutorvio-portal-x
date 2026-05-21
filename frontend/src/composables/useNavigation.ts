@@ -89,12 +89,6 @@ const ALL_NAV: NavItem[] = [
     icon: ICONS.payroll,
     roles: ['TEACHER', 'ADMIN'],
   },
-  {
-    path: '/profile',
-    label: 'My Profile',
-    icon: ICONS.profile,
-    roles: ['STUDENT', 'TEACHER', 'ADMIN', 'STAFF'],
-  },
 ]
 
 export function useNavigation() {

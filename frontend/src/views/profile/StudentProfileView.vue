@@ -9,114 +9,86 @@
       Back
     </button>
 
-    <!-- Hero -->
-    <div class="sp-hero">
-      <div class="sp-hero__avatar" aria-hidden="true">
-        <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName" />
-        <span v-else>{{ initials }}</span>
-      </div>
-      <div class="sp-hero__info">
-        <div class="sp-hero__name-row">
-          <h1 class="sp-hero__name">{{ fullName }}</h1>
-          <TVButton
-            v-if="viewerRole === 'ADMIN'"
-            variant="ghost"
-            size="sm"
-            @click="router.push(`/admin/users/${user.id}/edit`)"
-          >
-            Edit profile
-          </TVButton>
-        </div>
-        <div class="sp-hero__badges">
-          <span class="sp-role-pill">Student</span>
-          <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
-        </div>
-        <div class="sp-hero__meta">
-          <span>{{ user.email }}</span>
-          <span class="sp-meta-dot">·</span>
-          <span>{{ user.timezone }}</span>
-          <span class="sp-meta-dot">·</span>
-          <span>Joined {{ fmt(user.createdAt) }}</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Body -->
     <div class="sp-layout">
       <div class="sp-layout__main">
 
-        <!-- Personal Details + Contact Information (side by side) -->
-        <div class="sp-row-2">
-          <section class="sp-section">
-            <h2 class="sp-section__title">Personal Details</h2>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Full Name</span>
-              <span class="sp-detail__value">{{ fullName }}</span>
+        <!-- Hero -->
+        <div class="sp-hero">
+          <div class="sp-hero__avatar" aria-hidden="true">
+            <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName" />
+            <span v-else>{{ initials }}</span>
+          </div>
+          <div class="sp-hero__info">
+            <div class="sp-hero__name-row">
+              <h1 class="sp-hero__name">{{ fullName }}</h1>
+              <TVButton
+                v-if="viewerRole === 'ADMIN'"
+                variant="ghost"
+                size="sm"
+                @click="router.push(`/admin/users/${user.id}/edit`)"
+              >
+                Edit profile
+              </TVButton>
             </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Timezone</span>
-              <span class="sp-detail__value">{{ user.timezone }}</span>
+            <div class="sp-hero__badges">
+              <span class="sp-role-pill">Student</span>
             </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Member Since</span>
-              <span class="sp-detail__value">{{ fmt(user.createdAt) }}</span>
+            <div class="sp-hero__meta">
+              <span>{{ user.email }}</span>
+              <template v-if="user.phone">
+                <span class="sp-meta-dot">·</span>
+                <span>{{ user.phone }}</span>
+              </template>
+              <span class="sp-meta-dot">·</span>
+              <span>{{ user.timezone }}</span>
+              <span class="sp-meta-dot">·</span>
+              <span>Joined {{ fmt(user.createdAt) }}</span>
             </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Status</span>
-              <span class="sp-status-inline" :class="user.isActive ? 'sp-status-inline--active' : 'sp-status-inline--inactive'">
-                {{ user.isActive ? 'Active' : 'Inactive' }}
-              </span>
-            </div>
-          </section>
-
-          <section class="sp-section">
-            <h2 class="sp-section__title">Contact Information</h2>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Email Address</span>
-              <span class="sp-detail__value">{{ user.email }}</span>
-            </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Phone</span>
-              <span class="sp-detail__value sp-detail__value--muted">Not provided</span>
-            </div>
-          </section>
+          </div>
         </div>
 
         <!-- Learning Profile + Goals & Concerns (side by side) -->
         <div class="sp-row-2">
           <section class="sp-section">
             <h2 class="sp-section__title">Learning Profile</h2>
-            <div class="sp-detail">
-              <span class="sp-detail__label">English Level</span>
-              <span class="sp-level" :class="`sp-level--${levelClass}`">{{ levelLabel }}</span>
-            </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Class Type</span>
-              <span class="sp-detail__value">{{ classTypeLabel }}</span>
-            </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Assigned Program / Course</span>
-              <span class="sp-detail__value">{{ profile.program || '—' }}</span>
-            </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Start Date</span>
-              <span class="sp-detail__value">{{ profile.startDate ? fmt(profile.startDate) : '—' }}</span>
-            </div>
-            <div class="sp-detail">
-              <span class="sp-detail__label">Assigned Teacher</span>
-              <div v-if="assignedTeacher" class="sp-teacher">
-                <div class="sp-teacher__avatar" aria-hidden="true">{{ teacherInitials }}</div>
-                <div>
-                  <button
-                    v-if="viewerRole === 'ADMIN'"
-                    class="sp-link-btn"
-                    @click="router.push(`/profile/${assignedTeacher.id}`)"
-                  >{{ teacherName }}</button>
-                  <span v-else class="sp-detail__value">{{ teacherName }}</span>
-                  <p class="sp-teacher__spec">{{ assignedTeacher.teacherProfile?.specialization }}</p>
+            <div class="sp-lp-cols">
+              <div class="sp-lp-col">
+                <div class="sp-detail">
+                  <span class="sp-detail__label">English Level</span>
+                  <span class="sp-level" :class="`sp-level--${levelClass}`">{{ levelLabel }}</span>
+                </div>
+                <div class="sp-detail">
+                  <span class="sp-detail__label">Assigned Program / Course</span>
+                  <span class="sp-detail__value">{{ profile.program || '—' }}</span>
+                </div>
+                <div class="sp-detail">
+                  <span class="sp-detail__label">Assigned Teacher</span>
+                  <div v-if="assignedTeacher" class="sp-teacher">
+                    <div class="sp-teacher__avatar" aria-hidden="true">{{ teacherInitials }}</div>
+                    <div>
+                      <button
+                        v-if="viewerRole === 'ADMIN'"
+                        class="sp-link-btn"
+                        @click="router.push(`/profile/${assignedTeacher.id}`)"
+                      >{{ teacherName }}</button>
+                      <span v-else class="sp-detail__value">{{ teacherName }}</span>
+                      <p class="sp-teacher__spec">{{ assignedTeacher.teacherProfile?.specialization }}</p>
+                    </div>
+                  </div>
+                  <span v-else class="sp-detail__value sp-detail__value--muted">No teacher assigned</span>
                 </div>
               </div>
-              <span v-else class="sp-detail__value sp-detail__value--muted">No teacher assigned</span>
+              <div class="sp-lp-col">
+                <div class="sp-detail">
+                  <span class="sp-detail__label">Class Type</span>
+                  <span class="sp-detail__value">{{ classTypeLabel }}</span>
+                </div>
+                <div class="sp-detail">
+                  <span class="sp-detail__label">Start Date</span>
+                  <span class="sp-detail__value">{{ profile.startDate ? fmt(profile.startDate) : '—' }}</span>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -482,9 +454,21 @@ function fmt(iso: string): string {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--tv-space-4);
+  align-items: stretch;
+}
+
+.sp-lp-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-4);
   align-items: start;
 }
-.sp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); position: sticky; top: calc(var(--tv-header-height) + var(--tv-space-4)); }
+.sp-lp-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-4);
+}
+.sp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); align-self: start; }
 
 /* Sections */
 .sp-section {

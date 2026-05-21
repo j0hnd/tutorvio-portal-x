@@ -8,72 +8,49 @@
       Back
     </button>
 
-    <!-- Hero -->
-    <div class="tp-hero">
-      <div class="tp-hero__avatar" aria-hidden="true">
-        <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName" />
-        <span v-else>{{ initials }}</span>
-      </div>
-      <div class="tp-hero__info">
-        <div class="tp-hero__name-row">
-          <h1 class="tp-hero__name">{{ fullName }}</h1>
-          <TVButton
-            v-if="viewerRole === 'ADMIN'"
-            variant="ghost"
-            size="sm"
-            @click="router.push(`/admin/users/${user.id}/edit`)"
-          >
-            Edit profile
-          </TVButton>
-        </div>
-        <div class="tp-hero__badges">
-          <span class="tp-role-pill">Teacher</span>
-          <TVBadge :label="user.isActive ? 'Active' : 'Inactive'" :variant="user.isActive ? 'active' : 'neutral'" dot />
-          <TVBadge
-            v-if="profile.internalStatus && profile.internalStatus !== 'ACTIVE'"
-            :label="internalStatusLabel"
-            :variant="internalStatusVariant"
-          />
-        </div>
-        <div class="tp-hero__meta">
-          <span>{{ user.email }}</span>
-          <span class="tp-meta-dot">·</span>
-          <span>{{ user.timezone }}</span>
-          <span class="tp-meta-dot">·</span>
-          <span>Joined {{ fmt(user.createdAt) }}</span>
-        </div>
-        <p v-if="profile.specialization" class="tp-hero__spec">{{ profile.specialization }}</p>
-      </div>
-    </div>
-
     <!-- Body -->
     <div class="tp-layout">
       <div class="tp-layout__main">
 
-        <!-- Personal Details + Teacher Bio (side by side) -->
-        <div class="tp-row-2">
-          <section class="tp-section">
-            <h2 class="tp-section__title">Personal Details</h2>
-            <div class="tp-grid-2">
-              <div class="tp-detail">
-                <span class="tp-detail__label">Full Name</span>
-                <span class="tp-detail__value">{{ fullName }}</span>
-              </div>
-              <div class="tp-detail">
-                <span class="tp-detail__label">Email Address</span>
-                <span class="tp-detail__value">{{ user.email }}</span>
-              </div>
-              <div class="tp-detail">
-                <span class="tp-detail__label">Timezone</span>
-                <span class="tp-detail__value">{{ user.timezone }}</span>
-              </div>
-              <div class="tp-detail">
-                <span class="tp-detail__label">Member Since</span>
-                <span class="tp-detail__value">{{ fmt(user.createdAt) }}</span>
-              </div>
+        <!-- Hero -->
+        <div class="tp-hero">
+          <div class="tp-hero__avatar" aria-hidden="true">
+            <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="fullName" />
+            <span v-else>{{ initials }}</span>
+          </div>
+          <div class="tp-hero__info">
+            <div class="tp-hero__name-row">
+              <h1 class="tp-hero__name">{{ fullName }}</h1>
+              <TVButton
+                v-if="viewerRole === 'ADMIN'"
+                variant="ghost"
+                size="sm"
+                @click="router.push(`/admin/users/${user.id}/edit`)"
+              >
+                Edit profile
+              </TVButton>
             </div>
-          </section>
+            <div class="tp-hero__badges">
+              <span class="tp-role-pill">Teacher</span>
+              <TVBadge
+                v-if="profile.internalStatus && profile.internalStatus !== 'ACTIVE'"
+                :label="internalStatusLabel"
+                :variant="internalStatusVariant"
+              />
+            </div>
+            <div class="tp-hero__meta">
+              <span>{{ user.email }}</span>
+              <span class="tp-meta-dot">·</span>
+              <span>{{ user.timezone }}</span>
+              <span class="tp-meta-dot">·</span>
+              <span>Joined {{ fmt(user.createdAt) }}</span>
+            </div>
+            <p v-if="profile.specialization" class="tp-hero__spec">{{ profile.specialization }}</p>
+          </div>
+        </div>
 
+        <!-- Teacher Bio + Assigned Students (side by side) -->
+        <div class="tp-row-2">
           <section class="tp-section">
             <h2 class="tp-section__title">Teacher Bio</h2>
             <div class="tp-detail">
@@ -84,6 +61,41 @@
               <span class="tp-detail__label">About</span>
               <p class="tp-detail__text">{{ MOCK_BIO }}</p>
             </div>
+          </section>
+
+          <section class="tp-section">
+            <div class="tp-section__head">
+              <h2 class="tp-section__title tp-section__title--inline">Assigned Students</h2>
+              <span class="tp-section__badge">{{ assignedStudents.length }} student{{ assignedStudents.length !== 1 ? 's' : '' }}</span>
+            </div>
+            <ul v-if="assignedStudents.length" class="tp-students" :class="{ 'tp-students--scroll': assignedStudents.length > 5 }">
+              <li
+                v-for="student in assignedStudents"
+                :key="student.id"
+                class="tp-student"
+                :class="{ 'tp-student--clickable': viewerRole === 'ADMIN' || isOwnProfile }"
+                @click="(viewerRole === 'ADMIN' || isOwnProfile) && router.push(`/profile/${student.id}`)"
+              >
+                <div class="tp-student__avatar" aria-hidden="true">
+                  {{ `${student.firstName[0]}${student.lastName[0]}`.toUpperCase() }}
+                </div>
+                <div class="tp-student__info">
+                  <span class="tp-student__name">{{ student.firstName }} {{ student.lastName }}</span>
+                  <span class="tp-student__meta">
+                    {{ levelLabel(student.studentProfile?.englishLevel) }}
+                    <template v-if="student.studentProfile?.program"> · {{ student.studentProfile.program }}</template>
+                  </span>
+                </div>
+                <TVBadge
+                  :label="student.isActive ? 'Active' : 'Inactive'"
+                  :variant="student.isActive ? 'active' : 'neutral'"
+                />
+                <svg v-if="viewerRole === 'ADMIN' || isOwnProfile" width="14" height="14" viewBox="0 0 14 14" fill="none" class="tp-student__arrow" aria-hidden="true">
+                  <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </li>
+            </ul>
+            <p v-else class="tp-empty-note">No students assigned yet.</p>
           </section>
         </div>
 
@@ -100,42 +112,6 @@
               <TVBadge :label="docLabel(profile.contractStatus)" :variant="docVariant(profile.contractStatus)" />
             </div>
           </div>
-        </section>
-
-        <!-- Assigned Students -->
-        <section class="tp-section">
-          <div class="tp-section__head">
-            <h2 class="tp-section__title tp-section__title--inline">Assigned Students</h2>
-            <span class="tp-section__badge">{{ assignedStudents.length }} student{{ assignedStudents.length !== 1 ? 's' : '' }}</span>
-          </div>
-          <ul v-if="assignedStudents.length" class="tp-students">
-            <li
-              v-for="student in assignedStudents"
-              :key="student.id"
-              class="tp-student"
-              :class="{ 'tp-student--clickable': viewerRole === 'ADMIN' || isOwnProfile }"
-              @click="(viewerRole === 'ADMIN' || isOwnProfile) && router.push(`/profile/${student.id}`)"
-            >
-              <div class="tp-student__avatar" aria-hidden="true">
-                {{ `${student.firstName[0]}${student.lastName[0]}`.toUpperCase() }}
-              </div>
-              <div class="tp-student__info">
-                <span class="tp-student__name">{{ student.firstName }} {{ student.lastName }}</span>
-                <span class="tp-student__meta">
-                  {{ levelLabel(student.studentProfile?.englishLevel) }}
-                  <template v-if="student.studentProfile?.program"> · {{ student.studentProfile.program }}</template>
-                </span>
-              </div>
-              <TVBadge
-                :label="student.isActive ? 'Active' : 'Inactive'"
-                :variant="student.isActive ? 'active' : 'neutral'"
-              />
-              <svg v-if="viewerRole === 'ADMIN' || isOwnProfile" width="14" height="14" viewBox="0 0 14 14" fill="none" class="tp-student__arrow" aria-hidden="true">
-                <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </li>
-          </ul>
-          <p v-else class="tp-empty-note">No students assigned yet.</p>
         </section>
 
         <!-- Internal Remarks — admin + own teacher -->
@@ -161,18 +137,33 @@
         <!-- Class Load -->
         <div class="tp-card">
           <h3 class="tp-card__title">Class Load</h3>
-          <div class="tp-big-stat">
-            <span class="tp-big-stat__num">{{ assignedStudents.length }}</span>
-            <span class="tp-big-stat__label">Active Students</span>
+          <div class="tp-load-bar-wrap">
+            <div class="tp-load-bar-header">
+              <span class="tp-load-bar-count">
+                <strong>{{ assignedStudents.length }}</strong> / {{ CLASS_CAPACITY }} students
+              </span>
+              <span class="tp-load-status" :class="loadStatusClass">{{ loadStatusLabel }}</span>
+            </div>
+            <div class="tp-load-bar" role="progressbar" :aria-valuenow="assignedStudents.length" :aria-valuemax="CLASS_CAPACITY">
+              <div class="tp-load-bar__fill" :class="loadBarClass" :style="{ width: `${loadPercent}%` }" />
+            </div>
           </div>
-          <div class="tp-card__sub-title">Availability</div>
+          <div class="tp-card__sub-title">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M4 1v2M8 1v2M1 5h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            Availability
+          </div>
           <ul v-if="availabilitySlots.length" class="tp-avail-list">
             <li v-for="slot in availabilitySlots" :key="slot" class="tp-avail-item">
-              <span class="tp-avail-dot" aria-hidden="true" />
-              {{ slot }}
+              <span class="tp-avail-chip">
+                <span class="tp-avail-chip__day">{{ parseSlot(slot).day }}</span>
+                <span class="tp-avail-chip__time">{{ parseSlot(slot).time }}</span>
+              </span>
             </li>
           </ul>
-          <p v-else class="tp-empty-note">Not set</p>
+          <p v-else class="tp-empty-note">No availability set</p>
         </div>
 
         <!-- Performance -->
@@ -237,6 +228,7 @@ const store = useUsersStore()
 
 const MOCK_PERF = { avgRating: 4.8, totalLessons: 312, completionRate: 96, retentionRate: 89 }
 const MOCK_BIO = 'Experienced English language instructor with a focus on professional communication and business contexts. Passionate about helping students build confidence and fluency through practical, real-world scenarios.'
+const CLASS_CAPACITY = 12
 
 const profile = computed(() => props.user.teacherProfile ?? {})
 const fullName = computed(() => `${props.user.firstName} ${props.user.lastName}`)
@@ -252,6 +244,36 @@ const availabilitySlots = computed(() => {
   const raw = profile.value.availabilitySummary
   if (!raw || raw === 'TBD') return raw ? [raw] : []
   return raw.split(/,\s*/).map(s => s.trim()).filter(Boolean)
+})
+
+function parseSlot(slot: string): { day: string; time: string } {
+  const match = slot.match(/^([^\d]+?)\s+(\d.*)$/)
+  if (match) return { day: match[1].trim(), time: match[2].trim() }
+  return { day: slot, time: '' }
+}
+
+const loadPercent = computed(() =>
+  Math.min(100, Math.round((assignedStudents.value.length / CLASS_CAPACITY) * 100)),
+)
+const loadStatusLabel = computed(() => {
+  const pct = loadPercent.value
+  if (pct >= 100) return 'At capacity'
+  if (pct >= 75) return 'Nearly full'
+  if (pct >= 40) return 'Active'
+  return 'Available'
+})
+const loadStatusClass = computed(() => {
+  const pct = loadPercent.value
+  if (pct >= 100) return 'tp-load-status--full'
+  if (pct >= 75) return 'tp-load-status--high'
+  if (pct >= 40) return 'tp-load-status--mid'
+  return 'tp-load-status--open'
+})
+const loadBarClass = computed(() => {
+  const pct = loadPercent.value
+  if (pct >= 100) return 'tp-load-bar__fill--full'
+  if (pct >= 75) return 'tp-load-bar__fill--high'
+  return 'tp-load-bar__fill--normal'
 })
 
 const INTERNAL_STATUS: Record<string, { label: string; variant: string }> = {
@@ -406,7 +428,7 @@ function fmt(iso: string): string {
   align-items: start;
 }
 .tp-layout__main { display: flex; flex-direction: column; gap: var(--tv-space-4); }
-.tp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); position: sticky; top: calc(var(--tv-header-height) + var(--tv-space-4)); }
+.tp-layout__aside { display: flex; flex-direction: column; gap: var(--tv-space-4); align-self: start; }
 
 /* Row of two sections — stretch so both cards share the same height */
 .tp-row-2 {
@@ -493,7 +515,8 @@ function fmt(iso: string): string {
 .tp-status-inline--inactive::before { background: var(--tv-text-muted); }
 
 /* Student list */
-.tp-students { list-style: none; display: flex; flex-direction: column; gap: 0; }
+.tp-students { list-style: none; display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; }
+.tp-students--scroll { max-height: 300px; overflow-y: auto; }
 .tp-student {
   display: flex;
   align-items: center;
@@ -546,6 +569,9 @@ function fmt(iso: string): string {
   border-bottom: 1px solid var(--tv-border);
 }
 .tp-card__sub-title {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-space-1);
   font-size: var(--tv-text-xs);
   font-weight: var(--tv-font-semibold);
   color: var(--tv-text-muted);
@@ -554,42 +580,71 @@ function fmt(iso: string): string {
   margin-top: var(--tv-space-1);
 }
 
-.tp-big-stat {
+/* Class load bar */
+.tp-load-bar-wrap { display: flex; flex-direction: column; gap: var(--tv-space-2); }
+.tp-load-bar-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: var(--tv-space-2) 0;
+  justify-content: space-between;
 }
-.tp-big-stat__num {
-  font-size: var(--tv-text-3xl, 1.875rem);
-  font-weight: var(--tv-font-bold);
-  color: hsl(142, 70%, 25%);
-  line-height: 1;
+.tp-load-bar-count {
+  font-size: var(--tv-text-sm);
+  color: var(--tv-text-muted);
 }
-.tp-big-stat__label { font-size: var(--tv-text-xs); color: var(--tv-text-muted); margin-top: var(--tv-space-1); }
+.tp-load-bar-count strong { color: var(--tv-text); font-weight: var(--tv-font-semibold); }
+.tp-load-bar {
+  height: 8px;
+  background: var(--tv-bg-soft);
+  border-radius: var(--tv-radius-full);
+  overflow: hidden;
+}
+.tp-load-bar__fill {
+  height: 100%;
+  border-radius: var(--tv-radius-full);
+  transition: width 0.4s ease;
+}
+.tp-load-bar__fill--normal { background: hsl(142, 60%, 45%); }
+.tp-load-bar__fill--high   { background: hsl(38, 80%, 48%); }
+.tp-load-bar__fill--full   { background: hsl(0, 72%, 55%); }
 
-/* Availability bullet list */
+.tp-load-status {
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-semibold);
+  padding: 2px var(--tv-space-2);
+  border-radius: var(--tv-radius-full);
+}
+.tp-load-status--open { background: hsl(142, 60%, 90%); color: hsl(142, 60%, 25%); }
+.tp-load-status--mid  { background: hsl(199, 80%, 90%); color: hsl(199, 80%, 25%); }
+.tp-load-status--high { background: hsl(38, 92%, 91%);  color: hsl(38, 70%, 30%); }
+.tp-load-status--full { background: hsl(0, 72%, 93%);   color: hsl(0, 72%, 38%); }
+
+/* Availability chips */
 .tp-avail-list {
   list-style: none;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: var(--tv-space-2);
   margin: 0;
   padding: 0;
 }
-.tp-avail-item {
-  display: flex;
-  align-items: center;
-  gap: var(--tv-space-2);
-  font-size: var(--tv-text-sm);
+.tp-avail-item { display: flex; }
+.tp-avail-chip {
+  display: inline-flex;
+  flex-direction: column;
+  padding: var(--tv-space-2) var(--tv-space-3);
+  border-radius: var(--tv-radius-md);
+  background: var(--tv-bg-soft);
+  border: 1px solid var(--tv-border);
+  gap: 2px;
+}
+.tp-avail-chip__day {
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-semibold);
   color: var(--tv-text);
 }
-.tp-avail-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: hsl(142, 70%, 40%);
-  flex-shrink: 0;
+.tp-avail-chip__time {
+  font-size: var(--tv-text-xs);
+  color: var(--tv-text-muted);
 }
 
 .tp-stat-row {

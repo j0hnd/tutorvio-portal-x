@@ -11,7 +11,7 @@
     <StatsGrid :stats="stats" />
 
     <div class="dashboard__content">
-      <UpcomingLessons :lessons="upcomingLessons" @join="onJoin" @more="onMore" />
+      <UpcomingLessons class="dashboard__main" :lessons="upcomingLessons" @join="onJoin" @more="onMore" />
 
       <div class="dashboard__right">
         <QuickActions :actions="quickActions" @action="onQuickAction" />
@@ -100,23 +100,33 @@ function onQuickAction(id: string): void { console.log('Quick action', id) }
   color: var(--tv-text-secondary);
 }
 
-/* 3-col left + 1-col right */
+/* mirrors the 4-column stats grid so columns align */
 .dashboard__content {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--tv-space-4);
   align-items: start;
 }
 
+.dashboard__main { grid-column: 1 / 4; }
+
 .dashboard__right {
+  grid-column: 4;
   display: flex;
   flex-direction: column;
   gap: var(--tv-space-4);
 }
 
+@media (max-width: 1280px) {
+  .dashboard__content { grid-template-columns: 3fr 1fr; }
+  .dashboard__main { grid-column: 1; }
+  .dashboard__right { grid-column: 2; }
+}
+
 @media (max-width: 1100px) {
   .dashboard__content { grid-template-columns: 1fr; }
-  .dashboard__right { display: grid; grid-template-columns: repeat(2, 1fr); }
+  .dashboard__main { grid-column: 1; }
+  .dashboard__right { grid-column: 1; display: grid; grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 767px) {
