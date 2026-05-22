@@ -132,6 +132,11 @@ class Lesson extends Model
         return $this->hasOne(LessonNote::class);
     }
 
+    public function homeworks(): HasMany
+    {
+        return $this->hasMany(Homework::class);
+    }
+
     public function learningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'learning_resource_lesson', 'lesson_id', 'learning_resource_id')

@@ -104,6 +104,13 @@ class LearningResource extends Model
             ->withTimestamps();
     }
 
+    public function assignedHomeworks(): BelongsToMany
+    {
+        return $this->belongsToMany(Homework::class, 'homework_learning_resource', 'learning_resource_id', 'homework_id')
+            ->withPivot(['assigned_by', 'assigned_at'])
+            ->withTimestamps();
+    }
+
     public function versions(): HasMany
     {
         return $this->hasMany(LearningResourceVersion::class)->orderByDesc('version_number');

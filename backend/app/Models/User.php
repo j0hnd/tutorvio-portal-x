@@ -120,6 +120,11 @@ class User extends Authenticatable
         return $this->hasMany(LessonNote::class, 'student_id');
     }
 
+    public function studentHomeworks(): HasMany
+    {
+        return $this->hasMany(Homework::class, 'student_id');
+    }
+
     public function assignedLearningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'learning_resource_student', 'student_id', 'learning_resource_id')
@@ -130,6 +135,11 @@ class User extends Authenticatable
     public function teacherLessonNotes(): HasMany
     {
         return $this->hasMany(LessonNote::class, 'teacher_id');
+    }
+
+    public function teacherHomeworks(): HasMany
+    {
+        return $this->hasMany(Homework::class, 'teacher_id');
     }
 
     public function authoredLessonNotes(): HasMany
