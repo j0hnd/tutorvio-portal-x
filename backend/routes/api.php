@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
+use App\Http\Controllers\Api\HomeworkController;
 use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
@@ -63,6 +64,7 @@ Route::prefix('v1')->group(function () {
             ->parameters(['lesson-records' => 'lessonRecord']);
         Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
+        Route::post('/homeworks', [HomeworkController::class, 'store']);
         Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
         Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
         Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);
