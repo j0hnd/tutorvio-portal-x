@@ -114,6 +114,21 @@ class User extends Authenticatable
         return $this->hasMany(LessonRecord::class, 'teacher_id');
     }
 
+    public function studentLessonNotes(): HasMany
+    {
+        return $this->hasMany(LessonNote::class, 'student_id');
+    }
+
+    public function teacherLessonNotes(): HasMany
+    {
+        return $this->hasMany(LessonNote::class, 'teacher_id');
+    }
+
+    public function authoredLessonNotes(): HasMany
+    {
+        return $this->hasMany(LessonNote::class, 'author_id');
+    }
+
     public function createdLessonRecords(): HasMany
     {
         return $this->hasMany(LessonRecord::class, 'created_by');

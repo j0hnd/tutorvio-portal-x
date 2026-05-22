@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LessonRecord extends Model
 {
@@ -155,6 +156,11 @@ class LessonRecord extends Model
     {
         return $this->belongsToMany(Material::class, 'lesson_record_materials')
             ->withTimestamps();
+    }
+
+    public function lessonNote(): HasOne
+    {
+        return $this->hasOne(LessonNote::class);
     }
 
     public function isJoinAvailable(?CarbonInterface $now = null): bool

@@ -111,6 +111,11 @@ class Lesson extends Model
         return $this->hasMany(LessonJoinAccessLog::class);
     }
 
+    public function lessonNote(): HasOne
+    {
+        return $this->hasOne(LessonNote::class);
+    }
+
     public function isJoinAvailable(?CarbonInterface $now = null): bool
     {
         return $this->joinAvailability($now)['can_join'];

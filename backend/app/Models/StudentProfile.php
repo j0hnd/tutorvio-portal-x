@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StudentProfile extends Model
 {
@@ -43,14 +44,19 @@ class StudentProfile extends Model
         return $this->belongsTo(User::class, 'assigned_teacher_id');
     }
 
-    public function lessons()
+    public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class, 'student_id', 'user_id');
     }
 
-    public function lessonRecords()
+    public function lessonRecords(): HasMany
     {
         return $this->hasMany(LessonRecord::class, 'student_id', 'user_id');
+    }
+
+    public function lessonNotes(): HasMany
+    {
+        return $this->hasMany(LessonNote::class, 'student_id', 'user_id');
     }
 
     public function attendances()
