@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 class LearningResource extends Model
@@ -67,6 +68,7 @@ class LearningResource extends Model
         'level',
         'visibility',
         'created_by',
+        'current_version_number',
     ];
 
     protected $hidden = [
@@ -79,6 +81,7 @@ class LearningResource extends Model
         return [
             'file_size' => 'integer',
             'preview_metadata' => 'array',
+            'current_version_number' => 'integer',
         ];
     }
 
@@ -99,6 +102,11 @@ class LearningResource extends Model
         return $this->belongsToMany(Lesson::class, 'learning_resource_lesson', 'learning_resource_id', 'lesson_id')
             ->withPivot(['assigned_by', 'assigned_at'])
             ->withTimestamps();
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(LearningResourceVersion::class)->orderByDesc('version_number');
     }
 
     public function scopeSearch(Builder $query, ?string $term): Builder
@@ -206,5 +214,14 @@ class LearningResource extends Model
     public function storageDisk(): string
     {
         return $this->storage_disk ?: (string) config('learning_resources.disk', config('filesystems.default'));
+    }
+
+    public function currentVersionNumber(): int
+    {
+        if ($this->current_version_number !== null) {
+            return (int) $this->current_version_number;
+        }
+
+        return $this->hasStoredFile() ? 1 : 0;
     }
 }

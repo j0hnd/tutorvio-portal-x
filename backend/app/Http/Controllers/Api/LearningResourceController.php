@@ -8,12 +8,15 @@ use App\Http\Requests\LearningResources\StoreLinkResourceRequest;
 use App\Http\Requests\LearningResources\UpdateLearningResourceRequest;
 use App\Http\Resources\LearningResources\LearningResourceResource;
 use App\Models\LearningResource;
+use App\Models\LearningResourceVersion;
 use App\Models\Lesson;
 use App\Models\User;
 use App\Services\LearningResourceStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -95,7 +98,15 @@ class LearningResourceController extends Controller
             'preview_metadata' => $this->previewMetadata($fileMetadata),
             'visibility' => $validated['visibility'] ?? LearningResource::VISIBILITY_TEACHER_ONLY,
             'created_by' => $request->user()->id,
+            'current_version_number' => 1,
         ]);
+        $this->createVersionSnapshot(
+            $resource,
+            $fileMetadata,
+            uploadedBy: $request->user()->id,
+            previousFilePath: null,
+            changeNotes: null
+        );
 
         return response()->json([
             'data' => new LearningResourceResource($resource->load('createdBy')),
@@ -118,6 +129,7 @@ class LearningResourceController extends Controller
             'preview_metadata' => null,
             'visibility' => $validated['visibility'] ?? LearningResource::VISIBILITY_TEACHER_ONLY,
             'created_by' => $request->user()->id,
+            'current_version_number' => null,
         ]);
 
         return response()->json([
@@ -188,10 +200,74 @@ class LearningResourceController extends Controller
     {
         Gate::authorize('update', $learningResource);
 
-        $learningResource->update($request->validated());
+        $validated = $request->validated();
+        $uploadedFile = $request->file('file');
+        $changeNotes = $validated['change_notes'] ?? null;
+
+        unset($validated['file'], $validated['change_notes']);
+
+        if ($uploadedFile instanceof UploadedFile) {
+            DB::transaction(function () use ($learningResource, $uploadedFile, $validated, $request, $changeNotes) {
+                $this->ensureInitialVersionSnapshotExists($learningResource);
+
+                $previousFilePath = $learningResource->file_path;
+                $fileMetadata = $this->storage->store($uploadedFile);
+                $latestVersionNumber = (int) $learningResource->versions()->max('version_number');
+                $nextVersionNumber = max($learningResource->currentVersionNumber(), $latestVersionNumber) + 1;
+
+                $learningResource->update([
+                    ...$validated,
+                    ...$fileMetadata,
+                    'preview_metadata' => $this->previewMetadata($fileMetadata),
+                    'current_version_number' => $nextVersionNumber,
+                ]);
+
+                $this->createVersionSnapshot(
+                    $learningResource,
+                    $fileMetadata,
+                    uploadedBy: $request->user()->id,
+                    previousFilePath: $previousFilePath,
+                    changeNotes: $changeNotes
+                );
+            });
+        } else {
+            $learningResource->update($validated);
+        }
 
         return response()->json([
             'data' => new LearningResourceResource($learningResource->refresh()->load('createdBy')),
+        ]);
+    }
+
+    public function versions(LearningResource $learningResource): JsonResponse
+    {
+        Gate::authorize('viewVersionHistory', $learningResource);
+
+        $versions = $learningResource->versions()
+            ->with('uploadedBy:id,name,email')
+            ->get()
+            ->map(fn (LearningResourceVersion $version) => [
+                'version_number' => $version->version_number,
+                'previous_file_reference' => $version->previous_file_path === null
+                    ? null
+                    : basename($version->previous_file_path),
+                'original_filename' => $version->original_filename,
+                'mime_type' => $version->mime_type,
+                'file_size' => $version->file_size,
+                'preview_metadata' => $version->preview_metadata,
+                'change_notes' => $version->change_notes,
+                'uploaded_at' => $version->uploaded_at,
+                'uploaded_by' => $version->uploaded_by,
+                'uploaded_by_user' => $version->uploadedBy === null ? null : [
+                    'id' => $version->uploadedBy->id,
+                    'name' => $version->uploadedBy->name,
+                    'email' => $version->uploadedBy->email,
+                ],
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $versions,
         ]);
     }
 
@@ -269,7 +345,7 @@ class LearningResourceController extends Controller
     {
         Gate::authorize('delete', $learningResource);
 
-        $this->storage->delete($learningResource);
+        $this->deleteAllStoredFiles($learningResource);
         $learningResource->delete();
 
         return response()->json(status: 204);
@@ -287,6 +363,76 @@ class LearningResourceController extends Controller
             'size' => $fileMetadata['file_size'],
             'extension' => pathinfo($fileMetadata['original_filename'], PATHINFO_EXTENSION) ?: null,
         ];
+    }
+
+    /**
+     * @param  array{storage_disk: string, file_path: string, original_filename: string, mime_type: string|null, file_size: int}  $fileMetadata
+     */
+    private function createVersionSnapshot(
+        LearningResource $learningResource,
+        array $fileMetadata,
+        int $uploadedBy,
+        ?string $previousFilePath,
+        ?string $changeNotes
+    ): void {
+        $learningResource->versions()->create([
+            'version_number' => $learningResource->currentVersionNumber(),
+            'storage_disk' => $fileMetadata['storage_disk'],
+            'file_path' => $fileMetadata['file_path'],
+            'previous_file_path' => $previousFilePath,
+            'original_filename' => $fileMetadata['original_filename'],
+            'mime_type' => $fileMetadata['mime_type'],
+            'file_size' => $fileMetadata['file_size'],
+            'preview_metadata' => $this->previewMetadata($fileMetadata),
+            'change_notes' => $changeNotes,
+            'uploaded_by' => $uploadedBy,
+            'uploaded_at' => now(),
+        ]);
+    }
+
+    private function ensureInitialVersionSnapshotExists(LearningResource $learningResource): void
+    {
+        if (! $learningResource->hasStoredFile()) {
+            return;
+        }
+
+        if ($learningResource->versions()->exists()) {
+            return;
+        }
+
+        $learningResource->versions()->create([
+            'version_number' => max(1, $learningResource->currentVersionNumber()),
+            'storage_disk' => $learningResource->storage_disk,
+            'file_path' => $learningResource->file_path,
+            'previous_file_path' => null,
+            'original_filename' => $learningResource->original_filename,
+            'mime_type' => $learningResource->mime_type,
+            'file_size' => $learningResource->file_size,
+            'preview_metadata' => $learningResource->preview_metadata,
+            'change_notes' => null,
+            'uploaded_by' => $learningResource->created_by,
+            'uploaded_at' => $learningResource->created_at ?? now(),
+        ]);
+    }
+
+    private function deleteAllStoredFiles(LearningResource $learningResource): void
+    {
+        $paths = $learningResource->versions()
+            ->get(['storage_disk', 'file_path'])
+            ->map(fn (LearningResourceVersion $version) => [
+                'storage_disk' => $version->storage_disk,
+                'file_path' => $version->file_path,
+            ])
+            ->push([
+                'storage_disk' => $learningResource->storage_disk,
+                'file_path' => $learningResource->file_path,
+            ])
+            ->filter(fn (array $entry) => filled($entry['storage_disk']) && filled($entry['file_path']))
+            ->unique(fn (array $entry) => $entry['storage_disk'].'|'.$entry['file_path']);
+
+        foreach ($paths as $entry) {
+            Storage::disk($entry['storage_disk'])->delete($entry['file_path']);
+        }
     }
 
     private function assertStudentUser(User $student): void

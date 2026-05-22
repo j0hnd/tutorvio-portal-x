@@ -93,6 +93,22 @@ class LearningResourceModelTest extends TestCase
         $this->assertArrayNotHasKey('storage_disk', $resource->toArray());
     }
 
+    public function test_current_version_number_defaults_for_file_resources(): void
+    {
+        $resource = LearningResource::create([
+            'title' => 'Placement test PDF',
+            'resource_type' => LearningResource::TYPE_PDF,
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/private/placement.pdf',
+            'original_filename' => 'placement.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 2048,
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+        ]);
+
+        $this->assertSame(1, $resource->currentVersionNumber());
+    }
+
     public function test_visibility_scope_limits_student_access(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();

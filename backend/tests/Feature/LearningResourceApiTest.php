@@ -80,6 +80,7 @@ class LearningResourceApiTest extends TestCase
             ->assertJsonPath('data.grouping.level.name', 'A2')
             ->assertJsonPath('data.grouping.is_generic', false)
             ->assertJsonPath('data.has_file', true)
+            ->assertJsonPath('data.version.number', 1)
             ->assertJsonPath('data.url', null)
             ->assertJsonMissingPath('data.file_path')
             ->assertJsonMissingPath('data.storage_disk');
@@ -198,6 +199,144 @@ class LearningResourceApiTest extends TestCase
             'id' => $resource->id,
         ]);
         Storage::disk('local')->assertMissing('learning-resources/teacher-guide.docx');
+    }
+
+    public function test_updating_resource_file_creates_new_version_and_preserves_previous_file(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $resource = LearningResource::create([
+            'title' => 'Teacher guide',
+            'resource_type' => LearningResource::TYPE_DOCUMENT,
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/teacher-guide-v1.docx',
+            'original_filename' => 'teacher-guide-v1.docx',
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'file_size' => 512,
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+            'created_by' => $this->admin->id,
+        ]);
+        Storage::disk('local')->put($resource->file_path, 'version-1');
+
+        $response = $this->patch('/api/v1/learning-resources/'.$resource->id, [
+            'file' => UploadedFile::fake()->create('teacher-guide-v2.docx', 64, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+            'change_notes' => 'Updated examples for week 2.',
+        ], ['Accept' => 'application/json']);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.version.number', 2)
+            ->assertJsonPath('data.original_filename', 'teacher-guide-v2.docx');
+
+        $resource->refresh();
+
+        Storage::disk('local')->assertExists('learning-resources/teacher-guide-v1.docx');
+        Storage::disk('local')->assertExists($resource->file_path);
+
+        $this->assertDatabaseHas('learning_resource_versions', [
+            'learning_resource_id' => $resource->id,
+            'version_number' => 1,
+            'original_filename' => 'teacher-guide-v1.docx',
+        ]);
+        $this->assertDatabaseHas('learning_resource_versions', [
+            'learning_resource_id' => $resource->id,
+            'version_number' => 2,
+            'original_filename' => 'teacher-guide-v2.docx',
+            'previous_file_path' => 'learning-resources/teacher-guide-v1.docx',
+            'change_notes' => 'Updated examples for week 2.',
+            'uploaded_by' => $this->admin->id,
+        ]);
+    }
+
+    public function test_metadata_only_update_does_not_create_new_file_version(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $resource = $this->createResource([
+            'title' => 'Grammar worksheet',
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/grammar-v1.pdf',
+            'original_filename' => 'grammar-v1.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 111,
+            'current_version_number' => 1,
+        ]);
+        Storage::disk('local')->put($resource->file_path, 'version-1');
+        $resource->versions()->create([
+            'version_number' => 1,
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/grammar-v1.pdf',
+            'previous_file_path' => null,
+            'original_filename' => 'grammar-v1.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 111,
+            'preview_metadata' => ['filename' => 'grammar-v1.pdf'],
+            'uploaded_by' => $this->admin->id,
+            'uploaded_at' => now(),
+        ]);
+
+        $this->patchJson('/api/v1/learning-resources/'.$resource->id, [
+            'title' => 'Grammar worksheet updated title',
+            'change_notes' => 'Metadata-only change.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Grammar worksheet updated title')
+            ->assertJsonPath('data.version.number', 1);
+
+        $this->assertSame(1, $resource->versions()->count());
+        $this->assertDatabaseMissing('learning_resource_versions', [
+            'learning_resource_id' => $resource->id,
+            'change_notes' => 'Metadata-only change.',
+        ]);
+    }
+
+    public function test_admin_can_review_resource_version_history(): void
+    {
+        Sanctum::actingAs($this->admin);
+        Carbon::setTestNow('2026-06-05 08:00:00');
+
+        $resource = $this->createResource([
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/speaking-v2.pdf',
+            'original_filename' => 'speaking-v2.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 222,
+            'current_version_number' => 2,
+        ]);
+        $resource->versions()->create([
+            'version_number' => 2,
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/speaking-v2.pdf',
+            'previous_file_path' => 'learning-resources/speaking-v1.pdf',
+            'original_filename' => 'speaking-v2.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 222,
+            'preview_metadata' => ['filename' => 'speaking-v2.pdf'],
+            'change_notes' => 'Simplified activity flow.',
+            'uploaded_by' => $this->admin->id,
+            'uploaded_at' => now(),
+        ]);
+
+        $this->getJson('/api/v1/learning-resources/'.$resource->id.'/versions')
+            ->assertOk()
+            ->assertJsonPath('data.0.version_number', 2)
+            ->assertJsonPath('data.0.previous_file_reference', 'speaking-v1.pdf')
+            ->assertJsonPath('data.0.uploaded_by', $this->admin->id)
+            ->assertJsonPath('data.0.uploaded_by_user.email', $this->admin->email)
+            ->assertJsonPath('data.0.change_notes', 'Simplified activity flow.')
+            ->assertJsonPath('data.0.uploaded_at', '2026-06-05T08:00:00.000000Z');
+    }
+
+    public function test_non_admin_cannot_view_resource_version_history(): void
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        Sanctum::actingAs($teacher);
+
+        $resource = $this->createResource();
+
+        $this->getJson('/api/v1/learning-resources/'.$resource->id.'/versions')
+            ->assertForbidden();
     }
 
     public function test_admin_can_filter_resources_by_group_type_and_visibility(): void

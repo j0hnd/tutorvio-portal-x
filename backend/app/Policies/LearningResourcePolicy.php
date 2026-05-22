@@ -48,4 +48,10 @@ class LearningResourcePolicy
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && $user->can('learning_resources.update'));
     }
+
+    public function viewVersionHistory(User $user, LearningResource $learningResource): bool
+    {
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('learning_resources.view'));
+    }
 }

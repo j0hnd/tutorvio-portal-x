@@ -40,6 +40,12 @@ class LearningResourceResource extends JsonResource
             ],
             'visibility' => $this->resource->visibility,
             'has_file' => $this->resource->hasStoredFile(),
+            'version' => [
+                'number' => $this->resource->currentVersionNumber(),
+                'history_endpoint' => $request->user()?->hasRole('admin')
+                    ? url('/api/v1/learning-resources/'.$this->resource->id.'/versions')
+                    : null,
+            ],
             'created_by' => $this->resource->created_by,
             'created_by_user' => $this->whenLoaded('createdBy', fn () => [
                 'id' => $this->resource->createdBy?->id,
