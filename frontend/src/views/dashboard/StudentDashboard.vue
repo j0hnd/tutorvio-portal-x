@@ -26,6 +26,66 @@
         <!-- Upcoming Lessons -->
         <UpcomingLessons :lessons="upcomingLessons" @join="() => {}" @more="() => {}" />
 
+        <!-- Learning Progress & Assigned Course -->
+        <section class="sd-panel">
+          <div class="sd-panel__header">
+            <h2 class="sd-panel__title">Learning Progress</h2>
+          </div>
+          <div class="sd-progress-grid">
+
+            <!-- Left: CEFR level journey -->
+            <div class="sd-progress-col">
+              <p class="sd-col-label">Level Journey</p>
+              <div class="sd-level-track">
+                <div
+                  v-for="lvl in CEFR_LEVELS"
+                  :key="lvl.code"
+                  :class="['sd-level-node', {
+                    'sd-level-node--done':   lvl.order < currentLevelOrder,
+                    'sd-level-node--active': lvl.order === currentLevelOrder,
+                  }]"
+                >
+                  <span class="sd-level-node__dot" />
+                  <span class="sd-level-node__code">{{ lvl.code }}</span>
+                  <span class="sd-level-node__label">{{ lvl.label }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Assigned course detail -->
+            <div class="sd-progress-col">
+              <p class="sd-col-label">Assigned Course</p>
+              <div class="sd-course-rows">
+                <div class="sd-stat-row">
+                  <span class="sd-stat-label">Program</span>
+                  <span class="sd-stat-value">{{ studentProfile?.program || '—' }}</span>
+                </div>
+                <div class="sd-stat-row">
+                  <span class="sd-stat-label">Level</span>
+                  <span class="sd-stat-value">{{ LEVEL_LONG[studentProfile?.englishLevel ?? ''] || '—' }}</span>
+                </div>
+                <div class="sd-stat-row">
+                  <span class="sd-stat-label">Class Type</span>
+                  <span class="sd-stat-value">{{ studentProfile?.classType || '—' }}</span>
+                </div>
+                <div class="sd-stat-row">
+                  <span class="sd-stat-label">Teacher</span>
+                  <span class="sd-stat-value">{{ teacherName || '—' }}</span>
+                </div>
+                <div class="sd-stat-row">
+                  <span class="sd-stat-label">Started</span>
+                  <span class="sd-stat-value">{{ formattedStartDate }}</span>
+                </div>
+                <div v-if="studentProfile?.goals" class="sd-goals-row">
+                  <span class="sd-stat-label">Goals</span>
+                  <p class="sd-goals-text">{{ studentProfile.goals }}</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
         <!-- Recent Homework -->
         <section class="sd-panel">
           <div class="sd-panel__header">
@@ -224,6 +284,30 @@ const MOCK_REMINDERS = [
 ]
 
 const pendingCount = computed(() => MOCK_HOMEWORK.filter(h => h.status === 'pending').length)
+
+const CEFR_LEVELS = [
+  { code: 'A1', label: 'Beginner',          order: 1, key: 'BEGINNER' },
+  { code: 'A2', label: 'Elementary',         order: 2, key: 'ELEMENTARY' },
+  { code: 'B1', label: 'Intermediate',       order: 3, key: 'INTERMEDIATE' },
+  { code: 'B2', label: 'Upper Intermediate', order: 4, key: 'UPPER_INTERMEDIATE' },
+  { code: 'C1', label: 'Advanced',           order: 5, key: 'ADVANCED' },
+  { code: 'C2', label: 'Proficiency',        order: 6, key: 'PROFICIENCY' },
+]
+
+const LEVEL_ORDER: Record<string, number> = {
+  BEGINNER: 1, ELEMENTARY: 2, INTERMEDIATE: 3,
+  UPPER_INTERMEDIATE: 4, ADVANCED: 5, PROFICIENCY: 6,
+}
+
+const currentLevelOrder = computed(() =>
+  LEVEL_ORDER[studentProfile.value?.englishLevel ?? ''] ?? 0,
+)
+
+const formattedStartDate = computed(() => {
+  const d = studentProfile.value?.startDate
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+})
 </script>
 
 <style scoped>
@@ -270,7 +354,6 @@ const pendingCount = computed(() => MOCK_HOMEWORK.filter(h => h.status === 'pend
   align-items: center;
   justify-content: space-between;
   padding: var(--tv-space-4) var(--tv-space-5);
-  border-bottom: 1px solid var(--tv-border);
 }
 .sd-panel__title { font-size: var(--tv-text-base); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
 .sd-panel__badge {
@@ -350,8 +433,6 @@ const pendingCount = computed(() => MOCK_HOMEWORK.filter(h => h.status === 'pend
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin: 0;
-  padding-bottom: var(--tv-space-2);
-  border-bottom: 1px solid var(--tv-border);
 }
 .sd-card__plan { font-size: var(--tv-text-sm); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
 
@@ -393,6 +474,51 @@ const pendingCount = computed(() => MOCK_HOMEWORK.filter(h => h.status === 'pend
 .sd-remind-text { font-size: var(--tv-text-sm); color: var(--tv-text); margin: 0; line-height: 1.4; }
 .sd-remind-time { font-size: var(--tv-text-xs); color: var(--tv-text-muted); margin: 0; }
 
+/* Learning progress & course panel */
+.sd-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-6);
+  padding: var(--tv-space-4) var(--tv-space-5) var(--tv-space-5);
+}
+.sd-col-label {
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-bold);
+  color: var(--tv-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--tv-space-3);
+}
+
+/* CEFR level track */
+.sd-level-track { display: flex; flex-direction: column; gap: var(--tv-space-2); }
+.sd-level-node  { display: flex; align-items: center; gap: var(--tv-space-2); }
+.sd-level-node__dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--tv-bg-soft);
+  border: 2px solid var(--tv-border);
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.sd-level-node--done .sd-level-node__dot   { background: var(--tv-primary); border-color: var(--tv-primary); }
+.sd-level-node--active .sd-level-node__dot { background: var(--tv-primary); border-color: var(--tv-primary); box-shadow: 0 0 0 3px var(--tv-primary-soft); }
+.sd-level-node__code {
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-bold);
+  width: 22px;
+  color: var(--tv-text-muted);
+}
+.sd-level-node--done .sd-level-node__code,
+.sd-level-node--active .sd-level-node__code { color: var(--tv-primary); }
+.sd-level-node__label { font-size: var(--tv-text-sm); color: var(--tv-text-muted); }
+.sd-level-node--active .sd-level-node__label { color: var(--tv-text); font-weight: var(--tv-font-semibold); }
+
+/* Course detail rows */
+.sd-course-rows { display: flex; flex-direction: column; }
+.sd-goals-row { display: flex; flex-direction: column; gap: var(--tv-space-1); padding: var(--tv-space-2) 0; }
+.sd-goals-text { font-size: var(--tv-text-xs); color: var(--tv-text-secondary); margin: 0; line-height: 1.5; }
+
 /* Responsive */
 @media (max-width: 1280px) {
   .sd-content { grid-template-columns: 3fr 1fr; }
@@ -403,6 +529,9 @@ const pendingCount = computed(() => MOCK_HOMEWORK.filter(h => h.status === 'pend
   .sd-content { grid-template-columns: 1fr; }
   .sd-main    { grid-column: 1; }
   .sd-sidebar { grid-column: 1; display: grid; grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .sd-progress-grid { grid-template-columns: 1fr; gap: var(--tv-space-4); }
 }
 @media (max-width: 767px) {
   .sd-page { padding: var(--tv-space-4); }

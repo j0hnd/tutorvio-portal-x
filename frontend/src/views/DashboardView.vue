@@ -1,22 +1,24 @@
 <template>
-  <component :is="dashboardComponent" />
+  <component :is="dashboardComponent" :key="effectiveRole.value" />
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { computed } from 'vue'
+import { useViewAs } from '@/composables/useViewAs'
+import StudentDashboard from './dashboard/StudentDashboard.vue'
+import TeacherDashboard from './dashboard/TeacherDashboard.vue'
+import AdminDashboard from './dashboard/AdminDashboard.vue'
+import StaffDashboard from './dashboard/StaffDashboard.vue'
 import type { UserRole } from '@/types'
 
-const auth = useAuthStore()
+const { effectiveRole } = useViewAs()
 
-const DASHBOARDS: Record<UserRole, ReturnType<typeof defineAsyncComponent>> = {
-  STUDENT: defineAsyncComponent(() => import('./dashboard/StudentDashboard.vue')),
-  TEACHER: defineAsyncComponent(() => import('./dashboard/TeacherDashboard.vue')),
-  ADMIN:   defineAsyncComponent(() => import('./dashboard/AdminDashboard.vue')),
-  STAFF:   defineAsyncComponent(() => import('./dashboard/StaffDashboard.vue')),
+const DASHBOARDS: Record<UserRole, unknown> = {
+  STUDENT: StudentDashboard,
+  TEACHER: TeacherDashboard,
+  ADMIN:   AdminDashboard,
+  STAFF:   StaffDashboard,
 }
 
-const dashboardComponent = computed(() =>
-  auth.user?.role ? DASHBOARDS[auth.user.role] : DASHBOARDS.STUDENT,
-)
+const dashboardComponent = computed(() => DASHBOARDS[effectiveRole.value])
 </script>

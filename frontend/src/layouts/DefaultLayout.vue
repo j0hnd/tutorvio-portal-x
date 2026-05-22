@@ -16,7 +16,7 @@
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileOpen"
       :show-view-as="auth.isAdmin"
-      :view-as-role="viewAsRole"
+      :view-as-role="effectiveRole.value"
       @navigate="handleNavigate"
       @mobile-close="mobileOpen = false"
       @role-change="handleRoleChange"
@@ -40,6 +40,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useNavigation } from '@/composables/useNavigation'
+import { useViewAs } from '@/composables/useViewAs'
 import { useToast } from '@/composables/useToast'
 import type { UserRole } from '@/types'
 
@@ -47,15 +48,13 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { getNavItems } = useNavigation()
+const { effectiveRole, setViewAsRole } = useViewAs()
 const toast = useToast()
 
 const sidebarCollapsed = ref(false)
 const mobileOpen = ref(false)
 
-/* VIEW AS — admins can preview nav as any role without logging out */
-const viewAsRole = ref<UserRole>(auth.user?.role ?? 'STUDENT')
-
-const navItems = computed(() => getNavItems(viewAsRole.value))
+const navItems = computed(() => getNavItems(effectiveRole.value))
 
 const headerUser = computed(() => ({
   name: auth.fullName || 'User',
@@ -72,8 +71,8 @@ function handleNavigate(path: string): void {
 }
 
 function handleRoleChange(role: string): void {
-  viewAsRole.value = role as UserRole
-  router.push('/dashboard')
+  setViewAsRole(role as UserRole)
+  if (route.path !== '/dashboard') router.push('/dashboard')
 }
 
 async function handleLogout(): Promise<void> {

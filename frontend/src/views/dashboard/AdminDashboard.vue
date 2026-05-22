@@ -334,7 +334,6 @@ const stats = computed((): StatItem[] => [
   align-items: center;
   justify-content: space-between;
   padding: var(--tv-space-4) var(--tv-space-5);
-  border-bottom: 1px solid var(--tv-border);
 }
 .adm-panel__title { font-size: var(--tv-text-base); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
 .adm-panel__link  { font-size: var(--tv-text-sm); color: var(--tv-primary); font-weight: var(--tv-font-medium); text-decoration: none; }
@@ -463,8 +462,6 @@ const stats = computed((): StatItem[] => [
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin: 0;
-  padding-bottom: var(--tv-space-2);
-  border-bottom: 1px solid var(--tv-border);
 }
 
 .adm-alert-list { display: flex; flex-direction: column; gap: var(--tv-space-2); }
