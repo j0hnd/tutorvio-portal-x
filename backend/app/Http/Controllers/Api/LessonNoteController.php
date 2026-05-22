@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LessonNotes\StoreLessonNoteRequest;
 use App\Http\Requests\LessonNotes\UpdateLessonNoteRequest;
+use App\Http\Resources\LessonNotes\LessonNoteRequirementResource;
 use App\Http\Resources\LessonNotes\LessonNoteResource;
 use App\Models\Lesson;
 use App\Models\LessonNote;
@@ -60,6 +61,49 @@ class LessonNoteController extends Controller
                 ->paginate($validated['per_page'] ?? 25)
                 ->through(fn (LessonNote $lessonNote) => new LessonNoteResource($lessonNote))
         );
+    }
+
+    public function pending(Request $request): JsonResponse
+    {
+        Gate::authorize('viewAny', LessonNote::class);
+
+        $validated = $request->validate([
+            'student_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'from' => ['sometimes', 'date'],
+            'to' => ['sometimes', 'date'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = $this->missingLessonNoteQueryForUser($request->user())
+            ->when($validated['student_id'] ?? null, fn (Builder $query, int $studentId) => $query->where('student_id', $studentId))
+            ->when($validated['teacher_id'] ?? null, fn (Builder $query, int $teacherId) => $query->where('teacher_id', $teacherId))
+            ->when($validated['from'] ?? null, fn (Builder $query, string $from) => $query->whereDate('start_time', '>=', $from))
+            ->when($validated['to'] ?? null, fn (Builder $query, string $to) => $query->whereDate('start_time', '<=', $to));
+
+        $missingNotesCount = (clone $query)->count();
+
+        $completedLessonsRequiringNotes = $this->lessonNoteRequiredQueryForUser($request->user())
+            ->when($validated['student_id'] ?? null, fn (Builder $query, int $studentId) => $query->where('student_id', $studentId))
+            ->when($validated['teacher_id'] ?? null, fn (Builder $query, int $teacherId) => $query->where('teacher_id', $teacherId))
+            ->when($validated['from'] ?? null, fn (Builder $query, string $from) => $query->whereDate('start_time', '>=', $from))
+            ->when($validated['to'] ?? null, fn (Builder $query, string $to) => $query->whereDate('start_time', '<=', $to))
+            ->count();
+
+        return LessonNoteRequirementResource::collection(
+            $query
+                ->with(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])
+                ->orderByDesc('start_time')
+                ->paginate($validated['per_page'] ?? 25)
+        )->additional([
+            'meta' => [
+                'pending_notes' => $missingNotesCount,
+                'missing_notes' => $missingNotesCount,
+                'completed_lessons_requiring_notes' => $completedLessonsRequiringNotes,
+                'note_required_statuses' => Lesson::NOTE_REQUIRED_STATUSES,
+                'note_not_required_statuses' => Lesson::NOTE_NOT_REQUIRED_STATUSES,
+            ],
+        ])->response();
     }
 
     public function store(StoreLessonNoteRequest $request): JsonResponse
@@ -236,6 +280,32 @@ class LessonNoteController extends Controller
             ->with($this->relations())
             ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('teacher_id', $user->id))
             ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('student_id', $user->id));
+    }
+
+    /**
+     * @return Builder<Lesson>
+     */
+    private function missingLessonNoteQueryForUser(User $user): Builder
+    {
+        return $this->lessonNoteRequiredQueryForUser($user)
+            ->missingLessonNote();
+    }
+
+    /**
+     * @return Builder<Lesson>
+     */
+    private function lessonNoteRequiredQueryForUser(User $user): Builder
+    {
+        abort_unless(
+            $user->hasRole('admin')
+                || ($user->hasRole('staff') && $user->can('lesson_notes.view'))
+                || $user->hasRole('teacher'),
+            403
+        );
+
+        return Lesson::query()
+            ->requiringLessonNote()
+            ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('teacher_id', $user->id));
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +45,20 @@ class Lesson extends Model
     public const JOINABLE_STATUSES = [
         self::STATUS_SCHEDULED,
         self::STATUS_PENDING_CONFIRMATION,
+    ];
+
+    public const NOTE_REQUIRED_STATUSES = [
+        self::STATUS_COMPLETED,
+    ];
+
+    public const NOTE_NOT_REQUIRED_STATUSES = [
+        self::STATUS_SCHEDULED,
+        self::STATUS_PENDING_CONFIRMATION,
+        self::STATUS_EXPIRED,
+        self::STATUS_CANCELLED,
+        self::STATUS_RESCHEDULED,
+        self::STATUS_MISSED_BY_STUDENT,
+        self::STATUS_MISSED_BY_TEACHER,
     ];
 
     private const NOT_JOINABLE_REASONS = [
@@ -114,6 +129,31 @@ class Lesson extends Model
     public function lessonNote(): HasOne
     {
         return $this->hasOne(LessonNote::class);
+    }
+
+    /**
+     * @param  Builder<Lesson>  $query
+     * @return Builder<Lesson>
+     */
+    public function scopeRequiringLessonNote(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::NOTE_REQUIRED_STATUSES);
+    }
+
+    /**
+     * @param  Builder<Lesson>  $query
+     * @return Builder<Lesson>
+     */
+    public function scopeMissingLessonNote(Builder $query): Builder
+    {
+        return $query
+            ->requiringLessonNote()
+            ->whereDoesntHave('lessonNote', fn (Builder $query) => $query->whereNotNull('submitted_at'));
+    }
+
+    public function requiresLessonNote(): bool
+    {
+        return in_array($this->status, self::NOTE_REQUIRED_STATUSES, true);
     }
 
     public function isJoinAvailable(?CarbonInterface $now = null): bool

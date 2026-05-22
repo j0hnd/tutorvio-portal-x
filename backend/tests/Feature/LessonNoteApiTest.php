@@ -392,6 +392,133 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonPath('data.topics_covered', 'Staff updated note.');
     }
 
+    public function test_teacher_only_sees_their_own_pending_and_missing_lesson_notes(): void
+    {
+        $ownPendingLesson = $this->createLesson();
+        $ownNotedLesson = $this->createLesson([
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+        $otherTeacherPendingLesson = $this->createLesson([
+            'teacher_id' => $this->otherTeacher->id,
+            'start_time' => '2026-06-03 09:00:00',
+            'end_time' => '2026-06-03 10:00:00',
+        ]);
+
+        $this->createLessonNote([
+            'lesson_id' => $ownNotedLesson->id,
+        ]);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/lesson-notes/pending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.lesson_id', $ownPendingLesson->id)
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.0.note_required', true)
+            ->assertJsonPath('data.0.note_status', 'missing')
+            ->assertJsonPath('meta.pending_notes', 1)
+            ->assertJsonPath('meta.missing_notes', 1)
+            ->assertJsonPath('meta.completed_lessons_requiring_notes', 2)
+            ->assertJsonMissingPath('data.1');
+
+        $this->assertDatabaseMissing('lesson_notes', [
+            'lesson_id' => $ownPendingLesson->id,
+        ]);
+        $this->assertSame($this->otherTeacher->id, $otherTeacherPendingLesson->teacher_id);
+    }
+
+    public function test_admin_can_review_all_pending_and_missing_lesson_notes(): void
+    {
+        $ownPendingLesson = $this->createLesson();
+        $otherTeacherPendingLesson = $this->createLesson([
+            'teacher_id' => $this->otherTeacher->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/lesson-notes/pending')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.lesson_id', $otherTeacherPendingLesson->id)
+            ->assertJsonPath('data.1.lesson_id', $ownPendingLesson->id)
+            ->assertJsonPath('meta.pending_notes', 2)
+            ->assertJsonPath('meta.missing_notes', 2)
+            ->assertJsonPath('meta.completed_lessons_requiring_notes', 2);
+    }
+
+    public function test_completed_lesson_with_unsubmitted_note_is_still_missing(): void
+    {
+        $lesson = $this->createLesson();
+        $this->createLessonNote([
+            'lesson_id' => $lesson->id,
+            'submitted_at' => null,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/lesson-notes/pending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.lesson_id', $lesson->id)
+            ->assertJsonPath('meta.pending_notes', 1)
+            ->assertJsonPath('meta.missing_notes', 1)
+            ->assertJsonPath('meta.completed_lessons_requiring_notes', 1);
+    }
+
+    public function test_pending_lesson_notes_exclude_statuses_that_do_not_require_notes(): void
+    {
+        $completedLesson = $this->createLesson();
+        $cancelledLesson = $this->createLesson([
+            'status' => Lesson::STATUS_CANCELLED,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+        $rescheduledLesson = $this->createLesson([
+            'status' => Lesson::STATUS_RESCHEDULED,
+            'start_time' => '2026-06-03 09:00:00',
+            'end_time' => '2026-06-03 10:00:00',
+        ]);
+        $missedByStudentLesson = $this->createLesson([
+            'status' => Lesson::STATUS_MISSED_BY_STUDENT,
+            'start_time' => '2026-06-04 09:00:00',
+            'end_time' => '2026-06-04 10:00:00',
+        ]);
+        $missedByTeacherLesson = $this->createLesson([
+            'status' => Lesson::STATUS_MISSED_BY_TEACHER,
+            'start_time' => '2026-06-05 09:00:00',
+            'end_time' => '2026-06-05 10:00:00',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/lesson-notes/pending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.lesson_id', $completedLesson->id)
+            ->assertJsonPath('meta.pending_notes', 1)
+            ->assertJsonPath('meta.missing_notes', 1)
+            ->assertJsonPath('meta.completed_lessons_requiring_notes', 1)
+            ->assertJsonPath('meta.note_required_statuses', [Lesson::STATUS_COMPLETED])
+            ->assertJsonPath('meta.note_not_required_statuses', [
+                Lesson::STATUS_SCHEDULED,
+                Lesson::STATUS_PENDING_CONFIRMATION,
+                Lesson::STATUS_EXPIRED,
+                Lesson::STATUS_CANCELLED,
+                Lesson::STATUS_RESCHEDULED,
+                Lesson::STATUS_MISSED_BY_STUDENT,
+                Lesson::STATUS_MISSED_BY_TEACHER,
+            ]);
+
+        $this->assertFalse($cancelledLesson->requiresLessonNote());
+        $this->assertFalse($rescheduledLesson->requiresLessonNote());
+        $this->assertFalse($missedByStudentLesson->requiresLessonNote());
+        $this->assertFalse($missedByTeacherLesson->requiresLessonNote());
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */
