@@ -164,32 +164,70 @@ const MOCK_LESSONS_INITIAL: ScheduleLesson[] = [
     '2026-06-05', 9, 60, 'SCHEDULED', 'Business English'),
 ]
 
+const T = 'James Reyes'
+const U2 = 'u2'
+function sl(id: string, date: string, st: string, et: string, booked = false, sid?: string, sn?: string, trial = false): AvailabilitySlot {
+  return { id, teacherId: U2, teacherName: T, date, startTime: st, endTime: et, isBooked: booked, bookedByStudentId: sid, bookedByStudentName: sn, isTrial: trial }
+}
+
 const MOCK_AVAILABILITY_INITIAL: AvailabilitySlot[] = [
-  // May 25 Mon
-  { id: 'av1',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-25', startTime: '10:00', endTime: '11:00', isBooked: false, isTrial: false },
-  { id: 'av2',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-25', startTime: '14:00', endTime: '15:00', isBooked: false, isTrial: false },
-  // May 26 Tue
-  { id: 'av3',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-26', startTime: '10:00', endTime: '11:00', isBooked: false, isTrial: false },
-  { id: 'av4',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-26', startTime: '14:00', endTime: '15:00', isBooked: false, isTrial: false },
-  // May 27 Wed
-  { id: 'av5',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-27', startTime: '09:00', endTime: '10:00', isBooked: false, isTrial: false },
-  // May 28 Thu
-  { id: 'av6',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-28', startTime: '14:00', endTime: '15:00', isBooked: false, isTrial: false },
-  // May 29 Fri
-  { id: 'av7',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-05-29', startTime: '10:00', endTime: '11:00', isBooked: false, isTrial: false },
-  // June 1 Mon
-  { id: 'av8',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-01', startTime: '10:00', endTime: '11:00', isBooked: false, isTrial: false },
-  { id: 'av9',  teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-01', startTime: '14:00', endTime: '15:00', isBooked: false, isTrial: false },
-  // June 2 Tue
-  { id: 'av10', teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-02', startTime: '09:00', endTime: '10:00', isBooked: false, isTrial: false },
-  { id: 'av11', teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-02', startTime: '10:00', endTime: '11:00', isBooked: false, isTrial: false },
-  { id: 'av12', teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-02', startTime: '14:00', endTime: '15:00', isBooked: false, isTrial: false },
-  // June 3 Wed
-  { id: 'av13', teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-03', startTime: '09:00', endTime: '10:00', isBooked: false, isTrial: false },
-  // June 4 Thu
-  { id: 'av14', teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-04', startTime: '14:00', endTime: '15:00', isBooked: false, isTrial: false },
-  // June 5 Fri
-  { id: 'av15', teacherId: 'u2', teacherName: 'James Reyes', date: '2026-06-05', startTime: '10:00', endTime: '11:00', isBooked: false, isTrial: false },
+  // ── May 18 Mon (current week) ──
+  sl('av_0518a', '2026-05-18', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av_0518b', '2026-05-18', '10:00', '11:00'),
+  sl('av_0518c', '2026-05-18', '14:00', '15:00', true,  'u10', 'Lea Mendoza'),
+  sl('av_0518d', '2026-05-18', '15:00', '16:00'),
+  // ── May 19 Tue ──
+  sl('av_0519a', '2026-05-19', '09:00', '10:00'),
+  sl('av_0519b', '2026-05-19', '10:00', '11:00', true,  'u11', 'Carlos Rivera'),
+  sl('av_0519c', '2026-05-19', '14:00', '15:00'),
+  // ── May 20 Wed ──
+  sl('av_0520a', '2026-05-20', '09:00', '10:00', true,  'u12', 'Marco Tan'),
+  sl('av_0520b', '2026-05-20', '10:00', '11:00'),
+  sl('av_0520c', '2026-05-20', '14:00', '15:00'),
+  // ── May 21 Thu ──
+  sl('av_0521a', '2026-05-21', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av_0521b', '2026-05-21', '14:00', '15:00', true,  'u10', 'Lea Mendoza'),
+  // ── May 22 Fri (today) ──
+  sl('av_0522a', '2026-05-22', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av_0522b', '2026-05-22', '10:00', '11:00'),
+  sl('av_0522c', '2026-05-22', '14:00', '15:00'),
+  sl('av_0522d', '2026-05-22', '15:00', '16:00'),
+  // ── May 25 Mon ──
+  sl('av1',      '2026-05-25', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av_0525b', '2026-05-25', '10:00', '11:00'),
+  sl('av2',      '2026-05-25', '14:00', '15:00'),
+  // ── May 26 Tue ──
+  sl('av_0526a', '2026-05-26', '09:00', '10:00', true,  'u13', 'Anna Kim', true),
+  sl('av3',      '2026-05-26', '10:00', '11:00'),
+  sl('av4',      '2026-05-26', '14:00', '15:00'),
+  // ── May 27 Wed ──
+  sl('av5',      '2026-05-27', '09:00', '10:00'),
+  sl('av_0527b', '2026-05-27', '14:00', '15:00', true,  'u10', 'Lea Mendoza'),
+  // ── May 28 Thu ──
+  sl('av_0528a', '2026-05-28', '09:00', '10:00', true,  'u11', 'Carlos Rivera'),
+  sl('av6',      '2026-05-28', '14:00', '15:00'),
+  // ── May 29 Fri ──
+  sl('av_0529a', '2026-05-29', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av7',      '2026-05-29', '10:00', '11:00'),
+  sl('av_0529c', '2026-05-29', '14:00', '15:00'),
+  // ── June 1 Mon ──
+  sl('av_0601a', '2026-06-01', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av8',      '2026-06-01', '10:00', '11:00'),
+  sl('av9',      '2026-06-01', '14:00', '15:00'),
+  // ── June 2 Tue ──
+  sl('av10',     '2026-06-02', '09:00', '10:00'),
+  sl('av11',     '2026-06-02', '10:00', '11:00'),
+  sl('av12',     '2026-06-02', '14:00', '15:00'),
+  // ── June 3 Wed ──
+  sl('av13',     '2026-06-03', '09:00', '10:00'),
+  sl('av_0603b', '2026-06-03', '14:00', '15:00', true,  'u10', 'Lea Mendoza'),
+  // ── June 4 Thu ──
+  sl('av_0604a', '2026-06-04', '09:00', '10:00', true,  'u12', 'Marco Tan'),
+  sl('av14',     '2026-06-04', '14:00', '15:00'),
+  // ── June 5 Fri ──
+  sl('av_0605a', '2026-06-05', '09:00', '10:00', true,  'u1',  'Emma Santos'),
+  sl('av15',     '2026-06-05', '10:00', '11:00'),
+  sl('av_0605c', '2026-06-05', '14:00', '15:00'),
 ]
 
 const MOCK_UNAVAILABLE_INITIAL: UnavailableDate[] = [

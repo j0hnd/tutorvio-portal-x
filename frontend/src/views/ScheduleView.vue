@@ -215,60 +215,57 @@
             </button>
           </div>
 
-          <!-- Events list -->
-          <div v-if="panelEvents.length" class="sv-panel__section">
+          <!-- Schedules section -->
+          <div class="sv-panel__section">
             <p class="sv-panel__section-label">Schedules</p>
-            <button
-              v-for="ev in panelEvents" :key="ev.id"
-              :class="['sv-panel__item', `sv-panel__item--${statusClass(ev.status)}`]"
-              type="button" @click="openLesson(ev)"
-            >
-              <span :class="['sv-panel__item-dot', `sv-panel__item-dot--${statusClass(ev.status)}`]" />
-              <div class="sv-panel__item-body">
-                <span class="sv-panel__item-title">{{ ev.title }}</span>
-                <span class="sv-panel__item-meta">{{ formatTime(ev.startTime) }} – {{ formatTime(ev.endTime) }}</span>
-                <span class="sv-panel__item-person">{{ roleLabel(ev) }}</span>
-              </div>
-              <span :class="['sv-panel__item-status', `sv-panel__item-status--${statusClass(ev.status)}`]">
-                {{ statusLabel(ev.status) }}
-              </span>
-            </button>
-          </div>
-
-          <!-- Open slots section (non-empty days for students) -->
-          <div v-if="canBook && panelOpenSlots.length && panelEvents.length" class="sv-panel__section">
-            <p class="sv-panel__section-label">Available Slots</p>
-            <button
-              v-for="slot in panelOpenSlots" :key="slot.id"
-              class="sv-panel__slot" type="button" @click="openSlot(slot)"
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
-                <path d="M7 4.5V7l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-              </svg>
-              <span class="sv-panel__slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
-              <span class="sv-panel__slot-teacher">{{ slot.teacherName }}</span>
-              <span class="sv-panel__slot-book">Book →</span>
-            </button>
-          </div>
-
-          <!-- Empty state -->
-          <div v-if="!panelEvents.length" class="sv-panel__empty">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-              <rect x="6" y="8" width="28" height="26" rx="3" stroke="currentColor" stroke-width="1.5" opacity=".3"/>
-              <path d="M13 6v4M27 6v4M6 16h28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".3"/>
-              <path d="M15 24l2.5 2.5L25 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".4"/>
-            </svg>
-            <p class="sv-panel__empty-text">No schedules for this day.</p>
-            <template v-if="canBook">
-              <button v-if="panelOpenSlots.length" class="sv-panel__add-btn" type="button" @click="handleAddSchedule">
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-                Add Schedule
+            <template v-if="panelEvents.length">
+              <button
+                v-for="ev in panelEvents" :key="ev.id"
+                :class="['sv-panel__item', `sv-panel__item--${statusClass(ev.status)}`]"
+                type="button" @click="openLesson(ev)"
+              >
+                <span :class="['sv-panel__item-dot', `sv-panel__item-dot--${statusClass(ev.status)}`]" />
+                <div class="sv-panel__item-body">
+                  <span class="sv-panel__item-title">{{ ev.title }}</span>
+                  <span class="sv-panel__item-meta">{{ formatTime(ev.startTime) }} – {{ formatTime(ev.endTime) }}</span>
+                  <span class="sv-panel__item-person">{{ roleLabel(ev) }}</span>
+                </div>
+                <span :class="['sv-panel__item-status', `sv-panel__item-status--${statusClass(ev.status)}`]">
+                  {{ statusLabel(ev.status) }}
+                </span>
               </button>
-              <p v-else class="sv-panel__no-slots">No open slots available on this date.</p>
             </template>
+            <div v-else class="sv-panel__empty-inline">
+              <svg width="32" height="32" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                <rect x="6" y="8" width="28" height="26" rx="3" stroke="currentColor" stroke-width="1.5" opacity=".35"/>
+                <path d="M13 6v4M27 6v4M6 16h28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".35"/>
+                <path d="M15 26h10M15 22h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".3"/>
+              </svg>
+              <span>No schedules for this day.</span>
+            </div>
+          </div>
+
+          <!-- Available slots section (student only) -->
+          <div v-if="canBook" class="sv-panel__section">
+            <p class="sv-panel__section-label">
+              Available Slots
+              <span v-if="panelOpenSlots.length" class="sv-panel__section-count">{{ panelOpenSlots.length }}</span>
+            </p>
+            <template v-if="panelOpenSlots.length">
+              <button
+                v-for="slot in panelOpenSlots" :key="slot.id"
+                class="sv-panel__slot" type="button" @click="openSlot(slot)"
+              >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M7 4.5V7l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                <span class="sv-panel__slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+                <span class="sv-panel__slot-teacher">{{ slot.teacherName }}</span>
+                <span class="sv-panel__slot-book">Book →</span>
+              </button>
+            </template>
+            <p v-else class="sv-panel__no-slots">No open slots available on this date.</p>
           </div>
 
         </aside>
@@ -397,7 +394,6 @@ function eventsForDate(dateStr: string): ScheduleLesson[] {
 }
 
 function slotsForDate(dateStr: string): AvailabilitySlot[] {
-  if (!canBook.value && effectiveRole.value !== 'TEACHER' && !showTeacherFilter.value) return []
   return schedule.myAvailabilitySlots.filter(s => s.date === dateStr)
 }
 
@@ -523,11 +519,6 @@ function openLesson(lesson: ScheduleLesson): void { selectedLesson.value = lesso
 function openSlot(slot: AvailabilitySlot): void {
   if (!canBook.value) return
   selectedSlot.value = slot
-}
-
-function handleAddSchedule(): void {
-  const slot = panelOpenSlots.value[0]
-  if (slot) selectedSlot.value = slot
 }
 
 function handleCancel(lessonId: string): void {
@@ -793,7 +784,23 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 
 .sv-panel__section { padding: var(--tv-space-3) var(--tv-space-4); display: flex; flex-direction: column; gap: var(--tv-space-2); }
 .sv-panel__section + .sv-panel__section { border-top: 1px solid var(--tv-border); }
-.sv-panel__section-label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 var(--tv-space-1); }
+.sv-panel__section-label {
+  display: flex; align-items: center; gap: var(--tv-space-1);
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted);
+  text-transform: uppercase; letter-spacing: .06em; margin: 0 0 var(--tv-space-1);
+}
+.sv-panel__section-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  font-size: 10px; font-weight: var(--tv-font-semibold);
+  background: var(--tv-teal-soft); color: var(--tv-teal-fg);
+  border-radius: var(--tv-radius-full); line-height: 1;
+}
+.sv-panel__empty-inline {
+  display: flex; flex-direction: column; align-items: center; gap: var(--tv-space-2);
+  padding: var(--tv-space-4) var(--tv-space-2); color: var(--tv-text-muted); text-align: center;
+}
+.sv-panel__empty-inline span { font-size: var(--tv-text-xs); color: var(--tv-text-muted); }
 
 .sv-panel__item {
   display: flex; align-items: flex-start; gap: var(--tv-space-2); padding: var(--tv-space-2) var(--tv-space-3);
