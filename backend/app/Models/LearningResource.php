@@ -115,6 +115,7 @@ class LearningResource extends Model
             $query
                 ->where('title', 'like', $like)
                 ->orWhere('description', 'like', $like)
+                ->orWhere('resource_type', 'like', $like)
                 ->orWhere('course', 'like', $like)
                 ->orWhere('level', 'like', $like)
                 ->orWhere('original_filename', 'like', $like);

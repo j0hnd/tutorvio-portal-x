@@ -239,6 +239,79 @@ class LearningResourceApiTest extends TestCase
             ->assertJsonPath('data.0.visibility', LearningResource::VISIBILITY_STUDENT_VISIBLE);
     }
 
+    public function test_admin_can_search_filter_by_assignments_and_sort_materials_library(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $lesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-01 09:00:00',
+            'end_time' => '2026-06-01 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+
+        $second = LearningResource::create([
+            'title' => 'Beta speaking worksheet',
+            'description' => 'Conversation drills for meetings.',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'original_filename' => 'meeting-speaking.pdf',
+            'course' => 'Business English',
+            'level' => 'B1',
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+        $first = LearningResource::create([
+            'title' => 'Alpha speaking worksheet',
+            'description' => 'Conversation drills for meetings.',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'original_filename' => 'meeting-speaking-alpha.pdf',
+            'course' => 'Business English',
+            'level' => 'B1',
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+        LearningResource::create([
+            'title' => 'Conversation slide deck',
+            'description' => 'Slides for meetings.',
+            'resource_type' => LearningResource::TYPE_SLIDE,
+            'original_filename' => 'meeting-speaking-slides.pdf',
+            'course' => 'Business English',
+            'level' => 'B1',
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+
+        $first->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $first->assignedLessons()->attach($lesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $second->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $second->assignedLessons()->attach($lesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+
+        $this->getJson('/api/v1/learning-resources?search=worksheet&assigned_student_id='.$student->id.'&assigned_lesson_id='.$lesson->id.'&resource_type=worksheet&course=Business%20English&level=B1&visibility=student-visible&sort=title&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $first->id)
+            ->assertJsonPath('data.1.id', $second->id);
+
+        $this->getJson('/api/v1/learning-resources?search=meeting-speaking-alpha.pdf')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $first->id);
+    }
+
     public function test_student_can_only_view_visible_resources(): void
     {
         $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -262,6 +335,84 @@ class LearningResourceApiTest extends TestCase
 
         $this->getJson('/api/v1/learning-resources/'.$hidden->id)
             ->assertForbidden();
+    }
+
+    public function test_student_materials_library_excludes_hidden_resources_and_unrelated_assignment_filters(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $ownLesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-01 09:00:00',
+            'end_time' => '2026-06-01 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+        $otherLesson = Lesson::create([
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+
+        $ownAssigned = LearningResource::create([
+            'title' => 'Own assigned handout',
+            'resource_type' => LearningResource::TYPE_DOCUMENT,
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+        $otherAssigned = LearningResource::create([
+            'title' => 'Other student handout',
+            'resource_type' => LearningResource::TYPE_DOCUMENT,
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+        LearningResource::create([
+            'title' => 'Teacher-only guide',
+            'resource_type' => LearningResource::TYPE_DOCUMENT,
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+        ]);
+
+        $ownAssigned->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $ownAssigned->assignedLessons()->attach($ownLesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherAssigned->assignedStudents()->attach($otherStudent->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherAssigned->assignedLessons()->attach($otherLesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/learning-resources?search=handout')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonMissingPath('data.2')
+            ->assertJsonMissing(['title' => 'Teacher-only guide']);
+
+        $this->getJson('/api/v1/learning-resources?assigned_student_id='.$student->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ownAssigned->id);
+
+        $this->getJson('/api/v1/learning-resources?assigned_student_id='.$otherStudent->id)
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->getJson('/api/v1/learning-resources?assigned_lesson_id='.$otherLesson->id)
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_admin_can_assign_and_unassign_resource_to_student(): void
