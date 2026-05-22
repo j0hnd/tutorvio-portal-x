@@ -201,6 +201,56 @@ class LearningResourceApiTest extends TestCase
         Storage::disk('local')->assertMissing('learning-resources/teacher-guide.docx');
     }
 
+    public function test_staff_access_follows_learning_resource_permissions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $resource = $this->createResource();
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/learning-resources')
+            ->assertForbidden();
+        $this->postJson('/api/v1/learning-resources/links', [
+            'title' => 'Staff created link',
+            'resource_type' => LearningResource::TYPE_LINK,
+            'url' => 'https://example.com/staff',
+        ])
+            ->assertForbidden();
+        $this->patchJson('/api/v1/learning-resources/'.$resource->id, [
+            'title' => 'Updated by staff',
+        ])
+            ->assertForbidden();
+        $this->deleteJson('/api/v1/learning-resources/'.$resource->id)
+            ->assertForbidden();
+
+        $staff->givePermissionTo([
+            'learning_resources.view',
+            'learning_resources.create',
+            'learning_resources.update',
+            'learning_resources.delete',
+        ]);
+
+        $this->getJson('/api/v1/learning-resources')
+            ->assertOk();
+
+        $this->postJson('/api/v1/learning-resources/links', [
+            'title' => 'Staff created link',
+            'resource_type' => LearningResource::TYPE_LINK,
+            'url' => 'https://example.com/staff',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.title', 'Staff created link');
+
+        $this->patchJson('/api/v1/learning-resources/'.$resource->id, [
+            'title' => 'Updated by staff',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Updated by staff');
+
+        $this->deleteJson('/api/v1/learning-resources/'.$resource->id)
+            ->assertNoContent();
+    }
+
     public function test_updating_resource_file_creates_new_version_and_preserves_previous_file(): void
     {
         Sanctum::actingAs($this->admin);
@@ -887,10 +937,13 @@ class LearningResourceApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.type', LearningResource::TYPE_FILE)
             ->assertJsonPath('data.download_url', 'https://cdn.example.com/cloud-worksheet.pdf?temp=1')
-            ->assertJsonPath('data.preview_metadata.pages', 2);
+            ->assertJsonPath('data.preview_metadata.pages', 2)
+            ->assertJsonMissingPath('data.file_path')
+            ->assertJsonMissingPath('data.storage_disk');
 
         $expiresAt = Carbon::parse($response->json('data.expires_at'));
         $this->assertTrue($expiresAt->isFuture());
+        $this->assertStringNotContainsString('learning-resources/cloud-worksheet.pdf', json_encode($response->json()));
     }
 
     public function test_admin_can_assign_and_unassign_resource_to_student(): void
@@ -917,12 +970,14 @@ class LearningResourceApiTest extends TestCase
             'assigned_by' => $this->admin->id,
             'assigned_at' => '2026-06-01 12:00:00',
         ]);
+        $this->assertSame(1, $resource->assignedStudents()->whereKey($student->id)->count());
 
         $this->postJson('/api/v1/learning-resources/'.$resource->id.'/students', [
             'student_id' => $student->id,
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('student_id');
+        $this->assertSame(1, $resource->assignedStudents()->whereKey($student->id)->count());
 
         $this->getJson('/api/v1/users/'.$student->id.'/profile')
             ->assertOk()
@@ -977,6 +1032,7 @@ class LearningResourceApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('lesson_id');
+        $this->assertSame(1, $resource->assignedLessons()->whereKey($lesson->id)->count());
 
         $this->getJson('/api/v1/lessons/'.$lesson->id.'/lesson-notes')
             ->assertOk()
