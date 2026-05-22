@@ -200,6 +200,59 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonPath('data.0.id', $lessonNote->id);
     }
 
+    public function test_submitted_lesson_note_is_auto_linked_to_matching_progress_record(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $lesson = $this->createLesson();
+        $lessonRecord = $this->createLessonRecord([
+            'lesson_notes' => 'Existing progress note stays on the progress record.',
+        ]);
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $lesson->id,
+            'topics_covered' => 'Introductions and follow-up questions.',
+            'recommendation_for_next_lesson' => 'Practice short workplace answers.',
+            'internal_note' => 'Needs more wait time before corrections.',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.lesson_record_id', $lessonRecord->id);
+
+        $this->assertDatabaseHas('lesson_notes', [
+            'lesson_id' => $lesson->id,
+            'lesson_record_id' => $lessonRecord->id,
+            'topics_covered' => 'Introductions and follow-up questions.',
+        ]);
+
+        $this->assertDatabaseHas('lesson_records', [
+            'id' => $lessonRecord->id,
+            'lesson_notes' => 'Existing progress note stays on the progress record.',
+        ]);
+    }
+
+    public function test_progress_records_include_student_visible_lesson_note_summary(): void
+    {
+        $lesson = $this->createLesson();
+        $lessonRecord = $this->createLessonRecord();
+        $lessonNote = $this->createLessonNote([
+            'lesson_id' => $lesson->id,
+            'lesson_record_id' => $lessonRecord->id,
+            'topics_covered' => 'Introductions and follow-up questions.',
+            'recommendation_for_next_lesson' => 'Practice short workplace answers.',
+            'internal_note' => 'Needs more wait time before corrections.',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/lesson-records')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.lesson_note.id', $lessonNote->id)
+            ->assertJsonPath('data.0.lesson_note.topics_covered', 'Introductions and follow-up questions.')
+            ->assertJsonPath('data.0.lesson_note.recommendation_for_next_lesson', 'Practice short workplace answers.')
+            ->assertJsonMissingPath('data.0.lesson_note.internal_note');
+    }
+
     public function test_students_only_receive_student_visible_note_fields_for_their_own_lessons(): void
     {
         $lesson = $this->createLesson();

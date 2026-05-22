@@ -73,6 +73,7 @@ class LessonRecordRepository
             'createdBy:id,name,email',
             'updatedBy:id,name,email',
             'materials:id,title,description,url',
+            'lessonNote:id,lesson_id,lesson_record_id,lesson_objective,topics_covered,vocabulary_learned,grammar_focus,pronunciation_issues,student_speaking_confidence_observation,homework_assignment,recommendation_for_next_lesson,internal_note,submitted_at',
         ];
     }
 }

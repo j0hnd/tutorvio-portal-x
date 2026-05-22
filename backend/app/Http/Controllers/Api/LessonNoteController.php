@@ -76,6 +76,8 @@ class LessonNoteController extends Controller
             $lessonRecord = LessonRecord::findOrFail($payload['lesson_record_id']);
             $this->assertLessonRecordMatchesLesson($lessonRecord, $lesson);
             $this->assertLessonRecordDoesNotAlreadyHaveNote($lessonRecord);
+        } else {
+            $lessonRecord = $this->matchingLessonRecordForLesson($lesson);
         }
 
         $lessonNote = LessonNote::create([
@@ -206,6 +208,23 @@ class LessonNoteController extends Controller
                 'lesson_record_id' => 'This lesson record already has a lesson note.',
             ]);
         }
+    }
+
+    private function matchingLessonRecordForLesson(Lesson $lesson): ?LessonRecord
+    {
+        if ($lesson->start_time === null || $lesson->end_time === null) {
+            return null;
+        }
+
+        return LessonRecord::query()
+            ->where('student_id', $lesson->student_id)
+            ->where('teacher_id', $lesson->teacher_id)
+            ->whereDate('scheduled_date', $lesson->start_time->toDateString())
+            ->whereIn('start_time', [$lesson->start_time->format('H:i'), $lesson->start_time->format('H:i:s')])
+            ->whereIn('end_time', [$lesson->end_time->format('H:i'), $lesson->end_time->format('H:i:s')])
+            ->whereNotIn('lesson_status', [LessonRecord::STATUS_CANCELLED, LessonRecord::STATUS_RESCHEDULED])
+            ->whereDoesntHave('lessonNote')
+            ->first();
     }
 
     /**

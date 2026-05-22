@@ -68,6 +68,7 @@ class LessonRecordResource extends JsonResource
                 'description' => $material->description,
                 'url' => $material->url,
             ])->values()),
+            'lesson_note' => $this->whenLoaded('lessonNote', fn () => $this->lessonNoteSummary($request)),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];
@@ -82,5 +83,51 @@ class LessonRecordResource extends JsonResource
         }
 
         return $data;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function lessonNoteSummary(Request $request): ?array
+    {
+        $lessonNote = $this->resource->lessonNote;
+
+        if ($lessonNote === null) {
+            return null;
+        }
+
+        $data = [
+            'id' => $lessonNote->id,
+            'lesson_id' => $lessonNote->lesson_id,
+            'lesson_record_id' => $lessonNote->lesson_record_id,
+            'lesson_objective' => $lessonNote->lesson_objective,
+            'topics_covered' => $lessonNote->topics_covered,
+            'vocabulary_learned' => $lessonNote->vocabulary_learned,
+            'grammar_focus' => $lessonNote->grammar_focus,
+            'pronunciation_issues' => $lessonNote->pronunciation_issues,
+            'student_speaking_confidence_observation' => $lessonNote->student_speaking_confidence_observation,
+            'homework_assignment' => $lessonNote->homework_assignment,
+            'recommendation_for_next_lesson' => $lessonNote->recommendation_for_next_lesson,
+            'submitted_at' => $lessonNote->submitted_at,
+        ];
+
+        if ($this->canViewInternalLessonNote($request)) {
+            $data['internal_note'] = $lessonNote->internal_note;
+        }
+
+        return $data;
+    }
+
+    private function canViewInternalLessonNote(Request $request): bool
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('lesson_notes.view'))
+            || ($user->hasRole('teacher') && (int) $this->resource->teacher_id === (int) $user->id);
     }
 }
