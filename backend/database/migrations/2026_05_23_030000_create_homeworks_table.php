@@ -44,8 +44,8 @@ return new class extends Migration
             $table->timestampTz('assigned_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['homework_id', 'learning_resource_id']);
-            $table->index(['learning_resource_id', 'assigned_at']);
+            $table->unique(['homework_id', 'learning_resource_id'], 'hw_lr_homework_resource_unique');
+            $table->index(['learning_resource_id', 'assigned_at'], 'hw_lr_resource_assigned_idx');
             $table->index('assigned_by');
         });
     }
