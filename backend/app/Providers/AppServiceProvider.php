@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\LessonNote;
 use App\Models\LessonRecord;
+use App\Models\LearningResource;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\Holiday;
 use App\Models\Scheduling\ScheduleReminder;
@@ -13,6 +14,7 @@ use App\Policies\ClassSchedulePolicy;
 use App\Policies\HolidayPolicy;
 use App\Policies\LessonNotePolicy;
 use App\Policies\LessonRecordPolicy;
+use App\Policies\LearningResourcePolicy;
 use App\Policies\ScheduleReminderPolicy;
 use App\Policies\TeacherAvailabilityPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -40,5 +42,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ScheduleReminder::class, ScheduleReminderPolicy::class);
         Gate::policy(LessonNote::class, LessonNotePolicy::class);
         Gate::policy(LessonRecord::class, LessonRecordPolicy::class);
+        Gate::policy(LearningResource::class, LearningResourcePolicy::class);
     }
 }

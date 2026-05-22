@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
+use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
@@ -60,6 +61,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/lesson-records/{lessonRecord}/cancel', [LessonRecordController::class, 'cancel']);
         Route::apiResource('lesson-records', LessonRecordController::class)
             ->parameters(['lesson-records' => 'lessonRecord']);
+        Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
+        Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
+        Route::apiResource('learning-resources', LearningResourceController::class)
+            ->only(['index', 'show', 'update', 'destroy'])
+            ->parameters(['learning-resources' => 'learningResource']);
 
         Route::prefix('admin')->middleware(['role:admin', 'permission:admin.access'])->group(function () {
             Route::get('/access', function () {
