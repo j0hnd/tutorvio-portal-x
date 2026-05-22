@@ -42,4 +42,10 @@ class LearningResourcePolicy
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && $user->can('learning_resources.delete'));
     }
+
+    public function assign(User $user, LearningResource $learningResource): bool
+    {
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('learning_resources.update'));
+    }
 }

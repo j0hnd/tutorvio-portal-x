@@ -63,6 +63,10 @@ Route::prefix('v1')->group(function () {
             ->parameters(['lesson-records' => 'lessonRecord']);
         Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
+        Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
+        Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
+        Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);
+        Route::delete('/learning-resources/{learningResource}/lessons/{lesson}', [LearningResourceController::class, 'unassignLesson']);
         Route::apiResource('learning-resources', LearningResourceController::class)
             ->only(['index', 'show', 'update', 'destroy'])
             ->parameters(['learning-resources' => 'learningResource']);

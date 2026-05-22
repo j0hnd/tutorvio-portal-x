@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -117,6 +118,13 @@ class User extends Authenticatable
     public function studentLessonNotes(): HasMany
     {
         return $this->hasMany(LessonNote::class, 'student_id');
+    }
+
+    public function assignedLearningResources(): BelongsToMany
+    {
+        return $this->belongsToMany(LearningResource::class, 'learning_resource_student', 'student_id', 'learning_resource_id')
+            ->withPivot(['assigned_by', 'assigned_at'])
+            ->withTimestamps();
     }
 
     public function teacherLessonNotes(): HasMany

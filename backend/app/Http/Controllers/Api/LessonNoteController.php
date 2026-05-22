@@ -315,6 +315,7 @@ class LessonNoteController extends Controller
     {
         return [
             'lesson:id,status,start_time,end_time',
+            'lesson.learningResources',
             'student:id,name,email,timezone',
             'teacher:id,name,email,timezone',
             'author:id,name,email',

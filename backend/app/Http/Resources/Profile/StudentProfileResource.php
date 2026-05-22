@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Profile;
 
+use App\Http\Resources\LearningResources\LearningResourceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -33,7 +34,7 @@ class StudentProfileResource extends JsonResource
             $data['internal_notes'] = $this->resource->internal_notes;
         }
 
-        if ($isTeacherAssigned && !$isAdminOrStaff) {
+        if ($isTeacherAssigned && ! $isAdminOrStaff) {
             $data['start_date'] = $this->resource->start_date;
             $data['notes'] = $this->resource->notes;
             // Teacher shouldn't see internal notes unless specified, but let's say they can see notes.
@@ -50,6 +51,9 @@ class StudentProfileResource extends JsonResource
         }
         if ($this->relationLoaded('materials')) {
             $data['materials'] = $this->resource->materials;
+        }
+        if ($this->relationLoaded('learningResources')) {
+            $data['learning_resources'] = LearningResourceResource::collection($this->resource->learningResources);
         }
         if ($this->relationLoaded('subscriptions')) {
             $data['subscriptions'] = $this->resource->subscriptions;

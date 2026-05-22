@@ -8,11 +8,14 @@ use App\Http\Requests\LearningResources\StoreLinkResourceRequest;
 use App\Http\Requests\LearningResources\UpdateLearningResourceRequest;
 use App\Http\Resources\LearningResources\LearningResourceResource;
 use App\Models\LearningResource;
+use App\Models\Lesson;
+use App\Models\User;
 use App\Services\LearningResourceStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class LearningResourceController extends Controller
 {
@@ -115,6 +118,76 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    public function assignStudent(Request $request, LearningResource $learningResource): JsonResponse
+    {
+        Gate::authorize('assign', $learningResource);
+
+        $validated = $request->validate([
+            'student_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $student = User::findOrFail($validated['student_id']);
+        $this->assertStudentUser($student);
+        $this->assertStudentAssignmentDoesNotExist($learningResource, $student);
+
+        $learningResource->assignedStudents()->attach($student->id, [
+            'assigned_by' => $request->user()->id,
+            'assigned_at' => now(),
+        ]);
+
+        return response()->json([
+            'data' => new LearningResourceResource(
+                $student->assignedLearningResources()
+                    ->whereKey($learningResource->id)
+                    ->firstOrFail()
+            ),
+        ], 201);
+    }
+
+    public function assignLesson(Request $request, LearningResource $learningResource): JsonResponse
+    {
+        Gate::authorize('assign', $learningResource);
+
+        $validated = $request->validate([
+            'lesson_id' => ['required', 'integer', 'exists:lessons,id'],
+        ]);
+
+        $lesson = Lesson::findOrFail($validated['lesson_id']);
+        $this->assertLessonAssignmentDoesNotExist($learningResource, $lesson);
+
+        $learningResource->assignedLessons()->attach($lesson->id, [
+            'assigned_by' => $request->user()->id,
+            'assigned_at' => now(),
+        ]);
+
+        return response()->json([
+            'data' => new LearningResourceResource(
+                $lesson->learningResources()
+                    ->whereKey($learningResource->id)
+                    ->firstOrFail()
+            ),
+        ], 201);
+    }
+
+    public function unassignStudent(LearningResource $learningResource, User $student): JsonResponse
+    {
+        Gate::authorize('assign', $learningResource);
+        $this->assertStudentUser($student);
+
+        $learningResource->assignedStudents()->detach($student->id);
+
+        return response()->json(status: 204);
+    }
+
+    public function unassignLesson(LearningResource $learningResource, Lesson $lesson): JsonResponse
+    {
+        Gate::authorize('assign', $learningResource);
+
+        $learningResource->assignedLessons()->detach($lesson->id);
+
+        return response()->json(status: 204);
+    }
+
     public function destroy(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('delete', $learningResource);
@@ -137,5 +210,32 @@ class LearningResourceController extends Controller
             'size' => $fileMetadata['file_size'],
             'extension' => pathinfo($fileMetadata['original_filename'], PATHINFO_EXTENSION) ?: null,
         ];
+    }
+
+    private function assertStudentUser(User $student): void
+    {
+        if (! $student->hasRole('student')) {
+            throw ValidationException::withMessages([
+                'student_id' => 'The selected user must be a student.',
+            ]);
+        }
+    }
+
+    private function assertStudentAssignmentDoesNotExist(LearningResource $learningResource, User $student): void
+    {
+        if ($learningResource->assignedStudents()->whereKey($student->id)->exists()) {
+            throw ValidationException::withMessages([
+                'student_id' => 'This resource is already assigned to the selected student.',
+            ]);
+        }
+    }
+
+    private function assertLessonAssignmentDoesNotExist(LearningResource $learningResource, Lesson $lesson): void
+    {
+        if ($learningResource->assignedLessons()->whereKey($lesson->id)->exists()) {
+            throw ValidationException::withMessages([
+                'lesson_id' => 'This resource is already assigned to the selected lesson.',
+            ]);
+        }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Resources\LearningResources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 class LearningResourceResource extends JsonResource
 {
@@ -40,6 +41,12 @@ class LearningResourceResource extends JsonResource
                 'id' => $this->resource->createdBy?->id,
                 'name' => $this->resource->createdBy?->name,
                 'email' => $this->resource->createdBy?->email,
+            ]),
+            'assignment' => $this->when($this->resource->pivot !== null, fn () => [
+                'assigned_by' => $this->resource->pivot->assigned_by,
+                'assigned_at' => $this->resource->pivot->assigned_at === null
+                    ? null
+                    : Carbon::parse($this->resource->pivot->assigned_at),
             ]),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,

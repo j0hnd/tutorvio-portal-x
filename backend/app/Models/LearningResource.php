@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 
 class LearningResource extends Model
@@ -84,6 +85,20 @@ class LearningResource extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function assignedStudents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'learning_resource_student', 'learning_resource_id', 'student_id')
+            ->withPivot(['assigned_by', 'assigned_at'])
+            ->withTimestamps();
+    }
+
+    public function assignedLessons(): BelongsToMany
+    {
+        return $this->belongsToMany(Lesson::class, 'learning_resource_lesson', 'learning_resource_id', 'lesson_id')
+            ->withPivot(['assigned_by', 'assigned_at'])
+            ->withTimestamps();
     }
 
     public function scopeSearch(Builder $query, ?string $term): Builder

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\LessonNotes;
 
+use App\Http\Resources\LearningResources\LearningResourceResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -35,6 +36,9 @@ class LessonNoteResource extends JsonResource
                 'status' => $this->resource->lesson->status,
                 'start_time' => $this->resource->lesson->start_time,
                 'end_time' => $this->resource->lesson->end_time,
+                'learning_resources' => $this->resource->lesson->relationLoaded('learningResources')
+                    ? LearningResourceResource::collection($this->resource->lesson->learningResources)
+                    : null,
             ]),
             'student' => $this->whenLoaded('student', fn () => [
                 'id' => $this->resource->student->id,

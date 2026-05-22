@@ -15,16 +15,17 @@ class ProfileController extends Controller
     public function show(Request $request): UserResource
     {
         $user = $request->user();
-        
+
         $user->loadMissing([
             'studentProfile',
             'studentProfile.lessons',
             'studentProfile.attendances',
             'studentProfile.materials',
+            'studentProfile.learningResources',
             'studentProfile.subscriptions',
             'teacherProfile',
             'teacherProfile.assignedStudents',
-            'staffProfile'
+            'staffProfile',
         ]);
 
         return new UserResource($user);
@@ -45,7 +46,7 @@ class ProfileController extends Controller
             $canView = $user->studentProfile()->where('assigned_teacher_id', $requester->id)->exists();
         }
 
-        if (!$canView) {
+        if (! $canView) {
             return response()->json(['message' => 'Unauthorized to view this profile.'], 403);
         }
 
@@ -54,10 +55,11 @@ class ProfileController extends Controller
             'studentProfile.lessons',
             'studentProfile.attendances',
             'studentProfile.materials',
+            'studentProfile.learningResources',
             'studentProfile.subscriptions',
             'teacherProfile',
             'teacherProfile.assignedStudents',
-            'staffProfile'
+            'staffProfile',
         ]);
 
         return new UserResource($user);
@@ -66,6 +68,7 @@ class ProfileController extends Controller
     public function update(UpdateProfileRequest $request): UserResource
     {
         $user = $request->user();
+
         return $this->updateProfileData($user, $request->validated());
     }
 
@@ -95,7 +98,7 @@ class ProfileController extends Controller
         $user->refresh()->loadMissing([
             'studentProfile',
             'teacherProfile',
-            'staffProfile'
+            'staffProfile',
         ]);
 
         return new UserResource($user);

@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\LearningResource;
+use App\Models\Lesson;
+use App\Models\LessonNote;
+use App\Models\StudentProfile;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
@@ -35,6 +39,13 @@ class LearningResourceApiTest extends TestCase
         ]);
 
         Storage::fake('local');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_admin_can_upload_file_resource(): void
@@ -251,5 +262,143 @@ class LearningResourceApiTest extends TestCase
 
         $this->getJson('/api/v1/learning-resources/'.$hidden->id)
             ->assertForbidden();
+    }
+
+    public function test_admin_can_assign_and_unassign_resource_to_student(): void
+    {
+        Carbon::setTestNow('2026-06-01 12:00:00');
+        Sanctum::actingAs($this->admin);
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        StudentProfile::create(['user_id' => $student->id]);
+        $resource = $this->createResource();
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/students', [
+            'student_id' => $student->id,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.id', $resource->id)
+            ->assertJsonPath('data.assignment.assigned_by', $this->admin->id)
+            ->assertJsonPath('data.assignment.assigned_at', '2026-06-01T12:00:00.000000Z');
+
+        $this->assertDatabaseHas('learning_resource_student', [
+            'learning_resource_id' => $resource->id,
+            'student_id' => $student->id,
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => '2026-06-01 12:00:00',
+        ]);
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/students', [
+            'student_id' => $student->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('student_id');
+
+        $this->getJson('/api/v1/users/'.$student->id.'/profile')
+            ->assertOk()
+            ->assertJsonPath('data.student_profile.learning_resources.0.id', $resource->id)
+            ->assertJsonPath('data.student_profile.learning_resources.0.assignment.assigned_by', $this->admin->id);
+
+        $this->deleteJson('/api/v1/learning-resources/'.$resource->id.'/students/'.$student->id)
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('learning_resource_student', [
+            'learning_resource_id' => $resource->id,
+            'student_id' => $student->id,
+        ]);
+    }
+
+    public function test_admin_can_assign_and_unassign_resource_to_lesson(): void
+    {
+        Carbon::setTestNow('2026-06-01 12:30:00');
+        Sanctum::actingAs($this->admin);
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $lesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-01 09:00:00',
+            'end_time' => '2026-06-01 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+        $lessonNote = LessonNote::create([
+            'lesson_id' => $lesson->id,
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'author_id' => $teacher->id,
+            'topics_covered' => 'Introductions.',
+            'submitted_at' => '2026-06-01 10:10:00',
+        ]);
+        $resource = $this->createResource();
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/lessons', [
+            'lesson_id' => $lesson->id,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.id', $resource->id)
+            ->assertJsonPath('data.assignment.assigned_by', $this->admin->id)
+            ->assertJsonPath('data.assignment.assigned_at', '2026-06-01T12:30:00.000000Z');
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/lessons', [
+            'lesson_id' => $lesson->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_id');
+
+        $this->getJson('/api/v1/lessons/'.$lesson->id.'/lesson-notes')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonPath('data.0.lesson.learning_resources.0.id', $resource->id)
+            ->assertJsonPath('data.0.lesson.learning_resources.0.assignment.assigned_by', $this->admin->id);
+
+        $this->deleteJson('/api/v1/learning-resources/'.$resource->id.'/lessons/'.$lesson->id)
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('learning_resource_lesson', [
+            'learning_resource_id' => $resource->id,
+            'lesson_id' => $lesson->id,
+        ]);
+    }
+
+    public function test_resource_assignment_validates_referenced_records_and_student_role(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $resource = $this->createResource();
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/students', [
+            'student_id' => 999999,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('student_id');
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/students', [
+            'student_id' => $teacher->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('student_id');
+
+        $this->postJson('/api/v1/learning-resources/'.$resource->id.'/lessons', [
+            'lesson_id' => 999999,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_id');
+    }
+
+    private function createResource(array $overrides = []): LearningResource
+    {
+        return LearningResource::create([
+            'title' => 'Assigned worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+            'created_by' => $this->admin->id,
+            ...$overrides,
+        ]);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StudentProfile extends Model
@@ -68,6 +69,13 @@ class StudentProfile extends Model
     {
         return $this->belongsToMany(Material::class, 'student_materials', 'student_id', 'material_id')
             ->withPivot(['assigned_at', 'completed_at'])
+            ->withTimestamps();
+    }
+
+    public function learningResources(): BelongsToMany
+    {
+        return $this->belongsToMany(LearningResource::class, 'learning_resource_student', 'student_id', 'learning_resource_id', 'user_id')
+            ->withPivot(['assigned_by', 'assigned_at'])
             ->withTimestamps();
     }
 

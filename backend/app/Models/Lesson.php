@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -129,6 +130,13 @@ class Lesson extends Model
     public function lessonNote(): HasOne
     {
         return $this->hasOne(LessonNote::class);
+    }
+
+    public function learningResources(): BelongsToMany
+    {
+        return $this->belongsToMany(LearningResource::class, 'learning_resource_lesson', 'lesson_id', 'learning_resource_id')
+            ->withPivot(['assigned_by', 'assigned_at'])
+            ->withTimestamps();
     }
 
     /**
