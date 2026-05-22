@@ -13,6 +13,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Mockery;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -639,6 +640,118 @@ class LearningResourceApiTest extends TestCase
 
         $this->getJson('/api/v1/learning-resources/'.$otherResource->id.'/download')
             ->assertForbidden();
+    }
+
+    public function test_student_cannot_download_teacher_only_resource_file(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $teacherOnlyResource = $this->createResource([
+            'title' => 'Internal teacher guide',
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/internal-teacher-guide.pdf',
+            'original_filename' => 'internal-teacher-guide.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 32,
+        ]);
+        Storage::disk('local')->put($teacherOnlyResource->file_path, 'internal only');
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/learning-resources/'.$teacherOnlyResource->id.'/download')
+            ->assertForbidden();
+    }
+
+    public function test_download_endpoint_returns_external_link_only_for_authorized_users(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $visibleLink = $this->createResource([
+            'title' => 'Student speaking drills',
+            'resource_type' => LearningResource::TYPE_LINK,
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+            'url' => 'https://example.com/speaking',
+            'storage_disk' => null,
+            'file_path' => null,
+            'original_filename' => null,
+            'mime_type' => null,
+            'file_size' => null,
+            'preview_metadata' => ['provider' => 'external'],
+        ]);
+        $teacherOnlyLink = $this->createResource([
+            'title' => 'Teacher internal link',
+            'resource_type' => LearningResource::TYPE_LINK,
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+            'url' => 'https://example.com/internal',
+            'storage_disk' => null,
+            'file_path' => null,
+            'original_filename' => null,
+            'mime_type' => null,
+            'file_size' => null,
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/learning-resources/'.$visibleLink->id.'/download')
+            ->assertOk()
+            ->assertJsonPath('data.type', LearningResource::TYPE_LINK)
+            ->assertJsonPath('data.url', 'https://example.com/speaking')
+            ->assertJsonPath('data.preview_metadata.provider', 'external');
+
+        $this->getJson('/api/v1/learning-resources/'.$teacherOnlyLink->id.'/download')
+            ->assertForbidden();
+    }
+
+    public function test_download_endpoint_can_return_expiring_temporary_urls_when_supported(): void
+    {
+        config([
+            'learning_resources.download.strategy' => 'temporary_url',
+            'learning_resources.download.temporary_url_ttl_minutes' => 15,
+        ]);
+
+        $resource = $this->createResource([
+            'title' => 'Cloud worksheet',
+            'storage_disk' => 's3',
+            'file_path' => 'learning-resources/cloud-worksheet.pdf',
+            'original_filename' => 'cloud-worksheet.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 64,
+            'preview_metadata' => ['pages' => 2],
+        ]);
+
+        $diskMock = Mockery::mock();
+        $diskMock->shouldReceive('exists')
+            ->once()
+            ->with('learning-resources/cloud-worksheet.pdf')
+            ->andReturnTrue();
+        $diskMock->shouldReceive('providesTemporaryUrls')
+            ->once()
+            ->andReturnTrue();
+        $diskMock->shouldReceive('temporaryUrl')
+            ->once()
+            ->withArgs(function (string $path, $expiresAt, array $options): bool {
+                return $path === 'learning-resources/cloud-worksheet.pdf'
+                    && $expiresAt instanceof Carbon
+                    && $options['ResponseContentDisposition'] === 'attachment; filename="cloud-worksheet.pdf"';
+            })
+            ->andReturn('https://cdn.example.com/cloud-worksheet.pdf?temp=1');
+        Storage::shouldReceive('disk')
+            ->with('s3')
+            ->andReturn($diskMock);
+
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->getJson('/api/v1/learning-resources/'.$resource->id.'/download')
+            ->assertOk()
+            ->assertJsonPath('data.type', LearningResource::TYPE_FILE)
+            ->assertJsonPath('data.download_url', 'https://cdn.example.com/cloud-worksheet.pdf?temp=1')
+            ->assertJsonPath('data.preview_metadata.pages', 2);
+
+        $expiresAt = Carbon::parse($response->json('data.expires_at'));
+        $this->assertTrue($expiresAt->isFuture());
     }
 
     public function test_admin_can_assign_and_unassign_resource_to_student(): void

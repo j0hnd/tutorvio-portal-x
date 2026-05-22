@@ -19,6 +19,10 @@ class LearningResourceResource extends JsonResource
             'description' => $this->resource->description,
             'resource_type' => $this->resource->resource_type,
             'url' => $this->resource->isExternalLink() ? $this->resource->url : null,
+            'download' => $this->resource->isExternalLink() || $this->resource->hasStoredFile() ? [
+                'endpoint' => url('/api/v1/learning-resources/'.$this->resource->id.'/download'),
+                'type' => $this->resource->isExternalLink() ? 'link' : 'file',
+            ] : null,
             'original_filename' => $this->resource->original_filename,
             'mime_type' => $this->resource->mime_type,
             'file_size' => $this->resource->file_size,

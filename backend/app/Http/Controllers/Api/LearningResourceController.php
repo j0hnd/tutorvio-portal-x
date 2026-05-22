@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -137,6 +138,16 @@ class LearningResourceController extends Controller
     {
         Gate::authorize('view', $learningResource);
 
+        if ($learningResource->isExternalLink()) {
+            return response()->json([
+                'data' => [
+                    'type' => LearningResource::TYPE_LINK,
+                    'url' => $learningResource->url,
+                    'preview_metadata' => $learningResource->preview_metadata,
+                ],
+            ]);
+        }
+
         if (! $learningResource->hasStoredFile()) {
             return response()->json([
                 'message' => 'This resource does not have a downloadable file.',
@@ -147,6 +158,24 @@ class LearningResourceController extends Controller
             return response()->json([
                 'message' => 'The resource file could not be found.',
             ], 404);
+        }
+
+        if ($this->shouldReturnTemporaryUrl($learningResource)) {
+            $expiresAt = now()->addMinutes($this->temporaryUrlTtlMinutes());
+            $temporaryUrl = Storage::disk($learningResource->storageDisk())->temporaryUrl(
+                $learningResource->file_path,
+                $expiresAt,
+                $this->temporaryDownloadOptions($learningResource->original_filename)
+            );
+
+            return response()->json([
+                'data' => [
+                    'type' => LearningResource::TYPE_FILE,
+                    'download_url' => $temporaryUrl,
+                    'expires_at' => $expiresAt->toIso8601String(),
+                    'preview_metadata' => $learningResource->preview_metadata,
+                ],
+            ]);
         }
 
         return Storage::disk($learningResource->storageDisk())->download(
@@ -315,5 +344,43 @@ class LearningResourceController extends Controller
                 $query->where('teacher_id', $user->id);
             }
         });
+    }
+
+    private function shouldReturnTemporaryUrl(LearningResource $learningResource): bool
+    {
+        $disk = $learningResource->storageDisk();
+        $strategy = (string) config('learning_resources.download.strategy', 'auto');
+        $driver = (string) config("filesystems.disks.{$disk}.driver", '');
+
+        if (! Storage::disk($disk)->providesTemporaryUrls()) {
+            return false;
+        }
+
+        return match ($strategy) {
+            'temporary_url' => true,
+            'stream' => false,
+            default => ! in_array($driver, ['local'], true),
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function temporaryDownloadOptions(?string $originalFilename): array
+    {
+        if (blank($originalFilename)) {
+            return [];
+        }
+
+        $asciiFilename = Str::ascii($originalFilename);
+
+        return [
+            'ResponseContentDisposition' => "attachment; filename=\"{$asciiFilename}\"",
+        ];
+    }
+
+    private function temporaryUrlTtlMinutes(): int
+    {
+        return max(1, (int) config('learning_resources.download.temporary_url_ttl_minutes', 10));
     }
 }

@@ -20,4 +20,12 @@ return [
         'application/vnd.oasis.opendocument.spreadsheet',
         'application/vnd.oasis.opendocument.presentation',
     ],
+
+    'download' => [
+        // auto: use temporary URLs for non-local disks that support them, stream otherwise
+        // stream: always stream through the API response
+        // temporary_url: always return an expiring temporary URL when supported
+        'strategy' => env('LEARNING_RESOURCE_DOWNLOAD_STRATEGY', 'auto'),
+        'temporary_url_ttl_minutes' => (int) env('LEARNING_RESOURCE_DOWNLOAD_TTL_MINUTES', 10),
+    ],
 ];
