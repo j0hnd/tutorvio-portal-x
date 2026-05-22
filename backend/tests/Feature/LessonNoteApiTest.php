@@ -75,7 +75,12 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonPath('data.author_id', $this->teacher->id)
             ->assertJsonPath('data.lesson_record_id', $lessonRecord->id)
             ->assertJsonPath('data.lesson_objective', 'Practice workplace introductions.')
-            ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.');
+            ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.')
+            ->assertJsonPath('data.lesson.id', $lesson->id)
+            ->assertJsonPath('data.lesson.status', Lesson::STATUS_COMPLETED)
+            ->assertJsonPath('data.student.id', $this->student->id)
+            ->assertJsonPath('data.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.author.id', $this->teacher->id);
 
         $this->assertDatabaseHas('lesson_notes', [
             'lesson_id' => $lesson->id,
@@ -97,6 +102,37 @@ class LessonNoteApiTest extends TestCase
                 'lesson_id',
                 'lesson_objective',
             ]);
+    }
+
+    public function test_lesson_note_payload_fields_must_be_valid_strings(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $lesson = $this->createLesson();
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $lesson->id,
+            'topics_covered' => ['Warm-up conversation.'],
+            'homework_assignment' => ['Prepare answers.'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'topics_covered',
+                'homework_assignment',
+            ]);
+
+        $lessonNote = $this->createLessonNote([
+            'lesson_id' => $this->createLesson([
+                'start_time' => '2026-06-02 09:00:00',
+                'end_time' => '2026-06-02 10:00:00',
+            ])->id,
+        ]);
+
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+            'internal_note' => ['Private coaching note.'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('internal_note');
     }
 
     public function test_teacher_cannot_create_note_for_unassigned_or_cancelled_lesson(): void
@@ -126,6 +162,37 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonValidationErrors('lesson_id');
     }
 
+    public function test_lesson_note_requires_valid_student_and_teacher_users_on_lesson(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $nonStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $lessonWithoutStudent = $this->createLesson([
+            'student_id' => $nonStudent->id,
+        ]);
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $lessonWithoutStudent->id,
+            'topics_covered' => 'Warm-up conversation.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_id');
+
+        $nonTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $lessonWithoutTeacher = $this->createLesson([
+            'teacher_id' => $nonTeacher->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $lessonWithoutTeacher->id,
+            'topics_covered' => 'Warm-up conversation.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_id');
+    }
+
     public function test_lesson_record_must_match_lesson_student_and_teacher(): void
     {
         Sanctum::actingAs($this->teacher);
@@ -139,6 +206,75 @@ class LessonNoteApiTest extends TestCase
             'lesson_id' => $lesson->id,
             'lesson_record_id' => $mismatchedRecord->id,
             'topics_covered' => 'Warm-up conversation.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_record_id');
+    }
+
+    public function test_lesson_note_cannot_duplicate_lesson_or_lesson_record_links(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $lesson = $this->createLesson();
+        $lessonRecord = $this->createLessonRecord();
+        $this->createLessonNote([
+            'lesson_id' => $lesson->id,
+            'lesson_record_id' => $lessonRecord->id,
+        ]);
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $lesson->id,
+            'topics_covered' => 'Duplicate lesson note.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_id');
+
+        $newLesson = $this->createLesson([
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $newLesson->id,
+            'lesson_record_id' => $lessonRecord->id,
+            'topics_covered' => 'Duplicate record note.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_record_id');
+    }
+
+    public function test_update_rejects_invalid_or_already_linked_lesson_record(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $lessonNote = $this->createLessonNote();
+        $cancelledLessonRecord = $this->createLessonRecord([
+            'lesson_status' => LessonRecord::STATUS_CANCELLED,
+        ]);
+
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+            'lesson_record_id' => $cancelledLessonRecord->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lesson_record_id');
+
+        $otherLesson = $this->createLesson([
+            'start_time' => '2026-06-03 09:00:00',
+            'end_time' => '2026-06-03 10:00:00',
+        ]);
+        $linkedLessonRecord = $this->createLessonRecord([
+            'scheduled_date' => '2026-06-03',
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+        ]);
+        $this->createLessonNote([
+            'lesson_id' => $otherLesson->id,
+            'lesson_record_id' => $linkedLessonRecord->id,
+            'submitted_at' => '2026-06-03 10:10:00',
+        ]);
+
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+            'lesson_record_id' => $linkedLessonRecord->id,
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('lesson_record_id');
@@ -198,6 +334,49 @@ class LessonNoteApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $lessonNote->id);
+    }
+
+    public function test_admin_can_review_all_lesson_notes_with_internal_notes_and_filters(): void
+    {
+        $firstLesson = $this->createLesson();
+        $firstNote = $this->createLessonNote([
+            'lesson_id' => $firstLesson->id,
+            'internal_note' => 'First internal review note.',
+            'submitted_at' => '2026-06-01 10:10:00',
+        ]);
+
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+        $otherLesson = $this->createLesson([
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $this->otherTeacher->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+        $secondNote = $this->createLessonNote([
+            'lesson_id' => $otherLesson->id,
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $this->otherTeacher->id,
+            'author_id' => $this->otherTeacher->id,
+            'internal_note' => 'Second internal review note.',
+            'submitted_at' => '2026-06-02 10:10:00',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/lesson-notes')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $secondNote->id)
+            ->assertJsonPath('data.0.internal_note', 'Second internal review note.')
+            ->assertJsonPath('data.1.id', $firstNote->id)
+            ->assertJsonPath('data.1.internal_note', 'First internal review note.');
+
+        $this->getJson('/api/v1/lesson-notes?teacher_id='.$this->otherTeacher->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $secondNote->id)
+            ->assertJsonPath('data.0.teacher_id', $this->otherTeacher->id);
     }
 
     public function test_submitted_lesson_note_is_auto_linked_to_matching_progress_record(): void
