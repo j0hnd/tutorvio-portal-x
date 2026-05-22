@@ -16,7 +16,7 @@
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileOpen"
       :show-view-as="auth.isAdmin"
-      :view-as-role="effectiveRole.value"
+      :view-as-role="effectiveRole"
       @navigate="handleNavigate"
       @mobile-close="mobileOpen = false"
       @role-change="handleRoleChange"

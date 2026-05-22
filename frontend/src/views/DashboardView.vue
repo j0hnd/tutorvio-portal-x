@@ -1,5 +1,5 @@
 <template>
-  <component :is="dashboardComponent" :key="effectiveRole.value" />
+  <component :is="dashboardComponent" :key="effectiveRole" />
 </template>
 
 <script setup lang="ts">
