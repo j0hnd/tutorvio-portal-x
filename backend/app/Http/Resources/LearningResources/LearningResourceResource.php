@@ -24,6 +24,15 @@ class LearningResourceResource extends JsonResource
             'preview_metadata' => $this->resource->preview_metadata,
             'course' => $this->resource->course,
             'level' => $this->resource->level,
+            'grouping' => [
+                'course' => $this->resource->course === null ? null : [
+                    'name' => $this->resource->course,
+                ],
+                'level' => $this->resource->level === null ? null : [
+                    'name' => $this->resource->level,
+                ],
+                'is_generic' => $this->resource->course === null && $this->resource->level === null,
+            ],
             'visibility' => $this->resource->visibility,
             'has_file' => $this->resource->hasStoredFile(),
             'created_by' => $this->resource->created_by,

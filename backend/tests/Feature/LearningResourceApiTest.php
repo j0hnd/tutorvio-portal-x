@@ -62,6 +62,11 @@ class LearningResourceApiTest extends TestCase
             ->assertJsonPath('data.preview_metadata.mime_type', 'application/pdf')
             ->assertJsonPath('data.preview_metadata.size', 262144)
             ->assertJsonPath('data.preview_metadata.extension', 'pdf')
+            ->assertJsonPath('data.course', 'General English')
+            ->assertJsonPath('data.level', 'A2')
+            ->assertJsonPath('data.grouping.course.name', 'General English')
+            ->assertJsonPath('data.grouping.level.name', 'A2')
+            ->assertJsonPath('data.grouping.is_generic', false)
             ->assertJsonPath('data.has_file', true)
             ->assertJsonPath('data.url', null)
             ->assertJsonMissingPath('data.file_path')
@@ -112,7 +117,10 @@ class LearningResourceApiTest extends TestCase
             ->assertJsonPath('data.original_filename', null)
             ->assertJsonPath('data.mime_type', null)
             ->assertJsonPath('data.file_size', null)
-            ->assertJsonPath('data.preview_metadata', null);
+            ->assertJsonPath('data.preview_metadata', null)
+            ->assertJsonPath('data.grouping.course', null)
+            ->assertJsonPath('data.grouping.level', null)
+            ->assertJsonPath('data.grouping.is_generic', true);
 
         $this->assertDatabaseHas('learning_resources', [
             'title' => 'Pronunciation practice',
@@ -167,6 +175,8 @@ class LearningResourceApiTest extends TestCase
             ->assertJsonPath('data.title', 'Updated teacher guide')
             ->assertJsonPath('data.course', 'Business English')
             ->assertJsonPath('data.level', 'B2')
+            ->assertJsonPath('data.grouping.course.name', 'Business English')
+            ->assertJsonPath('data.grouping.level.name', 'B2')
             ->assertJsonPath('data.visibility', LearningResource::VISIBILITY_ADMIN_ONLY);
 
         $this->deleteJson('/api/v1/learning-resources/'.$resource->id)
@@ -176,6 +186,46 @@ class LearningResourceApiTest extends TestCase
             'id' => $resource->id,
         ]);
         Storage::disk('local')->assertMissing('learning-resources/teacher-guide.docx');
+    }
+
+    public function test_admin_can_filter_resources_by_group_type_and_visibility(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $matching = LearningResource::create([
+            'title' => 'A2 grammar worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'course' => 'General English',
+            'level' => 'A2',
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+        LearningResource::create([
+            'title' => 'B1 grammar worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'course' => 'General English',
+            'level' => 'B1',
+            'visibility' => LearningResource::VISIBILITY_STUDENT_VISIBLE,
+        ]);
+        LearningResource::create([
+            'title' => 'A2 teacher guide',
+            'resource_type' => LearningResource::TYPE_DOCUMENT,
+            'course' => 'General English',
+            'level' => 'A2',
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+        ]);
+        LearningResource::create([
+            'title' => 'Generic public worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'visibility' => LearningResource::VISIBILITY_PUBLIC,
+        ]);
+
+        $this->getJson('/api/v1/learning-resources?course=General%20English&level=A2&resource_type=worksheet&visibility=student-visible')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matching->id)
+            ->assertJsonPath('data.0.grouping.course.name', 'General English')
+            ->assertJsonPath('data.0.grouping.level.name', 'A2')
+            ->assertJsonPath('data.0.visibility', LearningResource::VISIBILITY_STUDENT_VISIBLE);
     }
 
     public function test_student_can_only_view_visible_resources(): void

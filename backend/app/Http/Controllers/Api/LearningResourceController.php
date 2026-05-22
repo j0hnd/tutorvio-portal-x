@@ -29,6 +29,7 @@ class LearningResourceController extends Controller
             'resource_type' => ['sometimes', 'string', Rule::in(LearningResource::RESOURCE_TYPES)],
             'course' => ['sometimes', 'nullable', 'string', 'max:255'],
             'level' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'visibility' => ['sometimes', 'string', Rule::in(LearningResource::VISIBILITIES)],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -39,6 +40,7 @@ class LearningResourceController extends Controller
             ->when($validated['resource_type'] ?? null, fn ($query, $type) => $query->where('resource_type', $type))
             ->when($validated['course'] ?? null, fn ($query, $course) => $query->where('course', $course))
             ->when($validated['level'] ?? null, fn ($query, $level) => $query->where('level', $level))
+            ->when($validated['visibility'] ?? null, fn ($query, $visibility) => $query->where('visibility', $visibility))
             ->latest()
             ->paginate($validated['per_page'] ?? 15);
 
