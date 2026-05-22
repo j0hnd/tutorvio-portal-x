@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\LessonNotes;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,7 +28,7 @@ class LessonNoteResource extends JsonResource
             'student_speaking_confidence_observation' => $this->resource->student_speaking_confidence_observation,
             'homework_assignment' => $this->resource->homework_assignment,
             'recommendation_for_next_lesson' => $this->resource->recommendation_for_next_lesson,
-            'internal_note' => $this->when($request->user()?->hasAnyRole(['admin', 'staff', 'teacher']), $this->resource->internal_note),
+            'internal_note' => $this->when($this->canViewInternalNote($request->user()), $this->resource->internal_note),
             'submitted_at' => $this->resource->submitted_at,
             'lesson' => $this->whenLoaded('lesson', fn () => [
                 'id' => $this->resource->lesson->id,
@@ -55,5 +56,16 @@ class LessonNoteResource extends JsonResource
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];
+    }
+
+    private function canViewInternalNote(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('lesson_notes.view'))
+            || ($user->hasRole('teacher') && (int) $this->resource->teacher_id === (int) $user->id);
     }
 }

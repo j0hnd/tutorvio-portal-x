@@ -200,6 +200,145 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonPath('data.0.id', $lessonNote->id);
     }
 
+    public function test_students_only_receive_student_visible_note_fields_for_their_own_lessons(): void
+    {
+        $lesson = $this->createLesson();
+        $lessonNote = $this->createLessonNote([
+            'lesson_id' => $lesson->id,
+            'lesson_objective' => 'Practice workplace introductions.',
+            'internal_note' => 'Do not share this coaching context.',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+            ->assertOk()
+            ->assertJsonPath('data.id', $lessonNote->id)
+            ->assertJsonPath('data.lesson_objective', 'Practice workplace introductions.')
+            ->assertJsonMissingPath('data.internal_note');
+
+        $this->getJson('/api/v1/lesson-notes')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonMissingPath('data.0.internal_note');
+
+        $this->getJson('/api/v1/lessons/'.$lesson->id.'/lesson-notes')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonMissingPath('data.0.internal_note');
+
+        $this->getJson('/api/v1/students/'.$this->student->id.'/lesson-notes')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonMissingPath('data.0.internal_note');
+    }
+
+    public function test_student_cannot_view_another_students_note(): void
+    {
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $otherLesson = $this->createLesson([
+            'student_id' => $otherStudent->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+        ]);
+        $otherNote = $this->createLessonNote([
+            'lesson_id' => $otherLesson->id,
+            'student_id' => $otherStudent->id,
+            'internal_note' => 'Private note for another student.',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/lesson-notes/'.$otherNote->id)
+            ->assertForbidden();
+
+        $this->getJson('/api/v1/students/'.$otherStudent->id.'/lesson-notes')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_admin_and_assigned_teacher_can_view_internal_notes(): void
+    {
+        $lessonNote = $this->createLessonNote([
+            'internal_note' => 'Keep correction direct but brief.',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+            ->assertOk()
+            ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.');
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+            ->assertOk()
+            ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.');
+    }
+
+    public function test_staff_lesson_note_access_follows_permissions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $lessonNote = $this->createLessonNote([
+            'internal_note' => 'Visible only with lesson note permission.',
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/lesson-notes')
+            ->assertForbidden();
+
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+            ->assertForbidden();
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $this->createLesson([
+                'start_time' => '2026-06-02 09:00:00',
+                'end_time' => '2026-06-02 10:00:00',
+            ])->id,
+            'topics_covered' => 'Warm-up conversation.',
+        ])->assertForbidden();
+
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+            'topics_covered' => 'Staff attempted update.',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo([
+            'lesson_notes.view',
+            'lesson_notes.create',
+            'lesson_notes.update',
+        ]);
+
+        $this->getJson('/api/v1/lesson-notes')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.internal_note', 'Visible only with lesson note permission.');
+
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+            ->assertOk()
+            ->assertJsonPath('data.internal_note', 'Visible only with lesson note permission.');
+
+        $this->postJson('/api/v1/lesson-notes', [
+            'lesson_id' => $this->createLesson([
+                'start_time' => '2026-06-03 09:00:00',
+                'end_time' => '2026-06-03 10:00:00',
+            ])->id,
+            'topics_covered' => 'Warm-up conversation.',
+        ])->assertCreated();
+
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+            'topics_covered' => 'Staff updated note.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.topics_covered', 'Staff updated note.');
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */
@@ -244,6 +383,7 @@ class LessonNoteApiTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'author_id' => $this->teacher->id,
             'topics_covered' => 'Introductions and follow-up questions.',
+            'internal_note' => 'Keep correction direct but brief.',
             'submitted_at' => '2026-06-01 10:10:00',
             ...$overrides,
         ]);
