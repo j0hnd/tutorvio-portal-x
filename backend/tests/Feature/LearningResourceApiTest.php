@@ -397,8 +397,9 @@ class LearningResourceApiTest extends TestCase
 
         $this->getJson('/api/v1/learning-resources?search=handout')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonMissingPath('data.2')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ownAssigned->id)
+            ->assertJsonMissing(['title' => 'Other student handout'])
             ->assertJsonMissing(['title' => 'Teacher-only guide']);
 
         $this->getJson('/api/v1/learning-resources?assigned_student_id='.$student->id)
@@ -413,6 +414,231 @@ class LearningResourceApiTest extends TestCase
         $this->getJson('/api/v1/learning-resources?assigned_lesson_id='.$otherLesson->id)
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    public function test_student_can_access_only_own_assigned_lesson_and_unassigned_student_visible_resources(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $ownLesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-01 09:00:00',
+            'end_time' => '2026-06-01 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+        $otherLesson = Lesson::create([
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+
+        $unassignedVisible = $this->createResource(['title' => 'Open handout']);
+        $ownStudentAssigned = $this->createResource(['title' => 'Own assigned handout']);
+        $ownLessonAssigned = $this->createResource(['title' => 'Own lesson handout']);
+        $otherStudentAssigned = $this->createResource(['title' => 'Other student only handout']);
+        $otherLessonAssigned = $this->createResource(['title' => 'Other lesson only handout']);
+        $teacherOnly = $this->createResource([
+            'title' => 'Teacher-only handout',
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+        ]);
+        $adminOnly = $this->createResource([
+            'title' => 'Admin-only handout',
+            'visibility' => LearningResource::VISIBILITY_ADMIN_ONLY,
+        ]);
+
+        $ownStudentAssigned->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $ownLessonAssigned->assignedLessons()->attach($ownLesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherStudentAssigned->assignedStudents()->attach($otherStudent->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherLessonAssigned->assignedLessons()->attach($otherLesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $response = $this->getJson('/api/v1/learning-resources?search=handout&sort=title&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonMissing(['title' => 'Other student only handout'])
+            ->assertJsonMissing(['title' => 'Other lesson only handout'])
+            ->assertJsonMissing(['title' => 'Teacher-only handout'])
+            ->assertJsonMissing(['title' => 'Admin-only handout']);
+
+        $this->assertSame([
+            $unassignedVisible->id,
+            $ownStudentAssigned->id,
+            $ownLessonAssigned->id,
+        ], collect($response->json('data'))->pluck('id')->sort()->values()->all());
+
+        $this->getJson('/api/v1/learning-resources/'.$ownStudentAssigned->id)
+            ->assertOk();
+        $this->getJson('/api/v1/learning-resources/'.$ownLessonAssigned->id)
+            ->assertOk();
+        $this->getJson('/api/v1/learning-resources/'.$otherStudentAssigned->id)
+            ->assertForbidden();
+        $this->getJson('/api/v1/learning-resources/'.$otherLessonAssigned->id)
+            ->assertForbidden();
+        $this->getJson('/api/v1/learning-resources/'.$teacherOnly->id)
+            ->assertForbidden();
+        $this->getJson('/api/v1/learning-resources/'.$adminOnly->id)
+            ->assertForbidden();
+    }
+
+    public function test_teacher_can_access_teacher_resources_and_assigned_student_or_lesson_resources(): void
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherTeacher->assignRole('teacher');
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        StudentProfile::create([
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $teacher->id,
+        ]);
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+        StudentProfile::create([
+            'user_id' => $otherStudent->id,
+            'assigned_teacher_id' => $otherTeacher->id,
+        ]);
+
+        $ownLesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => '2026-06-01 09:00:00',
+            'end_time' => '2026-06-01 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+        $otherLesson = Lesson::create([
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $otherTeacher->id,
+            'start_time' => '2026-06-02 09:00:00',
+            'end_time' => '2026-06-02 10:00:00',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+
+        $teacherOnly = $this->createResource([
+            'title' => 'Teacher-only guide',
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+        ]);
+        $unassignedVisible = $this->createResource(['title' => 'Open student guide']);
+        $ownStudentResource = $this->createResource(['title' => 'Assigned student guide']);
+        $ownLessonResource = $this->createResource(['title' => 'Assigned lesson guide']);
+        $otherStudentResource = $this->createResource(['title' => 'Other assigned student guide']);
+        $otherLessonResource = $this->createResource(['title' => 'Other assigned lesson guide']);
+        $adminOnly = $this->createResource([
+            'title' => 'Internal admin guide',
+            'visibility' => LearningResource::VISIBILITY_ADMIN_ONLY,
+        ]);
+
+        $ownStudentResource->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $ownLessonResource->assignedLessons()->attach($ownLesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherStudentResource->assignedStudents()->attach($otherStudent->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherLessonResource->assignedLessons()->attach($otherLesson->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+
+        Sanctum::actingAs($teacher);
+
+        $response = $this->getJson('/api/v1/learning-resources?search=guide')
+            ->assertOk()
+            ->assertJsonCount(4, 'data')
+            ->assertJsonMissing(['title' => 'Other assigned student guide'])
+            ->assertJsonMissing(['title' => 'Other assigned lesson guide'])
+            ->assertJsonMissing(['title' => 'Internal admin guide']);
+
+        $this->assertEqualsCanonicalizing([
+            $teacherOnly->id,
+            $unassignedVisible->id,
+            $ownStudentResource->id,
+            $ownLessonResource->id,
+        ], collect($response->json('data'))->pluck('id')->all());
+
+        $this->getJson('/api/v1/learning-resources/'.$teacherOnly->id)
+            ->assertOk();
+        $this->getJson('/api/v1/learning-resources/'.$ownStudentResource->id)
+            ->assertOk();
+        $this->getJson('/api/v1/learning-resources/'.$ownLessonResource->id)
+            ->assertOk();
+        $this->getJson('/api/v1/learning-resources/'.$otherStudentResource->id)
+            ->assertForbidden();
+        $this->getJson('/api/v1/learning-resources/'.$otherLessonResource->id)
+            ->assertForbidden();
+        $this->getJson('/api/v1/learning-resources/'.$adminOnly->id)
+            ->assertForbidden();
+    }
+
+    public function test_download_endpoint_uses_resource_visibility_rules(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $ownResource = $this->createResource([
+            'title' => 'Downloadable worksheet',
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/downloadable.pdf',
+            'original_filename' => 'downloadable.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 12,
+        ]);
+        $otherResource = $this->createResource([
+            'title' => 'Other downloadable worksheet',
+            'storage_disk' => 'local',
+            'file_path' => 'learning-resources/other-downloadable.pdf',
+            'original_filename' => 'other-downloadable.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 12,
+        ]);
+        Storage::disk('local')->put($ownResource->file_path, 'own document');
+        Storage::disk('local')->put($otherResource->file_path, 'other document');
+
+        $ownResource->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+        $otherResource->assignedStudents()->attach($otherStudent->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/learning-resources/'.$ownResource->id.'/download')
+            ->assertOk()
+            ->assertDownload('downloadable.pdf');
+
+        $this->getJson('/api/v1/learning-resources/'.$otherResource->id.'/download')
+            ->assertForbidden();
     }
 
     public function test_admin_can_assign_and_unassign_resource_to_student(): void

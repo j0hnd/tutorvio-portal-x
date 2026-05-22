@@ -124,24 +124,67 @@ class LearningResource extends Model
 
     public function scopeVisibleTo(Builder $query, ?User $user): Builder
     {
-        if ($user?->hasAnyRole(['admin', 'staff'])) {
+        if ($user?->hasRole('admin')) {
             return $query;
         }
 
         if ($user?->hasRole('teacher')) {
-            return $query->whereIn('visibility', [
-                self::VISIBILITY_TEACHER_ONLY,
-                self::VISIBILITY_STUDENT_VISIBLE,
-                self::VISIBILITY_STUDENT_LIBRARY,
-                self::VISIBILITY_PUBLIC,
-            ]);
+            return $query
+                ->where('visibility', '!=', self::VISIBILITY_ADMIN_ONLY)
+                ->where(function (Builder $query) use ($user) {
+                    $query
+                        ->where('visibility', self::VISIBILITY_TEACHER_ONLY)
+                        ->orWhere(function (Builder $query) {
+                            $query
+                                ->whereIn('visibility', self::studentVisibleVisibilities())
+                                ->whereDoesntHave('assignedStudents')
+                                ->whereDoesntHave('assignedLessons');
+                        })
+                        ->orWhereHas('assignedStudents.studentProfile', function (Builder $query) use ($user) {
+                            $query->where('assigned_teacher_id', $user->id);
+                        })
+                        ->orWhereHas('assignedLessons', function (Builder $query) use ($user) {
+                            $query->where('teacher_id', $user->id);
+                        });
+                });
         }
 
-        return $query->whereIn('visibility', [
+        if ($user?->hasRole('staff') && $user->can('learning_resources.view')) {
+            return $query;
+        }
+
+        if ($user?->hasRole('student')) {
+            return $query
+                ->whereIn('visibility', self::studentVisibleVisibilities())
+                ->where(function (Builder $query) use ($user) {
+                    $query
+                        ->where(function (Builder $query) {
+                            $query
+                                ->whereDoesntHave('assignedStudents')
+                                ->whereDoesntHave('assignedLessons');
+                        })
+                        ->orWhereHas('assignedStudents', function (Builder $query) use ($user) {
+                            $query->whereKey($user->id);
+                        })
+                        ->orWhereHas('assignedLessons', function (Builder $query) use ($user) {
+                            $query->where('student_id', $user->id);
+                        });
+                });
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function studentVisibleVisibilities(): array
+    {
+        return [
             self::VISIBILITY_STUDENT_VISIBLE,
             self::VISIBILITY_STUDENT_LIBRARY,
             self::VISIBILITY_PUBLIC,
-        ]);
+        ];
     }
 
     public function isExternalLink(): bool

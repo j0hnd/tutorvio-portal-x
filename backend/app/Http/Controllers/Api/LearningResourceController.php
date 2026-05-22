@@ -15,8 +15,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LearningResourceController extends Controller
 {
@@ -129,6 +131,28 @@ class LearningResourceController extends Controller
         return response()->json([
             'data' => new LearningResourceResource($learningResource->load('createdBy')),
         ]);
+    }
+
+    public function download(LearningResource $learningResource): StreamedResponse|JsonResponse
+    {
+        Gate::authorize('view', $learningResource);
+
+        if (! $learningResource->hasStoredFile()) {
+            return response()->json([
+                'message' => 'This resource does not have a downloadable file.',
+            ], 404);
+        }
+
+        if (! $learningResource->storedFileExists()) {
+            return response()->json([
+                'message' => 'The resource file could not be found.',
+            ], 404);
+        }
+
+        return Storage::disk($learningResource->storageDisk())->download(
+            $learningResource->file_path,
+            $learningResource->original_filename
+        );
     }
 
     public function update(UpdateLearningResourceRequest $request, LearningResource $learningResource): JsonResponse
