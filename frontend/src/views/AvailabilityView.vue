@@ -16,6 +16,8 @@
           aria-label="Select teacher"
         >
           <option value="u2">James Reyes</option>
+          <option value="u6">Sarah Lim</option>
+          <option value="u7">Miguel Santos</option>
         </select>
         <span class="av-tz-badge">{{ timezone }}</span>
       </div>
@@ -216,7 +218,7 @@ function formatHour(h: number): string {
 }
 
 function isActive(dayOfWeek: number, hour: number): boolean {
-  return schedule.teacherAvailability.weeklySlots.some(
+  return schedule.getWeeklySlots(teacherId.value).some(
     s => s.dayOfWeek === dayOfWeek && s.hour === hour
   )
 }

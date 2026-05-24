@@ -20,10 +20,7 @@
         class="app-header__logo-img"
       />
       <div v-else class="app-header__logo-icon" aria-label="Tutorvio">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-          <rect width="28" height="28" rx="7" fill="var(--tv-primary)"/>
-          <path d="M8 8h12M14 8v12" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-        </svg>
+        <img src="/images/logo.png" alt="Tutorvio" width="32" height="32" style="object-fit:contain;display:block;" />
       </div>
     </div>
 

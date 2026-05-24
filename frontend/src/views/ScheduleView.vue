@@ -7,18 +7,9 @@
         <h1 class="sv-title">Schedule</h1>
         <span class="sv-tz-badge">{{ timezone }}</span>
       </div>
-      <div class="sv-header__controls">
-        <select v-if="showTeacherFilter" v-model="filterTeacherId" class="sv-ctrl-select" aria-label="Filter by teacher">
-          <option value="">All Teachers</option>
-          <option value="u2">James Reyes</option>
-        </select>
 
-        <div class="sv-view-switcher" role="group" aria-label="Calendar view">
-          <button v-for="v in VIEWS" :key="v.key"
-            :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
-            type="button" @click="currentView = v.key">{{ v.label }}</button>
-        </div>
-
+      <!-- Center: nav + period selects -->
+      <div class="sv-header__center">
         <div class="sv-nav">
           <button class="sv-nav-btn" type="button" aria-label="Previous" @click="navigate(-1)">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -32,15 +23,25 @@
             </svg>
           </button>
         </div>
-
-        <!-- Selectable month + year -->
         <div class="sv-period-selects">
-          <select :value="cursorMonth" class="sv-period-select" @change="setCursorMonth(+($event.target as HTMLSelectElement).value)">
-            <option v-for="(m, i) in MONTHS" :key="i" :value="i">{{ m }}</option>
-          </select>
-          <select :value="cursorYear" class="sv-period-select" @change="setCursorYear(+($event.target as HTMLSelectElement).value)">
-            <option v-for="y in YEARS" :key="y" :value="y">{{ y }}</option>
-          </select>
+          <TVSelect v-model="selectedMonth" :options="monthOptions" class="sv-period-tvselect" />
+          <TVSelect v-model="selectedYear"  :options="yearOptions"  class="sv-period-tvselect" />
+        </div>
+      </div>
+
+      <!-- Right: teacher filter + view switcher -->
+      <div class="sv-header__right">
+        <TVSelect
+          v-if="showTeacherFilter"
+          v-model="filterTeacherId"
+          :options="teacherOptions"
+          placeholder="All Teachers"
+          class="sv-ctrl-tvselect"
+        />
+        <div class="sv-view-switcher" role="group" aria-label="Calendar view">
+          <button v-for="v in VIEWS" :key="v.key"
+            :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
+            type="button" @click="currentView = v.key">{{ v.label }}</button>
         </div>
       </div>
     </div>
@@ -69,29 +70,32 @@
               @click="selectDate(cell.dateStr)"
             >
               <span class="sv-month__day">{{ cell.day }}</span>
+              <span v-if="cell.isUnavailable" class="sv-month__unavail-tag">{{ cell.unavailableLabel }}</span>
               <div class="sv-month__events">
-                <button
-                  v-for="ev in cell.events.slice(0, 3)" :key="ev.id"
-                  :class="['sv-chip', `sv-chip--${statusClass(ev.status)}`, { 'sv-chip--trial': ev.isTrial }]"
-                  type="button" :title="ev.title"
-                  @click.stop="openLesson(ev)"
-                >
-                  <span class="sv-chip__time">{{ formatTime(ev.startTime) }}</span>
-                  <span class="sv-chip__label">{{ ev.title }}</span>
-                  <span v-if="ev.isTrial" class="sv-chip__badge">TRIAL</span>
-                  <span v-if="ev.isRecurring" class="sv-chip__recur" aria-label="Recurring">↻</span>
-                </button>
-                <button
-                  v-for="slot in cell.slots.slice(0, 2)" :key="slot.id"
-                  class="sv-chip sv-chip--open-slot" type="button"
-                  :title="`Available: ${slot.startTime}–${slot.endTime}`"
-                  @click.stop="openSlot(slot)"
-                >
-                  <span class="sv-chip__time">{{ slot.startTime }}</span>
-                  <span class="sv-chip__label">Open slot</span>
-                </button>
-                <span v-if="cell.events.length + cell.slots.length > 3" class="sv-month__more">
-                  +{{ cell.events.length + cell.slots.length - 3 }} more
+                <template v-for="item in cell.items.slice(0, 4)" :key="item.id">
+                  <button
+                    v-if="!item.isSlot"
+                    :class="['sv-chip', `sv-chip--${statusClass(item.ev.status)}`, { 'sv-chip--trial': item.ev.isTrial }]"
+                    type="button" :title="item.ev.title"
+                    @click.stop="openLesson(item.ev)"
+                  >
+                    <span class="sv-chip__time">{{ formatTime(item.ev.startTime) }}</span>
+                    <span class="sv-chip__label">{{ item.ev.title }}</span>
+                    <span v-if="item.ev.isTrial" class="sv-chip__badge">TRIAL</span>
+                    <span v-if="item.ev.isRecurring" class="sv-chip__recur" aria-label="Recurring">↻</span>
+                  </button>
+                  <button
+                    v-else
+                    class="sv-chip sv-chip--open-slot" type="button"
+                    :title="`Open: ${item.slot.startTime}–${item.slot.endTime}${canManageSlots ? '' : ' · ' + item.slot.teacherName}`"
+                    @click.stop="canBook ? openSlot(item.slot) : undefined"
+                  >
+                    <span class="sv-chip__time">{{ formatSlotHour(item.slot.startTime) }}</span>
+                    <span class="sv-chip__label">Open Slot{{ canManageSlots ? '' : ' · ' + item.slot.teacherName }}</span>
+                  </button>
+                </template>
+                <span v-if="cell.items.length > 4" class="sv-month__more">
+                  +{{ cell.items.length - 4 }} more
                 </span>
               </div>
             </div>
@@ -126,31 +130,38 @@
                   v-for="day in weekDays" :key="day.dateStr"
                   :class="['sv-week__col',
                     { 'sv-week__col--unavailable': day.isUnavailable },
-                    { 'sv-week__col--selected':    selectedDate === day.dateStr },
+                    { 'sv-week__col--selected':    selectedDate === day.dateStr && selectedHour === null },
                   ]"
                 >
-                  <div v-for="h in HOURS" :key="h" class="sv-week__hour-cell" />
                   <div
-                    v-for="slot in day.slots" :key="slot.id"
-                    :class="['sv-week__slot-bg', { 'sv-week__slot-bg--booked': slot.isBooked }]"
-                    :style="slotStyle(slot.startTime, slot.endTime)"
-                    :title="slot.isBooked ? `Booked: ${slot.startTime}–${slot.endTime}` : `Available: ${slot.startTime}–${slot.endTime}`"
-                    @click="!slot.isBooked && canBook ? openSlot(slot) : undefined"
-                  />
-                  <button
-                    v-for="ev in day.events" :key="ev.id"
-                    :class="['sv-week__event', `sv-week__event--${statusClass(ev.status)}`, { 'sv-week__event--trial': ev.isTrial }]"
-                    :style="eventStyle(ev)" type="button"
-                    @click="openLesson(ev)"
+                    v-for="h in HOURS" :key="h"
+                    :class="['sv-week__hour-cell',
+                      { 'sv-week__hour-cell--selected': selectedDate === day.dateStr && selectedHour === h }
+                    ]"
+                    @click="selectCell(day.dateStr, h)"
                   >
-                    <span class="sv-week__event-title">{{ ev.title }}</span>
-                    <span class="sv-week__event-meta">
-                      {{ formatTime(ev.startTime) }}–{{ formatTime(ev.endTime) }}
-                      <template v-if="roleLabel(ev)"> · {{ roleLabel(ev) }}</template>
-                    </span>
-                    <span v-if="ev.isTrial" class="sv-week__event-badge">TRIAL</span>
-                    <span v-if="ev.isRecurring" class="sv-week__event-recur">↻</span>
-                  </button>
+                    <button
+                      v-for="slot in day.slots.filter(s => !s.isBooked && parseInt(s.startTime) === h)" :key="slot.id"
+                      class="sv-chip sv-chip--open-slot"
+                      type="button"
+                      @click.stop="handleSlotBgClick(slot)"
+                    >
+                      <span class="sv-chip__time">{{ formatSlotHour(slot.startTime) }}</span>
+                      <span class="sv-chip__label">Open Slot{{ canManageSlots ? '' : ' · ' + slot.teacherName }}</span>
+                    </button>
+                    <button
+                      v-for="ev in day.events.filter(e => new Date(e.startTime).getHours() === h)" :key="ev.id"
+                      :class="['sv-chip', `sv-chip--${statusClass(ev.status)}`]"
+                      type="button"
+                      @click.stop="openLesson(ev)"
+                    >
+                      <span class="sv-chip__time">{{ formatTime(ev.startTime) }}</span>
+                      <span class="sv-chip__label">{{ ev.title }}</span>
+                      <template v-if="roleLabel(ev)"><span class="sv-chip__role"> · {{ roleLabel(ev) }}</span></template>
+                      <span v-if="ev.isTrial" class="sv-chip__badge">TRIAL</span>
+                      <span v-if="ev.isRecurring" class="sv-chip__recur">↻</span>
+                    </button>
+                  </div>
                   <div v-if="day.isToday" class="sv-week__now-line" :style="nowLineStyle" />
                 </div>
               </div>
@@ -171,27 +182,33 @@
                 <div v-for="h in HOURS" :key="h" class="sv-day__hour-label">{{ formatHour(h) }}</div>
               </div>
               <div :class="['sv-day__col', { 'sv-day__col--unavailable': dayUnavailable }]">
-                <div v-for="h in HOURS" :key="h" class="sv-day__hour-cell" />
                 <div
-                  v-for="slot in currentDaySlots" :key="slot.id"
-                  :class="['sv-day__slot-bg', { 'sv-day__slot-bg--booked': slot.isBooked }]"
-                  :style="slotStyle(slot.startTime, slot.endTime)"
-                  :title="slot.isBooked ? `Booked: ${slot.startTime}–${slot.endTime}` : `Available: ${slot.startTime}–${slot.endTime}`"
-                  @click="!slot.isBooked && canBook ? openSlot(slot) : undefined"
-                />
-                <button
-                  v-for="ev in currentDayEvents" :key="ev.id"
-                  :class="['sv-day__event', `sv-day__event--${statusClass(ev.status)}`, { 'sv-day__event--trial': ev.isTrial }]"
-                  :style="eventStyle(ev)" type="button"
-                  @click="openLesson(ev)"
+                  v-for="h in HOURS" :key="h"
+                  :class="['sv-day__hour-cell', { 'sv-day__hour-cell--selected': selectedDate === currentDayStr && selectedHour === h }]"
+                  @click="selectCell(currentDayStr, h)"
                 >
-                  <span class="sv-day__event-title">{{ ev.title }}</span>
-                  <span class="sv-day__event-meta">
-                    {{ formatTime(ev.startTime) }}–{{ formatTime(ev.endTime) }}
-                    <template v-if="roleLabel(ev)"> · {{ roleLabel(ev) }}</template>
-                  </span>
-                  <span v-if="ev.isTrial" class="sv-day__event-badge">TRIAL</span>
-                </button>
+                  <button
+                    v-for="slot in currentDaySlots.filter(s => !s.isBooked && parseInt(s.startTime) === h)" :key="slot.id"
+                    class="sv-chip sv-chip--open-slot"
+                    type="button"
+                    @click.stop="handleSlotBgClick(slot)"
+                  >
+                    <span class="sv-chip__time">{{ formatSlotHour(slot.startTime) }}</span>
+                    <span class="sv-chip__label">Open Slot{{ canManageSlots ? '' : ' · ' + slot.teacherName }}</span>
+                  </button>
+                  <button
+                    v-for="ev in currentDayEvents.filter(e => new Date(e.startTime).getHours() === h)" :key="ev.id"
+                    :class="['sv-chip', `sv-chip--${statusClass(ev.status)}`]"
+                    type="button"
+                    @click.stop="openLesson(ev)"
+                  >
+                    <span class="sv-chip__time">{{ formatTime(ev.startTime) }}</span>
+                    <span class="sv-chip__label">{{ ev.title }}</span>
+                    <template v-if="roleLabel(ev)"><span class="sv-chip__role"> · {{ roleLabel(ev) }}</span></template>
+                    <span v-if="ev.isTrial" class="sv-chip__badge">TRIAL</span>
+                    <span v-if="ev.isRecurring" class="sv-chip__recur">↻</span>
+                  </button>
+                </div>
                 <div v-if="isDayToday" class="sv-day__now-line" :style="nowLineStyle" />
               </div>
             </div>
@@ -206,9 +223,9 @@
           <div class="sv-panel__header">
             <div class="sv-panel__header-text">
               <p class="sv-panel__dow">{{ panelDow }}</p>
-              <h2 class="sv-panel__date">{{ panelDateLabel }}</h2>
+              <h2 class="sv-panel__date">{{ panelDateLabel }}<template v-if="selectedHour !== null"> · {{ formatHour(selectedHour) }}</template></h2>
             </div>
-            <button class="sv-panel__close" type="button" aria-label="Close panel" @click="selectedDate = null">
+            <button class="sv-panel__close" type="button" aria-label="Close panel" @click="selectedDate = null; selectedHour = null">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
@@ -245,8 +262,8 @@
             </div>
           </div>
 
-          <!-- Available slots section (student only) -->
-          <div v-if="canBook" class="sv-panel__section">
+          <!-- Available slots section (all roles) -->
+          <div v-if="panelOpenSlots.length || canBook" class="sv-panel__section">
             <p class="sv-panel__section-label">
               Available Slots
               <span v-if="panelOpenSlots.length" class="sv-panel__section-count">{{ panelOpenSlots.length }}</span>
@@ -254,7 +271,8 @@
             <template v-if="panelOpenSlots.length">
               <button
                 v-for="slot in panelOpenSlots" :key="slot.id"
-                class="sv-panel__slot" type="button" @click="openSlot(slot)"
+                class="sv-panel__slot" type="button"
+                @click="canBook ? openSlot(slot) : canManageSlots ? (selectedOpenSlot = slot) : undefined"
               >
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
@@ -262,7 +280,8 @@
                 </svg>
                 <span class="sv-panel__slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
                 <span class="sv-panel__slot-teacher">{{ slot.teacherName }}</span>
-                <span class="sv-panel__slot-book">Book →</span>
+                <span v-if="canBook" class="sv-panel__slot-book">Book →</span>
+                <span v-else-if="canManageSlots" class="sv-panel__slot-book">Remove</span>
               </button>
             </template>
             <p v-else class="sv-panel__no-slots">No open slots available on this date.</p>
@@ -272,6 +291,21 @@
       </Transition>
 
     </div><!-- /sv-body -->
+
+    <!-- Slot remove confirm (teacher) -->
+    <Teleport to="body">
+      <div v-if="selectedOpenSlot" class="rsm-backdrop" role="dialog" aria-modal="true" @click.self="selectedOpenSlot = null">
+        <div class="rsm-dialog">
+          <p class="rsm-title">Remove this open slot?</p>
+          <p class="rsm-time">{{ selectedOpenSlot.date }} · {{ selectedOpenSlot.startTime }}–{{ selectedOpenSlot.endTime }}</p>
+          <p class="rsm-note">Students will no longer be able to book this slot.</p>
+          <div class="rsm-actions">
+            <button class="rsm-btn rsm-btn--ghost" type="button" @click="selectedOpenSlot = null">Keep</button>
+            <button class="rsm-btn rsm-btn--danger" type="button" @click="handleRemoveSlot">Remove</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Modals -->
     <LessonDetailModal
@@ -292,12 +326,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue'
+import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import { useScheduleStore }  from '@/stores/schedule'
 import { useAuthStore }      from '@/stores/auth'
 import { useViewAs }         from '@/composables/useViewAs'
 import LessonDetailModal     from '@/components/schedule/LessonDetailModal.vue'
 import BookingModal          from '@/components/schedule/BookingModal.vue'
+import TVSelect              from '@/components/ui/TVSelect.vue'
 import type { ScheduleLesson, AvailabilitySlot } from '@/stores/schedule'
 
 const schedule          = useScheduleStore()
@@ -315,20 +350,49 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const YEARS  = Array.from({ length: 10 }, (_, i) => 2023 + i)
 
 // ---- State ----
-const currentView     = ref<ViewKey>('week')
-const cursor          = ref(new Date('2026-05-22'))
+const currentView     = ref<ViewKey>('month')
+const cursor          = ref(new Date())
 const filterTeacherId = ref('')
 const selectedDate    = ref<string | null>(null)
-const selectedLesson  = ref<ScheduleLesson | null>(null)
-const selectedSlot    = ref<AvailabilitySlot | null>(null)
+const selectedHour    = ref<number | null>(null)
+const selectedLesson    = ref<ScheduleLesson | null>(null)
+const selectedSlot      = ref<AvailabilitySlot | null>(null)
+const selectedOpenSlot  = ref<AvailabilitySlot | null>(null)
 
 // ---- Derived ----
 const timezone          = computed(() => auth.user?.timezone ?? 'Asia/Manila')
-const showTeacherFilter = computed(() => effectiveRole.value === 'ADMIN' || effectiveRole.value === 'STAFF')
+const todayStr          = computed(() => new Date().toLocaleDateString('sv-SE', { timeZone: timezone.value }))
+const showTeacherFilter = computed(() =>
+  ['ADMIN', 'STAFF'].includes(auth.user?.role ?? '') || effectiveRole.value === 'STUDENT'
+)
 const canBook           = computed(() => effectiveRole.value === 'STUDENT')
+const canManageSlots    = computed(() => effectiveRole.value === 'TEACHER')
 
 const cursorMonth = computed(() => cursor.value.getMonth())
 const cursorYear  = computed(() => cursor.value.getFullYear())
+
+// TVSelect options
+const teacherOptions = computed(() => [
+  { value: '', label: 'All Teachers' },
+  { value: 'u2', label: 'James Reyes' },
+  { value: 'u6', label: 'Sarah Lim' },
+  { value: 'u7', label: 'Miguel Santos' },
+])
+const monthOptions = computed(() =>
+  MONTHS.map((m, i) => ({ value: i, label: m })),
+)
+const yearOptions = computed(() =>
+  YEARS.map(y => ({ value: y, label: String(y) })),
+)
+// Writable wrappers for TVSelect v-model
+const selectedMonth = computed({
+  get: () => cursorMonth.value,
+  set: (v: string | number) => setCursorMonth(Number(v)),
+})
+const selectedYear = computed({
+  get: () => cursorYear.value,
+  set: (v: string | number) => setCursorYear(Number(v)),
+})
 
 function setCursorMonth(m: number): void {
   const d = new Date(cursor.value); d.setMonth(m); cursor.value = d
@@ -353,7 +417,20 @@ function addDays(d: Date, n: number): Date {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  const d = new Date(iso)
+  const h = d.getHours()
+  const m = d.getMinutes()
+  const base = h === 0 ? 12 : h > 12 ? h - 12 : h
+  const suffix = h < 12 ? 'am' : 'pm'
+  return m ? `${base}:${String(m).padStart(2, '0')}${suffix}` : `${base}${suffix}`
+}
+
+function formatSlotHour(hhmm: string): string {
+  const h = parseInt(hhmm.split(':')[0], 10)
+  if (h === 0) return '12am'
+  if (h < 12) return `${h}am`
+  if (h === 12) return '12pm'
+  return `${h - 12}pm`
 }
 
 function formatHour(h: number): string {
@@ -362,26 +439,30 @@ function formatHour(h: number): string {
 
 function statusClass(status: string): string {
   switch (status) {
-    case 'COMPLETED':         return 'completed'
-    case 'CANCELLED':         return 'cancelled'
+    case 'COMPLETED':            return 'completed'
+    case 'CANCELLED':            return 'cancelled'
     case 'MISSED_BY_STUDENT':
-    case 'MISSED_BY_TEACHER': return 'missed'
-    case 'TRIAL':             return 'trial'
-    case 'IN_PROGRESS':       return 'live'
-    default:                  return 'scheduled'
+    case 'MISSED_BY_TEACHER':    return 'missed'
+    case 'TRIAL':                return 'trial'
+    case 'IN_PROGRESS':          return 'live'
+    case 'RESCHEDULED':          return 'rescheduled'
+    case 'PENDING_CONFIRMATION': return 'pending'
+    default:                     return 'scheduled'
   }
 }
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'SCHEDULED':         return 'Scheduled'
-    case 'IN_PROGRESS':       return 'Live'
-    case 'COMPLETED':         return 'Completed'
-    case 'CANCELLED':         return 'Cancelled'
-    case 'MISSED_BY_STUDENT': return 'Missed'
-    case 'MISSED_BY_TEACHER': return 'Tchr missed'
-    case 'TRIAL':             return 'Trial'
-    default:                  return status
+    case 'SCHEDULED':            return 'Scheduled'
+    case 'IN_PROGRESS':          return 'Live'
+    case 'COMPLETED':            return 'Completed'
+    case 'CANCELLED':            return 'Cancelled'
+    case 'MISSED_BY_STUDENT':    return 'Missed'
+    case 'MISSED_BY_TEACHER':    return 'Tchr missed'
+    case 'TRIAL':                return 'Trial'
+    case 'RESCHEDULED':          return 'Rescheduled'
+    case 'PENDING_CONFIRMATION': return 'Pending Confirmation'
+    default:                     return status
   }
 }
 
@@ -389,19 +470,38 @@ function isUnavailableDate(dateStr: string): boolean {
   return schedule.myUnavailableDates.some(u => u.date === dateStr)
 }
 
+function getUnavailableLabel(dateStr: string): string {
+  return schedule.myUnavailableDates.find(u => u.date === dateStr)?.label ?? 'Unavailable'
+}
+
 function eventsForDate(dateStr: string): ScheduleLesson[] {
-  return schedule.myLessons.filter(l => toDateStr(new Date(l.startTime)) === dateStr)
+  return schedule.myLessons
+    .filter(l => toDateStr(new Date(l.startTime)) === dateStr)
+    .sort((a, b) => isoToMinutes(a.startTime) - isoToMinutes(b.startTime))
 }
 
 function slotsForDate(dateStr: string): AvailabilitySlot[] {
-  return schedule.myAvailabilitySlots.filter(s => s.date === dateStr)
+  return schedule.myAvailabilitySlots
+    .filter(s => s.date === dateStr)
+    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
+}
+
+type MonthItem =
+  | { isSlot: false; id: string; sortMin: number; ev: ScheduleLesson }
+  | { isSlot: true;  id: string; sortMin: number; slot: AvailabilitySlot }
+
+function monthItemsForDate(dateStr: string): MonthItem[] {
+  const events = eventsForDate(dateStr).map(ev => ({
+    isSlot: false as const, id: ev.id, sortMin: isoToMinutes(ev.startTime), ev,
+  }))
+  const slots = slotsForDate(dateStr).filter(s => !s.isBooked).map(slot => ({
+    isSlot: true as const, id: slot.id, sortMin: timeToMinutes(slot.startTime), slot,
+  }))
+  return [...events, ...slots].sort((a, b) => a.sortMin - b.sortMin)
 }
 
 function roleLabel(lesson: ScheduleLesson): string {
-  const role = effectiveRole.value
-  if (role === 'STUDENT') return lesson.teacherName
-  if (role === 'TEACHER') return lesson.studentName
-  return `${lesson.teacherName} / ${lesson.studentName}`
+  return effectiveRole.value === 'TEACHER' ? lesson.studentName : lesson.teacherName
 }
 
 // ---- Navigation ----
@@ -415,22 +515,43 @@ function navigate(dir: 1 | -1): void {
 }
 
 function goToday(): void {
-  cursor.value = new Date('2026-05-22')
+  cursor.value = new Date()
   selectedDate.value = null
 }
 
 // ---- Selected date (side panel) ----
 function selectDate(dateStr: string): void {
-  selectedDate.value = selectedDate.value === dateStr ? null : dateStr
+  if (selectedDate.value === dateStr && selectedHour.value === null) {
+    selectedDate.value = null
+  } else {
+    selectedDate.value = dateStr
+    selectedHour.value = null
+  }
 }
 
-const panelEvents = computed((): ScheduleLesson[] =>
-  selectedDate.value ? eventsForDate(selectedDate.value) : []
-)
+function selectCell(dateStr: string, hour: number): void {
+  if (selectedDate.value === dateStr && selectedHour.value === hour) {
+    selectedDate.value = null
+    selectedHour.value = null
+  } else {
+    selectedDate.value = dateStr
+    selectedHour.value = hour
+  }
+}
 
-const panelOpenSlots = computed((): AvailabilitySlot[] =>
-  selectedDate.value ? slotsForDate(selectedDate.value).filter(s => !s.isBooked) : []
-)
+const panelEvents = computed((): ScheduleLesson[] => {
+  if (!selectedDate.value) return []
+  const all = eventsForDate(selectedDate.value)
+  if (selectedHour.value === null) return all
+  return all.filter(e => new Date(e.startTime).getHours() === selectedHour.value)
+})
+
+const panelOpenSlots = computed((): AvailabilitySlot[] => {
+  if (!selectedDate.value) return []
+  const all = slotsForDate(selectedDate.value).filter(s => !s.isBooked)
+  if (selectedHour.value === null) return all
+  return all.filter(s => parseInt(s.startTime) === selectedHour.value)
+})
 
 const panelDow = computed((): string =>
   selectedDate.value
@@ -448,19 +569,19 @@ const panelDateLabel = computed((): string =>
 const monthCells = computed(() => {
   const month      = cursor.value.getMonth()
   const first      = startOfMonth(cursor.value)
-  const today      = '2026-05-22'
+  const today      = todayStr.value
   const gridStart  = startOfWeek(first)
   return Array.from({ length: 42 }, (_, i) => {
     const d       = addDays(gridStart, i)
     const dateStr = toDateStr(d)
     return {
-      day:           d.getDate(),
+      day:              d.getDate(),
       dateStr,
-      inMonth:       d.getMonth() === month,
-      isToday:       dateStr === today,
-      isUnavailable: isUnavailableDate(dateStr),
-      events:        eventsForDate(dateStr),
-      slots:         canBook.value ? slotsForDate(dateStr) : [],
+      inMonth:          d.getMonth() === month,
+      isToday:          dateStr === today,
+      isUnavailable:    isUnavailableDate(dateStr),
+      unavailableLabel: isUnavailableDate(dateStr) ? getUnavailableLabel(dateStr) : '',
+      items:            monthItemsForDate(dateStr),
     }
   })
 })
@@ -468,22 +589,25 @@ const monthCells = computed(() => {
 // ---- Week grid ----
 const weekDays = computed(() => {
   const s     = startOfWeek(cursor.value)
-  const today = '2026-05-22'
+  const today = todayStr.value
   return Array.from({ length: 7 }, (_, i) => {
     const d       = addDays(s, i)
     const dateStr = toDateStr(d)
+    const events  = eventsForDate(dateStr)
+    const slots   = slotsForDate(dateStr)
     return { dow: WEEKDAYS[d.getDay()], date: d.getDate(), dateStr,
       isToday: dateStr === today, isUnavailable: isUnavailableDate(dateStr),
-      events: eventsForDate(dateStr), slots: slotsForDate(dateStr) }
+      events, slots, layout: computeDayLayout(events, slots) }
   })
 })
 
 // ---- Day view ----
 const currentDayStr    = computed(() => toDateStr(cursor.value))
-const isDayToday       = computed(() => currentDayStr.value === '2026-05-22')
+const isDayToday       = computed(() => currentDayStr.value === todayStr.value)
 const dayUnavailable   = computed(() => isUnavailableDate(currentDayStr.value))
 const currentDayEvents = computed(() => eventsForDate(currentDayStr.value))
 const currentDaySlots  = computed(() => slotsForDate(currentDayStr.value))
+const currentDayLayout = computed(() => computeDayLayout(currentDayEvents.value, currentDaySlots.value))
 const dayLabel         = computed(() =>
   cursor.value.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 )
@@ -495,19 +619,63 @@ function timeToMinutes(t: string): number {
 function isoToMinutes(iso: string): number {
   const d = new Date(iso); return d.getHours() * 60 + d.getMinutes()
 }
-function eventStyle(ev: ScheduleLesson): Record<string, string> {
-  const top    = ((isoToMinutes(ev.startTime) - 420) / 60) * HOUR_H
-  const height = Math.max(((isoToMinutes(ev.endTime) - isoToMinutes(ev.startTime)) / 60) * HOUR_H, 24)
-  return { top: `${top}px`, height: `${height}px` }
+// ---- Overlap layout (side-by-side columns for concurrent events/slots) ----
+type LayoutPos = { left: string; width: string; right: string }
+
+function computeDayLayout(
+  events: ScheduleLesson[],
+  slots: AvailabilitySlot[],
+): Map<string, LayoutPos> {
+  const blocks = [
+    ...events.map(e => ({ id: `e_${e.id}`, start: isoToMinutes(e.startTime),  end: isoToMinutes(e.endTime) })),
+    ...slots.map(s  => ({ id: `s_${s.id}`, start: timeToMinutes(s.startTime), end: timeToMinutes(s.endTime) })),
+  ].sort((a, b) => a.start - b.start)
+
+  const result = new Map<string, LayoutPos>()
+  if (!blocks.length) return result
+
+  // Greedy track assignment
+  const tracks: number[] = []
+  const assigned: { id: string; track: number; start: number; end: number }[] = []
+  for (const b of blocks) {
+    const t = tracks.findIndex(end => end <= b.start)
+    const track = t === -1 ? tracks.length : t
+    if (t === -1) tracks.push(b.end); else tracks[t] = b.end
+    assigned.push({ ...b, track })
+  }
+
+  // For each block compute width based on max concurrent tracks during its span
+  for (const a of assigned) {
+    const concurrent = assigned.filter(o => o.start < a.end && o.end > a.start)
+    const maxTrack = Math.max(...concurrent.map(c => c.track)) + 1
+    result.set(a.id, {
+      left:  `${(a.track / maxTrack) * 100}%`,
+      width: `${(1 / maxTrack) * 100}%`,
+      right: 'auto',
+    })
+  }
+  return result
 }
-function slotStyle(start: string, end: string): Record<string, string> {
-  const top    = ((timeToMinutes(start) - 420) / 60) * HOUR_H
-  const height = ((timeToMinutes(end) - timeToMinutes(start)) / 60) * HOUR_H
-  return { top: `${top}px`, height: `${height}px` }
+
+function eventStyle(ev: ScheduleLesson, layout?: Map<string, LayoutPos>): Record<string, string> {
+  const top = ((isoToMinutes(ev.startTime) - 420) / 60) * HOUR_H
+  const pos = layout?.get(`e_${ev.id}`)
+  return { top: `${top}px`, left: pos?.left ?? '0', right: pos?.right ?? '0', width: pos?.width ?? 'auto' }
+}
+function slotStyle(slot: AvailabilitySlot, layout?: Map<string, LayoutPos>): Record<string, string> {
+  const top = ((timeToMinutes(slot.startTime) - 420) / 60) * HOUR_H
+  const pos = layout?.get(`s_${slot.id}`)
+  return { top: `${top}px`, left: pos?.left ?? '0', right: pos?.right ?? '0', width: pos?.width ?? 'auto' }
 }
 
 // ---- Now line ----
+const nowTick = ref(Date.now())
+let nowTimer: ReturnType<typeof setInterval>
+onMounted(() => { nowTimer = setInterval(() => { nowTick.value = Date.now() }, 60_000) })
+onUnmounted(() => clearInterval(nowTimer))
+
 const nowLineStyle = computed(() => {
+  void nowTick.value
   const now = new Date()
   const top = ((now.getHours() * 60 + now.getMinutes() - 420) / 60) * HOUR_H
   return { top: `${top}px` }
@@ -519,6 +687,18 @@ function openLesson(lesson: ScheduleLesson): void { selectedLesson.value = lesso
 function openSlot(slot: AvailabilitySlot): void {
   if (!canBook.value) return
   selectedSlot.value = slot
+}
+
+function handleSlotBgClick(slot: AvailabilitySlot): void {
+  if (slot.isBooked) return
+  if (canBook.value)         openSlot(slot)
+  else if (canManageSlots.value) selectedOpenSlot.value = slot
+}
+
+function handleRemoveSlot(): void {
+  if (!selectedOpenSlot.value) return
+  schedule.removeAvailabilitySlot(selectedOpenSlot.value.id)
+  selectedOpenSlot.value = null
 }
 
 function handleCancel(lessonId: string): void {
@@ -542,18 +722,20 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   display: flex;
   flex-direction: column;
   gap: var(--tv-space-4);
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* ── Header ── */
 .sv-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: var(--tv-space-3);
 }
-.sv-header__left { display: flex; align-items: center; gap: var(--tv-space-3); flex-shrink: 0; }
-.sv-header__controls { display: flex; align-items: center; gap: var(--tv-space-2); flex-wrap: wrap; }
+.sv-header__left  { display: flex; align-items: center; gap: var(--tv-space-3); }
+.sv-header__center { display: flex; align-items: center; gap: var(--tv-space-2); justify-content: center; }
+.sv-header__right  { display: flex; align-items: center; gap: var(--tv-space-2); justify-content: flex-end; flex-wrap: wrap; }
 
 .sv-title { font-size: var(--tv-text-xl); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
 .sv-tz-badge {
@@ -568,26 +750,30 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   background: var(--tv-bg-card); color: var(--tv-text); cursor: pointer;
 }
 
-.sv-view-switcher { display: flex; border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); overflow: hidden; }
+.sv-ctrl-tvselect { min-width: 140px; }
+.sv-period-tvselect { min-width: 100px; }
+
+.sv-view-switcher { display: flex; border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius); overflow: hidden; height: 42px; }
 .sv-view-btn {
-  padding: var(--tv-space-1) var(--tv-space-3); font-size: var(--tv-text-sm);
+  padding: 0 var(--tv-space-4); font-size: var(--tv-text-sm);
   font-weight: var(--tv-font-medium); color: var(--tv-text-secondary);
   background: var(--tv-bg-card); border: none; cursor: pointer; transition: background .15s, color .15s;
+  height: 100%;
 }
-.sv-view-btn + .sv-view-btn { border-left: 1px solid var(--tv-border); }
+.sv-view-btn + .sv-view-btn { border-left: 1.5px solid var(--tv-border); }
 .sv-view-btn--active { background: var(--tv-primary); color: var(--tv-text-inverse); }
 
 .sv-nav { display: flex; align-items: center; gap: var(--tv-space-1); }
 .sv-nav-btn {
-  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm);
+  width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius);
   background: var(--tv-bg-card); color: var(--tv-text-secondary); cursor: pointer; transition: background .15s;
 }
 .sv-nav-btn:hover { background: var(--tv-bg-soft); }
 .sv-today-btn {
-  padding: var(--tv-space-1) var(--tv-space-3); font-size: var(--tv-text-sm);
-  font-weight: var(--tv-font-medium); border: 1px solid var(--tv-border);
-  border-radius: var(--tv-radius-sm); background: var(--tv-bg-card);
+  padding: 0 var(--tv-space-4); font-size: var(--tv-text-sm); height: 42px;
+  font-weight: var(--tv-font-medium); border: 1.5px solid var(--tv-border);
+  border-radius: var(--tv-radius); background: var(--tv-bg-card);
   color: var(--tv-text-secondary); cursor: pointer; transition: background .15s;
 }
 .sv-today-btn:hover { background: var(--tv-bg-soft); }
@@ -601,10 +787,12 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   gap: var(--tv-space-4);
   align-items: start;
   min-width: 0;
+  flex: 1;
+  min-height: 0;
 }
 .sv-body--panel { grid-template-columns: 1fr 310px; }
 
-.sv-cal { min-width: 0; }
+.sv-cal { min-width: 0; display: flex; flex-direction: column; height: 100%; }
 
 /* ── Month view ── */
 .sv-month {
@@ -622,7 +810,7 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 }
 .sv-month__grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .sv-month__cell {
-  min-height: 100px; padding: var(--tv-space-2); cursor: pointer;
+  min-height: 140px; padding: var(--tv-space-2); cursor: pointer;
   border-right: 1px solid var(--tv-border); border-bottom: 1px solid var(--tv-border);
   display: flex; flex-direction: column; gap: 2px;
   transition: background .1s;
@@ -643,6 +831,14 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 }
 .sv-month__events { display: flex; flex-direction: column; gap: 2px; }
 .sv-month__more { font-size: var(--tv-text-xs); color: var(--tv-text-muted); padding: 0 2px; }
+.sv-month__unavail-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: var(--tv-font-medium);
+  color: var(--tv-danger-fg); padding: 1px 5px; border-radius: 3px;
+  background: var(--tv-danger-soft); border: 1px solid var(--tv-danger-border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  align-self: flex-start;
+}
 
 /* chips */
 .sv-chip {
@@ -654,20 +850,31 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-chip__time  { opacity: .75; flex-shrink: 0; }
 .sv-chip__label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .sv-chip__badge, .sv-chip__recur { flex-shrink: 0; font-size: 9px; opacity: .8; }
-.sv-chip--scheduled { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); }
-.sv-chip--completed { background: var(--tv-success-soft); color: var(--tv-success-fg); }
-.sv-chip--cancelled { background: var(--tv-neutral-soft); color: var(--tv-neutral); text-decoration: line-through; }
-.sv-chip--missed    { background: var(--tv-danger-soft);  color: var(--tv-danger-fg); }
-.sv-chip--trial     { background: var(--tv-purple-soft);  color: var(--tv-purple); }
-.sv-chip--live      { background: var(--tv-success-soft); color: var(--tv-success-fg); }
-.sv-chip--open-slot { background: var(--tv-teal-soft); color: var(--tv-teal-fg); border: 1px dashed hsl(186,50%,70%); }
+.sv-chip__role { opacity: .75; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+
+/* Absolutely-positioned chip inside week/day time grid */
+.sv-grid-chip {
+  position: absolute;
+  z-index: 2;
+  min-width: 0;
+}
+.sv-chip--scheduled   { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); }
+.sv-chip--completed   { background: var(--tv-success-soft); color: var(--tv-success-fg); }
+.sv-chip--cancelled   { background: var(--tv-neutral-soft); color: var(--tv-neutral); text-decoration: line-through; }
+.sv-chip--missed      { background: var(--tv-danger-soft);  color: var(--tv-danger-fg); }
+.sv-chip--trial       { background: var(--tv-purple-soft);  color: var(--tv-purple); }
+.sv-chip--live        { background: var(--tv-success-soft); color: var(--tv-success-fg); }
+.sv-chip--rescheduled { background: hsl(24,88%,93%); color: hsl(24,75%,35%); border: 1px solid hsl(24,70%,70%); }
+.sv-chip--pending     { background: hsl(220,65%,93%); color: hsl(220,52%,38%); border: 1px dashed hsl(220,52%,65%); }
+.sv-chip--open-slot   { background: hsl(38,90%,94%); color: hsl(38,70%,32%); border: 1px dashed hsl(38,65%,65%); }
 
 /* ── Week view ── */
 .sv-week {
   background: var(--tv-bg-card); border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md); overflow: hidden;
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
 }
-.sv-week__scroll-wrap { overflow: auto; max-height: 700px; }
+.sv-week__scroll-wrap { overflow: auto; flex: 1; min-height: 0; }
 .sv-week__inner { min-width: 580px; }
 
 .sv-week__head {
@@ -676,6 +883,7 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   position: sticky; top: 0; z-index: 2;
 }
 .sv-week__time-gutter { border-right: 1px solid var(--tv-border); }
+
 .sv-week__day-head {
   padding: var(--tv-space-2); text-align: center; cursor: pointer;
   border-right: 1px solid var(--tv-border); display: flex; flex-direction: column;
@@ -695,25 +903,44 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   padding-right: var(--tv-space-2); padding-top: 2px; font-size: 11px; color: var(--tv-text-muted);
   border-bottom: 1px solid var(--tv-border); box-sizing: border-box;
 }
-.sv-week__col { position: relative; border-right: 1px solid var(--tv-border); }
+.sv-week__col { border-right: 1px solid var(--tv-border); position: relative; }
 .sv-week__col:last-child { border-right: none; }
 .sv-week__col--unavailable { background: repeating-linear-gradient(135deg, transparent, transparent 4px, hsl(0,72%,97%) 4px, hsl(0,72%,97%) 5px); }
 .sv-week__col--selected { background: var(--tv-primary-soft); }
 .sv-week__col--selected.sv-week__col--unavailable { background: repeating-linear-gradient(135deg, var(--tv-primary-soft), var(--tv-primary-soft) 4px, hsl(0,72%,97%) 4px, hsl(0,72%,97%) 5px); }
-.sv-week__hour-cell { height: 64px; border-bottom: 1px solid var(--tv-border); box-sizing: border-box; }
+.sv-week__hour-cell {
+  height: 64px; border-bottom: 1px solid var(--tv-border); box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 2px; padding: 4px 3px 10px;
+  overflow: hidden; cursor: pointer;
+}
+.sv-week__hour-cell:hover { background: var(--tv-bg); }
+.sv-week__hour-cell--selected { background: var(--tv-primary-soft) !important; }
 
 .sv-week__slot-bg, .sv-day__slot-bg {
-  position: absolute; left: 0; right: 0; background: var(--tv-teal-soft);
-  border-left: 3px solid hsl(186,70%,55%); pointer-events: auto; cursor: pointer;
-  opacity: .7; transition: opacity .15s; z-index: 1;
+  position: absolute; left: 0; right: 0;
+  background: hsl(38,88%,93%);
+  border-left: 3px solid hsl(38,70%,58%);
+  pointer-events: auto; cursor: pointer;
+  opacity: .85; transition: opacity .15s; z-index: 1;
+  display: flex; flex-direction: column; justify-content: flex-start;
+  padding: 3px 6px; overflow: hidden; gap: 1px;
 }
 .sv-week__slot-bg:hover, .sv-day__slot-bg:hover { opacity: 1; }
 .sv-week__slot-bg--booked, .sv-day__slot-bg--booked {
-  background: var(--tv-neutral-soft); border-left-color: var(--tv-neutral-border); cursor: default; opacity: .5;
+  background: var(--tv-neutral-soft); border-left: none; cursor: default; opacity: .5;
+}
+.sv-slot-bg__header {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: hsl(38,65%,30%); line-height: 1.2; white-space: nowrap; user-select: none;
+}
+.sv-slot-bg__meta {
+  font-size: 10px; font-weight: 400;
+  color: hsl(38,55%,38%); line-height: 1.2; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; user-select: none;
 }
 
 .sv-week__event, .sv-day__event {
-  position: absolute; left: 3px; right: 3px; border-radius: var(--tv-radius-sm);
+  position: absolute; left: 0; right: 0; border-radius: 0;
   padding: 3px 6px; border: none; text-align: left; cursor: pointer; z-index: 2;
   overflow: hidden; transition: opacity .15s, transform .1s;
   display: flex; flex-direction: column; gap: 1px;
@@ -723,12 +950,14 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-week__event-meta, .sv-day__event-meta { font-size: 10px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sv-week__event-badge, .sv-day__event-badge, .sv-week__event-recur, .sv-day__event-recur { font-size: 9px; opacity: .8; }
 
-.sv-week__event--scheduled, .sv-day__event--scheduled { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 35%); border-left: 3px solid var(--tv-primary); }
-.sv-week__event--completed, .sv-day__event--completed { background: var(--tv-success-soft); color: var(--tv-success-fg); border-left: 3px solid var(--tv-success); }
-.sv-week__event--cancelled, .sv-day__event--cancelled { background: var(--tv-neutral-soft); color: var(--tv-neutral); border-left: 3px solid var(--tv-neutral-border); text-decoration: line-through; }
-.sv-week__event--missed,    .sv-day__event--missed    { background: var(--tv-danger-soft); color: var(--tv-danger-fg); border-left: 3px solid var(--tv-danger); }
-.sv-week__event--trial,     .sv-day__event--trial     { background: var(--tv-purple-soft); color: var(--tv-purple); border-left: 3px solid var(--tv-purple); }
-.sv-week__event--live,      .sv-day__event--live      { background: var(--tv-success-soft); color: var(--tv-success-fg); border-left: 3px solid var(--tv-success); animation: pulse-ev 1.5s ease-in-out infinite; }
+.sv-week__event--scheduled,   .sv-day__event--scheduled   { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 35%); border-left: 3px solid var(--tv-primary); }
+.sv-week__event--completed,   .sv-day__event--completed   { background: var(--tv-success-soft); color: var(--tv-success-fg); border-left: 3px solid var(--tv-success); }
+.sv-week__event--cancelled,   .sv-day__event--cancelled   { background: var(--tv-neutral-soft); color: var(--tv-neutral); border-left: 3px solid var(--tv-neutral-border); text-decoration: line-through; }
+.sv-week__event--missed,      .sv-day__event--missed      { background: var(--tv-danger-soft); color: var(--tv-danger-fg); border-left: 3px solid var(--tv-danger); }
+.sv-week__event--trial,       .sv-day__event--trial       { background: var(--tv-purple-soft); color: var(--tv-purple); border-left: 3px solid var(--tv-purple); }
+.sv-week__event--live,        .sv-day__event--live        { background: var(--tv-success-soft); color: var(--tv-success-fg); border-left: 3px solid var(--tv-success); animation: pulse-ev 1.5s ease-in-out infinite; }
+.sv-week__event--rescheduled, .sv-day__event--rescheduled { background: hsl(24,88%,93%); color: hsl(24,75%,35%); border-left: 3px solid hsl(24,75%,55%); }
+.sv-week__event--pending,     .sv-day__event--pending     { background: hsl(220,65%,93%); color: hsl(220,52%,38%); border-left: 3px dashed hsl(220,52%,58%); }
 @keyframes pulse-ev { 0%,100% { opacity:1 } 50% { opacity:.7 } }
 
 .sv-week__now-line, .sv-day__now-line { position: absolute; left:0; right:0; height:2px; background:var(--tv-danger); z-index:3; pointer-events:none; }
@@ -738,6 +967,7 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-day {
   background: var(--tv-bg-card); border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md); overflow: hidden;
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
 }
 .sv-day__head {
   display: flex; align-items: center; gap: var(--tv-space-2);
@@ -750,13 +980,19 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-day__chip--today  { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); }
 .sv-day__chip--unavail { background: var(--tv-danger-soft); color: var(--tv-danger-fg); }
 
-.sv-day__scroll-wrap { overflow: auto; max-height: 700px; }
+.sv-day__scroll-wrap { overflow: auto; flex: 1; min-height: 0; }
 .sv-day__inner { display: grid; grid-template-columns: 52px 1fr; min-width: 320px; }
 .sv-day__time-col { border-right: 1px solid var(--tv-border); background: var(--tv-bg-soft); }
 .sv-day__hour-label { height: 64px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: var(--tv-space-2); padding-top: 2px; font-size: 11px; color: var(--tv-text-muted); border-bottom: 1px solid var(--tv-border); box-sizing: border-box; }
 .sv-day__col { position: relative; }
 .sv-day__col--unavailable { background: repeating-linear-gradient(135deg, transparent, transparent 4px, hsl(0,72%,97%) 4px, hsl(0,72%,97%) 5px); }
-.sv-day__hour-cell { height: 64px; border-bottom: 1px solid var(--tv-border); box-sizing: border-box; }
+.sv-day__hour-cell {
+  height: 64px; border-bottom: 1px solid var(--tv-border); box-sizing: border-box;
+  display: flex; flex-direction: row; flex-wrap: wrap; align-content: flex-start;
+  gap: 4px; padding: 4px 8px 10px; overflow: hidden; cursor: pointer;
+}
+.sv-day__hour-cell:hover { background: var(--tv-bg); }
+.sv-day__hour-cell--selected { background: var(--tv-primary-soft) !important; }
 
 /* ── Side panel ── */
 .sv-panel {
@@ -812,12 +1048,14 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-panel__item-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
 }
-.sv-panel__item-dot--scheduled { background: var(--tv-primary); }
-.sv-panel__item-dot--completed { background: var(--tv-success); }
-.sv-panel__item-dot--cancelled { background: var(--tv-neutral); }
-.sv-panel__item-dot--missed    { background: var(--tv-danger); }
-.sv-panel__item-dot--trial     { background: var(--tv-purple); }
-.sv-panel__item-dot--live      { background: var(--tv-success); }
+.sv-panel__item-dot--scheduled   { background: var(--tv-primary); }
+.sv-panel__item-dot--completed   { background: var(--tv-success); }
+.sv-panel__item-dot--cancelled   { background: var(--tv-neutral); }
+.sv-panel__item-dot--missed      { background: var(--tv-danger); }
+.sv-panel__item-dot--trial       { background: var(--tv-purple); }
+.sv-panel__item-dot--live        { background: var(--tv-success); }
+.sv-panel__item-dot--rescheduled { background: hsl(24,75%,55%); }
+.sv-panel__item-dot--pending     { background: transparent; border: 2px dashed hsl(220,52%,58%); }
 
 .sv-panel__item-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .sv-panel__item-title  { font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium); color: var(--tv-text); }
@@ -828,12 +1066,14 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   font-size: 10px; font-weight: var(--tv-font-semibold); white-space: nowrap;
   padding: 1px var(--tv-space-1); border-radius: 3px; flex-shrink: 0; align-self: flex-start;
 }
-.sv-panel__item-status--scheduled { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); }
-.sv-panel__item-status--completed { background: var(--tv-success-soft); color: var(--tv-success-fg); }
-.sv-panel__item-status--cancelled { background: var(--tv-neutral-soft); color: var(--tv-neutral); }
-.sv-panel__item-status--missed    { background: var(--tv-danger-soft);  color: var(--tv-danger-fg); }
-.sv-panel__item-status--trial     { background: var(--tv-purple-soft);  color: var(--tv-purple); }
-.sv-panel__item-status--live      { background: var(--tv-success-soft); color: var(--tv-success-fg); }
+.sv-panel__item-status--scheduled   { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); }
+.sv-panel__item-status--completed   { background: var(--tv-success-soft); color: var(--tv-success-fg); }
+.sv-panel__item-status--cancelled   { background: var(--tv-neutral-soft); color: var(--tv-neutral); }
+.sv-panel__item-status--missed      { background: var(--tv-danger-soft);  color: var(--tv-danger-fg); }
+.sv-panel__item-status--trial       { background: var(--tv-purple-soft);  color: var(--tv-purple); }
+.sv-panel__item-status--live        { background: var(--tv-success-soft); color: var(--tv-success-fg); }
+.sv-panel__item-status--rescheduled { background: hsl(24,88%,93%); color: hsl(24,75%,35%); }
+.sv-panel__item-status--pending     { background: hsl(220,65%,93%); color: hsl(220,52%,38%); }
 
 .sv-panel__slot {
   display: flex; align-items: center; gap: var(--tv-space-2);
@@ -867,6 +1107,31 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-panel-enter-active, .sv-panel-leave-active { transition: opacity .2s, transform .2s; }
 .sv-panel-enter-from, .sv-panel-leave-to { opacity: 0; transform: translateX(12px); }
 
+/* ── Remove slot dialog ── */
+.rsm-backdrop {
+  position: fixed; inset: 0; background: hsla(215,25%,10%,.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; backdrop-filter: blur(2px);
+}
+.rsm-dialog {
+  background: var(--tv-bg-card); border-radius: var(--tv-radius-md);
+  box-shadow: var(--tv-shadow-lg); padding: var(--tv-space-5);
+  width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: var(--tv-space-2);
+}
+.rsm-title  { font-size: var(--tv-text-base); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
+.rsm-time   { font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium); color: var(--tv-text-secondary); margin: 0; }
+.rsm-note   { font-size: var(--tv-text-xs); color: var(--tv-text-muted); margin: 0 0 var(--tv-space-1); }
+.rsm-actions { display: flex; gap: var(--tv-space-2); justify-content: flex-end; }
+.rsm-btn {
+  padding: var(--tv-space-2) var(--tv-space-4); font-size: var(--tv-text-sm);
+  font-weight: var(--tv-font-medium); border-radius: var(--tv-radius-sm);
+  border: 1px solid transparent; cursor: pointer; transition: background .15s;
+}
+.rsm-btn--ghost { background: var(--tv-bg-soft); border-color: var(--tv-border); color: var(--tv-text-secondary); }
+.rsm-btn--ghost:hover { background: var(--tv-bg); }
+.rsm-btn--danger { background: var(--tv-danger); color: #fff; border-color: var(--tv-danger); }
+.rsm-btn--danger:hover { filter: brightness(.9); }
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
   .sv-body--panel { grid-template-columns: 1fr 280px; }
@@ -885,8 +1150,8 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   .sv-header__controls { gap: var(--tv-space-1); }
   .sv-view-btn { padding: var(--tv-space-1) var(--tv-space-2); font-size: var(--tv-text-xs); }
   .sv-month__cell { min-height: 70px; padding: var(--tv-space-1); }
-  .sv-week__scroll-wrap { max-height: 540px; }
-  .sv-day__scroll-wrap  { max-height: 540px; }
+  .sv-week__scroll-wrap { min-height: 400px; }
+  .sv-day__scroll-wrap  { min-height: 400px; }
   .sv-period-selects .sv-period-select { font-size: var(--tv-text-xs); padding: 2px var(--tv-space-1); }
 }
 </style>

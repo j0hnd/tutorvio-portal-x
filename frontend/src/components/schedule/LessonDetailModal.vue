@@ -8,7 +8,7 @@
           <div class="ldm-header__left">
             <h2 class="ldm-title" id="ldm-title">{{ lesson.title }}</h2>
             <span :class="['ldm-status', `ldm-status--${statusClass}`]">{{ statusLabel }}</span>
-            <span v-if="lesson.isTrial" class="ldm-trial-badge">TRIAL</span>
+            <span v-if="lesson.isTrial && lesson.status !== 'TRIAL'" class="ldm-trial-badge">TRIAL</span>
             <span v-if="lesson.isRecurring" class="ldm-recur-badge" title="Recurring lesson">↻ Recurring</span>
           </div>
           <button class="ldm-close" type="button" aria-label="Close" @click="$emit('close')">
@@ -174,26 +174,31 @@ const minDate = computed(() => new Date().toLocaleDateString('sv-SE'))
 
 const statusClass = computed(() => {
   switch (props.lesson.status) {
-    case 'COMPLETED':         return 'completed'
-    case 'CANCELLED':         return 'cancelled'
+    case 'SCHEDULED':            return 'scheduled'
+    case 'IN_PROGRESS':          return 'live'
+    case 'COMPLETED':            return 'completed'
+    case 'CANCELLED':            return 'cancelled'
     case 'MISSED_BY_STUDENT':
-    case 'MISSED_BY_TEACHER': return 'missed'
-    case 'TRIAL':             return 'trial'
-    case 'IN_PROGRESS':       return 'live'
-    default:                  return 'scheduled'
+    case 'MISSED_BY_TEACHER':    return 'missed'
+    case 'TRIAL':                return 'trial'
+    case 'RESCHEDULED':          return 'rescheduled'
+    case 'PENDING_CONFIRMATION': return 'pending'
+    default:                     return 'scheduled'
   }
 })
 
 const statusLabel = computed(() => {
   switch (props.lesson.status) {
-    case 'SCHEDULED':         return 'Scheduled'
-    case 'IN_PROGRESS':       return 'Live'
-    case 'COMPLETED':         return 'Completed'
-    case 'CANCELLED':         return 'Cancelled'
-    case 'MISSED_BY_STUDENT': return 'Missed by Student'
-    case 'MISSED_BY_TEACHER': return 'Missed by Teacher'
-    case 'TRIAL':             return 'Trial'
-    default:                  return props.lesson.status
+    case 'SCHEDULED':            return 'Scheduled'
+    case 'IN_PROGRESS':          return 'Live'
+    case 'COMPLETED':            return 'Completed'
+    case 'CANCELLED':            return 'Cancelled'
+    case 'MISSED_BY_STUDENT':    return 'Missed by Student'
+    case 'MISSED_BY_TEACHER':    return 'Missed by Teacher'
+    case 'TRIAL':                return 'Trial'
+    case 'RESCHEDULED':          return 'Rescheduled'
+    case 'PENDING_CONFIRMATION': return 'Pending Confirmation'
+    default:                     return props.lesson.status
   }
 })
 
@@ -214,9 +219,14 @@ const duration = computed(() => {
   return Math.round(ms / 60_000)
 })
 
-const canJoin = computed(() =>
-  props.lesson.status === 'SCHEDULED' || props.lesson.status === 'IN_PROGRESS' || props.lesson.status === 'TRIAL'
-)
+const canJoin = computed(() => {
+  if (!['SCHEDULED', 'IN_PROGRESS', 'TRIAL'].includes(props.lesson.status)) return false
+  const now       = new Date()
+  const start     = new Date(props.lesson.startTime)
+  const end       = new Date(props.lesson.endTime)
+  const joinFrom  = new Date(start.getTime() - 15 * 60_000) // 15 min early
+  return now >= joinFrom && now <= end
+})
 
 function joinMeeting(): void {
   if (props.lesson.meetingUrl) window.open(props.lesson.meetingUrl, '_blank', 'noopener')
@@ -295,12 +305,14 @@ function confirmCancel(): void {
   border: 1px solid transparent;
   white-space: nowrap;
 }
-.ldm-status--scheduled  { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); border-color: var(--tv-primary-muted); }
-.ldm-status--completed  { background: var(--tv-success-soft);  color: var(--tv-success-fg);  border-color: var(--tv-success-border); }
-.ldm-status--cancelled  { background: var(--tv-neutral-soft);  color: var(--tv-neutral);     border-color: var(--tv-neutral-border); text-decoration: line-through; }
-.ldm-status--missed     { background: var(--tv-danger-soft);   color: var(--tv-danger-fg);   border-color: var(--tv-danger-border); }
-.ldm-status--trial      { background: var(--tv-purple-soft);   color: var(--tv-purple);      border-color: var(--tv-purple-border); }
-.ldm-status--live       { background: var(--tv-success-soft);  color: var(--tv-success-fg);  border-color: var(--tv-success-border); }
+.ldm-status--scheduled   { background: var(--tv-primary-soft); color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%); border-color: var(--tv-primary-muted); }
+.ldm-status--completed   { background: var(--tv-success-soft);  color: var(--tv-success-fg);  border-color: var(--tv-success-border); }
+.ldm-status--cancelled   { background: var(--tv-neutral-soft);  color: var(--tv-neutral);     border-color: var(--tv-neutral-border); text-decoration: line-through; }
+.ldm-status--missed      { background: var(--tv-danger-soft);   color: var(--tv-danger-fg);   border-color: var(--tv-danger-border); }
+.ldm-status--trial       { background: var(--tv-purple-soft);   color: var(--tv-purple);      border-color: var(--tv-purple-border); }
+.ldm-status--live        { background: var(--tv-success-soft);  color: var(--tv-success-fg);  border-color: var(--tv-success-border); }
+.ldm-status--rescheduled { background: hsl(24,88%,93%);         color: hsl(24,75%,35%);       border-color: hsl(24,70%,70%); }
+.ldm-status--pending     { background: hsl(220,65%,93%);        color: hsl(220,52%,38%);      border-color: hsl(220,52%,65%); border-style: dashed; }
 
 .ldm-trial-badge {
   font-size: var(--tv-text-xs);
