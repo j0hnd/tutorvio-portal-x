@@ -220,13 +220,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useUsersStore } from '@/stores/users'
+import { useAuthStore }     from '@/stores/auth'
+import { useUsersStore }    from '@/stores/users'
+import { useScheduleStore } from '@/stores/schedule'
 import StatsGrid from '@/components/dashboard/StatsGrid.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
 
-const auth = useAuthStore()
-const store = useUsersStore()
+const auth     = useAuthStore()
+const store    = useUsersStore()
+const schedule = useScheduleStore()
 
 onMounted(async () => {
   if (!store.users.length) await store.fetchUsers()
@@ -241,15 +243,28 @@ const icons = {
   alert:    `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l7.5 13H1.5L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 8v3M9 13.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 }
 
-const MOCK_TODAY_CLASSES = [
-  { id: 1, subject: 'Business English — Meetings',     student: 'Emma Santos',       time: '10:00 AM', duration: '60 min', live: true,  soon: false },
-  { id: 2, subject: 'General English — Reading',       student: 'Marco Reyes',       time: '12:00 PM', duration: '45 min', live: false, soon: true  },
-  { id: 3, subject: 'Executive English — Speaking',    student: 'David Cruz',        time: '2:00 PM',  duration: '60 min', live: false, soon: false },
-  { id: 4, subject: 'Business English — Email Writing',student: 'Carlos Dela Cruz',  time: '4:00 PM',  duration: '60 min', live: false, soon: false },
-]
+const todayStr = computed(() => new Date().toLocaleDateString('sv-SE'))
 
-const todayClasses = MOCK_TODAY_CLASSES
-const liveClass = computed(() => todayClasses.find(c => c.live))
+const todayClasses = computed(() => {
+  return schedule.myLessons
+    .filter(l => {
+      const dateStr = new Date(l.startTime).toLocaleDateString('sv-SE')
+      return dateStr === todayStr.value && ['SCHEDULED', 'IN_PROGRESS', 'TRIAL'].includes(l.status)
+    })
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    .map(l => {
+      const start = new Date(l.startTime)
+      const end   = new Date(l.endTime)
+      const now2  = new Date()
+      const live  = l.status === 'IN_PROGRESS' || (now2 >= start && now2 <= end)
+      const soon  = !live && (start.getTime() - now2.getTime()) <= 30 * 60_000 && start > now2
+      const time  = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      const duration = `${Math.round((end.getTime() - start.getTime()) / 60000)} min`
+      return { id: l.id, subject: l.subject, student: l.studentName, time, duration, live, soon, meetingUrl: l.meetingUrl }
+    })
+})
+
+const liveClass = computed(() => todayClasses.value.find(c => c.live))
 
 const MOCK_UPCOMING = [
   { id: 'u1', subject: 'IELTS Preparation — Writing',    student: 'Carlos Dela Cruz', studentId: 'u12', day: 'Tomorrow', time: '10:00 AM' },
@@ -283,12 +298,23 @@ const MOCK_ANNOUNCEMENTS = [
   { id: 'a3', text: 'New lesson documentation format is now live',   date: 'May 18', type: 'success' },
 ]
 
-const stats: StatItem[] = [
-  { label: 'Classes Today',       value: String(todayClasses.length), sub: '1 in progress',        trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--teal'    },
-  { label: 'Students Assigned',   value: '8',                        sub: '6 active this week',   trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--primary'  },
-  { label: 'Lessons This Month',  value: '32',                       sub: '+4 from last month',   trendUp: true,  icon: icons.doc,      iconClass: 'icon-badge--success'  },
-  { label: 'Pending Notes',       value: String(MOCK_PENDING_DOCS.length), sub: 'Needs documentation', trendUp: false, icon: icons.alert, iconClass: 'icon-badge--warning' },
-]
+const thisMonthLessons = computed(() => {
+  const now = new Date()
+  return schedule.myLessons.filter(l => {
+    const d = new Date(l.startTime)
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+      && l.status === 'COMPLETED'
+  }).length
+})
+
+const uniqueStudents = computed(() => new Set(schedule.myLessons.map(l => l.studentId)).size)
+
+const stats = computed((): StatItem[] => [
+  { label: 'Classes Today',       value: String(todayClasses.value.length), sub: liveClass.value ? '1 in progress' : 'Scheduled', trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--teal'    },
+  { label: 'Students Assigned',   value: String(uniqueStudents.value),      sub: 'Unique students',                               trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--primary'  },
+  { label: 'Lessons This Month',  value: String(thisMonthLessons.value),    sub: 'Completed',                                     trendUp: true,  icon: icons.doc,      iconClass: 'icon-badge--success'  },
+  { label: 'Pending Notes',       value: String(MOCK_PENDING_DOCS.length),  sub: 'Needs documentation',                           trendUp: false, icon: icons.alert,    iconClass: 'icon-badge--warning'  },
+])
 </script>
 
 <style scoped>
