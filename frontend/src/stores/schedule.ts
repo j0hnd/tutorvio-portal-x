@@ -555,6 +555,25 @@ export const useScheduleStore = defineStore('schedule', () => {
     unavailableDates.value.push({ id: `ud${Date.now()}`, teacherId, date, reason, label })
   }
 
+  function blockHoliday(date: string, label: string): void {
+    const teacherIds = Object.keys(teacherAvailabilities.value)
+    for (const tid of teacherIds) {
+      if (!unavailableDates.value.some(u => u.teacherId === tid && u.date === date)) {
+        unavailableDates.value.push({
+          id: `hol${Date.now()}_${tid}`,
+          teacherId: tid, date,
+          reason: 'NATIONAL_HOLIDAY', label,
+        })
+      }
+    }
+  }
+
+  function removeHoliday(date: string): void {
+    unavailableDates.value = unavailableDates.value.filter(
+      u => !(u.date === date && u.reason === 'NATIONAL_HOLIDAY'),
+    )
+  }
+
   function removeUnavailableDate(id: string): void {
     unavailableDates.value = unavailableDates.value.filter(d => d.id !== id)
   }
@@ -645,6 +664,8 @@ export const useScheduleStore = defineStore('schedule', () => {
     addWeeklySlot,
     removeWeeklySlot,
     addUnavailableDate,
+    blockHoliday,
+    removeHoliday,
     removeUnavailableDate,
     removeAvailabilitySlot,
     syncTeacherWeeklySlots,

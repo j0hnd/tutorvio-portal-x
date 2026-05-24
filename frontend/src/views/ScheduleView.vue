@@ -38,17 +38,22 @@
           placeholder="All Teachers"
           class="sv-ctrl-tvselect"
         />
-        <button
-          v-if="canCreateLesson"
-          class="sv-add-btn"
-          type="button"
-          @click="openCreateModal()"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          Add Lesson
-        </button>
+        <template v-if="canCreateLesson">
+          <button class="sv-add-btn sv-add-btn--ghost" type="button" @click="showHolidayModal = true">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="1" y="2" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M4 1v2M10 1v2M1 5.5h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M5 9l2 2 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Block Holiday
+          </button>
+          <button class="sv-add-btn" type="button" @click="openCreateModal()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            Add Lesson
+          </button>
+        </template>
         <div class="sv-view-switcher" role="group" aria-label="Calendar view">
           <button v-for="v in VIEWS" :key="v.key"
             :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
@@ -348,6 +353,37 @@
       @created="handleCreateLesson"
     />
 
+    <!-- Holiday blocking dialog -->
+    <Teleport to="body">
+      <div v-if="showHolidayModal" class="hol-backdrop" @click.self="showHolidayModal = false" role="dialog" aria-modal="true">
+        <div class="hol-dialog">
+          <div class="hol-header">
+            <h2 class="hol-title">Block Holiday</h2>
+            <button class="hol-close" type="button" @click="showHolidayModal = false" aria-label="Close">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <p class="hol-desc">Mark a date as a national holiday. All teachers will be marked unavailable on this date.</p>
+          <div class="hol-fields">
+            <div class="hol-field">
+              <label class="hol-label" for="hol-date">Date</label>
+              <input id="hol-date" v-model="holidayDate" type="date" class="hol-input" />
+            </div>
+            <div class="hol-field">
+              <label class="hol-label" for="hol-label">Holiday Name</label>
+              <input id="hol-label" v-model="holidayLabel" type="text" class="hol-input" placeholder="e.g. Independence Day (PH)" />
+            </div>
+          </div>
+          <div class="hol-footer">
+            <button class="hol-btn hol-btn--ghost" type="button" @click="showHolidayModal = false">Cancel</button>
+            <button class="hol-btn hol-btn--primary" type="button" :disabled="!holidayDate || !holidayLabel.trim()" @click="submitHoliday">
+              Block Holiday
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -385,9 +421,12 @@ const selectedHour    = ref<number | null>(null)
 const selectedLesson    = ref<ScheduleLesson | null>(null)
 const selectedSlot      = ref<AvailabilitySlot | null>(null)
 const selectedOpenSlot  = ref<AvailabilitySlot | null>(null)
-const showCreateModal   = ref(false)
-const createPrefillDate = ref<string | undefined>(undefined)
+const showCreateModal    = ref(false)
+const createPrefillDate  = ref<string | undefined>(undefined)
 const createPrefillStart = ref<string | undefined>(undefined)
+const showHolidayModal   = ref(false)
+const holidayDate        = ref(new Date().toLocaleDateString('sv-SE'))
+const holidayLabel       = ref('')
 
 // ---- Derived ----
 const timezone          = computed(() => auth.user?.timezone ?? 'Asia/Manila')
@@ -751,6 +790,13 @@ function openCreateModal(dateStr?: string, hour?: number): void {
   showCreateModal.value = true
 }
 
+function submitHoliday(): void {
+  if (!holidayDate.value || !holidayLabel.value.trim()) return
+  schedule.blockHoliday(holidayDate.value, holidayLabel.value.trim())
+  showHolidayModal.value = false
+  holidayLabel.value = ''
+}
+
 function handleCreateLesson(payload: {
   teacherId: string; teacherName: string
   studentId: string; studentName: string
@@ -810,10 +856,60 @@ function handleCreateLesson(payload: {
   padding: 0 var(--tv-space-3); height: 42px;
   font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium);
   color: var(--tv-text-inverse); background: var(--tv-primary);
-  border: none; border-radius: var(--tv-radius); cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--tv-radius); cursor: pointer;
   transition: background 0.15s; white-space: nowrap;
 }
 .sv-add-btn:hover { background: var(--tv-primary-hover); }
+.sv-add-btn--ghost {
+  background: transparent;
+  border-color: var(--tv-border);
+  color: var(--tv-text-secondary);
+}
+.sv-add-btn--ghost:hover { background: var(--tv-bg-soft); }
+
+/* Holiday dialog */
+.hol-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: hsla(215,25%,10%,.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--tv-space-4); backdrop-filter: blur(2px);
+}
+.hol-dialog {
+  background: var(--tv-bg-card); border-radius: var(--tv-radius-lg);
+  box-shadow: var(--tv-shadow-lg); width: 100%; max-width: 420px;
+  padding: var(--tv-space-6); display: flex; flex-direction: column; gap: var(--tv-space-4);
+}
+.hol-header { display: flex; align-items: center; justify-content: space-between; }
+.hol-title { font-size: var(--tv-text-lg); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
+.hol-close {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm);
+  background: transparent; color: var(--tv-text-secondary); cursor: pointer; transition: background .15s;
+}
+.hol-close:hover { background: var(--tv-bg-soft); }
+.hol-desc { font-size: var(--tv-text-sm); color: var(--tv-text-secondary); margin: 0; }
+.hol-fields { display: flex; flex-direction: column; gap: var(--tv-space-3); }
+.hol-field { display: flex; flex-direction: column; gap: var(--tv-space-1); }
+.hol-label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-medium); color: var(--tv-text-secondary); }
+.hol-input {
+  padding: var(--tv-space-2) var(--tv-space-3); font-size: var(--tv-text-sm);
+  color: var(--tv-text); background: var(--tv-bg-card);
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm);
+  outline: none; font-family: inherit; box-sizing: border-box; width: 100%;
+  transition: border-color .15s;
+}
+.hol-input:focus { border-color: var(--tv-primary); }
+.hol-footer { display: flex; justify-content: flex-end; gap: var(--tv-space-2); }
+.hol-btn {
+  display: inline-flex; align-items: center; padding: var(--tv-space-2) var(--tv-space-4);
+  font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium);
+  border-radius: var(--tv-radius-sm); border: 1px solid transparent; cursor: pointer; transition: background .15s, opacity .15s;
+}
+.hol-btn:disabled { opacity: .45; cursor: not-allowed; }
+.hol-btn--primary { background: var(--tv-primary); color: var(--tv-text-inverse); }
+.hol-btn--primary:hover:not(:disabled) { background: var(--tv-primary-hover); }
+.hol-btn--ghost { background: transparent; border-color: var(--tv-border); color: var(--tv-text-secondary); }
+.hol-btn--ghost:hover { background: var(--tv-bg-soft); }
 
 .sv-view-switcher { display: flex; border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius); overflow: hidden; height: 42px; }
 .sv-view-btn {
