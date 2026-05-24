@@ -38,6 +38,17 @@
           placeholder="All Teachers"
           class="sv-ctrl-tvselect"
         />
+        <button
+          v-if="canCreateLesson"
+          class="sv-add-btn"
+          type="button"
+          @click="openCreateModal()"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          Add Lesson
+        </button>
         <div class="sv-view-switcher" role="group" aria-label="Calendar view">
           <button v-for="v in VIEWS" :key="v.key"
             :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
@@ -234,7 +245,15 @@
 
           <!-- Schedules section -->
           <div class="sv-panel__section">
-            <p class="sv-panel__section-label">Schedules</p>
+            <div class="sv-panel__section-head">
+              <p class="sv-panel__section-label">Schedules</p>
+              <button
+                v-if="canCreateLesson"
+                class="sv-panel__create-btn"
+                type="button"
+                @click="openCreateModal(selectedDate ?? undefined, selectedHour ?? undefined)"
+              >+ Add</button>
+            </div>
             <template v-if="panelEvents.length">
               <button
                 v-for="ev in panelEvents" :key="ev.id"
@@ -321,6 +340,13 @@
       @close="selectedSlot = null"
       @booked="handleBooked"
     />
+    <AdminCreateLessonModal
+      v-if="showCreateModal"
+      :prefill-date="createPrefillDate"
+      :prefill-start="createPrefillStart"
+      @close="showCreateModal = false"
+      @created="handleCreateLesson"
+    />
 
   </div>
 </template>
@@ -330,9 +356,10 @@ import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import { useScheduleStore }  from '@/stores/schedule'
 import { useAuthStore }      from '@/stores/auth'
 import { useViewAs }         from '@/composables/useViewAs'
-import LessonDetailModal     from '@/components/schedule/LessonDetailModal.vue'
-import BookingModal          from '@/components/schedule/BookingModal.vue'
-import TVSelect              from '@/components/ui/TVSelect.vue'
+import LessonDetailModal          from '@/components/schedule/LessonDetailModal.vue'
+import BookingModal               from '@/components/schedule/BookingModal.vue'
+import AdminCreateLessonModal     from '@/components/schedule/AdminCreateLessonModal.vue'
+import TVSelect                   from '@/components/ui/TVSelect.vue'
 import type { ScheduleLesson, AvailabilitySlot } from '@/stores/schedule'
 
 const schedule          = useScheduleStore()
@@ -358,6 +385,9 @@ const selectedHour    = ref<number | null>(null)
 const selectedLesson    = ref<ScheduleLesson | null>(null)
 const selectedSlot      = ref<AvailabilitySlot | null>(null)
 const selectedOpenSlot  = ref<AvailabilitySlot | null>(null)
+const showCreateModal   = ref(false)
+const createPrefillDate = ref<string | undefined>(undefined)
+const createPrefillStart = ref<string | undefined>(undefined)
 
 // ---- Derived ----
 const timezone          = computed(() => auth.user?.timezone ?? 'Asia/Manila')
@@ -367,6 +397,7 @@ const showTeacherFilter = computed(() =>
 )
 const canBook           = computed(() => effectiveRole.value === 'STUDENT')
 const canManageSlots    = computed(() => effectiveRole.value === 'TEACHER')
+const canCreateLesson   = computed(() => ['ADMIN', 'STAFF'].includes(auth.user?.role ?? ''))
 
 const cursorMonth = computed(() => cursor.value.getMonth())
 const cursorYear  = computed(() => cursor.value.getFullYear())
@@ -713,6 +744,27 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   schedule.bookSlot(slotId, userId, userName, subject, isTrial)
   selectedSlot.value = null
 }
+
+function openCreateModal(dateStr?: string, hour?: number): void {
+  createPrefillDate.value  = dateStr
+  createPrefillStart.value = hour !== undefined ? `${String(hour).padStart(2, '0')}:00` : undefined
+  showCreateModal.value = true
+}
+
+function handleCreateLesson(payload: {
+  teacherId: string; teacherName: string
+  studentId: string; studentName: string
+  date: string; startTime: string; endTime: string
+  subject: string; isTrial: boolean; isRecurring: boolean
+}): void {
+  schedule.createLesson(
+    payload.teacherId, payload.teacherName,
+    payload.studentId, payload.studentName,
+    payload.date, payload.startTime, payload.endTime,
+    payload.subject, payload.isTrial, payload.isRecurring,
+  )
+  showCreateModal.value = false
+}
 </script>
 
 <style scoped>
@@ -752,6 +804,16 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 
 .sv-ctrl-tvselect { min-width: 140px; }
 .sv-period-tvselect { min-width: 100px; }
+
+.sv-add-btn {
+  display: inline-flex; align-items: center; gap: var(--tv-space-1);
+  padding: 0 var(--tv-space-3); height: 42px;
+  font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium);
+  color: var(--tv-text-inverse); background: var(--tv-primary);
+  border: none; border-radius: var(--tv-radius); cursor: pointer;
+  transition: background 0.15s; white-space: nowrap;
+}
+.sv-add-btn:hover { background: var(--tv-primary-hover); }
 
 .sv-view-switcher { display: flex; border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius); overflow: hidden; height: 42px; }
 .sv-view-btn {
@@ -1020,6 +1082,17 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 
 .sv-panel__section { padding: var(--tv-space-3) var(--tv-space-4); display: flex; flex-direction: column; gap: var(--tv-space-2); }
 .sv-panel__section + .sv-panel__section { border-top: 1px solid var(--tv-border); }
+.sv-panel__section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--tv-space-1);
+}
+.sv-panel__section-head .sv-panel__section-label { margin-bottom: 0; }
+.sv-panel__create-btn {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold);
+  color: var(--tv-primary); background: transparent; border: none;
+  cursor: pointer; padding: 0; line-height: 1;
+}
+.sv-panel__create-btn:hover { text-decoration: underline; }
 .sv-panel__section-label {
   display: flex; align-items: center; gap: var(--tv-space-1);
   font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted);

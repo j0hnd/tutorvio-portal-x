@@ -559,6 +559,36 @@ export const useScheduleStore = defineStore('schedule', () => {
     unavailableDates.value = unavailableDates.value.filter(d => d.id !== id)
   }
 
+  function createLesson(
+    teacherId: string,
+    teacherName: string,
+    studentId: string,
+    studentName: string,
+    dateStr: string,
+    startHH: string,
+    endHH: string,
+    subject: string,
+    isTrial: boolean,
+    isRecurring: boolean,
+  ): ScheduleLesson {
+    const newId = `l${Date.now()}`
+    const startISO = `${dateStr}T${startHH}:00+08:00`
+    const endISO   = `${dateStr}T${endHH}:00+08:00`
+    const newLesson: ScheduleLesson = {
+      id: newId,
+      title: isTrial ? `Trial: ${subject}` : subject,
+      teacherId, teacherName, studentId, studentName,
+      startTime: new Date(startISO).toISOString(),
+      endTime:   new Date(endISO).toISOString(),
+      status: isTrial ? 'TRIAL' : 'SCHEDULED',
+      meetingUrl: `https://meet.tutorvio.com/room/${newId}`,
+      subject, isTrial, isRecurring,
+      canReschedule: true, canCancel: true,
+    }
+    lessons.value.push(newLesson)
+    return newLesson
+  }
+
   function removeAvailabilitySlot(slotId: string): void {
     availabilitySlots.value = availabilitySlots.value.filter(
       s => !(s.id === slotId && !s.isBooked),
@@ -609,6 +639,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     myUnavailableDates,
     getWeeklySlots,
     bookSlot,
+    createLesson,
     cancelLesson,
     rescheduleLesson,
     addWeeklySlot,
