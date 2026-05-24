@@ -146,10 +146,12 @@ const fieldErrors = reactive({
 })
 
 const demoCreds = [
-  { role: 'Student', email: 'student@tutorvio.com', password: 'Tutorvio@2026' },
-  { role: 'Teacher', email: 'teacher@tutorvio.com', password: 'Tutorvio@2026' },
-  { role: 'Admin',   email: 'admin@tutorvio.com',   password: 'Tutorvio@2026' },
-  { role: 'Staff',   email: 'staff@tutorvio.com',   password: 'Tutorvio@2026' },
+  { role: 'Student',   email: 'student@tutorvio.com',  password: 'Tutorvio@2026' },
+  { role: 'Teacher',   email: 'teacher@tutorvio.com',  password: 'Tutorvio@2026' },
+  { role: 'Teacher 2', email: 'teacher2@tutorvio.com', password: 'Tutorvio@2026' },
+  { role: 'Teacher 3', email: 'teacher3@tutorvio.com', password: 'Tutorvio@2026' },
+  { role: 'Admin',     email: 'admin@tutorvio.com',    password: 'Tutorvio@2026' },
+  { role: 'Staff',     email: 'staff@tutorvio.com',    password: 'Tutorvio@2026' },
 ]
 
 function fillDemo(cred: { email: string; password: string }): void {

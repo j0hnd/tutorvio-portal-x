@@ -16,10 +16,11 @@
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileOpen"
       :show-view-as="auth.isAdmin"
-      :view-as-role="viewAsRole"
+      :view-as-role="effectiveRole"
       @navigate="handleNavigate"
       @mobile-close="mobileOpen = false"
-      @role-change="viewAsRole = $event as UserRole"
+      @role-change="handleRoleChange"
+      @logout="handleLogout"
     />
 
     <main class="app-main" id="main-content" tabindex="-1">
@@ -39,6 +40,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useNavigation } from '@/composables/useNavigation'
+import { useViewAs } from '@/composables/useViewAs'
 import { useToast } from '@/composables/useToast'
 import type { UserRole } from '@/types'
 
@@ -46,15 +48,13 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { getNavItems } = useNavigation()
+const { effectiveRole, setViewAsRole } = useViewAs()
 const toast = useToast()
 
 const sidebarCollapsed = ref(false)
 const mobileOpen = ref(false)
 
-/* VIEW AS — admins can preview nav as any role without logging out */
-const viewAsRole = ref<UserRole>(auth.user?.role ?? 'STUDENT')
-
-const navItems = computed(() => getNavItems(viewAsRole.value))
+const navItems = computed(() => getNavItems(effectiveRole.value))
 
 const headerUser = computed(() => ({
   name: auth.fullName || 'User',
@@ -68,6 +68,11 @@ const balance = computed(() => auth.isStudent ? 'Kč 0' : 'Kč1,250')
 function handleNavigate(path: string): void {
   mobileOpen.value = false
   router.push(path)
+}
+
+function handleRoleChange(role: string): void {
+  setViewAsRole(role as UserRole)
+  if (route.path !== '/dashboard') router.push('/dashboard')
 }
 
 async function handleLogout(): Promise<void> {
@@ -92,6 +97,8 @@ async function handleLogout(): Promise<void> {
   background: var(--tv-bg);
   outline: none;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 767px) {

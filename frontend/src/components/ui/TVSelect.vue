@@ -220,8 +220,6 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 
 .tv-select-wrapper--open .tv-select__trigger {
   border-color: var(--tv-primary);
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
   box-shadow: 0 0 0 3px hsla(var(--tv-primary-h), var(--tv-primary-s), var(--tv-primary-l), 0.15);
 }
 
@@ -252,14 +250,13 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 /* Dropdown list */
 .tv-select__dropdown {
   position: absolute;
-  top: calc(100% - (var(--tv-space-2) + 2px));
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   z-index: var(--tv-z-dropdown);
   background: var(--tv-bg-card);
   border: 1.5px solid var(--tv-primary);
-  border-top: 1px solid var(--tv-border);
-  border-radius: 0 0 var(--tv-radius) var(--tv-radius);
+  border-radius: var(--tv-radius);
   box-shadow: var(--tv-shadow-md);
   list-style: none;
   max-height: 240px;
