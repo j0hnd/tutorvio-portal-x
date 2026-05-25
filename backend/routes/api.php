@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Scheduling\LessonBookingController;
 use App\Http\Controllers\Api\Scheduling\ScheduleReminderController;
 use App\Http\Controllers\Api\Scheduling\TeacherAvailabilityController;
 use App\Http\Controllers\Api\Scheduling\TeacherUnavailableDateController;
+use App\Http\Controllers\Api\StudentProgressRecordController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +67,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/lesson-records/{lessonRecord}/cancel', [LessonRecordController::class, 'cancel']);
         Route::apiResource('lesson-records', LessonRecordController::class)
             ->parameters(['lesson-records' => 'lessonRecord']);
+        Route::apiResource('student-progress-records', StudentProgressRecordController::class)
+            ->parameters(['student-progress-records' => 'studentProgressRecord']);
         Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
         Route::get('/homeworks', [HomeworkController::class, 'index']);
