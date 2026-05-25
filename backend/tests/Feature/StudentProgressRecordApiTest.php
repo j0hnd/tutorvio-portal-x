@@ -113,13 +113,21 @@ class StudentProgressRecordApiTest extends TestCase
     {
         Sanctum::actingAs($this->admin);
 
-        $matching = $this->createProgressRecord([
+        $olderMatching = $this->createProgressRecord([
             'student_id' => $this->student->id,
             'teacher_id' => $this->teacher->id,
             'skill_area' => StudentProgressRecord::SKILL_GRAMMAR,
             'level_movement' => StudentProgressRecord::LEVEL_MOVEMENT_UP,
             'progress_status' => StudentProgressRecord::STATUS_COMPLETED,
             'recorded_at' => '2026-06-10 09:00:00',
+        ]);
+        $latestMatching = $this->createProgressRecord([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'skill_area' => StudentProgressRecord::SKILL_GRAMMAR,
+            'level_movement' => StudentProgressRecord::LEVEL_MOVEMENT_UP,
+            'progress_status' => StudentProgressRecord::STATUS_COMPLETED,
+            'recorded_at' => '2026-06-12 09:00:00',
         ]);
         $this->createProgressRecord([
             'student_id' => $this->student->id,
@@ -141,9 +149,18 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson('/api/v1/student-progress-records?student_id='.$this->student->id.'&teacher_id='.$this->teacher->id.'&skill_area='.StudentProgressRecord::SKILL_GRAMMAR.'&date_from=2026-06-01&date_to=2026-06-30&level_movement='.StudentProgressRecord::LEVEL_MOVEMENT_UP.'&goal_status='.StudentProgressRecord::STATUS_COMPLETED.'&per_page=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $matching->id)
+            ->assertJsonPath('data.0.id', $latestMatching->id)
+            ->assertJsonPath('current_page', 1)
             ->assertJsonPath('per_page', 1)
-            ->assertJsonPath('total', 1);
+            ->assertJsonPath('last_page', 2)
+            ->assertJsonPath('total', 2);
+
+        $this->getJson('/api/v1/student-progress-records?student_id='.$this->student->id.'&teacher_id='.$this->teacher->id.'&skill_area='.StudentProgressRecord::SKILL_GRAMMAR.'&date_from=2026-06-01&date_to=2026-06-30&level_movement='.StudentProgressRecord::LEVEL_MOVEMENT_UP.'&progress_status='.StudentProgressRecord::STATUS_COMPLETED.'&per_page=1&page=2')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $olderMatching->id)
+            ->assertJsonPath('current_page', 2)
+            ->assertJsonPath('total', 2);
     }
 
     public function test_teacher_can_manage_records_for_assigned_students_only(): void
@@ -287,6 +304,14 @@ class StudentProgressRecordApiTest extends TestCase
         ])
             ->assertForbidden();
 
+        $this->patchJson("/api/v1/student-progress-records/{$record->id}", [
+            'teacher_comments' => 'View permission should not allow updates.',
+        ])
+            ->assertForbidden();
+
+        $this->deleteJson("/api/v1/student-progress-records/{$record->id}")
+            ->assertForbidden();
+
         $staff->givePermissionTo([
             'student_progress_records.create',
             'student_progress_records.update',
@@ -423,6 +448,9 @@ class StudentProgressRecordApiTest extends TestCase
 
         $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-summary")
             ->assertForbidden();
+
+        $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-timeline")
+            ->assertForbidden();
     }
 
     public function test_student_can_view_own_progress_timeline_only(): void
@@ -443,6 +471,14 @@ class StudentProgressRecordApiTest extends TestCase
             ->assertJsonPath('data.records.0.teacher_comment.comment', 'Student-visible growth note.');
 
         $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-timeline")
+            ->assertForbidden();
+
+        $this->getJson("/api/v1/students/{$this->student->id}/progress-summary")
+            ->assertOk()
+            ->assertJsonPath('data.student.id', $this->student->id)
+            ->assertJsonPath('data.latest_progress_summary_per_skill_area.'.$record->skill_area.'.record_id', $record->id);
+
+        $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-summary")
             ->assertForbidden();
     }
 
@@ -466,6 +502,22 @@ class StudentProgressRecordApiTest extends TestCase
                 'lesson_completion_count',
                 'level_movement',
                 'progress_status',
+            ]);
+
+        $this->getJson('/api/v1/student-progress-records?skill_area=invalid_skill&date_from=not-a-date&level_movement=jumped&per_page=0')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'skill_area',
+                'date_from',
+                'level_movement',
+                'per_page',
+            ]);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/progress-timeline?skill_area=invalid_skill&date_to=not-a-date")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'skill_area',
+                'date_to',
             ]);
     }
 
