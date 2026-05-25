@@ -365,10 +365,7 @@
           </div>
           <p class="hol-desc">Mark a date as a national holiday. All teachers will be marked unavailable on this date.</p>
           <div class="hol-fields">
-            <div class="hol-field">
-              <label class="hol-label" for="hol-date">Date</label>
-              <input id="hol-date" v-model="holidayDate" type="date" class="hol-input" />
-            </div>
+            <TVDatePicker v-model="holidayDate" label="Date" />
             <div class="hol-field">
               <label class="hol-label" for="hol-label">Holiday Name</label>
               <input id="hol-label" v-model="holidayLabel" type="text" class="hol-input" placeholder="e.g. Independence Day (PH)" />
@@ -396,6 +393,7 @@ import LessonDetailModal          from '@/components/schedule/LessonDetailModal.
 import BookingModal               from '@/components/schedule/BookingModal.vue'
 import AdminCreateLessonModal     from '@/components/schedule/AdminCreateLessonModal.vue'
 import TVSelect                   from '@/components/ui/TVSelect.vue'
+import TVDatePicker               from '@/components/ui/TVDatePicker.vue'
 import type { ScheduleLesson, AvailabilitySlot } from '@/stores/schedule'
 
 const schedule          = useScheduleStore()
@@ -436,7 +434,9 @@ const showTeacherFilter = computed(() =>
 )
 const canBook           = computed(() => effectiveRole.value === 'STUDENT')
 const canManageSlots    = computed(() => effectiveRole.value === 'TEACHER')
-const canCreateLesson   = computed(() => ['ADMIN', 'STAFF'].includes(auth.user?.role ?? ''))
+const canCreateLesson   = computed(() =>
+  ['ADMIN', 'STAFF'].includes(auth.user?.role ?? '') && effectiveRole.value !== 'STUDENT'
+)
 
 const cursorMonth = computed(() => cursor.value.getMonth())
 const cursorYear  = computed(() => cursor.value.getFullYear())

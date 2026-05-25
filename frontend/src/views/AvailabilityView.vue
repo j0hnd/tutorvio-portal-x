@@ -87,15 +87,7 @@
       <form class="av-unavail-form" @submit.prevent="addUnavailable">
         <div class="av-unavail-fields">
           <div class="av-field">
-            <label class="av-label" for="av-date">Date</label>
-            <input
-              id="av-date"
-              v-model="newUnavailDate"
-              type="date"
-              class="av-input"
-              :min="minDate"
-              required
-            />
+            <TVDatePicker v-model="newUnavailDate" label="Date" :min="minDate" required />
           </div>
           <div class="av-field">
             <label class="av-label" for="av-reason">Reason</label>
@@ -185,6 +177,7 @@ import { ref, computed } from 'vue'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore }     from '@/stores/auth'
 import { useViewAs }        from '@/composables/useViewAs'
+import TVDatePicker from '@/components/ui/TVDatePicker.vue'
 import type { UnavailableReason } from '@/stores/schedule'
 
 const schedule = useScheduleStore()

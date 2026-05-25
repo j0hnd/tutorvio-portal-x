@@ -114,7 +114,7 @@
             </div>
             <div class="form-row">
               <TVInput v-model="studentProfile.program" label="Course / Program" />
-              <TVInput v-model="studentProfile.startDate" label="Start Date" type="date" />
+              <TVDatePicker v-model="studentProfile.startDate" label="Start Date" />
             </div>
             <TVSelect
               v-model="studentProfile.assignedTeacherId"
@@ -235,10 +235,11 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
-import TVButton from '@/components/ui/TVButton.vue'
-import TVInput from '@/components/ui/TVInput.vue'
-import TVSelect from '@/components/ui/TVSelect.vue'
-import TVBadge from '@/components/ui/TVBadge.vue'
+import TVButton     from '@/components/ui/TVButton.vue'
+import TVInput      from '@/components/ui/TVInput.vue'
+import TVSelect     from '@/components/ui/TVSelect.vue'
+import TVBadge      from '@/components/ui/TVBadge.vue'
+import TVDatePicker from '@/components/ui/TVDatePicker.vue'
 import type {
   UserRole,
   SelectOption,
