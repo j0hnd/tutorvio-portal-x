@@ -10,6 +10,7 @@
 
     <!-- Trigger -->
     <button
+      ref="triggerRef"
       :id="uid"
       type="button"
       class="tvdp__trigger"
@@ -34,9 +35,10 @@
       </svg>
     </button>
 
-    <!-- Calendar dropdown -->
-    <Transition name="dropdown">
-      <div v-if="isOpen" class="tvdp__dropdown" role="dialog" :aria-label="label ?? 'Date picker'">
+    <!-- Calendar dropdown — teleported to body to escape overflow clipping -->
+    <Teleport to="body">
+    <Transition name="tvdp-drop">
+      <div v-if="isOpen" ref="dropdownRef" class="tvdp__dropdown" :style="dropdownStyle" role="dialog" :aria-label="label ?? 'Date picker'">
 
         <!-- Month nav -->
         <div class="tvdp__nav">
@@ -89,6 +91,7 @@
         </div>
       </div>
     </Transition>
+    </Teleport>
 
     <p v-if="error" :id="`${uid}-error`" class="tvdp__message tvdp__message--error" role="alert">{{ error }}</p>
     <p v-else-if="hint" :id="`${uid}-hint`" class="tvdp__message tvdp__message--hint">{{ hint }}</p>
@@ -96,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string   // YYYY-MM-DD or ''
@@ -121,9 +124,12 @@ const uid = computed(() => props.id ?? `tvdp-${Math.random().toString(36).slice(
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa']
 
-const isOpen     = ref(false)
-const focusedDate = ref<string | null>(null)
-const wrapperRef = ref<HTMLElement | null>(null)
+const isOpen        = ref(false)
+const focusedDate   = ref<string | null>(null)
+const wrapperRef    = ref<HTMLElement | null>(null)
+const triggerRef    = ref<HTMLElement | null>(null)
+const dropdownRef   = ref<HTMLElement | null>(null)
+const dropdownStyle = ref<Record<string, string>>({})
 
 const todayStr = new Date().toLocaleDateString('sv-SE')
 
@@ -146,7 +152,25 @@ const displayValue = computed(() => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 })
 
-function toggle() {
+function positionDropdown() {
+  const trigger = triggerRef.value
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
+  const dropW = 280
+  const dropH = 330
+  const spaceBelow = window.innerHeight - rect.bottom
+  const top  = spaceBelow >= dropH ? rect.bottom + 4 : rect.top - dropH - 4
+  const left = Math.min(rect.left, window.innerWidth - dropW - 8)
+  dropdownStyle.value = {
+    position: 'fixed',
+    top:    `${top}px`,
+    left:   `${left}px`,
+    width:  `${dropW}px`,
+    zIndex: '1200',
+  }
+}
+
+async function toggle() {
   if (props.disabled) return
   isOpen.value = !isOpen.value
   if (isOpen.value) {
@@ -156,6 +180,8 @@ function toggle() {
       viewYear.value  = d.getFullYear()
       viewMonth.value = d.getMonth()
     }
+    await nextTick()
+    positionDropdown()
   } else {
     emit('blur')
   }
@@ -278,8 +304,13 @@ function handleGridKey(e: KeyboardEvent, dateStr: string) {
 }
 
 function handleClickOutside(e: MouseEvent) {
-  if (wrapperRef.value && !wrapperRef.value.contains(e.target as Node)) {
-    if (isOpen.value) { isOpen.value = false; emit('blur') }
+  const target = e.target as Node
+  if (
+    isOpen.value &&
+    wrapperRef.value  && !wrapperRef.value.contains(target) &&
+    dropdownRef.value && !dropdownRef.value.contains(target)
+  ) {
+    isOpen.value = false; emit('blur')
   }
 }
 
@@ -336,12 +367,15 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 }
 .tvdp-wrap--open .tvdp__chevron { transform: rotate(180deg); color: var(--tv-primary); }
 
-/* ── Dropdown ── */
+/* Messages */
+.tvdp__message { font-size: var(--tv-text-xs); line-height: var(--tv-leading-snug); }
+.tvdp__message--error { color: var(--tv-danger); }
+.tvdp__message--hint  { color: var(--tv-text-muted); }
+</style>
+
+<style>
+/* ── Dropdown (unscoped — teleported to body) ── */
 .tvdp__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: var(--tv-z-dropdown);
   background: var(--tv-bg-card);
   border: 1.5px solid var(--tv-primary);
   border-radius: var(--tv-radius);
@@ -433,14 +467,9 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 .tvdp__action-btn--clear { color: var(--tv-text-muted); }
 .tvdp__action-btn--clear:hover { background: var(--tv-bg-soft); color: var(--tv-danger-fg); }
 
-/* Messages */
-.tvdp__message { font-size: var(--tv-text-xs); line-height: var(--tv-leading-snug); }
-.tvdp__message--error { color: var(--tv-danger); }
-.tvdp__message--hint  { color: var(--tv-text-muted); }
-
 /* Transition */
-.dropdown-enter-active { transition: opacity 150ms ease, transform 150ms ease; }
-.dropdown-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
-.dropdown-enter-from { opacity: 0; transform: translateY(-6px); }
-.dropdown-leave-to  { opacity: 0; transform: translateY(-4px); }
+.tvdp-drop-enter-active { transition: opacity 150ms ease, transform 150ms ease; }
+.tvdp-drop-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
+.tvdp-drop-enter-from { opacity: 0; transform: translateY(-6px); }
+.tvdp-drop-leave-to  { opacity: 0; transform: translateY(-4px); }
 </style>
