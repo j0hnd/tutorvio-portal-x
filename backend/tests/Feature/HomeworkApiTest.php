@@ -6,6 +6,7 @@ use App\Models\Homework;
 use App\Models\LearningResource;
 use App\Models\Lesson;
 use App\Models\User;
+use Carbon\Carbon;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -53,6 +54,13 @@ class HomeworkApiTest extends TestCase
         $this->otherStudent->studentProfile()->create([
             'assigned_teacher_id' => $this->otherTeacher->id,
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_teacher_can_create_homework_for_managed_student_and_own_lesson(): void
@@ -159,6 +167,79 @@ class HomeworkApiTest extends TestCase
             ->assertJsonValidationErrors('due_date');
     }
 
+    public function test_admin_can_view_homework_summary_trends_with_filters(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        Sanctum::actingAs($this->admin);
+
+        $this->student->studentProfile()->update([
+            'course' => 'General English',
+            'current_level' => 'A2.2',
+        ]);
+        $this->otherStudent->studentProfile()->update([
+            'course' => 'Business English',
+            'current_level' => 'B1.1',
+        ]);
+
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-20', '2026-06-01 09:00:00');
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_IN_PROGRESS, '2026-06-20', '2026-06-01 10:00:00');
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-12', '2026-06-02 09:00:00');
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_REVIEWED, '2026-06-12', '2026-06-02 10:00:00');
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_IN_PROGRESS, '2026-06-01', '2026-06-03 09:00:00');
+        $this->createHomework($this->otherStudent, $this->otherTeacher, Homework::STATUS_OVERDUE, '2026-06-01', '2026-06-03 09:00:00');
+
+        $this->getJson('/api/v1/admin/homeworks/summary?date_from=2026-06-01&date_to=2026-06-03&teacher_id='.$this->teacher->id.'&course=General%20English&level=A2.2')
+            ->assertOk()
+            ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.filters.course', 'General English')
+            ->assertJsonPath('data.filters.level', 'A2.2')
+            ->assertJsonPath('data.summary.total_assigned', 5)
+            ->assertJsonPath('data.summary.assigned_count', 1)
+            ->assertJsonPath('data.summary.in_progress_count', 2)
+            ->assertJsonPath('data.summary.completed_count', 1)
+            ->assertJsonPath('data.summary.reviewed_count', 1)
+            ->assertJsonPath('data.summary.overdue_count', 1)
+            ->assertJsonPath('data.summary.completion_rate', 0.4)
+            ->assertJsonPath('data.summary.overdue_rate', 0.2)
+            ->assertJsonCount(3, 'data.trends')
+            ->assertJsonPath('data.trends.0.date', '2026-06-01')
+            ->assertJsonPath('data.trends.0.total_assigned', 2)
+            ->assertJsonPath('data.trends.2.date', '2026-06-03')
+            ->assertJsonPath('data.trends.2.overdue_count', 1);
+
+    }
+
+    public function test_homework_summary_supports_student_and_status_filters(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_IN_PROGRESS, '2026-06-20', '2026-06-01 10:00:00');
+        $this->createHomework($this->otherStudent, $this->otherTeacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 11:00:00');
+
+        $this->getJson('/api/v1/admin/homeworks/summary?student_id='.$this->student->id.'&status='.Homework::STATUS_COMPLETED)
+            ->assertOk()
+            ->assertJsonPath('data.summary.total_assigned', 1)
+            ->assertJsonPath('data.summary.completed_count', 1)
+            ->assertJsonPath('data.summary.in_progress_count', 0);
+    }
+
+    public function test_staff_homework_summary_access_requires_permission(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/homeworks/summary')
+            ->assertForbidden();
+
+        $staff->givePermissionTo('homeworks.view');
+
+        $this->getJson('/api/v1/admin/homeworks/summary')
+            ->assertOk();
+    }
+
     private function createLesson(User $student, User $teacher): Lesson
     {
         return Lesson::create([
@@ -177,6 +258,28 @@ class HomeworkApiTest extends TestCase
             'resource_type' => LearningResource::TYPE_DOCUMENT,
             'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
             'created_by' => $creator->id,
+        ]);
+    }
+
+    private function createHomework(
+        User $student,
+        User $teacher,
+        string $status,
+        string $dueDate,
+        string $createdAt,
+    ): Homework {
+        $lesson = $this->createLesson($student, $teacher);
+
+        return Homework::factory()->create([
+            'lesson_id' => $lesson->id,
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'status' => $status,
+            'due_date' => $dueDate,
+            'completed_at' => $status === Homework::STATUS_COMPLETED ? $createdAt : null,
+            'reviewed_at' => $status === Homework::STATUS_REVIEWED ? $createdAt : null,
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
         ]);
     }
 }

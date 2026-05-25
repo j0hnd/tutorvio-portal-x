@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\Auth\InvitationController;
@@ -85,6 +86,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/users', function () {
                 return response()->json(['status' => 'ok']);
             })->middleware('permission:users.view');
+
+            Route::get('/homeworks/summary', HomeworkSummaryController::class)
+                ->middleware('permission:homeworks.view');
         });
 
         Route::prefix('users')->middleware('role:admin|staff')->group(function () {
