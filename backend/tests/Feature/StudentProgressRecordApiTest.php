@@ -172,6 +172,9 @@ class StudentProgressRecordApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.teacher_comments', 'Good recovery after correction.');
 
+        $this->deleteJson("/api/v1/student-progress-records/{$record->id}")
+            ->assertForbidden();
+
         $this->getJson("/api/v1/student-progress-records/{$otherRecord->id}")
             ->assertForbidden();
 
@@ -180,8 +183,132 @@ class StudentProgressRecordApiTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'skill_area' => StudentProgressRecord::SKILL_LISTENING,
         ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('student_id');
+            ->assertForbidden();
+    }
+
+    public function test_student_can_view_only_their_own_progress_records_and_cannot_manage_records(): void
+    {
+        Sanctum::actingAs($this->student);
+
+        $record = $this->createProgressRecord([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+        ]);
+        $otherRecord = $this->createProgressRecord([
+            'student_id' => $this->otherStudent->id,
+            'teacher_id' => $this->otherTeacher->id,
+        ]);
+
+        $this->getJson('/api/v1/student-progress-records?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $record->id);
+
+        $this->getJson('/api/v1/student-progress-records?student_id='.$this->otherStudent->id)
+            ->assertForbidden();
+
+        $this->getJson("/api/v1/student-progress-records/{$record->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $record->id);
+
+        $this->getJson("/api/v1/student-progress-records/{$otherRecord->id}")
+            ->assertForbidden();
+
+        $this->postJson('/api/v1/student-progress-records', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'skill_area' => StudentProgressRecord::SKILL_SPEAKING,
+        ])
+            ->assertForbidden();
+
+        $this->patchJson("/api/v1/student-progress-records/{$record->id}", [
+            'teacher_comments' => 'Student should not be able to edit this.',
+        ])
+            ->assertForbidden();
+
+        $this->deleteJson("/api/v1/student-progress-records/{$record->id}")
+            ->assertForbidden();
+    }
+
+    public function test_teacher_progress_access_is_based_on_assigned_students(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $assignedStudentRecordFromOtherTeacher = $this->createProgressRecord([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->otherTeacher->id,
+        ]);
+        $unassignedStudentRecordForTeacher = $this->createProgressRecord([
+            'student_id' => $this->otherStudent->id,
+            'teacher_id' => $this->teacher->id,
+        ]);
+
+        $this->getJson('/api/v1/student-progress-records?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $assignedStudentRecordFromOtherTeacher->id);
+
+        $this->getJson("/api/v1/student-progress-records/{$assignedStudentRecordFromOtherTeacher->id}")
+            ->assertOk();
+
+        $this->getJson("/api/v1/student-progress-records/{$unassignedStudentRecordForTeacher->id}")
+            ->assertForbidden();
+
+        $this->getJson('/api/v1/student-progress-records?student_id='.$this->otherStudent->id)
+            ->assertForbidden();
+    }
+
+    public function test_staff_progress_access_depends_on_permissions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        $record = $this->createProgressRecord();
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/student-progress-records')
+            ->assertForbidden();
+
+        $staff->givePermissionTo('student_progress_records.view');
+
+        $this->getJson('/api/v1/student-progress-records')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $record->id);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/progress-summary")
+            ->assertOk()
+            ->assertJsonPath('data.student.id', $this->student->id);
+
+        $this->postJson('/api/v1/student-progress-records', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'skill_area' => StudentProgressRecord::SKILL_SPEAKING,
+        ])
+            ->assertForbidden();
+
+        $staff->givePermissionTo([
+            'student_progress_records.create',
+            'student_progress_records.update',
+            'student_progress_records.delete',
+        ]);
+
+        $createdId = $this->postJson('/api/v1/student-progress-records', [
+            'student_id' => $this->otherStudent->id,
+            'teacher_id' => $this->otherTeacher->id,
+            'skill_area' => StudentProgressRecord::SKILL_LISTENING,
+        ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->patchJson("/api/v1/student-progress-records/{$createdId}", [
+            'teacher_comments' => 'Staff permission update.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.teacher_comments', 'Staff permission update.');
+
+        $this->deleteJson("/api/v1/student-progress-records/{$createdId}")
+            ->assertNoContent();
     }
 
     public function test_progress_summary_returns_latest_growth_snapshot_for_student(): void

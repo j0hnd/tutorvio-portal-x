@@ -41,6 +41,7 @@ class StudentProgressRecordController extends Controller
         $progressStatus = $validated['goal_status'] ?? $validated['progress_status'] ?? null;
 
         $this->assertFilterUsers($validated['student_id'] ?? null, $validated['teacher_id'] ?? null);
+        $this->assertFiltersVisibleToUser($request->user(), $validated['student_id'] ?? null);
 
         return response()->json(
             $this->queryForUser($request->user())
@@ -243,6 +244,29 @@ class StudentProgressRecordController extends Controller
         }
     }
 
+    private function assertFiltersVisibleToUser(User $actor, ?int $studentId): void
+    {
+        if ($studentId === null || $actor->hasRole('admin') || ($actor->hasRole('staff') && $actor->can('student_progress_records.view'))) {
+            return;
+        }
+
+        if ($actor->hasRole('student')) {
+            if ((int) $studentId !== (int) $actor->id) {
+                abort(403);
+            }
+
+            return;
+        }
+
+        if ($actor->hasRole('teacher')) {
+            $student = User::query()->with('studentProfile')->findOrFail($studentId);
+
+            if ((int) $student->studentProfile?->assigned_teacher_id !== (int) $actor->id) {
+                abort(403);
+            }
+        }
+    }
+
     private function assertStudentVisibleToUser(User $actor, User $student): void
     {
         $student->loadMissing('studentProfile');
@@ -257,6 +281,10 @@ class StudentProgressRecordController extends Controller
             return;
         }
 
+        if ($actor->hasRole('staff') && $actor->can('student_progress_records.view')) {
+            return;
+        }
+
         if ($actor->hasRole('student') && (int) $actor->id === (int) $student->id) {
             return;
         }
@@ -265,13 +293,7 @@ class StudentProgressRecordController extends Controller
             abort(403);
         }
 
-        $isAssignedTeacher = (int) $student->studentProfile?->assigned_teacher_id === (int) $actor->id;
-        $hasProgressRecordsForTeacher = StudentProgressRecord::query()
-            ->where('student_id', $student->id)
-            ->where('teacher_id', $actor->id)
-            ->exists();
-
-        if (! $isAssignedTeacher && ! $hasProgressRecordsForTeacher) {
+        if ((int) $student->studentProfile?->assigned_teacher_id !== (int) $actor->id) {
             abort(403);
         }
     }
@@ -282,18 +304,18 @@ class StudentProgressRecordController extends Controller
             return;
         }
 
+        if ($actor->hasRole('staff')) {
+            return;
+        }
+
         if (! $actor->hasRole('teacher') || (int) $actor->id !== (int) $teacherId) {
-            throw ValidationException::withMessages([
-                'teacher_id' => 'Teachers can only manage progress records assigned to themselves.',
-            ]);
+            abort(403);
         }
 
         $student = User::query()->with('studentProfile')->findOrFail($studentId);
 
         if ((int) $student->studentProfile?->assigned_teacher_id !== (int) $actor->id) {
-            throw ValidationException::withMessages([
-                'student_id' => 'Teachers can only manage progress records for students assigned to them.',
-            ]);
+            abort(403);
         }
     }
 
@@ -304,7 +326,11 @@ class StudentProgressRecordController extends Controller
     {
         return StudentProgressRecord::query()
             ->with($this->relations())
-            ->when($user->hasRole('teacher') && ! $user->hasRole('admin'), fn (Builder $query) => $query->where('teacher_id', $user->id));
+            ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->whereHas(
+                'student.studentProfile',
+                fn (Builder $query) => $query->where('assigned_teacher_id', $user->id)
+            ))
+            ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('student_id', $user->id));
     }
 
     /**
