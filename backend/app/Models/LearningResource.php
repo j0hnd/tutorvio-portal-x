@@ -111,6 +111,13 @@ class LearningResource extends Model
             ->withTimestamps();
     }
 
+    public function coursePrograms(): BelongsToMany
+    {
+        return $this->belongsToMany(CourseProgram::class, 'course_program_learning_resource')
+            ->withPivot(['attached_by', 'attached_at'])
+            ->withTimestamps();
+    }
+
     public function versions(): HasMany
     {
         return $this->hasMany(LearningResourceVersion::class)->orderByDesc('version_number');

@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\CourseCatalog\CourseProgramController;
+use App\Http\Controllers\Api\CourseCatalog\CourseTypeController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\HomeworkController;
 use App\Http\Controllers\Api\LearningResourceController;
@@ -79,6 +81,13 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('learning-resources', LearningResourceController::class)
             ->only(['index', 'show', 'update', 'destroy'])
             ->parameters(['learning-resources' => 'learningResource']);
+
+        Route::post('/course-types/{courseType}/archive', [CourseTypeController::class, 'archive']);
+        Route::apiResource('course-types', CourseTypeController::class)
+            ->parameters(['course-types' => 'courseType']);
+        Route::post('/course-programs/{courseProgram}/archive', [CourseProgramController::class, 'archive']);
+        Route::apiResource('course-programs', CourseProgramController::class)
+            ->parameters(['course-programs' => 'courseProgram']);
 
         Route::prefix('admin')->middleware(['role:admin', 'permission:admin.access'])->group(function () {
             Route::get('/access', function () {

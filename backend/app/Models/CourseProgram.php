@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class CourseProgram extends Model
 {
@@ -48,6 +49,13 @@ class CourseProgram extends Model
     public function courseType(): BelongsTo
     {
         return $this->belongsTo(CourseType::class);
+    }
+
+    public function learningResources(): BelongsToMany
+    {
+        return $this->belongsToMany(LearningResource::class, 'course_program_learning_resource')
+            ->withPivot(['attached_by', 'attached_at'])
+            ->withTimestamps();
     }
 
     public function createdBy(): BelongsTo
