@@ -65,7 +65,11 @@ Route::prefix('v1')->group(function () {
             ->parameters(['lesson-records' => 'lessonRecord']);
         Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
+        Route::get('/homeworks', [HomeworkController::class, 'index']);
         Route::post('/homeworks', [HomeworkController::class, 'store']);
+        Route::get('/homeworks/{homework}', [HomeworkController::class, 'show']);
+        Route::patch('/homeworks/{homework}/progress', [HomeworkController::class, 'updateProgress']);
+        Route::patch('/homeworks/{homework}/review', [HomeworkController::class, 'review']);
         Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
         Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
         Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);

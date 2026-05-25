@@ -167,6 +167,175 @@ class HomeworkApiTest extends TestCase
             ->assertJsonValidationErrors('due_date');
     }
 
+    public function test_admin_can_manage_all_homework(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        Sanctum::actingAs($this->admin);
+
+        $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-20', '2026-06-01 09:00:00');
+        $otherHomework = $this->createHomework($this->otherStudent, $this->otherTeacher, Homework::STATUS_ASSIGNED, '2026-06-21', '2026-06-01 10:00:00');
+
+        $this->getJson('/api/v1/homeworks?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $homework->id)
+            ->assertJsonPath('data.1.id', $otherHomework->id);
+
+        $this->patchJson("/api/v1/homeworks/{$otherHomework->id}/progress", [
+            'status' => Homework::STATUS_COMPLETED,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $otherHomework->id)
+            ->assertJsonPath('data.status', Homework::STATUS_COMPLETED);
+
+        $this->patchJson("/api/v1/homeworks/{$otherHomework->id}/review", [
+            'teacher_feedback' => 'Strong summary and clear examples.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $otherHomework->id)
+            ->assertJsonPath('data.status', Homework::STATUS_REVIEWED)
+            ->assertJsonPath('data.teacher_feedback', 'Strong summary and clear examples.');
+    }
+
+    public function test_student_can_only_view_their_own_homework(): void
+    {
+        Sanctum::actingAs($this->student);
+
+        $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-20', '2026-06-01 09:00:00');
+        $otherHomework = $this->createHomework($this->otherStudent, $this->otherTeacher, Homework::STATUS_ASSIGNED, '2026-06-21', '2026-06-01 10:00:00');
+
+        $this->getJson('/api/v1/homeworks?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $homework->id)
+            ->assertJsonPath('data.0.student_id', $this->student->id);
+
+        $this->getJson("/api/v1/homeworks/{$homework->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $homework->id);
+
+        $this->getJson("/api/v1/homeworks/{$otherHomework->id}")
+            ->assertForbidden();
+    }
+
+    public function test_student_can_mark_their_own_homework_in_progress_and_completed(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        Sanctum::actingAs($this->student);
+
+        $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-20', '2026-06-01 09:00:00');
+
+        $this->patchJson("/api/v1/homeworks/{$homework->id}/progress", [
+            'status' => Homework::STATUS_IN_PROGRESS,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Homework::STATUS_IN_PROGRESS)
+            ->assertJsonPath('data.completed_at', null);
+
+        $this->patchJson("/api/v1/homeworks/{$homework->id}/progress", [
+            'status' => Homework::STATUS_COMPLETED,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Homework::STATUS_COMPLETED);
+
+        $this->assertDatabaseHas('homeworks', [
+            'id' => $homework->id,
+            'status' => Homework::STATUS_COMPLETED,
+            'completed_at' => '2026-06-15 12:00:00',
+        ]);
+    }
+
+    public function test_student_cannot_review_homework(): void
+    {
+        Sanctum::actingAs($this->student);
+
+        $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
+
+        $this->patchJson("/api/v1/homeworks/{$homework->id}/review", [
+            'teacher_feedback' => 'Reviewed.',
+        ])
+            ->assertForbidden();
+    }
+
+    public function test_teacher_can_review_homework_for_assigned_students(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        Sanctum::actingAs($this->teacher);
+
+        $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
+
+        $this->patchJson("/api/v1/homeworks/{$homework->id}/review", [
+            'teacher_feedback' => 'Good work. Review the last two examples.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Homework::STATUS_REVIEWED)
+            ->assertJsonPath('data.teacher_feedback', 'Good work. Review the last two examples.');
+
+        $this->assertDatabaseHas('homeworks', [
+            'id' => $homework->id,
+            'status' => Homework::STATUS_REVIEWED,
+            'teacher_feedback' => 'Good work. Review the last two examples.',
+            'reviewed_at' => '2026-06-15 12:00:00',
+        ]);
+    }
+
+    public function test_teacher_cannot_review_homework_for_unrelated_students(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $homework = $this->createHomework($this->otherStudent, $this->otherTeacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
+
+        $this->patchJson("/api/v1/homeworks/{$homework->id}/review", [
+            'teacher_feedback' => 'Reviewed.',
+        ])
+            ->assertForbidden();
+    }
+
+    public function test_overdue_tracking_does_not_overwrite_completed_or_reviewed_homework(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        Sanctum::actingAs($this->admin);
+
+        $assigned = $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-01', '2026-06-01 09:00:00');
+        $completed = $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-01', '2026-06-01 10:00:00');
+        $reviewed = $this->createHomework($this->student, $this->teacher, Homework::STATUS_REVIEWED, '2026-06-01', '2026-06-01 11:00:00');
+
+        $this->getJson('/api/v1/admin/homeworks/summary')
+            ->assertOk()
+            ->assertJsonPath('data.summary.total_assigned', 3)
+            ->assertJsonPath('data.summary.overdue_count', 1)
+            ->assertJsonPath('data.summary.completed_count', 1)
+            ->assertJsonPath('data.summary.reviewed_count', 1);
+
+        $this->assertDatabaseHas('homeworks', ['id' => $assigned->id, 'status' => Homework::STATUS_ASSIGNED]);
+        $this->assertDatabaseHas('homeworks', ['id' => $completed->id, 'status' => Homework::STATUS_COMPLETED]);
+        $this->assertDatabaseHas('homeworks', ['id' => $reviewed->id, 'status' => Homework::STATUS_REVIEWED]);
+    }
+
+    public function test_homework_linked_to_lesson_and_student_is_returned_correctly(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $lesson = $this->createLesson($this->student, $this->teacher);
+        $matchingHomework = Homework::factory()->create([
+            'lesson_id' => $lesson->id,
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Linked lesson worksheet',
+            'status' => Homework::STATUS_ASSIGNED,
+        ]);
+        $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-20', '2026-06-01 09:00:00');
+
+        $this->getJson('/api/v1/homeworks?lesson_id='.$lesson->id.'&student_id='.$this->student->id.'&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matchingHomework->id)
+            ->assertJsonPath('data.0.lesson.id', $lesson->id)
+            ->assertJsonPath('data.0.lesson.student_id', $this->student->id)
+            ->assertJsonPath('data.0.student.id', $this->student->id)
+            ->assertJsonPath('data.0.teacher.id', $this->teacher->id);
+    }
+
     public function test_admin_can_view_homework_summary_trends_with_filters(): void
     {
         Carbon::setTestNow('2026-06-15 12:00:00');

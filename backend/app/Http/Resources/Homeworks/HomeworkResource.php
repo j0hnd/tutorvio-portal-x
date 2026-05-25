@@ -22,6 +22,9 @@ class HomeworkResource extends JsonResource
             'instructions' => $this->resource->instructions,
             'due_date' => $this->resource->due_date?->toDateString(),
             'status' => $this->resource->status,
+            'teacher_feedback' => $this->resource->teacher_feedback,
+            'completed_at' => $this->resource->completed_at,
+            'reviewed_at' => $this->resource->reviewed_at,
             'links' => $this->resource->attachment_links ?? [],
             'attachment_links' => $this->resource->attachment_links ?? [],
             'documents' => $this->whenLoaded(

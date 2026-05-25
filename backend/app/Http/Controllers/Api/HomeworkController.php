@@ -3,19 +3,50 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Homeworks\ReviewHomeworkRequest;
 use App\Http\Requests\Homeworks\StoreHomeworkRequest;
+use App\Http\Requests\Homeworks\UpdateHomeworkProgressRequest;
 use App\Http\Resources\Homeworks\HomeworkResource;
 use App\Models\Homework;
 use App\Models\LearningResource;
 use App\Models\Lesson;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class HomeworkController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        Gate::authorize('viewAny', Homework::class);
+
+        $validated = $request->validate([
+            'lesson_id' => ['sometimes', 'integer', 'exists:lessons,id'],
+            'student_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'status' => ['sometimes', 'string', Rule::in(Homework::STATUSES)],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return response()->json(
+            $this->queryForUser($request->user())
+                ->when($validated['lesson_id'] ?? null, fn (Builder $query, int $lessonId) => $query->where('lesson_id', $lessonId))
+                ->when($validated['student_id'] ?? null, fn (Builder $query, int $studentId) => $query->where('student_id', $studentId))
+                ->when($validated['teacher_id'] ?? null, fn (Builder $query, int $teacherId) => $query->where('teacher_id', $teacherId))
+                ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
+                ->orderByRaw('due_date IS NULL')
+                ->orderBy('due_date')
+                ->orderByDesc('created_at')
+                ->paginate($validated['per_page'] ?? 25)
+                ->through(fn (Homework $homework) => new HomeworkResource($homework))
+        );
+    }
+
     public function store(StoreHomeworkRequest $request): JsonResponse
     {
         Gate::authorize('create', Homework::class);
@@ -66,6 +97,46 @@ class HomeworkController extends Controller
         return response()->json([
             'data' => new HomeworkResource($homework->load($this->relations())),
         ], 201);
+    }
+
+    public function show(Homework $homework): JsonResponse
+    {
+        Gate::authorize('view', $homework);
+
+        return response()->json([
+            'data' => new HomeworkResource($homework->load($this->relations())),
+        ]);
+    }
+
+    public function updateProgress(UpdateHomeworkProgressRequest $request, Homework $homework): JsonResponse
+    {
+        Gate::authorize('updateProgress', $homework);
+
+        $status = $request->validated('status');
+
+        $homework->forceFill([
+            'status' => $status,
+            'completed_at' => $status === Homework::STATUS_COMPLETED ? now() : null,
+        ])->save();
+
+        return response()->json([
+            'data' => new HomeworkResource($homework->refresh()->load($this->relations())),
+        ]);
+    }
+
+    public function review(ReviewHomeworkRequest $request, Homework $homework): JsonResponse
+    {
+        Gate::authorize('review', $homework);
+
+        $homework->forceFill([
+            'status' => Homework::STATUS_REVIEWED,
+            'teacher_feedback' => $request->validated('teacher_feedback'),
+            'reviewed_at' => now(),
+        ])->save();
+
+        return response()->json([
+            'data' => new HomeworkResource($homework->refresh()->load($this->relations())),
+        ]);
     }
 
     private function assertStudentUser(User $student): void
@@ -149,6 +220,17 @@ class HomeworkController extends Controller
                 'documents' => 'One or more selected documents are not accessible to this teacher.',
             ]);
         }
+    }
+
+    /**
+     * @return Builder<Homework>
+     */
+    private function queryForUser(User $user): Builder
+    {
+        return Homework::query()
+            ->with($this->relations())
+            ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('teacher_id', $user->id))
+            ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('student_id', $user->id));
     }
 
     /**
