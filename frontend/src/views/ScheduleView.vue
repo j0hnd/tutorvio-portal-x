@@ -944,7 +944,7 @@ function handleCreateLesson(payload: {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--tv-space-4);
-  align-items: start;
+  align-items: stretch;
   min-width: 0;
   flex: 1;
   min-height: 0;
@@ -1158,7 +1158,7 @@ function handleCreateLesson(payload: {
   background: var(--tv-bg-card); border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md); overflow: hidden;
   display: flex; flex-direction: column; gap: 0;
-  max-height: 700px; overflow-y: auto;
+  height: 100%; overflow-y: auto;
 }
 
 .sv-panel__header {
