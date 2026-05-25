@@ -28,7 +28,7 @@ return new class extends Migration
             $table->index('assigned_by');
             $table->index('status');
             $table->index(['student_id', 'status']);
-            $table->index(['course_program_id', 'status']);
+            $table->index(['course_program_id', 'status'], 'course_program_student_status_index');
         });
     }
 
