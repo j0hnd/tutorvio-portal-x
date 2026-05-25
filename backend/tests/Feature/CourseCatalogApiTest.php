@@ -200,6 +200,111 @@ class CourseCatalogApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_assign_list_view_and_remove_students_from_course_programs(): void
+    {
+        $courseType = CourseType::factory()->create();
+        $program = CourseProgram::factory()->create(['course_type_id' => $courseType->id]);
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $secondStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $secondStudent->assignRole('student');
+
+        $this->postJson("/api/v1/course-programs/{$program->id}/students", [
+            'student_ids' => [$student->id, $secondStudent->id],
+            'start_date' => '2026-06-01',
+            'notes' => 'Initial placement completed.',
+        ])
+            ->assertCreated()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.course_program_id', $program->id)
+            ->assertJsonPath('data.0.assigned_by', $this->admin->id)
+            ->assertJsonPath('data.0.status', 'active')
+            ->assertJsonPath('data.0.start_date', '2026-06-01T00:00:00.000000Z')
+            ->assertJsonPath('data.0.notes', 'Initial placement completed.');
+
+        $this->assertDatabaseHas('course_program_student_assignments', [
+            'course_program_id' => $program->id,
+            'student_id' => $student->id,
+            'assigned_by' => $this->admin->id,
+            'status' => 'active',
+            'start_date' => '2026-06-01 00:00:00',
+            'notes' => 'Initial placement completed.',
+        ]);
+
+        $this->getJson("/api/v1/course-programs/{$program->id}/students")
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.student.status', User::STATUS_ACTIVE);
+
+        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.course_program.id', $program->id)
+            ->assertJsonPath('data.0.course_program.course_type.id', $courseType->id);
+
+        $this->deleteJson("/api/v1/course-programs/{$program->id}/students/{$student->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('course_program_student_assignments', [
+            'course_program_id' => $program->id,
+            'student_id' => $student->id,
+            'status' => 'removed',
+        ]);
+
+        $this->getJson("/api/v1/course-programs/{$program->id}/students")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.student_id', $secondStudent->id);
+    }
+
+    public function test_course_program_student_assignment_prevents_duplicate_active_assignment_but_allows_multiple_courses(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $firstProgram = CourseProgram::factory()->create();
+        $secondProgram = CourseProgram::factory()->create();
+
+        $this->postJson("/api/v1/course-programs/{$firstProgram->id}/students", [
+            'student_ids' => [$student->id],
+        ])->assertCreated();
+
+        $this->postJson("/api/v1/course-programs/{$firstProgram->id}/students", [
+            'student_ids' => [$student->id],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('student_ids');
+
+        $this->postJson("/api/v1/course-programs/{$secondProgram->id}/students", [
+            'student_ids' => [$student->id],
+        ])->assertCreated();
+
+        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_course_program_assignment_requires_student_role_and_admin_access(): void
+    {
+        $program = CourseProgram::factory()->create();
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $this->postJson("/api/v1/course-programs/{$program->id}/students", [
+            'student_ids' => [$teacher->id],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('student_ids');
+
+        Sanctum::actingAs($teacher);
+
+        $this->postJson("/api/v1/course-programs/{$program->id}/students", [
+            'student_ids' => [$teacher->id],
+        ])->assertForbidden();
+
+        $this->getJson("/api/v1/course-programs/{$program->id}/students")
+            ->assertForbidden();
+    }
+
     public function test_course_program_validation_rejects_missing_fields_and_duplicate_active_titles(): void
     {
         $courseType = CourseType::factory()->create();

@@ -132,6 +132,11 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function courseProgramAssignments(): HasMany
+    {
+        return $this->hasMany(CourseProgramStudentAssignment::class, 'student_id');
+    }
+
     public function createdCourseTypes(): HasMany
     {
         return $this->hasMany(CourseType::class, 'created_by');

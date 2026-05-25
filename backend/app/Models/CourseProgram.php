@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CourseProgram extends Model
 {
@@ -56,6 +57,11 @@ class CourseProgram extends Model
         return $this->belongsToMany(LearningResource::class, 'course_program_learning_resource')
             ->withPivot(['attached_by', 'attached_at'])
             ->withTimestamps();
+    }
+
+    public function studentAssignments(): HasMany
+    {
+        return $this->hasMany(CourseProgramStudentAssignment::class);
     }
 
     public function createdBy(): BelongsTo

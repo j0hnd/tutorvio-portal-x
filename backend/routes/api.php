@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\CourseCatalog\CourseProgramController;
+use App\Http\Controllers\Api\CourseCatalog\CourseProgramStudentAssignmentController;
 use App\Http\Controllers\Api\CourseCatalog\CourseTypeController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\HomeworkController;
@@ -88,8 +89,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/course-programs/{courseProgram}/archive', [CourseProgramController::class, 'archive']);
         Route::post('/course-programs/{courseProgram}/learning-resources', [CourseProgramController::class, 'attachLearningResources']);
         Route::delete('/course-programs/{courseProgram}/learning-resources/{learningResource}', [CourseProgramController::class, 'detachLearningResource']);
+        Route::get('/course-programs/{courseProgram}/students', [CourseProgramStudentAssignmentController::class, 'courseStudents']);
+        Route::post('/course-programs/{courseProgram}/students', [CourseProgramStudentAssignmentController::class, 'assignStudents']);
+        Route::delete('/course-programs/{courseProgram}/students/{student}', [CourseProgramStudentAssignmentController::class, 'removeStudent']);
         Route::apiResource('course-programs', CourseProgramController::class)
             ->parameters(['course-programs' => 'courseProgram']);
+        Route::get('/students/{student}/course-programs', [CourseProgramStudentAssignmentController::class, 'studentCourses']);
 
         Route::prefix('admin')->middleware(['role:admin', 'permission:admin.access'])->group(function () {
             Route::get('/access', function () {
