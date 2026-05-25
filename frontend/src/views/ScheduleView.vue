@@ -26,10 +26,15 @@
         <div class="sv-period-selects">
           <TVSelect v-model="selectedMonth" :options="monthOptions" class="sv-period-tvselect" />
           <TVSelect v-model="selectedYear"  :options="yearOptions"  class="sv-period-tvselect" />
+          <div class="sv-view-switcher" role="group" aria-label="Calendar view">
+            <button v-for="v in VIEWS" :key="v.key"
+              :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
+              type="button" @click="switchView(v.key)">{{ v.label }}</button>
+          </div>
         </div>
       </div>
 
-      <!-- Right: teacher filter + view switcher -->
+      <!-- Right: teacher filter + action buttons -->
       <div class="sv-header__right">
         <TVSelect
           v-if="showTeacherFilter"
@@ -54,11 +59,6 @@
             Add Lesson
           </button>
         </template>
-        <div class="sv-view-switcher" role="group" aria-label="Calendar view">
-          <button v-for="v in VIEWS" :key="v.key"
-            :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
-            type="button" @click="switchView(v.key)">{{ v.label }}</button>
-        </div>
       </div>
     </div>
 
