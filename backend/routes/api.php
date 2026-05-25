@@ -60,6 +60,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/lessons/{lesson}/join', LessonJoinController::class);
         Route::get('/lessons/{lesson}/lesson-notes', [LessonNoteController::class, 'byLesson']);
         Route::get('/students/{student}/lesson-notes', [LessonNoteController::class, 'byStudent']);
+        Route::get('/students/{student}/progress-summary', [StudentProgressRecordController::class, 'summary']);
+        Route::get('/students/{student}/progress-timeline', [StudentProgressRecordController::class, 'timeline']);
         Route::get('/lesson-notes/pending', [LessonNoteController::class, 'pending']);
         Route::apiResource('lesson-notes', LessonNoteController::class)
             ->only(['index', 'store', 'show', 'update'])
