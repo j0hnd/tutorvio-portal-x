@@ -421,6 +421,18 @@ const MOCK_NOTES_INITIAL: LessonNote[] = [
   { id: 'n8', lessonId: 'ldemo2', content: 'Sofia completed a full IELTS Speaking mock test. Band 6.5 estimated. Key areas to improve: topic development in Part 2 and using more complex vocabulary. Will assign speaking recordings for homework.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-25T17:50:00Z' },
   { id: 'n9', lessonId: 'ldemo3', content: 'Trial session with Rico. He has strong listening comprehension and a good active vocabulary for business contexts. Recommend starting with Business English intermediate track.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-25T18:20:00Z' },
   { id: 'n10', lessonId: 'ldemo3', content: 'Internal: Rico is a strong candidate for fast-track. Consider pairing with Miguel for continuity since he already has rapport.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: false, createdAt: '2026-05-25T18:25:00Z' },
+  // James Reyes — additional lessons
+  { id: 'n11', lessonId: 'l2', content: 'Lea worked on phrasal verbs in workplace contexts. Good retention from last session. Assigned 10 fill-in-the-blank exercises for home practice.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-18T15:05:00Z' },
+  { id: 'n12', lessonId: 'l3', content: 'Carlos was absent — no prior notice. Reminder sent via email. Will discuss rescheduling at next available slot.', authorId: 'u2', authorName: 'James Reyes', isPublic: false, createdAt: '2026-05-19T10:25:00Z' },
+  { id: 'n13', lessonId: 'l8', content: 'Emma worked on executive summary writing and key business report phrases. Excellent understanding of structure. Next session: stakeholder presentation language.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-25T10:05:00Z' },
+  { id: 'n14', lessonId: 'l8', content: 'Internal: Emma is consistently top of class. Flag for testimonial request.', authorId: 'u2', authorName: 'James Reyes', isPublic: false, createdAt: '2026-05-25T10:07:00Z' },
+  // Sarah Lim — additional lessons
+  { id: 'n15', lessonId: 'ls2', content: 'Juan completed Academic Writing Task 1 — line graphs. Score improved to band 6.0. Main issue: incorrect use of comparative language. Drilled contrast connectors.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-19T10:05:00Z' },
+  { id: 'n16', lessonId: 'ls5', content: 'Juan focused on IELTS Listening sections 3 and 4 — academic discussions and monologues. Strong section 3 performance. Section 4 needs work on note completion tasks.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-25T11:05:00Z' },
+  // Miguel Santos — additional lessons
+  { id: 'n17', lessonId: 'lm3', content: 'Rico worked through advanced negotiation phrases and cross-cultural business communication. Role-played a multi-party deal scenario. Very strong performance — ready for advanced module.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-20T10:00:00Z' },
+  { id: 'n18', lessonId: 'lm4', content: 'Lia focused on small-talk and relationship-building language for business contexts. Practiced 3 different opening scenarios. Homework: record a 2-minute self-introduction.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-21T11:05:00Z' },
+  { id: 'n19', lessonId: 'lm6', content: 'Rescheduled session with Lia. Focused on conversational fluency — speed and natural phrasing improved noticeably. Recommended daily 15-min podcast shadowing.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-25T10:05:00Z' },
 ]
 
 const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
@@ -434,6 +446,14 @@ const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
   { lessonId: 'lm2', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student did not show. Waiting for response.', markedAt: '2026-05-19T10:30:00Z', markedById: 'u7' },
   { lessonId: 'ldemo1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T17:05:00Z', markedById: 'u2' },
   { lessonId: 'ldemo2', teacherStatus: 'PRESENT', studentStatus: 'LATE', absenceReason: 'Student joined 8 minutes late due to internet issues.', markedAt: '2026-05-25T18:50:00Z', markedById: 'u6' },
+  { lessonId: 'l2', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T15:02:00Z', markedById: 'u2' },
+  { lessonId: 'l8', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T10:02:00Z', markedById: 'u2' },
+  { lessonId: 'ls2', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-19T09:02:00Z', markedById: 'u6' },
+  { lessonId: 'ls3', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student cancelled 2 hours before session. No makeup scheduled yet.', markedAt: '2026-05-20T10:05:00Z', markedById: 'u6' },
+  { lessonId: 'ls5', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T10:02:00Z', markedById: 'u6' },
+  { lessonId: 'lm3', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-20T09:02:00Z', markedById: 'u7' },
+  { lessonId: 'lm4', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-21T10:02:00Z', markedById: 'u7' },
+  { lessonId: 'lm6', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T09:02:00Z', markedById: 'u7' },
 ]
 
 const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
@@ -447,6 +467,14 @@ const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
   { id: 'm8', lessonId: 'ldemo2', title: 'IELTS Speaking Band Descriptors', type: 'PDF', url: 'https://materials.tutorvio.com/files/ielts-speaking-bands.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-25T17:43:00Z' },
   { id: 'm9', lessonId: 'ldemo2', title: 'Speaking Part 2 — Topic Cards Set B', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/speaking-p2-setb.docx', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-25T17:44:00Z' },
   { id: 'm10', lessonId: 'ldemo3', title: 'Business English Placement Overview', type: 'LINK', url: 'https://materials.tutorvio.com/links/be-placement', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-25T18:10:00Z' },
+  { id: 'm11', lessonId: 'l2', title: 'Phrasal Verbs in the Workplace — Exercise Set', type: 'PDF', url: 'https://materials.tutorvio.com/files/phrasal-verbs-work.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-05-18T13:55:00Z' },
+  { id: 'm12', lessonId: 'l8', title: 'Executive Summary Writing Guide', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/exec-summary.docx', uploadedByName: 'James Reyes', uploadedAt: '2026-05-25T09:00:00Z' },
+  { id: 'm13', lessonId: 'l8', title: 'Stakeholder Presentation Phrases', type: 'PDF', url: 'https://materials.tutorvio.com/files/stakeholder-phrases.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-05-25T09:02:00Z' },
+  { id: 'm14', lessonId: 'ls2', title: 'IELTS Writing Task 1 — Graphs & Charts', type: 'PDF', url: 'https://materials.tutorvio.com/files/ielts-writing-t1.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-19T08:50:00Z' },
+  { id: 'm15', lessonId: 'ls5', title: 'IELTS Listening Practice — Sections 3 & 4', type: 'PDF', url: 'https://materials.tutorvio.com/files/ielts-listening-34.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-25T09:45:00Z' },
+  { id: 'm16', lessonId: 'lm3', title: 'Advanced Negotiation Language — Module 2', type: 'PDF', url: 'https://materials.tutorvio.com/files/negotiation-m2.pdf', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-20T08:55:00Z' },
+  { id: 'm17', lessonId: 'lm4', title: 'Small Talk & Business Relationship Phrases', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/small-talk.docx', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-21T09:55:00Z' },
+  { id: 'm18', lessonId: 'lm6', title: 'Conversational Fluency — Podcast List', type: 'LINK', url: 'https://materials.tutorvio.com/links/fluency-podcasts', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-25T09:00:00Z' },
 ]
 
 const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
@@ -458,6 +486,12 @@ const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
   { id: 'hw6', lessonId: 'lm1', title: 'Write a post-negotiation follow-up email', description: 'Write a professional follow-up email after a supplier negotiation. Include deal summary, agreed terms, and next steps. 200+ words.', dueDate: '2026-05-22', studentId: 'u17', studentName: 'Rico Valdez', status: 'REVIEWED', feedback: 'Well done! Clear structure and professional tone. A few vocabulary suggestions noted.', grade: 'A-' },
   { id: 'hw7', lessonId: 'ldemo1', title: 'Write 3 polite request phrases using present perfect', description: 'Using today\'s vocabulary, write 3 sentences making polite business requests. E.g. "I was wondering if you could…" Submit via the student portal before the next session.', dueDate: '2026-05-28', studentId: 'u10', studentName: 'Lea Mendoza', status: 'PENDING' },
   { id: 'hw8', lessonId: 'ldemo2', title: 'IELTS Speaking — 3-minute Part 2 recording', description: 'Choose any topic from the Topic Cards Set B. Record a 3-minute Part 2 response. Focus on topic development and complex vocabulary. Submit audio file via the student portal.', dueDate: '2026-05-29', studentId: 'u14', studentName: 'Sofia Cruz', status: 'PENDING' },
+  { id: 'hw9', lessonId: 'l2', title: 'Phrasal verbs — 10 fill-in-the-blank exercises', description: 'Complete the exercise set from the PDF. Write 5 original sentences using 5 different phrasal verbs from today\'s lesson. Submit via student portal.', dueDate: '2026-05-21', studentId: 'u10', studentName: 'Lea Mendoza', status: 'REVIEWED', feedback: 'Great work! All exercises correct. Original sentences show good understanding of context.', grade: 'A' },
+  { id: 'hw10', lessonId: 'l8', title: 'Write an executive summary (300 words)', description: 'Choose any business scenario (product launch, quarterly review, etc.) and write a 300-word executive summary. Use today\'s guide as your template. Submit before next session.', dueDate: '2026-05-29', studentId: 'u1', studentName: 'Emma Santos', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw10' },
+  { id: 'hw11', lessonId: 'ls2', title: 'IELTS Writing Task 1 — 2 graph descriptions', description: 'Complete exercises 3 and 4 from the Writing Task 1 PDF. Write full responses (minimum 150 words each). Focus on accurate comparative language and proper sequencing.', dueDate: '2026-05-23', studentId: 'u15', studentName: 'Juan Ramos', status: 'REVIEWED', feedback: 'Good improvement on comparative language! Exercise 3 was excellent. Exercise 4 needed more specific data reference.', grade: 'B' },
+  { id: 'hw12', lessonId: 'ls5', title: 'IELTS Listening Section 4 practice x2', description: 'Complete listening exercises for sections 4a and 4b from the Listening Practice PDF. Focus on note completion accuracy. Submit answers via portal.', dueDate: '2026-05-29', studentId: 'u15', studentName: 'Juan Ramos', status: 'PENDING' },
+  { id: 'hw13', lessonId: 'lm3', title: 'Multi-party negotiation summary memo', description: 'Write a 250-word summary memo of the role-play negotiation from today\'s session. Include agreed terms, outstanding issues, and proposed next steps. Professional tone required.', dueDate: '2026-05-23', studentId: 'u17', studentName: 'Rico Valdez', status: 'REVIEWED', feedback: 'Outstanding memo. Professional tone, clear structure, and excellent use of advanced vocabulary. Ready for advanced module.', grade: 'A+' },
+  { id: 'hw14', lessonId: 'lm4', title: 'Record a 2-minute self-introduction', description: 'Record a 2-minute business self-introduction as if meeting a new client for the first time. Include: name, role, company background, and 1 recent achievement. Submit audio file.', dueDate: '2026-05-24', studentId: 'u18', studentName: 'Lia Torres', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw14' },
 ]
 
 // ---- Store ----
