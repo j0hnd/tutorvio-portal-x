@@ -302,7 +302,7 @@
                   <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
                   <path d="M7 4.5V7l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
                 </svg>
-                <span class="sv-panel__slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+                <span class="sv-panel__slot-time">{{ formatSlotRange(slot.startTime, slot.endTime) }}</span>
                 <span class="sv-panel__slot-teacher">{{ slot.teacherName }}</span>
                 <span v-if="canBook" class="sv-panel__slot-book">Book →</span>
                 <span v-else-if="canManageSlots" class="sv-panel__slot-book">Remove</span>
@@ -494,6 +494,10 @@ function formatTime(iso: string): string {
   const base = h === 0 ? 12 : h > 12 ? h - 12 : h
   const suffix = h < 12 ? 'am' : 'pm'
   return m ? `${base}:${String(m).padStart(2, '0')}${suffix}` : `${base}${suffix}`
+}
+
+function formatSlotRange(start: string, end: string): string {
+  return `${formatSlotHour(start)} – ${formatSlotHour(end)}`
 }
 
 function formatSlotHour(hhmm: string): string {
