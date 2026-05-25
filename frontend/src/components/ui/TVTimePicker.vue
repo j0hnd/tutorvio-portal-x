@@ -10,11 +10,12 @@
 
     <!-- Trigger -->
     <button
+      ref="triggerRef"
       :id="uid"
       type="button"
       class="tvtp__trigger"
       :aria-expanded="isOpen"
-      :aria-haspopup="'listbox'"
+      :aria-haspopup="'dialog'"
       :aria-labelledby="label ? `${uid}-label ${uid}` : undefined"
       :aria-describedby="error ? `${uid}-error` : hint ? `${uid}-hint` : undefined"
       :aria-invalid="!!error"
@@ -34,63 +35,65 @@
       </svg>
     </button>
 
-    <!-- Dropdown -->
-    <Transition name="dropdown">
-      <div v-if="isOpen" class="tvtp__dropdown" role="listbox" :aria-label="label ?? 'Time picker'">
-        <div class="tvtp__cols">
+    <!-- Dropdown — teleported to body to escape overflow clipping -->
+    <Teleport to="body">
+      <Transition name="tvtp-drop">
+        <div
+          v-if="isOpen"
+          ref="dropdownRef"
+          class="tvtp__dropdown"
+          :style="dropdownStyle"
+          role="dialog"
+          :aria-label="label ?? 'Time picker'"
+        >
+          <div class="tvtp__spinners">
 
-          <!-- Hours -->
-          <div class="tvtp__col" ref="hourColRef">
-            <button
-              v-for="h in hours"
-              :key="h"
-              type="button"
-              :class="['tvtp__slot', { 'tvtp__slot--selected': h === selectedHour }]"
-              :aria-selected="h === selectedHour"
-              @click="pickHour(h)"
-            >
-              {{ String(h).padStart(2, '0') }}
-            </button>
+            <!-- Hour spinner -->
+            <div class="tvtp__spinner">
+              <button type="button" class="tvtp__arrow" aria-label="Hour up"   @click="adjustHour(1)">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <span class="tvtp__digit">{{ String(displayHour).padStart(2, '0') }}</span>
+              <button type="button" class="tvtp__arrow" aria-label="Hour down" @click="adjustHour(-1)">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+
+            <span class="tvtp__colon">:</span>
+
+            <!-- Minute spinner -->
+            <div class="tvtp__spinner">
+              <button type="button" class="tvtp__arrow" aria-label="Minute up"   @click="adjustMin(1)">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <span class="tvtp__digit">{{ String(selectedMin).padStart(2, '0') }}</span>
+              <button type="button" class="tvtp__arrow" aria-label="Minute down" @click="adjustMin(-1)">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+
+            <!-- AM / PM toggle -->
+            <div class="tvtp__ampm-col">
+              <button
+                type="button"
+                :class="['tvtp__ampm-btn', { 'tvtp__ampm-btn--active': period === 'AM' }]"
+                @click="setPeriod('AM')"
+              >AM</button>
+              <button
+                type="button"
+                :class="['tvtp__ampm-btn', { 'tvtp__ampm-btn--active': period === 'PM' }]"
+                @click="setPeriod('PM')"
+              >PM</button>
+            </div>
+
           </div>
 
-          <span class="tvtp__sep">:</span>
-
-          <!-- Minutes -->
-          <div class="tvtp__col" ref="minColRef">
-            <button
-              v-for="m in minutes"
-              :key="m"
-              type="button"
-              :class="['tvtp__slot', { 'tvtp__slot--selected': m === selectedMin }]"
-              :aria-selected="m === selectedMin"
-              @click="pickMin(m)"
-            >
-              {{ String(m).padStart(2, '0') }}
-            </button>
+          <div class="tvtp__footer">
+            <button type="button" class="tvtp__done" @click="close">Done</button>
           </div>
-
-          <!-- AM/PM -->
-          <div class="tvtp__col tvtp__col--ampm">
-            <button
-              type="button"
-              :class="['tvtp__slot', { 'tvtp__slot--selected': period === 'AM' }]"
-              @click="setPeriod('AM')"
-            >AM</button>
-            <button
-              type="button"
-              :class="['tvtp__slot', { 'tvtp__slot--selected': period === 'PM' }]"
-              @click="setPeriod('PM')"
-            >PM</button>
-          </div>
-
         </div>
-
-        <!-- Done -->
-        <div class="tvtp__footer">
-          <button type="button" class="tvtp__done" @click="isOpen = false">Done</button>
-        </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
 
     <p v-if="error" :id="`${uid}-error`" class="tvtp__message tvtp__message--error" role="alert">{{ error }}</p>
     <p v-else-if="hint" :id="`${uid}-hint`" class="tvtp__message tvtp__message--hint">{{ hint }}</p>
@@ -101,35 +104,44 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
 const props = withDefaults(defineProps<{
-  modelValue?: string   // HH:MM (24h)
+  modelValue?: string   // HH:MM 24h
   label?: string
   placeholder?: string
-  step?: number         // minutes between slots, default 30
-  minHour?: number      // 0–23
-  maxHour?: number      // 0–23
+  step?: number         // minute step, default 15
+  minHour?: number
+  maxHour?: number
   disabled?: boolean
   required?: boolean
   error?: string
   hint?: string
   id?: string
-}>(), { step: 30, minHour: 0, maxHour: 23, disabled: false, required: false })
+}>(), { step: 15, minHour: 0, maxHour: 23, disabled: false, required: false })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   blur: []
 }>()
 
-const uid = computed(() => props.id ?? `tvtp-${Math.random().toString(36).slice(2, 9)}`)
-
+const uid         = computed(() => props.id ?? `tvtp-${Math.random().toString(36).slice(2, 9)}`)
 const isOpen      = ref(false)
 const wrapperRef  = ref<HTMLElement | null>(null)
-const hourColRef  = ref<HTMLElement | null>(null)
-const minColRef   = ref<HTMLElement | null>(null)
+const triggerRef  = ref<HTMLElement | null>(null)
+const dropdownRef = ref<HTMLElement | null>(null)
+const dropdownStyle = ref<Record<string, string>>({})
 
-// Parse current value
-const selectedHour = ref(8)
+// Internal 12h state
+const selectedHour = ref(9)   // 1–12
 const selectedMin  = ref(0)
 const period       = ref<'AM' | 'PM'>('AM')
+
+const displayHour = computed(() => selectedHour.value)
+
+// Minute slots derived from step
+const minuteSlots = computed(() => {
+  const slots: number[] = []
+  for (let m = 0; m < 60; m += props.step) slots.push(m)
+  return slots
+})
 
 function parseValue(val: string | undefined) {
   if (!val) return
@@ -137,37 +149,37 @@ function parseValue(val: string | undefined) {
   const h = parseInt(hStr, 10)
   const m = parseInt(mStr, 10)
   selectedHour.value = h === 0 ? 12 : h > 12 ? h - 12 : h
-  selectedMin.value  = m
-  period.value       = h < 12 ? 'AM' : 'PM'
+  // snap minute to nearest slot
+  const snapped = minuteSlots.value.reduce((prev, cur) =>
+    Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev, minuteSlots.value[0])
+  selectedMin.value = snapped
+  period.value = h < 12 ? 'AM' : 'PM'
 }
 
 watch(() => props.modelValue, parseValue, { immediate: true })
+watch(() => props.step, () => parseValue(props.modelValue))
 
-// Hours: 1–12
-const hours = computed(() => Array.from({ length: 12 }, (_, i) => i + 1))
-
-// Minutes: 0, step, step*2 … up to 59
-const minutes = computed(() => {
-  const slots: number[] = []
-  for (let m = 0; m < 60; m += props.step) slots.push(m)
-  return slots
-})
-
-// Convert to 24h for emit
 function emit24h() {
   let h24 = selectedHour.value % 12
   if (period.value === 'PM') h24 += 12
-  const val = `${String(h24).padStart(2, '0')}:${String(selectedMin.value).padStart(2, '0')}`
-  emit('update:modelValue', val)
+  emit('update:modelValue', `${String(h24).padStart(2, '0')}:${String(selectedMin.value).padStart(2, '0')}`)
 }
 
-function pickHour(h: number) {
+function adjustHour(dir: 1 | -1) {
+  let h = selectedHour.value + dir
+  if (h > 12) h = 1
+  if (h < 1)  h = 12
   selectedHour.value = h
   emit24h()
 }
 
-function pickMin(m: number) {
-  selectedMin.value = m
+function adjustMin(dir: 1 | -1) {
+  const slots = minuteSlots.value
+  const idx = slots.indexOf(selectedMin.value)
+  let next = idx + dir
+  if (next >= slots.length) { next = 0;              adjustHour(1)  }
+  if (next < 0)             { next = slots.length-1; adjustHour(-1) }
+  selectedMin.value = slots[next]
   emit24h()
 }
 
@@ -182,40 +194,54 @@ const displayValue = computed(() => {
   const h = parseInt(hStr, 10)
   const m = parseInt(mStr, 10)
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  const ampm = h < 12 ? 'AM' : 'PM'
-  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+  return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 })
+
+function positionDropdown() {
+  const trigger = triggerRef.value
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  const dropH = 160 // approx dropdown height
+  const top = spaceBelow >= dropH ? rect.bottom + 4 : rect.top - dropH - 4
+  dropdownStyle.value = {
+    position: 'fixed',
+    top:  `${top}px`,
+    left: `${rect.left}px`,
+    width: `${Math.max(rect.width, 220)}px`,
+    zIndex: '1200',
+  }
+}
 
 async function toggle() {
   if (props.disabled) return
   isOpen.value = !isOpen.value
   if (isOpen.value) {
     await nextTick()
-    scrollToSelected()
+    positionDropdown()
   } else {
     emit('blur')
   }
 }
 
-function scrollToSelected() {
-  const scrollCol = (colRef: HTMLElement | null, selectedIdx: number) => {
-    if (!colRef) return
-    const buttons = colRef.querySelectorAll<HTMLButtonElement>('.tvtp__slot')
-    const btn = buttons[selectedIdx]
-    if (btn) btn.scrollIntoView({ block: 'center', behavior: 'instant' })
-  }
-  scrollCol(hourColRef.value, selectedHour.value - 1)
-  scrollCol(minColRef.value, minutes.value.indexOf(selectedMin.value))
+function close() {
+  isOpen.value = false
+  emit('blur')
 }
 
 function handleTriggerKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
-  else if (e.key === 'Escape') { isOpen.value = false; emit('blur') }
+  else if (e.key === 'Escape') { close() }
 }
 
 function handleClickOutside(e: MouseEvent) {
-  if (wrapperRef.value && !wrapperRef.value.contains(e.target as Node)) {
-    if (isOpen.value) { isOpen.value = false; emit('blur') }
+  const target = e.target as Node
+  if (
+    isOpen.value &&
+    wrapperRef.value && !wrapperRef.value.contains(target) &&
+    dropdownRef.value && !dropdownRef.value.contains(target)
+  ) {
+    close()
   }
 }
 
@@ -227,137 +253,36 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 .tvtp-wrap { display: flex; flex-direction: column; gap: var(--tv-space-2); position: relative; }
 
 .tvtp__label {
-  font-size: var(--tv-text-sm);
-  font-weight: var(--tv-font-medium);
-  color: var(--tv-text);
+  font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium); color: var(--tv-text);
   display: flex; align-items: center; gap: var(--tv-space-1);
 }
 .tvtp__required { color: var(--tv-danger); }
 
-/* ── Trigger (mirrors TVSelect trigger) ── */
+/* Trigger — mirrors TVSelect exactly */
 .tvtp__trigger {
-  display: flex;
-  align-items: center;
-  gap: var(--tv-space-2);
-  width: 100%;
+  display: flex; align-items: center; gap: var(--tv-space-2); width: 100%;
   padding: var(--tv-space-2) var(--tv-space-3) var(--tv-space-2) var(--tv-space-4);
-  font-size: var(--tv-text-sm);
-  color: var(--tv-text);
-  background: var(--tv-bg-card);
-  border: 1.5px solid var(--tv-border);
-  border-radius: var(--tv-radius);
-  min-height: 42px;
-  cursor: pointer;
-  text-align: left;
+  font-size: var(--tv-text-sm); color: var(--tv-text); background: var(--tv-bg-card);
+  border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius);
+  min-height: 42px; cursor: pointer; text-align: left;
   transition: border-color var(--tv-transition-fast), box-shadow var(--tv-transition-fast);
 }
 .tvtp__trigger:focus {
-  outline: none;
-  border-color: var(--tv-primary);
+  outline: none; border-color: var(--tv-primary);
   box-shadow: 0 0 0 3px hsla(var(--tv-primary-h), var(--tv-primary-s), var(--tv-primary-l), 0.15);
 }
 .tvtp-wrap--open .tvtp__trigger {
   border-color: var(--tv-primary);
   box-shadow: 0 0 0 3px hsla(var(--tv-primary-h), var(--tv-primary-s), var(--tv-primary-l), 0.15);
 }
-.tvtp-wrap--error .tvtp__trigger { border-color: var(--tv-danger); }
+.tvtp-wrap--error .tvtp__trigger    { border-color: var(--tv-danger); }
 .tvtp-wrap--disabled .tvtp__trigger { background: var(--tv-bg-soft); opacity: 0.6; cursor: not-allowed; }
 
 .tvtp__clock-icon { color: var(--tv-text-muted); flex-shrink: 0; }
 .tvtp__value { flex: 1; }
 .tvtp__value--placeholder { color: var(--tv-text-muted); }
-.tvtp__chevron {
-  color: var(--tv-text-muted); flex-shrink: 0;
-  transition: transform 200ms ease, color 150ms ease;
-}
+.tvtp__chevron { color: var(--tv-text-muted); flex-shrink: 0; transition: transform 200ms ease, color 150ms ease; }
 .tvtp-wrap--open .tvtp__chevron { transform: rotate(180deg); color: var(--tv-primary); }
-
-/* ── Dropdown ── */
-.tvtp__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: var(--tv-z-dropdown);
-  background: var(--tv-bg-card);
-  border: 1.5px solid var(--tv-primary);
-  border-radius: var(--tv-radius);
-  box-shadow: var(--tv-shadow-md);
-  width: 200px;
-}
-
-.tvtp__cols {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: var(--tv-space-2) var(--tv-space-2) 0;
-}
-
-.tvtp__col {
-  flex: 1;
-  max-height: 200px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  scrollbar-width: thin;
-  scrollbar-color: var(--tv-border) transparent;
-}
-.tvtp__col::-webkit-scrollbar { width: 3px; }
-.tvtp__col::-webkit-scrollbar-thumb { background: var(--tv-border); border-radius: 99px; }
-
-.tvtp__col--ampm { flex: 0 0 44px; }
-
-.tvtp__sep {
-  font-size: var(--tv-text-sm);
-  font-weight: var(--tv-font-semibold);
-  color: var(--tv-text-muted);
-  padding: 0 2px;
-  flex-shrink: 0;
-  align-self: flex-start;
-  padding-top: 8px;
-}
-
-.tvtp__slot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: var(--tv-space-2) 0;
-  font-size: var(--tv-text-sm);
-  color: var(--tv-text);
-  background: transparent;
-  border: none;
-  border-radius: var(--tv-radius-sm);
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
-  white-space: nowrap;
-}
-.tvtp__slot:hover { background: var(--tv-primary-soft); color: var(--tv-primary); }
-.tvtp__slot--selected {
-  background: var(--tv-primary);
-  color: var(--tv-text-inverse);
-  font-weight: var(--tv-font-semibold);
-}
-.tvtp__slot--selected:hover { background: var(--tv-primary-hover); color: var(--tv-text-inverse); }
-
-.tvtp__footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--tv-space-2) var(--tv-space-3);
-  border-top: 1px solid var(--tv-border);
-  margin-top: var(--tv-space-2);
-}
-.tvtp__done {
-  font-size: var(--tv-text-xs);
-  font-weight: var(--tv-font-semibold);
-  color: var(--tv-primary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 2px var(--tv-space-2);
-  border-radius: var(--tv-radius-sm);
-  transition: background 0.15s;
-}
-.tvtp__done:hover { background: var(--tv-primary-soft); }
 
 /* Messages */
 .tvtp__message { font-size: var(--tv-text-xs); line-height: var(--tv-leading-snug); }
@@ -365,8 +290,108 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 .tvtp__message--hint  { color: var(--tv-text-muted); }
 
 /* Transition */
-.dropdown-enter-active { transition: opacity 150ms ease, transform 150ms ease; }
-.dropdown-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
-.dropdown-enter-from { opacity: 0; transform: translateY(-6px); }
-.dropdown-leave-to  { opacity: 0; transform: translateY(-4px); }
+.tvtp-drop-enter-active { transition: opacity 150ms ease, transform 150ms ease; }
+.tvtp-drop-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
+.tvtp-drop-enter-from { opacity: 0; transform: translateY(-6px); }
+.tvtp-drop-leave-to  { opacity: 0; transform: translateY(-4px); }
+</style>
+
+<!-- Dropdown is teleported — these styles must be unscoped -->
+<style>
+.tvtp__dropdown {
+  background: var(--tv-bg-card);
+  border: 1.5px solid var(--tv-primary);
+  border-radius: var(--tv-radius);
+  box-shadow: var(--tv-shadow-md);
+  overflow: hidden;
+}
+
+.tvtp__spinners {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tv-space-1);
+  padding: var(--tv-space-3) var(--tv-space-3) var(--tv-space-2);
+}
+
+/* Individual spinner column */
+.tvtp__spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.tvtp__arrow {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 28px;
+  border: none; background: transparent;
+  color: var(--tv-text-muted); cursor: pointer; border-radius: var(--tv-radius-sm);
+  transition: background 0.12s, color 0.12s;
+}
+.tvtp__arrow:hover { background: var(--tv-primary-soft); color: var(--tv-primary); }
+.tvtp__arrow:active { background: var(--tv-primary); color: var(--tv-text-inverse); }
+
+.tvtp__digit {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 40px;
+  font-size: var(--tv-text-xl, 1.25rem);
+  font-weight: var(--tv-font-semibold);
+  color: var(--tv-primary);
+  background: var(--tv-primary-soft);
+  border-radius: var(--tv-radius-sm);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.tvtp__colon {
+  font-size: var(--tv-text-xl, 1.25rem);
+  font-weight: var(--tv-font-bold);
+  color: var(--tv-text-muted);
+  line-height: 1;
+  margin-bottom: 4px; /* visual alignment with digit */
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* AM / PM column */
+.tvtp__ampm-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-left: var(--tv-space-1);
+}
+.tvtp__ampm-btn {
+  padding: 6px 10px;
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-semibold);
+  border: 1.5px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: transparent;
+  color: var(--tv-text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1;
+}
+.tvtp__ampm-btn:hover:not(.tvtp__ampm-btn--active) { background: var(--tv-bg-soft); color: var(--tv-text); }
+.tvtp__ampm-btn--active {
+  background: var(--tv-primary);
+  border-color: var(--tv-primary);
+  color: var(--tv-text-inverse);
+}
+
+.tvtp__footer {
+  display: flex; justify-content: flex-end;
+  padding: var(--tv-space-2) var(--tv-space-3);
+  border-top: 1px solid var(--tv-border);
+}
+.tvtp__done {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold);
+  color: var(--tv-primary); background: transparent; border: none;
+  cursor: pointer; padding: 2px var(--tv-space-2);
+  border-radius: var(--tv-radius-sm); transition: background 0.15s;
+}
+.tvtp__done:hover { background: var(--tv-primary-soft); }
 </style>
