@@ -71,6 +71,33 @@ class CourseCatalogApiTest extends TestCase
             ->assertJsonPath('data.0.name', 'Academic English Plus');
     }
 
+    public function test_admin_archiving_course_type_archives_its_course_programs(): void
+    {
+        $courseType = CourseType::factory()->create(['name' => 'Legacy English']);
+        $program = CourseProgram::factory()->create([
+            'course_type_id' => $courseType->id,
+            'title' => 'Legacy Foundation',
+        ]);
+
+        $this->postJson("/api/v1/course-types/{$courseType->id}/archive")
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', true)
+            ->assertJsonPath('data.archived_by', $this->admin->id);
+
+        $this->assertDatabaseHas('course_programs', [
+            'id' => $program->id,
+            'is_archived' => true,
+            'archived_by' => $this->admin->id,
+        ]);
+
+        $this->getJson('/api/v1/course-types')->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/course-programs')->assertJsonCount(0, 'data');
+
+        $this->getJson('/api/v1/course-programs?only_archived=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $program->id);
+    }
+
     public function test_admin_can_create_view_update_list_and_archive_course_programs(): void
     {
         $courseType = CourseType::factory()->create(['name' => 'General English']);
@@ -414,6 +441,7 @@ class CourseCatalogApiTest extends TestCase
     public function test_staff_course_program_access_depends_on_permissions(): void
     {
         $program = CourseProgram::factory()->create();
+        $courseType = CourseType::factory()->create();
         $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $staff->assignRole('staff');
 
@@ -433,6 +461,16 @@ class CourseCatalogApiTest extends TestCase
             'title' => 'Staff Blocked Update',
         ])->assertForbidden();
 
+        $this->postJson('/api/v1/course-programs', [
+            'course_type_id' => $courseType->id,
+            'title' => 'Staff Blocked Create',
+            'number_of_sessions' => 8,
+            'lesson_structure' => ['components' => ['feedback']],
+        ])->assertForbidden();
+
+        $this->postJson("/api/v1/course-programs/{$program->id}/archive")
+            ->assertForbidden();
+
         $staff->givePermissionTo('course_programs.update');
 
         $this->patchJson("/api/v1/course-programs/{$program->id}", [
@@ -440,6 +478,26 @@ class CourseCatalogApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.title', 'Staff Allowed Update');
+
+        $staff->givePermissionTo('course_programs.create');
+
+        $createResponse = $this->postJson('/api/v1/course-programs', [
+            'course_type_id' => $courseType->id,
+            'title' => 'Staff Allowed Create',
+            'number_of_sessions' => 8,
+            'lesson_structure' => ['components' => ['feedback']],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.title', 'Staff Allowed Create');
+
+        $staffCreatedProgramId = $createResponse->json('data.id');
+
+        $staff->givePermissionTo('course_programs.delete');
+
+        $this->postJson("/api/v1/course-programs/{$staffCreatedProgramId}/archive")
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', true)
+            ->assertJsonPath('data.archived_by', $staff->id);
     }
 
     public function test_course_program_validation_rejects_missing_fields_and_duplicate_active_titles(): void
@@ -499,6 +557,17 @@ class CourseCatalogApiTest extends TestCase
 
         $this->postJson("/api/v1/course-programs/{$program->id}/archive")
             ->assertForbidden();
+
+        $this->postJson("/api/v1/course-programs/{$program->id}/learning-resources", [
+            'learning_resource_ids' => [
+                LearningResource::create([
+                    'title' => 'Blocked attachment',
+                    'resource_type' => LearningResource::TYPE_WORKSHEET,
+                    'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+                    'created_by' => $this->admin->id,
+                ])->id,
+            ],
+        ])->assertForbidden();
 
         $this->postJson('/api/v1/course-types', [
             'name' => 'Blocked Type',
