@@ -132,6 +132,36 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function createdCourseTypes(): HasMany
+    {
+        return $this->hasMany(CourseType::class, 'created_by');
+    }
+
+    public function updatedCourseTypes(): HasMany
+    {
+        return $this->hasMany(CourseType::class, 'updated_by');
+    }
+
+    public function archivedCourseTypes(): HasMany
+    {
+        return $this->hasMany(CourseType::class, 'archived_by');
+    }
+
+    public function createdCoursePrograms(): HasMany
+    {
+        return $this->hasMany(CourseProgram::class, 'created_by');
+    }
+
+    public function updatedCoursePrograms(): HasMany
+    {
+        return $this->hasMany(CourseProgram::class, 'updated_by');
+    }
+
+    public function archivedCoursePrograms(): HasMany
+    {
+        return $this->hasMany(CourseProgram::class, 'archived_by');
+    }
+
     public function teacherLessonNotes(): HasMany
     {
         return $this->hasMany(LessonNote::class, 'teacher_id');
