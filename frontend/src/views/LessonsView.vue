@@ -133,7 +133,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore } from '@/stores/auth'
 import { useViewAs } from '@/composables/useViewAs'
@@ -147,6 +147,7 @@ import TVTimePicker from '@/components/ui/TVTimePicker.vue'
 import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import type { LessonStatus } from '@/stores/schedule'
 
+const route    = useRoute()
 const router   = useRouter()
 const schedule = useScheduleStore()
 const auth     = useAuthStore()
@@ -155,8 +156,8 @@ const { effectiveRole } = useViewAs()
 
 const search        = ref('')
 const filterStatus  = ref('')
-const filterTeacher = ref('')
-const filterStudent = ref('')
+const filterTeacher = ref((route.query.teacher as string) || '')
+const filterStudent = ref((route.query.student as string) || '')
 
 const role = computed(() => effectiveRole.value)
 
