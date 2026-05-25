@@ -7,6 +7,7 @@ use App\Http\Resources\CourseCatalog\CourseProgramStudentAssignmentResource;
 use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class CourseProgramStudentAssignmentController extends Controller
 {
     public function courseStudents(Request $request, CourseProgram $courseProgram): JsonResponse
     {
-        Gate::authorize('view', $courseProgram);
+        Gate::authorize('viewStudentAssignments', $courseProgram);
 
         $validated = $request->validate([
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -110,6 +111,7 @@ class CourseProgramStudentAssignmentController extends Controller
     {
         Gate::authorize('viewAny', CourseProgram::class);
         $this->assertStudentUsers([$student->id]);
+        $this->authorizeStudentCourses($request->user(), $student);
 
         $validated = $request->validate([
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -162,5 +164,22 @@ class CourseProgramStudentAssignmentController extends Controller
                 'student_ids' => 'One or more selected students already have an active assignment for this course program.',
             ]);
         }
+    }
+
+    private function authorizeStudentCourses(User $user, User $student): void
+    {
+        if ($user->hasRole('admin') || ($user->hasRole('staff') && $user->can('course_programs.view'))) {
+            return;
+        }
+
+        if ($user->hasRole('student') && $user->is($student)) {
+            return;
+        }
+
+        if ($user->hasRole('teacher') && $student->studentProfile?->assigned_teacher_id === $user->id) {
+            return;
+        }
+
+        throw new AuthorizationException;
     }
 }

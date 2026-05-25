@@ -14,6 +14,8 @@ class CourseProgramResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $studentView = $request->user()?->hasRole('student') === true;
+
         return [
             'id' => $this->resource->id,
             'course_type_id' => $this->resource->course_type_id,
@@ -27,12 +29,12 @@ class CourseProgramResource extends JsonResource
             'lesson_structure' => $this->resource->lesson_structure,
             'milestones' => $this->resource->milestones,
             'learning_resources' => LearningResourceResource::collection($this->whenLoaded('learningResources')),
-            'is_archived' => $this->resource->is_archived,
-            'archived_at' => $this->resource->archived_at,
-            'archived_by' => $this->resource->archived_by,
-            'created_by' => $this->resource->created_by,
-            'updated_by' => $this->resource->updated_by,
-            'resource_attachment' => $this->when($this->resource->pivot !== null, fn () => [
+            'is_archived' => $this->when(! $studentView, $this->resource->is_archived),
+            'archived_at' => $this->when(! $studentView, $this->resource->archived_at),
+            'archived_by' => $this->when(! $studentView, $this->resource->archived_by),
+            'created_by' => $this->when(! $studentView, $this->resource->created_by),
+            'updated_by' => $this->when(! $studentView, $this->resource->updated_by),
+            'resource_attachment' => $this->when(! $studentView && $this->resource->pivot !== null, fn () => [
                 'attached_by' => $this->resource->pivot->attached_by,
                 'attached_at' => $this->resource->pivot->attached_at === null
                     ? null

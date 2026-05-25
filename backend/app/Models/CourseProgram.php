@@ -96,4 +96,37 @@ class CourseProgram extends Model
     {
         return $query->withArchived()->where('is_archived', true);
     }
+
+    /**
+     * @param  Builder<CourseProgram>  $query
+     * @return Builder<CourseProgram>
+     */
+    public function scopeVisibleTo(Builder $query, ?User $user): Builder
+    {
+        if ($user?->hasRole('admin')) {
+            return $query;
+        }
+
+        if ($user?->hasRole('staff') && $user->can('course_programs.view')) {
+            return $query;
+        }
+
+        if ($user?->hasRole('teacher')) {
+            return $query->whereHas('studentAssignments', function (Builder $query) use ($user) {
+                $query
+                    ->active()
+                    ->whereHas('student.studentProfile', fn (Builder $query) => $query->where('assigned_teacher_id', $user->id));
+            });
+        }
+
+        if ($user?->hasRole('student')) {
+            return $query->whereHas('studentAssignments', function (Builder $query) use ($user) {
+                $query
+                    ->active()
+                    ->where('student_id', $user->id);
+            });
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
 }

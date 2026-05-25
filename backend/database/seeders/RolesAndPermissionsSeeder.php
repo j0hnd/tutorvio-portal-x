@@ -25,6 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'lesson_notes.view', 'lesson_notes.create', 'lesson_notes.update',
             'homeworks.view',
             'learning_resources.view', 'learning_resources.create', 'learning_resources.update', 'learning_resources.delete',
+            'course_programs.view', 'course_programs.create', 'course_programs.update', 'course_programs.delete',
             'schedules.view', 'schedules.create', 'schedules.update', 'schedules.delete',
             'availability.view', 'availability.manage',
             'holidays.view', 'holidays.manage',

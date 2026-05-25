@@ -42,9 +42,12 @@ class CourseProgramController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
+        $canViewArchived = $this->canViewArchived($request);
+
         $programs = CourseProgram::query()
-            ->when($request->boolean('include_archived') || $request->boolean('only_archived'), fn (Builder $query) => $query->withArchived())
-            ->when($request->boolean('only_archived'), fn (Builder $query) => $query->where('is_archived', true))
+            ->when($canViewArchived && ($request->boolean('include_archived') || $request->boolean('only_archived')), fn (Builder $query) => $query->withArchived())
+            ->when($canViewArchived && $request->boolean('only_archived'), fn (Builder $query) => $query->where('is_archived', true))
+            ->visibleTo($request->user())
             ->when($validated['search'] ?? null, fn (Builder $query, string $search) => $this->search($query, $search))
             ->when($validated['course_type_id'] ?? null, fn (Builder $query, int $courseTypeId) => $query->where('course_type_id', $courseTypeId))
             ->when($validated['placement_level'] ?? null, fn (Builder $query, string $level) => $query->where('placement_level', $level))
@@ -233,6 +236,14 @@ class CourseProgramController extends Controller
                 ->orWhere('description', 'like', $like)
                 ->orWhere('placement_level', 'like', $like);
         });
+    }
+
+    private function canViewArchived(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user?->hasRole('admin') === true
+            || ($user?->hasRole('staff') === true && $user->can('course_programs.view'));
     }
 
     private function uniqueSlug(string $title, ?CourseProgram $ignore = null): string

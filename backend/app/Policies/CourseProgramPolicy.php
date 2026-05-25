@@ -9,26 +9,43 @@ class CourseProgramPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('admin');
+        return $user->hasAnyRole(['admin', 'teacher', 'student'])
+            || ($user->hasRole('staff') && $user->can('course_programs.view'));
     }
 
     public function view(User $user, CourseProgram $courseProgram): bool
     {
-        return $user->hasRole('admin');
+        if ($user->hasRole('admin') || ($user->hasRole('staff') && $user->can('course_programs.view'))) {
+            return true;
+        }
+
+        return CourseProgram::query()
+            ->whereKey($courseProgram->getKey())
+            ->visibleTo($user)
+            ->exists();
     }
 
     public function create(User $user): bool
     {
-        return $user->hasRole('admin');
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('course_programs.create'));
     }
 
     public function update(User $user, CourseProgram $courseProgram): bool
     {
-        return $user->hasRole('admin');
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('course_programs.update'));
     }
 
     public function delete(User $user, CourseProgram $courseProgram): bool
     {
-        return $user->hasRole('admin');
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('course_programs.delete'));
+    }
+
+    public function viewStudentAssignments(User $user, CourseProgram $courseProgram): bool
+    {
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('course_programs.view'));
     }
 }

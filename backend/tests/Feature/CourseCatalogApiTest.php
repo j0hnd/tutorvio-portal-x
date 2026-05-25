@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CourseProgram;
+use App\Models\CourseProgramStudentAssignment;
 use App\Models\CourseType;
 use App\Models\LearningResource;
 use App\Models\User;
@@ -305,6 +306,142 @@ class CourseCatalogApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_teacher_can_view_only_course_programs_assigned_to_their_students(): void
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherTeacher->assignRole('teacher');
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $student->studentProfile()->create(['assigned_teacher_id' => $teacher->id]);
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+        $otherStudent->studentProfile()->create(['assigned_teacher_id' => $otherTeacher->id]);
+
+        $visibleProgram = CourseProgram::factory()->create(['title' => 'Visible Teacher Program']);
+        $hiddenProgram = CourseProgram::factory()->create(['title' => 'Hidden Teacher Program']);
+        $archivedProgram = CourseProgram::factory()->archived($this->admin)->create(['title' => 'Archived Teacher Program']);
+
+        $this->assignCourseProgram($visibleProgram, $student);
+        $this->assignCourseProgram($hiddenProgram, $otherStudent);
+        $this->assignCourseProgram($archivedProgram, $student);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson('/api/v1/course-programs?include_archived=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $visibleProgram->id);
+
+        $this->getJson("/api/v1/course-programs/{$visibleProgram->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $visibleProgram->id);
+
+        $this->getJson("/api/v1/course-programs/{$hiddenProgram->id}")
+            ->assertForbidden();
+
+        $this->getJson("/api/v1/course-programs/{$archivedProgram->id}")
+            ->assertNotFound();
+    }
+
+    public function test_student_can_view_only_their_assigned_course_programs_without_admin_fields(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+        $visibleProgram = CourseProgram::factory()->create(['title' => 'Student Visible Program']);
+        $hiddenProgram = CourseProgram::factory()->create(['title' => 'Student Hidden Program']);
+        $archivedProgram = CourseProgram::factory()->archived($this->admin)->create(['title' => 'Student Archived Program']);
+
+        $this->assignCourseProgram($visibleProgram, $student);
+        $this->assignCourseProgram($hiddenProgram, $otherStudent);
+        $this->assignCourseProgram($archivedProgram, $student);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/course-programs?include_archived=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $visibleProgram->id)
+            ->assertJsonMissingPath('data.0.is_archived')
+            ->assertJsonMissingPath('data.0.archived_by')
+            ->assertJsonMissingPath('data.0.created_by')
+            ->assertJsonMissingPath('data.0.updated_by');
+
+        $this->getJson("/api/v1/course-programs/{$visibleProgram->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $visibleProgram->id)
+            ->assertJsonMissingPath('data.created_by');
+
+        $this->getJson("/api/v1/course-programs/{$hiddenProgram->id}")
+            ->assertForbidden();
+
+        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.course_program.id', $visibleProgram->id);
+
+        $this->getJson("/api/v1/students/{$otherStudent->id}/course-programs")
+            ->assertForbidden();
+    }
+
+    public function test_teacher_can_view_course_programs_for_their_assigned_student_only(): void
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+        $student->studentProfile()->create(['assigned_teacher_id' => $teacher->id]);
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $program = CourseProgram::factory()->create();
+        $this->assignCourseProgram($program, $student);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.course_program.id', $program->id);
+
+        $this->getJson("/api/v1/students/{$otherStudent->id}/course-programs")
+            ->assertForbidden();
+    }
+
+    public function test_staff_course_program_access_depends_on_permissions(): void
+    {
+        $program = CourseProgram::factory()->create();
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/course-programs')
+            ->assertForbidden();
+
+        $staff->givePermissionTo('course_programs.view');
+
+        $this->getJson('/api/v1/course-programs')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $program->id);
+
+        $this->patchJson("/api/v1/course-programs/{$program->id}", [
+            'title' => 'Staff Blocked Update',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('course_programs.update');
+
+        $this->patchJson("/api/v1/course-programs/{$program->id}", [
+            'title' => 'Staff Allowed Update',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Staff Allowed Update');
+    }
+
     public function test_course_program_validation_rejects_missing_fields_and_duplicate_active_titles(): void
     {
         $courseType = CourseType::factory()->create();
@@ -366,5 +503,16 @@ class CourseCatalogApiTest extends TestCase
         $this->postJson('/api/v1/course-types', [
             'name' => 'Blocked Type',
         ])->assertForbidden();
+    }
+
+    private function assignCourseProgram(CourseProgram $program, User $student): CourseProgramStudentAssignment
+    {
+        return CourseProgramStudentAssignment::create([
+            'course_program_id' => $program->id,
+            'student_id' => $student->id,
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+            'status' => CourseProgramStudentAssignment::STATUS_ACTIVE,
+        ]);
     }
 }
