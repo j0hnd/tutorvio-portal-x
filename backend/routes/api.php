@@ -86,6 +86,8 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('course-types', CourseTypeController::class)
             ->parameters(['course-types' => 'courseType']);
         Route::post('/course-programs/{courseProgram}/archive', [CourseProgramController::class, 'archive']);
+        Route::post('/course-programs/{courseProgram}/learning-resources', [CourseProgramController::class, 'attachLearningResources']);
+        Route::delete('/course-programs/{courseProgram}/learning-resources/{learningResource}', [CourseProgramController::class, 'detachLearningResource']);
         Route::apiResource('course-programs', CourseProgramController::class)
             ->parameters(['course-programs' => 'courseProgram']);
 

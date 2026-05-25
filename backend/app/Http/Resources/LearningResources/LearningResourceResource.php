@@ -13,6 +13,8 @@ class LearningResourceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $pivot = $this->resource->pivot;
+
         return [
             'id' => $this->resource->id,
             'title' => $this->resource->title,
@@ -52,11 +54,17 @@ class LearningResourceResource extends JsonResource
                 'name' => $this->resource->createdBy?->name,
                 'email' => $this->resource->createdBy?->email,
             ]),
-            'assignment' => $this->when($this->resource->pivot !== null, fn () => [
-                'assigned_by' => $this->resource->pivot->assigned_by,
-                'assigned_at' => $this->resource->pivot->assigned_at === null
+            'assignment' => $this->when($pivot !== null && $pivot->getAttribute('assigned_at') !== null, fn () => [
+                'assigned_by' => $pivot->getAttribute('assigned_by'),
+                'assigned_at' => $pivot->getAttribute('assigned_at') === null
                     ? null
-                    : Carbon::parse($this->resource->pivot->assigned_at),
+                    : Carbon::parse($pivot->getAttribute('assigned_at')),
+            ]),
+            'course_attachment' => $this->when($pivot !== null && $pivot->getAttribute('attached_at') !== null, fn () => [
+                'attached_by' => $pivot->getAttribute('attached_by'),
+                'attached_at' => $pivot->getAttribute('attached_at') === null
+                    ? null
+                    : Carbon::parse($pivot->getAttribute('attached_at')),
             ]),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,

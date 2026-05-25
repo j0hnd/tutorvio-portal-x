@@ -7,6 +7,7 @@ use App\Http\Requests\CourseCatalog\StoreCourseProgramRequest;
 use App\Http\Requests\CourseCatalog\UpdateCourseProgramRequest;
 use App\Http\Resources\CourseCatalog\CourseProgramResource;
 use App\Models\CourseProgram;
+use App\Models\LearningResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CourseProgramController extends Controller
 {
@@ -46,7 +48,7 @@ class CourseProgramController extends Controller
             ->when($validated['search'] ?? null, fn (Builder $query, string $search) => $this->search($query, $search))
             ->when($validated['course_type_id'] ?? null, fn (Builder $query, int $courseTypeId) => $query->where('course_type_id', $courseTypeId))
             ->when($validated['placement_level'] ?? null, fn (Builder $query, string $level) => $query->where('placement_level', $level))
-            ->with(['courseType', 'learningResources.createdBy'])
+            ->with($this->relations($request))
             ->orderBy($validated['sort'] ?? 'title', $validated['direction'] ?? 'asc')
             ->orderBy('id')
             ->paginate($validated['per_page'] ?? 25);
@@ -59,7 +61,7 @@ class CourseProgramController extends Controller
         Gate::authorize('create', CourseProgram::class);
 
         $validated = $request->validated();
-        $resourceIds = $validated['learning_resource_ids'] ?? [];
+        $resourceIds = $this->accessibleLearningResourceIds($validated['learning_resource_ids'] ?? [], $request);
 
         $program = CourseProgram::create([
             ...Arr::except($validated, ['learning_resource_ids', 'name']),
@@ -70,16 +72,16 @@ class CourseProgramController extends Controller
         $this->syncLearningResources($program, $resourceIds, $request->user()->id);
 
         return response()->json([
-            'data' => new CourseProgramResource($program->load(['courseType', 'learningResources.createdBy'])),
+            'data' => new CourseProgramResource($program->load($this->relations($request))),
         ], 201);
     }
 
-    public function show(CourseProgram $courseProgram): JsonResponse
+    public function show(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('view', $courseProgram);
 
         return response()->json([
-            'data' => new CourseProgramResource($courseProgram->load(['courseType', 'learningResources.createdBy'])),
+            'data' => new CourseProgramResource($courseProgram->load($this->relations($request))),
         ]);
     }
 
@@ -99,11 +101,51 @@ class CourseProgramController extends Controller
         ]);
 
         if (array_key_exists('learning_resource_ids', $validated)) {
-            $this->syncLearningResources($courseProgram, $validated['learning_resource_ids'], $request->user()->id);
+            $this->syncLearningResources(
+                $courseProgram,
+                $this->accessibleLearningResourceIds($validated['learning_resource_ids'], $request),
+                $request->user()->id
+            );
         }
 
         return response()->json([
-            'data' => new CourseProgramResource($courseProgram->refresh()->load(['courseType', 'learningResources.createdBy'])),
+            'data' => new CourseProgramResource($courseProgram->refresh()->load($this->relations($request))),
+        ]);
+    }
+
+    public function attachLearningResources(Request $request, CourseProgram $courseProgram): JsonResponse
+    {
+        Gate::authorize('update', $courseProgram);
+
+        $validated = $request->validate([
+            'learning_resource_ids' => ['required', 'array', 'min:1'],
+            'learning_resource_ids.*' => ['integer', 'distinct', 'exists:learning_resources,id'],
+        ]);
+
+        $courseProgram->learningResources()->syncWithoutDetaching(
+            collect($this->accessibleLearningResourceIds($validated['learning_resource_ids'], $request))
+                ->mapWithKeys(fn (int $resourceId) => [$resourceId => [
+                    'attached_by' => $request->user()->id,
+                    'attached_at' => now(),
+                ]])
+                ->all()
+        );
+
+        return response()->json([
+            'data' => new CourseProgramResource($courseProgram->refresh()->load($this->relations($request))),
+        ]);
+    }
+
+    public function detachLearningResource(Request $request, CourseProgram $courseProgram, LearningResource $learningResource): JsonResponse
+    {
+        Gate::authorize('update', $courseProgram);
+
+        $this->accessibleLearningResourceIds([$learningResource->id], $request);
+
+        $courseProgram->learningResources()->detach($learningResource->id);
+
+        return response()->json([
+            'data' => new CourseProgramResource($courseProgram->refresh()->load($this->relations($request))),
         ]);
     }
 
@@ -119,7 +161,7 @@ class CourseProgramController extends Controller
         ]);
 
         return response()->json([
-            'data' => new CourseProgramResource($courseProgram->refresh()->load(['courseType', 'learningResources.createdBy'])),
+            'data' => new CourseProgramResource($courseProgram->refresh()->load($this->relations($request))),
         ]);
     }
 
@@ -139,6 +181,47 @@ class CourseProgramController extends Controller
             'attached_by' => $userId,
             'attached_at' => now(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function relations(Request $request): array
+    {
+        return [
+            'courseType',
+            'learningResources' => fn ($query) => $query
+                ->visibleTo($request->user())
+                ->orderBy('learning_resources.id')
+                ->with('createdBy'),
+        ];
+    }
+
+    /**
+     * @param  array<int, int>  $resourceIds
+     * @return array<int, int>
+     */
+    private function accessibleLearningResourceIds(array $resourceIds, Request $request): array
+    {
+        $resourceIds = array_values(array_unique(array_map('intval', $resourceIds)));
+
+        if ($resourceIds === []) {
+            return [];
+        }
+
+        $accessibleIds = LearningResource::query()
+            ->visibleTo($request->user())
+            ->whereKey($resourceIds)
+            ->pluck('id')
+            ->all();
+
+        if (count($accessibleIds) !== count($resourceIds)) {
+            throw ValidationException::withMessages([
+                'learning_resource_ids' => 'One or more selected learning resources are not available to attach.',
+            ]);
+        }
+
+        return $accessibleIds;
     }
 
     private function search(Builder $query, string $term): Builder

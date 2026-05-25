@@ -81,6 +81,14 @@ class CourseCatalogApiTest extends TestCase
             'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
             'created_by' => $this->admin->id,
         ]);
+        $slides = LearningResource::create([
+            'title' => 'Foundation slides',
+            'resource_type' => LearningResource::TYPE_SLIDE,
+            'course' => 'General English',
+            'level' => 'A1',
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+            'created_by' => $this->admin->id,
+        ]);
 
         $createResponse = $this->postJson('/api/v1/course-programs', [
             'course_type_id' => $courseType->id,
@@ -97,7 +105,7 @@ class CourseCatalogApiTest extends TestCase
                 ['session' => 1, 'goal' => 'Placement review'],
                 ['session' => 12, 'goal' => 'Final review'],
             ],
-            'learning_resource_ids' => [$resource->id],
+            'learning_resource_ids' => [$resource->id, $slides->id],
         ]);
 
         $createResponse
@@ -108,6 +116,8 @@ class CourseCatalogApiTest extends TestCase
             ->assertJsonPath('data.lesson_structure.components.1', 'target_language')
             ->assertJsonPath('data.milestones.1.goal', 'Final review')
             ->assertJsonPath('data.learning_resources.0.id', $resource->id)
+            ->assertJsonPath('data.learning_resources.1.id', $slides->id)
+            ->assertJsonPath('data.learning_resources.0.course_attachment.attached_by', $this->admin->id)
             ->assertJsonPath('data.created_by', $this->admin->id);
 
         $programId = $createResponse->json('data.id');
@@ -142,6 +152,52 @@ class CourseCatalogApiTest extends TestCase
         $this->getJson('/api/v1/course-programs?only_archived=1')
             ->assertOk()
             ->assertJsonPath('data.0.title', 'General English Foundation Plus');
+    }
+
+    public function test_admin_can_attach_and_remove_individual_course_program_resources(): void
+    {
+        $courseType = CourseType::factory()->create();
+        $program = CourseProgram::factory()->create(['course_type_id' => $courseType->id]);
+        $worksheet = LearningResource::create([
+            'title' => 'Unit worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'visibility' => LearningResource::VISIBILITY_TEACHER_ONLY,
+            'created_by' => $this->admin->id,
+        ]);
+        $document = LearningResource::create([
+            'title' => 'Teacher notes',
+            'resource_type' => LearningResource::TYPE_DOCUMENT,
+            'visibility' => LearningResource::VISIBILITY_ADMIN_ONLY,
+            'created_by' => $this->admin->id,
+        ]);
+
+        $this->postJson("/api/v1/course-programs/{$program->id}/learning-resources", [
+            'learning_resource_ids' => [$worksheet->id, $document->id],
+        ])
+            ->assertOk()
+            ->assertJsonCount(2, 'data.learning_resources')
+            ->assertJsonPath('data.learning_resources.0.course_attachment.attached_by', $this->admin->id);
+
+        $this->assertDatabaseHas('course_program_learning_resource', [
+            'course_program_id' => $program->id,
+            'learning_resource_id' => $worksheet->id,
+            'attached_by' => $this->admin->id,
+        ]);
+        $this->assertDatabaseHas('course_program_learning_resource', [
+            'course_program_id' => $program->id,
+            'learning_resource_id' => $document->id,
+            'attached_by' => $this->admin->id,
+        ]);
+
+        $this->deleteJson("/api/v1/course-programs/{$program->id}/learning-resources/{$worksheet->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.learning_resources')
+            ->assertJsonPath('data.learning_resources.0.id', $document->id);
+
+        $this->assertDatabaseMissing('course_program_learning_resource', [
+            'course_program_id' => $program->id,
+            'learning_resource_id' => $worksheet->id,
+        ]);
     }
 
     public function test_course_program_validation_rejects_missing_fields_and_duplicate_active_titles(): void
