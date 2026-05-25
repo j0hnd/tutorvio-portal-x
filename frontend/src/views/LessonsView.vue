@@ -132,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore } from '@/stores/auth'
@@ -320,6 +320,10 @@ const form = ref({
   startTime:   '09:00',
   durationMin: '60',
   lessonType:  'one-time',
+})
+
+onMounted(() => {
+  if (!users.users.length) users.fetchUsers()
 })
 
 const allTeachers = computed(() =>
@@ -510,7 +514,7 @@ function submitCreate(): void {
 .lv-modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   display: flex; align-items: center; justify-content: center;
-  z-index: 9999; padding: var(--tv-space-4);
+  z-index: var(--tv-z-modal); padding: var(--tv-space-4);
 }
 
 .lv-modal {
@@ -518,7 +522,7 @@ function submitCreate(): void {
   border-radius: var(--tv-radius-lg); width: 100%; max-width: 560px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.18);
   display: flex; flex-direction: column;
-  max-height: 90vh; overflow: hidden;
+  max-height: 90vh;
 }
 
 .lv-modal__header {
@@ -538,7 +542,7 @@ function submitCreate(): void {
 .lv-modal__body {
   padding: var(--tv-space-5);
   display: flex; flex-direction: column; gap: var(--tv-space-4);
-  overflow-y: auto; flex: 1;
+  overflow: visible;
 }
 
 .lv-modal__footer {

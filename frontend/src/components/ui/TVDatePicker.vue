@@ -382,6 +382,7 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
   box-shadow: var(--tv-shadow-md);
   padding: var(--tv-space-3);
   width: 280px;
+  z-index: var(--tv-z-modal-dropdown);
 }
 
 /* Month nav */

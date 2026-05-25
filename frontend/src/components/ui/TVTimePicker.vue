@@ -304,6 +304,7 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
   border-radius: var(--tv-radius);
   box-shadow: var(--tv-shadow-md);
   overflow: hidden;
+  z-index: var(--tv-z-modal-dropdown);
 }
 
 .tvtp__spinners {
