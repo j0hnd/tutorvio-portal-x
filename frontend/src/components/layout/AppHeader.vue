@@ -35,10 +35,11 @@
       </svg>
     </button>
 
-    <!-- Search -->
+    <!-- Search (desktop: always visible; mobile: icon toggle) -->
     <div class="app-header__search">
+      <!-- Desktop search -->
       <label for="global-search" class="sr-only">Search</label>
-      <div class="app-header__search-wrap">
+      <div class="app-header__search-wrap app-header__search-wrap--desktop">
         <svg class="app-header__search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4"/>
           <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -52,7 +53,44 @@
           autocomplete="off"
         />
       </div>
+
+      <!-- Mobile search icon button -->
+      <button
+        class="app-header__search-icon-btn"
+        aria-label="Open search"
+        type="button"
+        @click="openMobileSearch"
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12.5 12.5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
+
+    <!-- Mobile search overlay -->
+    <Teleport to="body">
+      <div v-if="mobileSearchOpen" class="app-header__mobile-search-overlay" @click.self="closeMobileSearch">
+        <div class="app-header__mobile-search-bar">
+          <svg class="app-header__mobile-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <input
+            ref="mobileSearchInputRef"
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search anything…"
+            class="app-header__mobile-search-input"
+            autocomplete="off"
+            @keydown.escape="closeMobileSearch"
+          />
+          <button class="app-header__mobile-search-close" type="button" aria-label="Close search" @click="closeMobileSearch">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Right: balance + bell + user -->
     <div class="app-header__right">
@@ -140,7 +178,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { UserRole } from '@/types'
 
@@ -173,6 +211,17 @@ const router = useRouter()
 const searchQuery = ref('')
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
+const mobileSearchOpen = ref(false)
+const mobileSearchInputRef = ref<HTMLInputElement | null>(null)
+
+function openMobileSearch(): void {
+  mobileSearchOpen.value = true
+  nextTick(() => mobileSearchInputRef.value?.focus())
+}
+
+function closeMobileSearch(): void {
+  mobileSearchOpen.value = false
+}
 
 const initials = computed(() =>
   props.user.name
@@ -507,6 +556,73 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 .app-header__menu-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
+/* Mobile search icon btn — hidden on desktop */
+.app-header__search-icon-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--tv-radius);
+  color: var(--tv-text-secondary);
+  transition: background-color var(--tv-transition-fast);
+}
+.app-header__search-icon-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
+
+/* Mobile search overlay */
+.app-header__mobile-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: var(--tv-z-modal);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.app-header__mobile-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-space-2);
+  padding: var(--tv-space-3) var(--tv-space-4);
+  background: var(--tv-bg-card);
+  border-bottom: 1px solid var(--tv-border);
+  box-shadow: var(--tv-shadow-md);
+}
+
+.app-header__mobile-search-icon {
+  color: var(--tv-text-muted);
+  flex-shrink: 0;
+}
+
+.app-header__mobile-search-input {
+  flex: 1;
+  font-size: var(--tv-text-base);
+  color: var(--tv-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  height: 36px;
+}
+.app-header__mobile-search-input::placeholder { color: var(--tv-text-muted); }
+
+.app-header__mobile-search-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--tv-radius-sm);
+  color: var(--tv-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.app-header__mobile-search-close:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
+
 @media (max-width: 767px) {
   .app-header__menu-btn { display: flex; }
   .app-header__logo { width: auto; border-right: none; padding: 0 var(--tv-space-2); }
@@ -514,6 +630,9 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   .app-header__balance { display: none; }
   .app-header__user-role { display: none; }
   .app-header__right { gap: var(--tv-space-2); padding: 0 var(--tv-space-3); }
-  .app-header__search { padding: 0 var(--tv-space-3); }
+  /* Hide desktop search, show icon btn */
+  .app-header__search { padding: 0; flex: none; }
+  .app-header__search-wrap--desktop { display: none; }
+  .app-header__search-icon-btn { display: flex; }
 }
 </style>
