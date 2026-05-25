@@ -43,7 +43,7 @@
       row-key="id"
       :loading="store.loading"
       loading-text="Loading students…"
-      :page-size="15"
+      :page-size="10"
       :page-size-options="[10, 15, 25, 50]"
       clickable
       aria-label="Students list"

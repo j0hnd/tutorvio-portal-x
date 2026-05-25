@@ -41,7 +41,7 @@
       :columns="columns"
       :rows="rows"
       row-key="id"
-      :page-size="20"
+      :page-size="10"
       :page-size-options="[10, 20, 50]"
       clickable
       aria-label="Lessons list"
