@@ -87,8 +87,9 @@ function makeLesson(
   status: LessonStatus,
   subject: string,
   options: Partial<ScheduleLesson> = {},
+  startMinute = 0,
 ): ScheduleLesson {
-  const start = new Date(dt(dateStr, startHour))
+  const start = new Date(dt(dateStr, startHour, startMinute))
   const end = new Date(start.getTime() + durationMin * 60_000)
   const now = new Date()
   const isFuture = start > now
@@ -146,6 +147,13 @@ const MOCK_LESSONS_INITIAL: ScheduleLesson[] = [
   // --- Next week: May 25–29 ---
   makeLesson('l8', 'u2', 'James Reyes', 'u1', 'Emma Santos',
     '2026-05-25', 9, 60, 'SCHEDULED', 'Business English'),
+  // Sub-hour demo lessons — May 25
+  makeLesson('ldemo1', 'u2', 'James Reyes', 'u10', 'Lea Mendoza',
+    '2026-05-25', 4, 45, 'SCHEDULED', 'General English', {}, 30),
+  makeLesson('ldemo2', 'u6', 'Sarah Lim', 'u14', 'Sofia Cruz',
+    '2026-05-25', 5, 60, 'SCHEDULED', 'IELTS Preparation', {}, 45),
+  makeLesson('ldemo3', 'u7', 'Miguel Santos', 'u17', 'Rico Valdez',
+    '2026-05-25', 6, 45, 'TRIAL', 'Business English', {}, 15),
   makeLesson('l9', 'u2', 'James Reyes', 'u13', 'Anna Kim',
     '2026-05-26', 9, 30, 'TRIAL', 'General English'),
   makeLesson('l10', 'u2', 'James Reyes', 'u10', 'Lea Mendoza',

@@ -404,8 +404,9 @@ const { effectiveRole } = useViewAs()
 type ViewKey = 'month' | 'week' | 'day'
 const VIEWS    = [{ key: 'month' as ViewKey, label: 'Month' }, { key: 'week' as ViewKey, label: 'Week' }, { key: 'day' as ViewKey, label: 'Day' }]
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const HOURS    = Array.from({ length: 15 }, (_, i) => i + 7)   // 7–21
+const HOURS    = Array.from({ length: 19 }, (_, i) => i + 4)   // 4–22
 const HOUR_H   = 64   // px per hour
+const CAL_START_MIN = 4 * 60  // 4:00 AM = 240 minutes
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const YEARS  = Array.from({ length: 10 }, (_, i) => 2023 + i)
@@ -728,12 +729,12 @@ function computeDayLayout(
 }
 
 function eventStyle(ev: ScheduleLesson, layout?: Map<string, LayoutPos>): Record<string, string> {
-  const top = ((isoToMinutes(ev.startTime) - 420) / 60) * HOUR_H
+  const top = ((isoToMinutes(ev.startTime) - CAL_START_MIN) / 60) * HOUR_H
   const pos = layout?.get(`e_${ev.id}`)
   return { top: `${top}px`, left: pos?.left ?? '0', right: pos?.right ?? '0', width: pos?.width ?? 'auto' }
 }
 function slotStyle(slot: AvailabilitySlot, layout?: Map<string, LayoutPos>): Record<string, string> {
-  const top = ((timeToMinutes(slot.startTime) - 420) / 60) * HOUR_H
+  const top = ((timeToMinutes(slot.startTime) - CAL_START_MIN) / 60) * HOUR_H
   const pos = layout?.get(`s_${slot.id}`)
   return { top: `${top}px`, left: pos?.left ?? '0', right: pos?.right ?? '0', width: pos?.width ?? 'auto' }
 }
@@ -747,7 +748,7 @@ onUnmounted(() => clearInterval(nowTimer))
 const nowLineStyle = computed(() => {
   void nowTick.value
   const now = new Date()
-  const top = ((now.getHours() * 60 + now.getMinutes() - 420) / 60) * HOUR_H
+  const top = ((now.getHours() * 60 + now.getMinutes() - CAL_START_MIN) / 60) * HOUR_H
   return { top: `${top}px` }
 })
 
