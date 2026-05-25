@@ -24,7 +24,11 @@
       <div class="sd-main">
 
         <!-- Upcoming Lessons -->
-        <UpcomingLessons :lessons="upcomingLessons" @join="() => {}" @more="() => {}" />
+        <UpcomingLessons
+          :lessons="upcomingLessons"
+          @join="id => router.push({ name: 'LessonDetail', params: { id } })"
+          @more="id => router.push({ name: 'LessonDetail', params: { id } })"
+        />
 
         <!-- Learning Progress & Assigned Course -->
         <section class="sd-panel">
@@ -194,15 +198,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useUsersStore } from '@/stores/users'
-import StatsGrid from '@/components/dashboard/StatsGrid.vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore }     from '@/stores/auth'
+import { useUsersStore }    from '@/stores/users'
+import { useScheduleStore } from '@/stores/schedule'
+import StatsGrid       from '@/components/dashboard/StatsGrid.vue'
 import UpcomingLessons from '@/components/dashboard/UpcomingLessons.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
-import type { Lesson } from '@/components/dashboard/UpcomingLessons.vue'
+import type { Lesson }    from '@/components/dashboard/UpcomingLessons.vue'
 
-const auth = useAuthStore()
-const store = useUsersStore()
+const router   = useRouter()
+const auth     = useAuthStore()
+const store    = useUsersStore()
+const schedule = useScheduleStore()
 
 onMounted(async () => {
   if (!store.users.length) await store.fetchUsers()
@@ -243,25 +251,51 @@ const icons = {
   target: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="9" r="4" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/></svg>`,
 }
 
+const todayStr = computed(() => new Date().toLocaleDateString('sv-SE'))
+
+const completedLessons = computed(() =>
+  schedule.myLessons.filter(l => l.status === 'COMPLETED').length,
+)
+
+const upcomingLessons = computed((): Lesson[] => {
+  const now = new Date()
+  return schedule.myLessons
+    .filter(l => ['SCHEDULED', 'TRIAL', 'IN_PROGRESS'].includes(l.status) && new Date(l.startTime) >= now)
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    .slice(0, 5)
+    .map(l => {
+      const start   = new Date(l.startTime)
+      const end     = new Date(l.endTime)
+      const dateStr = start.toLocaleDateString('sv-SE')
+      const isToday = dateStr === todayStr.value
+      const isTomorrow = dateStr === new Date(Date.now() + 86400000).toLocaleDateString('sv-SE')
+      const day = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const time = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      const duration = `${Math.round((end.getTime() - start.getTime()) / 60000)} min`
+      return { id: l.id, subject: l.subject, teacher: l.teacherName, avatar: '', day, time, duration, soon: isToday }
+    })
+})
+
+const nextLesson = computed(() => upcomingLessons.value.find(l => l.soon))
+
+const hoursLearned = computed(() => {
+  const ms = schedule.myLessons
+    .filter(l => l.status === 'COMPLETED')
+    .reduce((sum, l) => sum + (new Date(l.endTime).getTime() - new Date(l.startTime).getTime()), 0)
+  return (ms / 3600000).toFixed(1)
+})
+
 const stats = computed((): StatItem[] => [
-  { label: 'Completed Lessons', value: '24',  sub: '+12% this month',   trendUp: true,  icon: icons.book,   iconClass: 'icon-badge--teal' },
-  { label: 'Lesson Balance',    value: '3',   sub: 'of 8 in plan',      trendUp: false, icon: icons.credit, iconClass: 'icon-badge--success' },
+  { label: 'Completed Lessons', value: String(completedLessons.value), sub: 'All time', trendUp: true, icon: icons.book, iconClass: 'icon-badge--teal' },
+  { label: 'Upcoming Lessons',  value: String(upcomingLessons.value.length), sub: 'Scheduled', trendUp: false, icon: icons.credit, iconClass: 'icon-badge--success' },
   {
     label: 'My Level',
     value: LEVEL_SHORT[studentProfile.value?.englishLevel ?? ''] ?? '—',
     sub:   `${LEVEL_LONG[studentProfile.value?.englishLevel ?? ''] ?? 'No level'} · ${studentProfile.value?.program ?? 'No program'}`,
     trendUp: false, icon: icons.target, iconClass: 'icon-badge--warning',
   },
-  { label: 'Hours Learned', value: '36.5', sub: 'Total study time', trendUp: false, icon: icons.clock, iconClass: 'icon-badge--teal' },
+  { label: 'Hours Learned', value: hoursLearned.value, sub: 'Total study time', trendUp: false, icon: icons.clock, iconClass: 'icon-badge--teal' },
 ])
-
-const upcomingLessons: Lesson[] = [
-  { id: 1, subject: 'Business English',       teacher: 'James Reyes', avatar: '', day: 'Today',    time: '2:00 PM',  duration: '60 min', soon: true  },
-  { id: 2, subject: 'Presentation Skills',    teacher: 'James Reyes', avatar: '', day: 'Tomorrow', time: '10:00 AM', duration: '60 min', soon: false },
-  { id: 3, subject: 'Email Writing Workshop', teacher: 'James Reyes', avatar: '', day: 'May 24',   time: '2:00 PM',  duration: '60 min', soon: false },
-]
-
-const nextLesson = computed(() => upcomingLessons.find(l => l.soon))
 
 const MOCK_HOMEWORK = [
   { id: 'h1', title: 'Write a Formal Business Email',  lesson: 'Email Writing',       due: 'Today',  status: 'pending',  statusLabel: 'Pending' },

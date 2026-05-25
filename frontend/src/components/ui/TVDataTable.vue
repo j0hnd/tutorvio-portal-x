@@ -103,15 +103,12 @@
           <div class="tv-dt__pagination" role="navigation" aria-label="Table pagination">
             <!-- Per-page -->
             <div class="tv-dt__per-page">
-              <label :for="`${uid}-per-page`" class="tv-dt__per-page-label">Per page</label>
-              <select
-                :id="`${uid}-per-page`"
-                :value="localPageSize"
-                class="tv-dt__per-page-select"
-                @change="onPageSizeChange"
-              >
-                <option v-for="n in pageSizeOptions" :key="n" :value="n">{{ n }}</option>
-              </select>
+              <label class="tv-dt__per-page-label">Per page</label>
+              <TVSelect
+                v-model="localPageSizeStr"
+                :options="perPageOptions"
+                class="tv-dt__per-page-tvselect"
+              />
             </div>
 
             <!-- Page buttons -->
@@ -196,6 +193,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import TVSelect from '@/components/ui/TVSelect.vue'
 
 /* ── Types ── */
 export interface DataTableColumn {
@@ -303,7 +301,14 @@ const sortedRows = computed<Row[]>(() => {
 
 /* ── Pagination ── */
 const currentPage = ref(1)
-const localPageSize = ref(props.pageSize)
+const localPageSize    = ref(props.pageSize)
+const localPageSizeStr = computed({
+  get: () => String(localPageSize.value),
+  set: (v) => { localPageSize.value = Number(v); currentPage.value = 1 },
+})
+const perPageOptions = computed(() =>
+  props.pageSizeOptions.map(n => ({ value: String(n), label: String(n) }))
+)
 
 /* In client mode reset to page 1 when the row set changes (e.g. filter applied).
    In server mode the parent controls rows, so we must NOT reset — the parent
@@ -313,8 +318,8 @@ watch(
   () => { if (!props.serverSide) currentPage.value = 1 },
 )
 
-function onPageSizeChange(e: Event): void {
-  localPageSize.value = Number((e.target as HTMLSelectElement).value)
+function onPageSizeChange(_e: Event): void {
+  localPageSize.value = Number(localPageSizeStr.value)
   currentPage.value = 1
 }
 
@@ -566,21 +571,7 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
   white-space: nowrap;
 }
 
-.tv-dt__per-page-select {
-  padding: var(--tv-space-1) var(--tv-space-2);
-  font-size: var(--tv-text-xs);
-  color: var(--tv-text);
-  border: 1px solid var(--tv-border);
-  border-radius: var(--tv-radius-sm);
-  background: var(--tv-bg-card);
-  cursor: pointer;
-  transition: border-color var(--tv-transition-fast);
-}
-
-.tv-dt__per-page-select:focus {
-  outline: none;
-  border-color: var(--tv-primary);
-}
+.tv-dt__per-page-tvselect { width: 80px; }
 
 .tv-dt__pages {
   display: flex;

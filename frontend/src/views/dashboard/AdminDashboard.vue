@@ -29,6 +29,8 @@
               v-for="cls in MOCK_TODAY_CLASSES"
               :key="cls.id"
               :class="['adm-schedule-item', { 'adm-schedule-item--live': cls.status === 'live', 'adm-schedule-item--missed': cls.status === 'missed' }]"
+              style="cursor: pointer"
+              @click="router.push({ name: 'LessonDetail', params: { id: cls.id } })"
             >
               <div class="adm-schedule-item__time">
                 <span class="adm-schedule-item__hour">{{ cls.time }}</span>
@@ -214,13 +216,18 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useUsersStore } from '@/stores/users'
+import { useRouter } from 'vue-router'
+import { useAuthStore }     from '@/stores/auth'
+import { useUsersStore }    from '@/stores/users'
+import { useScheduleStore } from '@/stores/schedule'
+
+const router = useRouter()
 import StatsGrid from '@/components/dashboard/StatsGrid.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
 
-const auth = useAuthStore()
-const store = useUsersStore()
+const auth     = useAuthStore()
+const store    = useUsersStore()
+const schedule = useScheduleStore()
 
 onMounted(async () => {
   if (!store.users.length) await store.fetchUsers()
@@ -237,18 +244,41 @@ const icons = {
   missed:   `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l7.5 13H1.5L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 8v3M9 13.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 }
 
-const MOCK_TODAY_CLASSES = [
-  { id: 1, subject: 'Business English — Meetings',  teacher: 'James Reyes',  student: 'Emma Santos',      time: '10:00 AM', duration: '60 min', status: 'live',      statusLabel: 'Live'      },
-  { id: 2, subject: 'General English — Vocabulary', teacher: 'Maria Garcia', student: 'Marco Reyes',      time: '11:00 AM', duration: '45 min', status: 'completed', statusLabel: 'Completed' },
-  { id: 3, subject: 'IELTS Preparation — Writing',  teacher: 'James Walker', student: 'Carlos Dela Cruz', time: '1:00 PM',  duration: '60 min', status: 'scheduled', statusLabel: 'Upcoming'  },
-  { id: 4, subject: 'General English — Reading',    teacher: 'Maria Garcia', student: 'Yuki Tanaka',      time: '2:00 PM',  duration: '45 min', status: 'scheduled', statusLabel: 'Upcoming'  },
-  { id: 5, subject: 'Executive English — Speaking', teacher: 'James Walker', student: 'David Cruz',       time: '3:00 PM',  duration: '60 min', status: 'scheduled', statusLabel: 'Upcoming'  },
-]
+const todayStr = computed(() => new Date().toLocaleDateString('sv-SE'))
 
-const MOCK_MISSED = [
-  { id: 'm1', subject: 'Conversational English', teacher: 'Maria Garcia', student: 'Isabella Morales', time: '9:00 AM', missedBy: 'Student' },
-  { id: 'm2', subject: 'Academic Writing',       teacher: 'Kevin Tan',   student: 'Priya Nair',       time: '8:00 AM', missedBy: 'Teacher' },
-]
+const todayAllLessons = computed(() =>
+  schedule.lessons.filter(l => new Date(l.startTime).toLocaleDateString('sv-SE') === todayStr.value),
+)
+
+const MOCK_TODAY_CLASSES = computed(() =>
+  todayAllLessons.value
+    .filter(l => ['SCHEDULED', 'IN_PROGRESS', 'TRIAL', 'COMPLETED'].includes(l.status))
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    .map(l => {
+      const start = new Date(l.startTime)
+      const end   = new Date(l.endTime)
+      const now   = new Date()
+      const isLive = l.status === 'IN_PROGRESS' || (now >= start && now <= end)
+      const statusLabel = isLive ? 'Live' : l.status === 'COMPLETED' ? 'Completed' : 'Upcoming'
+      const status      = isLive ? 'live'  : l.status === 'COMPLETED' ? 'completed' : 'scheduled'
+      return {
+        id: l.id, subject: l.subject, teacher: l.teacherName, student: l.studentName,
+        time: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        duration: `${Math.round((end.getTime() - start.getTime()) / 60000)} min`,
+        status, statusLabel,
+      }
+    }),
+)
+
+const MOCK_MISSED = computed(() =>
+  todayAllLessons.value
+    .filter(l => ['MISSED_BY_STUDENT', 'MISSED_BY_TEACHER'].includes(l.status))
+    .map(l => ({
+      id: l.id, subject: l.subject, teacher: l.teacherName, student: l.studentName,
+      time: new Date(l.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      missedBy: l.status === 'MISSED_BY_STUDENT' ? 'Student' : 'Teacher',
+    })),
+)
 
 const MOCK_PENDING_NOTES = [
   { id: 'n1', teacher: 'James Reyes',  teacherInitials: 'JR', lessonCount: 3, lastLesson: 'May 15', urgency: 'high',   urgencyLabel: 'Overdue'  },
@@ -285,11 +315,13 @@ const enrollmentBreakdown = computed(() => {
   }))
 })
 
+const liveCount = computed(() => MOCK_TODAY_CLASSES.value.filter(c => c.status === 'live').length)
+
 const stats = computed((): StatItem[] => [
-  { label: 'Active Students', value: String(activeStudentCount.value), sub: 'Currently enrolled',    trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--teal'    },
-  { label: 'Active Teachers', value: String(activeTeacherCount.value), sub: 'Available this week',   trendUp: false, icon: icons.teachers, iconClass: 'icon-badge--primary'  },
-  { label: "Today's Classes", value: String(MOCK_TODAY_CLASSES.length), sub: '1 live right now',     trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--success'  },
-  { label: 'No-shows Today',  value: String(MOCK_MISSED.length),        sub: 'Requires follow-up',   trendUp: false, icon: icons.missed,   iconClass: 'icon-badge--warning'  },
+  { label: 'Active Students', value: String(activeStudentCount.value),          sub: 'Currently enrolled',                          trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--teal'    },
+  { label: 'Active Teachers', value: String(activeTeacherCount.value),          sub: 'Available this week',                         trendUp: false, icon: icons.teachers, iconClass: 'icon-badge--primary'  },
+  { label: "Today's Classes", value: String(MOCK_TODAY_CLASSES.value.length),   sub: liveCount.value ? `${liveCount.value} live now` : 'Scheduled', trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--success' },
+  { label: 'No-shows Today',  value: String(MOCK_MISSED.value.length),          sub: 'Requires follow-up',                          trendUp: false, icon: icons.missed,   iconClass: 'icon-badge--warning'  },
 ])
 </script>
 

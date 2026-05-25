@@ -26,10 +26,15 @@
         <div class="sv-period-selects">
           <TVSelect v-model="selectedMonth" :options="monthOptions" class="sv-period-tvselect" />
           <TVSelect v-model="selectedYear"  :options="yearOptions"  class="sv-period-tvselect" />
+          <div class="sv-view-switcher" role="group" aria-label="Calendar view">
+            <button v-for="v in VIEWS" :key="v.key"
+              :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
+              type="button" @click="switchView(v.key)">{{ v.label }}</button>
+          </div>
         </div>
       </div>
 
-      <!-- Right: teacher filter + view switcher -->
+      <!-- Right: teacher filter + action buttons -->
       <div class="sv-header__right">
         <TVSelect
           v-if="showTeacherFilter"
@@ -38,11 +43,22 @@
           placeholder="All Teachers"
           class="sv-ctrl-tvselect"
         />
-        <div class="sv-view-switcher" role="group" aria-label="Calendar view">
-          <button v-for="v in VIEWS" :key="v.key"
-            :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
-            type="button" @click="currentView = v.key">{{ v.label }}</button>
-        </div>
+        <template v-if="canCreateLesson">
+          <button class="sv-add-btn sv-add-btn--ghost" type="button" @click="showHolidayModal = true">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="1" y="2" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M4 1v2M10 1v2M1 5.5h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M5 9l2 2 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Block Holiday
+          </button>
+          <button class="sv-add-btn" type="button" @click="openCreateModal()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            Add Lesson
+          </button>
+        </template>
       </div>
     </div>
 
@@ -234,7 +250,15 @@
 
           <!-- Schedules section -->
           <div class="sv-panel__section">
-            <p class="sv-panel__section-label">Schedules</p>
+            <div class="sv-panel__section-head">
+              <p class="sv-panel__section-label">Schedules</p>
+              <button
+                v-if="canCreateLesson"
+                class="sv-panel__create-btn"
+                type="button"
+                @click="openCreateModal(selectedDate ?? undefined, selectedHour ?? undefined)"
+              >+ Add</button>
+            </div>
             <template v-if="panelEvents.length">
               <button
                 v-for="ev in panelEvents" :key="ev.id"
@@ -278,7 +302,7 @@
                   <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
                   <path d="M7 4.5V7l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
                 </svg>
-                <span class="sv-panel__slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+                <span class="sv-panel__slot-time">{{ formatSlotRange(slot.startTime, slot.endTime) }}</span>
                 <span class="sv-panel__slot-teacher">{{ slot.teacherName }}</span>
                 <span v-if="canBook" class="sv-panel__slot-book">Book →</span>
                 <span v-else-if="canManageSlots" class="sv-panel__slot-book">Remove</span>
@@ -321,6 +345,41 @@
       @close="selectedSlot = null"
       @booked="handleBooked"
     />
+    <AdminCreateLessonModal
+      v-if="showCreateModal"
+      :prefill-date="createPrefillDate"
+      :prefill-start="createPrefillStart"
+      @close="showCreateModal = false"
+      @created="handleCreateLesson"
+    />
+
+    <!-- Holiday blocking dialog -->
+    <Teleport to="body">
+      <div v-if="showHolidayModal" class="hol-backdrop" @click.self="showHolidayModal = false" role="dialog" aria-modal="true">
+        <div class="hol-dialog">
+          <div class="hol-header">
+            <h2 class="hol-title">Block Holiday</h2>
+            <button class="hol-close" type="button" @click="showHolidayModal = false" aria-label="Close">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <p class="hol-desc">Mark a date as a national holiday. All teachers will be marked unavailable on this date.</p>
+          <div class="hol-fields">
+            <TVDatePicker v-model="holidayDate" label="Date" />
+            <div class="hol-field">
+              <label class="hol-label" for="hol-label">Holiday Name</label>
+              <input id="hol-label" v-model="holidayLabel" type="text" class="hol-input" placeholder="e.g. Independence Day (PH)" />
+            </div>
+          </div>
+          <div class="hol-footer">
+            <button class="hol-btn hol-btn--ghost" type="button" @click="showHolidayModal = false">Cancel</button>
+            <button class="hol-btn hol-btn--primary" type="button" :disabled="!holidayDate || !holidayLabel.trim()" @click="submitHoliday">
+              Block Holiday
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
   </div>
 </template>
@@ -330,9 +389,11 @@ import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import { useScheduleStore }  from '@/stores/schedule'
 import { useAuthStore }      from '@/stores/auth'
 import { useViewAs }         from '@/composables/useViewAs'
-import LessonDetailModal     from '@/components/schedule/LessonDetailModal.vue'
-import BookingModal          from '@/components/schedule/BookingModal.vue'
-import TVSelect              from '@/components/ui/TVSelect.vue'
+import LessonDetailModal          from '@/components/schedule/LessonDetailModal.vue'
+import BookingModal               from '@/components/schedule/BookingModal.vue'
+import AdminCreateLessonModal     from '@/components/schedule/AdminCreateLessonModal.vue'
+import TVSelect                   from '@/components/ui/TVSelect.vue'
+import TVDatePicker               from '@/components/ui/TVDatePicker.vue'
 import type { ScheduleLesson, AvailabilitySlot } from '@/stores/schedule'
 
 const schedule          = useScheduleStore()
@@ -343,8 +404,9 @@ const { effectiveRole } = useViewAs()
 type ViewKey = 'month' | 'week' | 'day'
 const VIEWS    = [{ key: 'month' as ViewKey, label: 'Month' }, { key: 'week' as ViewKey, label: 'Week' }, { key: 'day' as ViewKey, label: 'Day' }]
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const HOURS    = Array.from({ length: 15 }, (_, i) => i + 7)   // 7–21
+const HOURS    = Array.from({ length: 19 }, (_, i) => i + 4)   // 4–22
 const HOUR_H   = 64   // px per hour
+const CAL_START_MIN = 4 * 60  // 4:00 AM = 240 minutes
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const YEARS  = Array.from({ length: 10 }, (_, i) => 2023 + i)
@@ -358,6 +420,12 @@ const selectedHour    = ref<number | null>(null)
 const selectedLesson    = ref<ScheduleLesson | null>(null)
 const selectedSlot      = ref<AvailabilitySlot | null>(null)
 const selectedOpenSlot  = ref<AvailabilitySlot | null>(null)
+const showCreateModal    = ref(false)
+const createPrefillDate  = ref<string | undefined>(undefined)
+const createPrefillStart = ref<string | undefined>(undefined)
+const showHolidayModal   = ref(false)
+const holidayDate        = ref(new Date().toLocaleDateString('sv-SE'))
+const holidayLabel       = ref('')
 
 // ---- Derived ----
 const timezone          = computed(() => auth.user?.timezone ?? 'Asia/Manila')
@@ -367,6 +435,9 @@ const showTeacherFilter = computed(() =>
 )
 const canBook           = computed(() => effectiveRole.value === 'STUDENT')
 const canManageSlots    = computed(() => effectiveRole.value === 'TEACHER')
+const canCreateLesson   = computed(() =>
+  ['ADMIN', 'STAFF'].includes(auth.user?.role ?? '') && effectiveRole.value !== 'STUDENT'
+)
 
 const cursorMonth = computed(() => cursor.value.getMonth())
 const cursorYear  = computed(() => cursor.value.getFullYear())
@@ -423,6 +494,10 @@ function formatTime(iso: string): string {
   const base = h === 0 ? 12 : h > 12 ? h - 12 : h
   const suffix = h < 12 ? 'am' : 'pm'
   return m ? `${base}:${String(m).padStart(2, '0')}${suffix}` : `${base}${suffix}`
+}
+
+function formatSlotRange(start: string, end: string): string {
+  return `${formatSlotHour(start)} – ${formatSlotHour(end)}`
 }
 
 function formatSlotHour(hhmm: string): string {
@@ -505,6 +580,13 @@ function roleLabel(lesson: ScheduleLesson): string {
 }
 
 // ---- Navigation ----
+function switchView(v: ViewKey): void {
+  if (selectedDate.value && v !== 'month') {
+    cursor.value = new Date(`${selectedDate.value}T12:00:00`)
+  }
+  currentView.value = v
+}
+
 function navigate(dir: 1 | -1): void {
   const d = new Date(cursor.value)
   if (currentView.value === 'month') d.setMonth(d.getMonth() + dir)
@@ -658,12 +740,12 @@ function computeDayLayout(
 }
 
 function eventStyle(ev: ScheduleLesson, layout?: Map<string, LayoutPos>): Record<string, string> {
-  const top = ((isoToMinutes(ev.startTime) - 420) / 60) * HOUR_H
+  const top = ((isoToMinutes(ev.startTime) - CAL_START_MIN) / 60) * HOUR_H
   const pos = layout?.get(`e_${ev.id}`)
   return { top: `${top}px`, left: pos?.left ?? '0', right: pos?.right ?? '0', width: pos?.width ?? 'auto' }
 }
 function slotStyle(slot: AvailabilitySlot, layout?: Map<string, LayoutPos>): Record<string, string> {
-  const top = ((timeToMinutes(slot.startTime) - 420) / 60) * HOUR_H
+  const top = ((timeToMinutes(slot.startTime) - CAL_START_MIN) / 60) * HOUR_H
   const pos = layout?.get(`s_${slot.id}`)
   return { top: `${top}px`, left: pos?.left ?? '0', right: pos?.right ?? '0', width: pos?.width ?? 'auto' }
 }
@@ -677,7 +759,7 @@ onUnmounted(() => clearInterval(nowTimer))
 const nowLineStyle = computed(() => {
   void nowTick.value
   const now = new Date()
-  const top = ((now.getHours() * 60 + now.getMinutes() - 420) / 60) * HOUR_H
+  const top = ((now.getHours() * 60 + now.getMinutes() - CAL_START_MIN) / 60) * HOUR_H
   return { top: `${top}px` }
 })
 
@@ -712,6 +794,34 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   const userName = auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Student'
   schedule.bookSlot(slotId, userId, userName, subject, isTrial)
   selectedSlot.value = null
+}
+
+function openCreateModal(dateStr?: string, hour?: number): void {
+  createPrefillDate.value  = dateStr
+  createPrefillStart.value = hour !== undefined ? `${String(hour).padStart(2, '0')}:00` : undefined
+  showCreateModal.value = true
+}
+
+function submitHoliday(): void {
+  if (!holidayDate.value || !holidayLabel.value.trim()) return
+  schedule.blockHoliday(holidayDate.value, holidayLabel.value.trim())
+  showHolidayModal.value = false
+  holidayLabel.value = ''
+}
+
+function handleCreateLesson(payload: {
+  teacherId: string; teacherName: string
+  studentId: string; studentName: string
+  date: string; startTime: string; endTime: string
+  subject: string; isTrial: boolean; isRecurring: boolean
+}): void {
+  schedule.createLesson(
+    payload.teacherId, payload.teacherName,
+    payload.studentId, payload.studentName,
+    payload.date, payload.startTime, payload.endTime,
+    payload.subject, payload.isTrial, payload.isRecurring,
+  )
+  showCreateModal.value = false
 }
 </script>
 
@@ -753,6 +863,66 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 .sv-ctrl-tvselect { min-width: 140px; }
 .sv-period-tvselect { min-width: 100px; }
 
+.sv-add-btn {
+  display: inline-flex; align-items: center; gap: var(--tv-space-1);
+  padding: 0 var(--tv-space-3); height: 42px;
+  font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium);
+  color: var(--tv-text-inverse); background: var(--tv-primary);
+  border: 1px solid transparent; border-radius: var(--tv-radius); cursor: pointer;
+  transition: background 0.15s; white-space: nowrap;
+}
+.sv-add-btn:hover { background: var(--tv-primary-hover); }
+.sv-add-btn--ghost {
+  background: transparent;
+  border-color: var(--tv-border);
+  color: var(--tv-text-secondary);
+}
+.sv-add-btn--ghost:hover { background: var(--tv-bg-soft); }
+
+/* Holiday dialog */
+.hol-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: hsla(215,25%,10%,.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--tv-space-4); backdrop-filter: blur(2px);
+}
+.hol-dialog {
+  background: var(--tv-bg-card); border-radius: var(--tv-radius-lg);
+  box-shadow: var(--tv-shadow-lg); width: 100%; max-width: 420px;
+  padding: var(--tv-space-6); display: flex; flex-direction: column; gap: var(--tv-space-4);
+}
+.hol-header { display: flex; align-items: center; justify-content: space-between; }
+.hol-title { font-size: var(--tv-text-lg); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
+.hol-close {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm);
+  background: transparent; color: var(--tv-text-secondary); cursor: pointer; transition: background .15s;
+}
+.hol-close:hover { background: var(--tv-bg-soft); }
+.hol-desc { font-size: var(--tv-text-sm); color: var(--tv-text-secondary); margin: 0; }
+.hol-fields { display: flex; flex-direction: column; gap: var(--tv-space-3); }
+.hol-field { display: flex; flex-direction: column; gap: var(--tv-space-1); }
+.hol-label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-medium); color: var(--tv-text-secondary); }
+.hol-input {
+  padding: var(--tv-space-2) var(--tv-space-3); font-size: var(--tv-text-sm);
+  color: var(--tv-text); background: var(--tv-bg-card);
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm);
+  outline: none; font-family: inherit; box-sizing: border-box; width: 100%;
+  transition: border-color .15s;
+}
+.hol-input:focus { border-color: var(--tv-primary); }
+.hol-footer { display: flex; justify-content: flex-end; gap: var(--tv-space-2); }
+.hol-btn {
+  display: inline-flex; align-items: center; padding: var(--tv-space-2) var(--tv-space-4);
+  font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium);
+  border-radius: var(--tv-radius-sm); border: 1px solid transparent; cursor: pointer; transition: background .15s, opacity .15s;
+}
+.hol-btn:disabled { opacity: .45; cursor: not-allowed; }
+.hol-btn--primary { background: var(--tv-primary); color: var(--tv-text-inverse); }
+.hol-btn--primary:hover:not(:disabled) { background: var(--tv-primary-hover); }
+.hol-btn--ghost { background: transparent; border-color: var(--tv-border); color: var(--tv-text-secondary); }
+.hol-btn--ghost:hover { background: var(--tv-bg-soft); }
+
 .sv-view-switcher { display: flex; border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius); overflow: hidden; height: 42px; }
 .sv-view-btn {
   padding: 0 var(--tv-space-4); font-size: var(--tv-text-sm);
@@ -785,7 +955,7 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--tv-space-4);
-  align-items: start;
+  align-items: stretch;
   min-width: 0;
   flex: 1;
   min-height: 0;
@@ -999,7 +1169,7 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
   background: var(--tv-bg-card); border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md); overflow: hidden;
   display: flex; flex-direction: column; gap: 0;
-  max-height: 700px; overflow-y: auto;
+  height: 100%; overflow-y: auto;
 }
 
 .sv-panel__header {
@@ -1020,6 +1190,17 @@ function handleBooked(slotId: string, subject: string, isTrial: boolean): void {
 
 .sv-panel__section { padding: var(--tv-space-3) var(--tv-space-4); display: flex; flex-direction: column; gap: var(--tv-space-2); }
 .sv-panel__section + .sv-panel__section { border-top: 1px solid var(--tv-border); }
+.sv-panel__section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--tv-space-1);
+}
+.sv-panel__section-head .sv-panel__section-label { margin-bottom: 0; }
+.sv-panel__create-btn {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold);
+  color: var(--tv-primary); background: transparent; border: none;
+  cursor: pointer; padding: 0; line-height: 1;
+}
+.sv-panel__create-btn:hover { text-decoration: underline; }
 .sv-panel__section-label {
   display: flex; align-items: center; gap: var(--tv-space-1);
   font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted);

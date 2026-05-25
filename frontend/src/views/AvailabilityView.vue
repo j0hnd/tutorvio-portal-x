@@ -9,16 +9,13 @@
       </div>
       <div class="av-header__right">
         <!-- Admin teacher selector -->
-        <select
+        <TVSelect
           v-if="isAdmin"
           v-model="selectedTeacher"
-          class="av-teacher-select"
+          :options="teacherOptions"
           aria-label="Select teacher"
-        >
-          <option value="u2">James Reyes</option>
-          <option value="u6">Sarah Lim</option>
-          <option value="u7">Miguel Santos</option>
-        </select>
+          class="av-teacher-tvselect"
+        />
         <span class="av-tz-badge">{{ timezone }}</span>
       </div>
     </div>
@@ -87,24 +84,14 @@
       <form class="av-unavail-form" @submit.prevent="addUnavailable">
         <div class="av-unavail-fields">
           <div class="av-field">
-            <label class="av-label" for="av-date">Date</label>
-            <input
-              id="av-date"
-              v-model="newUnavailDate"
-              type="date"
-              class="av-input"
-              :min="minDate"
-              required
-            />
+            <TVDatePicker v-model="newUnavailDate" label="Date" :min="minDate" required />
           </div>
           <div class="av-field">
-            <label class="av-label" for="av-reason">Reason</label>
-            <select id="av-reason" v-model="newUnavailReason" class="av-select">
-              <option value="PERSONAL">Personal</option>
-              <option value="SICK">Sick Leave</option>
-              <option value="VACATION">Vacation</option>
-              <option value="NATIONAL_HOLIDAY">National Holiday</option>
-            </select>
+            <TVSelect
+              v-model="newUnavailReason"
+              :options="reasonOptions"
+              label="Reason"
+            />
           </div>
           <div class="av-field av-field--grow">
             <label class="av-label" for="av-label-input">Label</label>
@@ -182,19 +169,37 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore }     from '@/stores/auth'
 import { useViewAs }        from '@/composables/useViewAs'
+import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVSelect     from '@/components/ui/TVSelect.vue'
 import type { UnavailableReason } from '@/stores/schedule'
 
 const schedule = useScheduleStore()
 const auth     = useAuthStore()
+const route    = useRoute()
 const { effectiveRole } = useViewAs()
 
 const isAdmin = computed(() => effectiveRole.value === 'ADMIN' || effectiveRole.value === 'STAFF')
 const timezone = computed(() => auth.user?.timezone ?? 'Asia/Manila')
 
-const selectedTeacher = ref('u2')
+const teacherOptions = [
+  { value: 'u2', label: 'James Reyes' },
+  { value: 'u6', label: 'Sarah Lim' },
+  { value: 'u7', label: 'Miguel Santos' },
+]
+
+const reasonOptions: { value: UnavailableReason; label: string }[] = [
+  { value: 'PERSONAL',         label: 'Personal' },
+  { value: 'SICK',             label: 'Sick Leave' },
+  { value: 'VACATION',         label: 'Vacation' },
+  { value: 'NATIONAL_HOLIDAY', label: 'National Holiday' },
+]
+
+const defaultTeacher = (route.query.teacher as string) || 'u2'
+const selectedTeacher = ref(defaultTeacher)
 
 const teacherId = computed(() =>
   isAdmin.value ? selectedTeacher.value : (auth.user?.id ?? 'u2')

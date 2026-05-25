@@ -79,14 +79,8 @@
         <div v-if="showRescheduleForm" class="ldm-reschedule-form">
           <h3 class="ldm-reschedule-title">Reschedule Lesson</h3>
           <div class="ldm-reschedule-fields">
-            <div class="ldm-field">
-              <label class="ldm-label" for="ldm-new-date">New Date</label>
-              <input id="ldm-new-date" v-model="newDate" type="date" class="ldm-input" :min="minDate" />
-            </div>
-            <div class="ldm-field">
-              <label class="ldm-label" for="ldm-new-time">New Start Time</label>
-              <input id="ldm-new-time" v-model="newTime" type="time" class="ldm-input" step="1800" />
-            </div>
+            <TVDatePicker v-model="newDate" label="New Date" :min="minDate" />
+            <TVTimePicker v-model="newTime" label="New Start Time" :min-hour="6" :max-hour="22" />
           </div>
           <div class="ldm-reschedule-actions">
             <button class="ldm-btn ldm-btn--ghost" type="button" @click="showRescheduleForm = false">Cancel</button>
@@ -143,7 +137,13 @@
             </svg>
             Cancel Lesson
           </button>
-          <button class="ldm-btn ldm-btn--ghost ldm-btn--ml-auto" type="button" @click="$emit('close')">Close</button>
+          <router-link :to="{ name: 'LessonDetail', params: { id: lesson.id } }" class="ldm-btn ldm-btn--ghost ldm-btn--icon ldm-btn--ml-auto" @click="$emit('close')">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+              <path d="M2 6.5h9M7.5 3l3.5 3.5-3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Full Record
+          </router-link>
+          <button class="ldm-btn ldm-btn--ghost" type="button" @click="$emit('close')">Close</button>
         </div>
 
       </div>
@@ -153,6 +153,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVTimePicker from '@/components/ui/TVTimePicker.vue'
 import type { ScheduleLesson } from '@/stores/schedule'
 
 const props = defineProps<{
@@ -484,6 +486,7 @@ function confirmCancel(): void {
 }
 .ldm-btn--danger:hover:not(:disabled) { background: hsl(0, 72%, 44%); }
 .ldm-btn--ml-auto { margin-left: auto; }
+a.ldm-btn { text-decoration: none; }
 .ldm-btn--icon { gap: var(--tv-space-2); }
 
 @media (max-width: 480px) {

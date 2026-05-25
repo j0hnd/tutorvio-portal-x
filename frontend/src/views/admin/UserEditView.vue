@@ -122,7 +122,7 @@
               </div>
               <div class="form-row">
                 <TVInput v-model="studentProfile.program" label="Course / Program" />
-                <TVInput v-model="studentProfile.startDate" label="Start Date" type="date" />
+                <TVDatePicker v-model="studentProfile.startDate" label="Start Date" />
               </div>
               <TVSelect
                 v-model="studentProfile.assignedTeacherId"
@@ -139,33 +139,17 @@
             <template v-else-if="form.role === 'TEACHER'">
               <TVInput v-model="teacherProfile.specialization" label="Specialization" hint="e.g. Business English, IELTS" />
 
-              <!-- Weekly Availability Picker -->
-              <div class="avail-picker-section">
-                <p class="avail-picker-label">Availability Schedule</p>
-                <p class="avail-picker-hint">Click cells to toggle available hours. Saved slots will appear as open bookable slots on the calendar for the next 6 weeks.</p>
-                <div class="avail-picker-wrap">
-                  <div class="avail-picker-grid" :style="`grid-template-columns: 44px repeat(${PICKER_DAYS.length}, 1fr)`">
-                    <div />
-                    <div
-                      v-for="d in PICKER_DAYS" :key="d.key"
-                      class="apg__day-head"
-                      :style="`color: hsl(${DAY_HUE[d.key]},60%,38%)`"
-                    >{{ d.label }}</div>
-                    <template v-for="h in PICKER_HOURS" :key="h">
-                      <div class="apg__hour">{{ formatPickerHour(h) }}</div>
-                      <button
-                        v-for="d in PICKER_DAYS" :key="`${d.key}-${h}`"
-                        type="button"
-                        :class="['apg__cell', { 'apg__cell--on': isPickerActive(d.key, h) }]"
-                        :style="`--day-h:${DAY_HUE[d.key]}`"
-                        :aria-label="`${d.label} ${formatPickerHour(h)} – click to ${isPickerActive(d.key, h) ? 'remove' : 'add'}`"
-                        @click="togglePickerSlot(d.key, h)"
-                      />
-                    </template>
-                  </div>
+              <!-- Availability Summary -->
+              <div class="avail-summary-section">
+                <div class="avail-summary-section__head">
+                  <p class="avail-picker-label">Availability Summary</p>
+                  <router-link
+                    :to="{ name: 'Availability', query: { teacher: user!.id } }"
+                    class="avail-summary-link"
+                  >Manage availability →</router-link>
                 </div>
                 <div class="avail-summary-row">
-                  <span class="avail-summary-label">Summary</span>
+                  <span class="avail-summary-label">Schedule</span>
                   <span class="avail-summary-text">
                     <template v-if="summarySegments.length">
                       <template v-for="(seg, i) in summarySegments" :key="i">
@@ -176,7 +160,7 @@
                       </template>
                       <span class="avail-summary-tz">{{ tzAbbr(form.timezone ?? '') }}</span>
                     </template>
-                    <template v-else>—</template>
+                    <template v-else><span class="avail-summary-empty">No availability set</span></template>
                   </span>
                 </div>
               </div>
@@ -298,11 +282,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUsersStore } from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
 import { useToast } from '@/composables/useToast'
-import type { WeeklyAvailabilitySlot } from '@/stores/schedule'
-import TVButton from '@/components/ui/TVButton.vue'
-import TVInput from '@/components/ui/TVInput.vue'
-import TVSelect from '@/components/ui/TVSelect.vue'
-import TVBadge from '@/components/ui/TVBadge.vue'
+import TVButton     from '@/components/ui/TVButton.vue'
+import TVInput      from '@/components/ui/TVInput.vue'
+import TVSelect     from '@/components/ui/TVSelect.vue'
+import TVBadge      from '@/components/ui/TVBadge.vue'
+import TVDatePicker from '@/components/ui/TVDatePicker.vue'
 import type {
   UserRole,
   SelectOption,
@@ -346,33 +330,13 @@ const adminStaffProfile = ref<AdminStaffProfile>({ permissions: [] })
 
 const errors = ref<Record<string, string>>({})
 
-/* ── Weekly availability picker (teacher only) ── */
-const weeklySlotsPicker = ref<WeeklyAvailabilitySlot[]>([])
-
-const PICKER_DAYS = [
-  { key: 1, label: 'Mon' }, { key: 2, label: 'Tue' }, { key: 3, label: 'Wed' },
-  { key: 4, label: 'Thu' }, { key: 5, label: 'Fri' }, { key: 6, label: 'Sat' },
-  { key: 0, label: 'Sun' },
-]
-const PICKER_HOURS = Array.from({ length: 15 }, (_, i) => i + 7)  // 7am – 9pm
-
-// Day colors: Mon=blue, Tue=violet, Wed=teal, Thu=green, Fri=amber, Sat=rose, Sun=orange
+/* ── Availability summary (read-only, editing done on Availability page) ── */
 const DAY_HUE: Record<number, number> = { 1: 217, 2: 262, 3: 174, 4: 142, 5: 38, 6: 340, 0: 24 }
 
 function formatPickerHour(h: number): string {
   if (h < 12) return `${h}am`
   if (h === 12) return '12pm'
   return `${h - 12}pm`
-}
-
-function isPickerActive(dayOfWeek: number, hour: number): boolean {
-  return weeklySlotsPicker.value.some(s => s.dayOfWeek === dayOfWeek && s.hour === hour)
-}
-
-function togglePickerSlot(dayOfWeek: number, hour: number): void {
-  const idx = weeklySlotsPicker.value.findIndex(s => s.dayOfWeek === dayOfWeek && s.hour === hour)
-  if (idx === -1) weeklySlotsPicker.value.push({ dayOfWeek, hour })
-  else            weeklySlotsPicker.value.splice(idx, 1)
 }
 
 function tzAbbr(tz: string): string {
@@ -385,12 +349,13 @@ function tzAbbr(tz: string): string {
 }
 
 function buildSummarySegments(): { dayKey: string; startHour: number; endHour: number; hue: number }[] {
-  if (!weeklySlotsPicker.value.length) return []
+  const slots = user.value ? schedule.getWeeklySlots(user.value.id) : []
+  if (!slots.length) return []
   const DAYS: Record<number, string> = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }
   const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
   const hourToDays: Record<number, Set<number>> = {}
-  for (const s of weeklySlotsPicker.value) {
+  for (const s of slots) {
     if (!hourToDays[s.hour]) hourToDays[s.hour] = new Set()
     hourToDays[s.hour].add(s.dayOfWeek)
   }
@@ -430,14 +395,6 @@ const summarySegments = computed(() =>
   }))
 )
 
-const computedAvailabilitySummary = computed((): string => {
-  const segs = buildSummarySegments()
-  if (!segs.length) return ''
-  const tz = tzAbbr(form.value.timezone)
-  const parts = segs.map(s => `${s.dayKey} ${formatPickerHour(s.startHour)}–${formatPickerHour(s.endHour)}`)
-  return parts.length ? `${parts.join(', ')} ${tz}` : ''
-})
-
 /* ── Load user ── */
 async function loadUser(): Promise<void> {
   if (!store.users.length) await store.fetchUsers()
@@ -457,9 +414,6 @@ async function loadUser(): Promise<void> {
   }
   studentProfile.value = { ...found.studentProfile }
   teacherProfile.value = { ...found.teacherProfile }
-  if (found.role === 'TEACHER') {
-    weeklySlotsPicker.value = schedule.getWeeklySlots(found.id).map(s => ({ ...s }))
-  }
   adminStaffProfile.value = {
     ...found.adminStaffProfile,
     permissions: [...(found.adminStaffProfile?.permissions ?? [])],
@@ -623,10 +577,6 @@ async function handleSubmit(): Promise<void> {
   submitting.value = true
   await new Promise(r => setTimeout(r, 400))
 
-  if (form.value.role === 'TEACHER') {
-    teacherProfile.value.availabilitySummary = computedAvailabilitySummary.value
-  }
-
   store.updateUser(user.value.id, {
     firstName: form.value.firstName,
     lastName: form.value.lastName,
@@ -640,10 +590,6 @@ async function handleSubmit(): Promise<void> {
       ? adminStaffProfile.value
       : undefined,
   })
-
-  if (form.value.role === 'TEACHER' && user.value) {
-    schedule.syncTeacherWeeklySlots(user.value.id, weeklySlotsPicker.value)
-  }
 
   toast.success(`${form.value.firstName} ${form.value.lastName} has been updated.`)
   submitting.value = false
@@ -1022,39 +968,16 @@ async function handleSubmit(): Promise<void> {
   justify-content: center;
 }
 
-/* ── Weekly availability picker ── */
-.avail-picker-section { display: flex; flex-direction: column; gap: var(--tv-space-2); }
+/* ── Availability summary ── */
+.avail-summary-section { display: flex; flex-direction: column; gap: var(--tv-space-2); }
+.avail-summary-section__head { display: flex; align-items: center; justify-content: space-between; }
 .avail-picker-label   { font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium); color: var(--tv-text); margin: 0; }
-.avail-picker-hint    { font-size: var(--tv-text-xs); color: var(--tv-text-muted); margin: 0; }
-.avail-picker-wrap    { overflow-x: auto; }
-.avail-picker-grid    { display: grid; gap: 2px; min-width: 380px; }
-
-.apg__day-head {
-  text-align: center; font-size: 11px; font-weight: var(--tv-font-semibold);
-  color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .04em;
-  padding-bottom: var(--tv-space-1);
+.avail-summary-link {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-medium);
+  color: var(--tv-primary); text-decoration: none;
 }
-.apg__hour {
-  font-size: 10px; color: var(--tv-text-muted);
-  display: flex; align-items: center; justify-content: flex-end;
-  padding-right: var(--tv-space-1);
-}
-.apg__cell {
-  height: 26px; border-radius: 3px; border: 1px solid var(--tv-border);
-  background: var(--tv-bg-soft); cursor: pointer;
-  transition: background .12s, border-color .12s;
-}
-.apg__cell:hover:not(.apg__cell--on) {
-  background: hsl(var(--day-h, 217), 70%, 93%);
-  border-color: hsl(var(--day-h, 217), 60%, 78%);
-}
-.apg__cell--on {
-  background: hsl(var(--day-h, 217), 70%, 88%);
-  border-color: hsl(var(--day-h, 217), 60%, 65%);
-}
-.apg__cell--on:hover {
-  background: hsl(var(--day-h, 217), 65%, 82%);
-}
+.avail-summary-link:hover { text-decoration: underline; }
+.avail-summary-empty { color: var(--tv-text-muted); font-style: italic; }
 
 .avail-summary-row {
   display: flex; gap: var(--tv-space-2); align-items: flex-start;
