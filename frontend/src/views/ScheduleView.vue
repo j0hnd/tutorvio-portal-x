@@ -1327,12 +1327,53 @@ function handleCreateLesson(payload: {
   .sv-panel-enter-from, .sv-panel-leave-to { opacity: 0; transform: translateY(12px); }
 }
 
+@media (max-width: 767px) {
+  /* Header stacks: title row, then nav+period, then actions */
+  .sv-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--tv-space-2);
+  }
+  .sv-header__left  { justify-content: space-between; }
+  .sv-header__center {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--tv-space-2);
+  }
+  .sv-nav { justify-content: center; }
+  .sv-period-selects {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: var(--tv-space-1);
+    align-items: center;
+  }
+  .sv-period-tvselect { min-width: 0; width: 100%; }
+  .sv-view-switcher { height: 38px; }
+  .sv-view-btn { padding: 0 var(--tv-space-2); font-size: var(--tv-text-xs); }
+
+  .sv-header__right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--tv-space-1);
+    justify-content: stretch;
+  }
+  /* Teacher select spans full width when it's the only item */
+  .sv-ctrl-tvselect { grid-column: 1 / -1; min-width: 0; }
+  .sv-add-btn { justify-content: center; padding: 0 var(--tv-space-2); height: 38px; font-size: var(--tv-text-xs); }
+
+  /* Month cells compact */
+  .sv-month__cell { min-height: 60px; padding: 3px; }
+  .sv-month__wday { font-size: 9px; padding: var(--tv-space-1) 0; }
+  .sv-chip { font-size: 9px; padding: 1px 3px; }
+  .sv-chip__time { display: none; }
+
+  /* Week/day scroll */
+  .sv-week__scroll-wrap { min-height: 380px; }
+  .sv-day__scroll-wrap  { min-height: 380px; }
+}
+
 @media (max-width: 640px) {
-  .sv-header__controls { gap: var(--tv-space-1); }
-  .sv-view-btn { padding: var(--tv-space-1) var(--tv-space-2); font-size: var(--tv-text-xs); }
-  .sv-month__cell { min-height: 70px; padding: var(--tv-space-1); }
-  .sv-week__scroll-wrap { min-height: 400px; }
-  .sv-day__scroll-wrap  { min-height: 400px; }
-  .sv-period-selects .sv-period-select { font-size: var(--tv-text-xs); padding: 2px var(--tv-space-1); }
+  .sv-month__cell { min-height: 48px; }
 }
 </style>
