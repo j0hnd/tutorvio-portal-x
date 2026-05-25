@@ -670,11 +670,6 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
   .tv-dt__td--hide-md {
     display: none;
   }
-
-  .tv-dt__footer {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 @media (max-width: 767px) {
@@ -683,10 +678,41 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
     display: none;
   }
 
-  .tv-dt__pagination {
+  .tv-dt__footer {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: var(--tv-space-3);
+    padding: var(--tv-space-3);
+  }
+
+  .tv-dt__count {
+    order: 1;
+    text-align: center;
+  }
+
+  .tv-dt__pagination {
+    order: 2;
+    flex-direction: column;
+    align-items: stretch;
     gap: var(--tv-space-2);
+  }
+
+  .tv-dt__per-page {
+    justify-content: space-between;
+  }
+
+  .tv-dt__per-page-tvselect { width: 100px; }
+
+  .tv-dt__pages {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Trim middle page buttons on small screens — keep first/prev/next/last + active */
+  .tv-dt__page-btn {
+    min-width: 34px;
+    height: 34px;
+    font-size: var(--tv-text-sm);
   }
 }
 </style>
