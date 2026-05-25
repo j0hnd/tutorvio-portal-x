@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 export interface Lesson {
-  id: number
+  id: string
   subject: string
   teacher: string
   avatar?: string
@@ -75,8 +75,8 @@ export interface Lesson {
 defineProps<{ lessons: Lesson[] }>()
 
 const emit = defineEmits<{
-  join: [id: number]
-  more: [id: number]
+  join: [id: string]
+  more: [id: string]
 }>()
 </script>
 

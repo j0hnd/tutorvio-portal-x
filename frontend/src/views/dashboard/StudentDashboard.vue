@@ -24,7 +24,11 @@
       <div class="sd-main">
 
         <!-- Upcoming Lessons -->
-        <UpcomingLessons :lessons="upcomingLessons" @join="() => {}" @more="() => {}" />
+        <UpcomingLessons
+          :lessons="upcomingLessons"
+          @join="id => router.push({ name: 'LessonDetail', params: { id } })"
+          @more="id => router.push({ name: 'LessonDetail', params: { id } })"
+        />
 
         <!-- Learning Progress & Assigned Course -->
         <section class="sd-panel">
@@ -194,6 +198,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore }     from '@/stores/auth'
 import { useUsersStore }    from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
@@ -202,6 +207,7 @@ import UpcomingLessons from '@/components/dashboard/UpcomingLessons.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
 import type { Lesson }    from '@/components/dashboard/UpcomingLessons.vue'
 
+const router   = useRouter()
 const auth     = useAuthStore()
 const store    = useUsersStore()
 const schedule = useScheduleStore()
@@ -266,7 +272,7 @@ const upcomingLessons = computed((): Lesson[] => {
       const day = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       const time = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
       const duration = `${Math.round((end.getTime() - start.getTime()) / 60000)} min`
-      return { id: l.id as unknown as number, subject: l.subject, teacher: l.teacherName, avatar: '', day, time, duration, soon: isToday }
+      return { id: l.id, subject: l.subject, teacher: l.teacherName, avatar: '', day, time, duration, soon: isToday }
     })
 })
 

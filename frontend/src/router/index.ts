@@ -61,11 +61,17 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
-  /* ── Student-only ── */
+  /* ── Lessons ── */
   {
     path: '/lessons',
     name: 'Lessons',
     component: () => import('@/views/LessonsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/lessons/:id',
+    name: 'LessonDetail',
+    component: () => import('@/views/LessonDetailView.vue'),
     meta: { requiresAuth: true },
   },
   {

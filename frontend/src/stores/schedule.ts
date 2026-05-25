@@ -69,6 +69,56 @@ export interface TeacherAvailability {
   weeklySlots: WeeklyAvailabilitySlot[]
 }
 
+export interface LessonNote {
+  id: string
+  lessonId: string
+  content: string
+  authorId: string
+  authorName: string
+  isPublic: boolean   // visible to student
+  createdAt: string
+  updatedAt?: string
+}
+
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'
+
+export interface LessonAttendance {
+  lessonId: string
+  teacherStatus: AttendanceStatus
+  studentStatus: AttendanceStatus
+  absenceReason?: string
+  markedAt: string
+  markedById: string
+}
+
+export type MaterialType = 'PDF' | 'VIDEO' | 'LINK' | 'DOCUMENT' | 'IMAGE'
+
+export interface LessonMaterial {
+  id: string
+  lessonId: string
+  title: string
+  type: MaterialType
+  url: string
+  uploadedByName: string
+  uploadedAt: string
+}
+
+export type HomeworkStatus = 'PENDING' | 'SUBMITTED' | 'REVIEWED'
+
+export interface LessonHomework {
+  id: string
+  lessonId: string
+  title: string
+  description: string
+  dueDate: string
+  studentId: string
+  studentName: string
+  status: HomeworkStatus
+  submissionUrl?: string
+  feedback?: string
+  grade?: string
+}
+
 // ---- Helpers ----
 
 function dt(dateStr: string, hour: number, minute = 0): string {
@@ -358,6 +408,46 @@ const MOCK_UNAVAILABLE_INITIAL: UnavailableDate[] = [
   { id: 'ud2', teacherId: 'u2', date: '2026-06-12', reason: 'NATIONAL_HOLIDAY', label: 'Independence Day (PH)' },
 ]
 
+// ---- Lesson Detail Mock Data ----
+
+const MOCK_NOTES_INITIAL: LessonNote[] = [
+  { id: 'n1', lessonId: 'l1', content: 'Emma did an excellent job with formal email writing. She constructed three different business email templates with minimal errors. Focus next session on board-meeting phrases and presentations.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-18T10:05:00Z' },
+  { id: 'n2', lessonId: 'l1', content: 'Internal: Student is progressing faster than average. Consider recommending advanced track.', authorId: 'u2', authorName: 'James Reyes', isPublic: false, createdAt: '2026-05-18T10:10:00Z' },
+  { id: 'n3', lessonId: 'l4', content: 'Marco showed strong improvement in conversational fluency. Practiced ordering food, shopping, and directions scenarios. Recommended: 30 min daily shadowing exercises.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-20T10:00:00Z' },
+  { id: 'n4', lessonId: 'l5', content: 'Worked on presentation skills for Emma\'s upcoming board meeting. Excellent progress — confidence level noticeably higher. Next: practice Q&A handling.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-21T10:00:00Z' },
+  { id: 'n5', lessonId: 'ls1', content: 'Sofia completed Listening section practice test — scored 7.0. Reading still needs improvement, particularly matching headings. Assigned extra practice materials.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-18T11:00:00Z' },
+  { id: 'n6', lessonId: 'lm1', content: 'Rico tackled negotiation language and deal-closing phrases. Role-played a supplier negotiation scenario. Strong performance. Homework: write a follow-up email after a negotiation.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-18T10:00:00Z' },
+]
+
+const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
+  { lessonId: 'l1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T09:02:00Z', markedById: 'u2' },
+  { lessonId: 'l2', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T14:02:00Z', markedById: 'u2' },
+  { lessonId: 'l3', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student did not join. No prior notice.', markedAt: '2026-05-19T10:20:00Z', markedById: 'u2' },
+  { lessonId: 'l4', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-20T09:02:00Z', markedById: 'u2' },
+  { lessonId: 'l5', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-21T09:02:00Z', markedById: 'u2' },
+  { lessonId: 'ls1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T10:02:00Z', markedById: 'u6' },
+  { lessonId: 'lm1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T09:02:00Z', markedById: 'u7' },
+  { lessonId: 'lm2', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student did not show. Waiting for response.', markedAt: '2026-05-19T10:30:00Z', markedById: 'u7' },
+]
+
+const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
+  { id: 'm1', lessonId: 'l1', title: 'Formal Email Templates Workbook', type: 'PDF', url: 'https://materials.tutorvio.com/files/email-templates.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-05-18T08:30:00Z' },
+  { id: 'm2', lessonId: 'l1', title: 'Board Meeting Vocabulary List', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/board-vocab.docx', uploadedByName: 'James Reyes', uploadedAt: '2026-05-18T08:32:00Z' },
+  { id: 'm3', lessonId: 'l5', title: 'Presentation Skills Video Guide', type: 'VIDEO', url: 'https://materials.tutorvio.com/videos/presentation-skills.mp4', uploadedByName: 'James Reyes', uploadedAt: '2026-05-21T08:45:00Z' },
+  { id: 'm4', lessonId: 'ls1', title: 'IELTS Reading Practice Test 4', type: 'PDF', url: 'https://materials.tutorvio.com/files/ielts-reading-4.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-18T09:50:00Z' },
+  { id: 'm5', lessonId: 'l8', title: 'Business Presentation Framework', type: 'PDF', url: 'https://materials.tutorvio.com/files/biz-framework.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-05-25T08:00:00Z' },
+  { id: 'm6', lessonId: 'lm1', title: 'Negotiation Language Cheat Sheet', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/negotiation.docx', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-18T08:55:00Z' },
+]
+
+const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
+  { id: 'hw1', lessonId: 'l1', title: 'Write 2 formal business emails', description: 'Write one email requesting a meeting and one email following up after a board presentation. Minimum 150 words each. Use templates from today\'s session.', dueDate: '2026-05-22', studentId: 'u1', studentName: 'Emma Santos', status: 'REVIEWED', feedback: 'Excellent work! Both emails were well-structured and professional. Minor grammar corrections noted inline.', grade: 'A' },
+  { id: 'hw2', lessonId: 'l4', title: 'Shadowing exercise — 3 scenarios', description: 'Record yourself completing the food ordering, shopping, and directions scenarios. Submit audio files via the student portal.', dueDate: '2026-05-23', studentId: 'u12', studentName: 'Marco Tan', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw2' },
+  { id: 'hw3', lessonId: 'l5', title: 'Practice board meeting Q&A responses', description: 'Prepare 5 Q&A response scripts for typical board meeting questions. Use the STAR method for at least 3 responses.', dueDate: '2026-05-25', studentId: 'u1', studentName: 'Emma Santos', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw3' },
+  { id: 'hw4', lessonId: 'ls1', title: 'IELTS Reading — Matching Headings practice', description: 'Complete exercises 1-5 from the Reading Practice Test 4 PDF. Focus on matching headings. Submit answers by next session.', dueDate: '2026-05-23', studentId: 'u14', studentName: 'Sofia Cruz', status: 'REVIEWED', feedback: 'Good improvement! Scored 6/8 on matching headings. Keep practicing paragraph topic identification.', grade: 'B+' },
+  { id: 'hw5', lessonId: 'l8', title: 'Prepare 5-minute presentation outline', description: 'Create an outline for a 5-minute business presentation on any topic of your choice. Include intro, 3 key points, and conclusion.', dueDate: '2026-05-28', studentId: 'u1', studentName: 'Emma Santos', status: 'PENDING' },
+  { id: 'hw6', lessonId: 'lm1', title: 'Write a post-negotiation follow-up email', description: 'Write a professional follow-up email after a supplier negotiation. Include deal summary, agreed terms, and next steps. 200+ words.', dueDate: '2026-05-22', studentId: 'u17', studentName: 'Rico Valdez', status: 'REVIEWED', feedback: 'Well done! Clear structure and professional tone. A few vocabulary suggestions noted.', grade: 'A-' },
+]
+
 // ---- Store ----
 
 export const useScheduleStore = defineStore('schedule', () => {
@@ -367,6 +457,10 @@ export const useScheduleStore = defineStore('schedule', () => {
   const lessons = ref<ScheduleLesson[]>(MOCK_LESSONS_INITIAL.map(l => ({ ...l })))
   const availabilitySlots = ref<AvailabilitySlot[]>(MOCK_AVAILABILITY_INITIAL.map(s => ({ ...s })))
   const unavailableDates = ref<UnavailableDate[]>(MOCK_UNAVAILABLE_INITIAL.map(d => ({ ...d })))
+  const lessonNotes = ref<LessonNote[]>(MOCK_NOTES_INITIAL.map(n => ({ ...n })))
+  const lessonAttendance = ref<LessonAttendance[]>(MOCK_ATTENDANCE_INITIAL.map(a => ({ ...a })))
+  const lessonMaterials = ref<LessonMaterial[]>(MOCK_MATERIALS_INITIAL.map(m => ({ ...m })))
+  const lessonHomework = ref<LessonHomework[]>(MOCK_HOMEWORK_INITIAL.map(h => ({ ...h })))
   const teacherAvailabilities = ref<Record<string, TeacherAvailability>>(
     Object.fromEntries(
       Object.entries(MOCK_TEACHER_AVAILABILITIES_INITIAL).map(([k, v]) => [
@@ -616,6 +710,84 @@ export const useScheduleStore = defineStore('schedule', () => {
     return newLesson
   }
 
+  // ---- Lesson detail actions ----
+
+  function getLesson(id: string): ScheduleLesson | undefined {
+    return lessons.value.find(l => l.id === id)
+  }
+
+  function getNotesForLesson(lessonId: string): LessonNote[] {
+    return lessonNotes.value.filter(n => n.lessonId === lessonId)
+  }
+
+  function addNote(lessonId: string, content: string, authorId: string, authorName: string, isPublic: boolean): void {
+    lessonNotes.value.push({
+      id: `n${Date.now()}`, lessonId, content, authorId, authorName, isPublic,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  function updateNote(noteId: string, content: string, isPublic: boolean): void {
+    const note = lessonNotes.value.find(n => n.id === noteId)
+    if (note) { note.content = content; note.isPublic = isPublic; note.updatedAt = new Date().toISOString() }
+  }
+
+  function deleteNote(noteId: string): void {
+    lessonNotes.value = lessonNotes.value.filter(n => n.id !== noteId)
+  }
+
+  function getAttendanceForLesson(lessonId: string): LessonAttendance | undefined {
+    return lessonAttendance.value.find(a => a.lessonId === lessonId)
+  }
+
+  function markAttendance(lessonId: string, teacherStatus: AttendanceStatus, studentStatus: AttendanceStatus, absenceReason: string, markerId: string): void {
+    const existing = lessonAttendance.value.find(a => a.lessonId === lessonId)
+    if (existing) {
+      existing.teacherStatus = teacherStatus
+      existing.studentStatus = studentStatus
+      existing.absenceReason = absenceReason || undefined
+      existing.markedAt = new Date().toISOString()
+      existing.markedById = markerId
+    } else {
+      lessonAttendance.value.push({
+        lessonId, teacherStatus, studentStatus,
+        absenceReason: absenceReason || undefined,
+        markedAt: new Date().toISOString(), markedById: markerId,
+      })
+    }
+  }
+
+  function getMaterialsForLesson(lessonId: string): LessonMaterial[] {
+    return lessonMaterials.value.filter(m => m.lessonId === lessonId)
+  }
+
+  function addMaterial(lessonId: string, title: string, type: MaterialType, url: string, uploaderName: string): void {
+    lessonMaterials.value.push({
+      id: `m${Date.now()}`, lessonId, title, type, url,
+      uploadedByName: uploaderName, uploadedAt: new Date().toISOString(),
+    })
+  }
+
+  function deleteMaterial(materialId: string): void {
+    lessonMaterials.value = lessonMaterials.value.filter(m => m.id !== materialId)
+  }
+
+  function getHomeworkForLesson(lessonId: string): LessonHomework[] {
+    return lessonHomework.value.filter(h => h.lessonId === lessonId)
+  }
+
+  function addHomework(lessonId: string, title: string, description: string, dueDate: string, studentId: string, studentName: string): void {
+    lessonHomework.value.push({
+      id: `hw${Date.now()}`, lessonId, title, description, dueDate,
+      studentId, studentName, status: 'PENDING',
+    })
+  }
+
+  function updateHomeworkStatus(hwId: string, status: HomeworkStatus, feedback?: string, grade?: string): void {
+    const hw = lessonHomework.value.find(h => h.id === hwId)
+    if (hw) { hw.status = status; if (feedback) hw.feedback = feedback; if (grade) hw.grade = grade }
+  }
+
   function removeAvailabilitySlot(slotId: string): void {
     availabilitySlots.value = availabilitySlots.value.filter(
       s => !(s.id === slotId && !s.isBooked),
@@ -677,5 +849,22 @@ export const useScheduleStore = defineStore('schedule', () => {
     removeUnavailableDate,
     removeAvailabilitySlot,
     syncTeacherWeeklySlots,
+    getLesson,
+    lessonNotes,
+    lessonAttendance,
+    lessonMaterials,
+    lessonHomework,
+    getNotesForLesson,
+    addNote,
+    updateNote,
+    deleteNote,
+    getAttendanceForLesson,
+    markAttendance,
+    getMaterialsForLesson,
+    addMaterial,
+    deleteMaterial,
+    getHomeworkForLesson,
+    addHomework,
+    updateHomeworkStatus,
   }
 })

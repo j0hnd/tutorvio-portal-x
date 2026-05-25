@@ -29,6 +29,8 @@
               v-for="cls in MOCK_TODAY_CLASSES"
               :key="cls.id"
               :class="['adm-schedule-item', { 'adm-schedule-item--live': cls.status === 'live', 'adm-schedule-item--missed': cls.status === 'missed' }]"
+              style="cursor: pointer"
+              @click="router.push({ name: 'LessonDetail', params: { id: cls.id } })"
             >
               <div class="adm-schedule-item__time">
                 <span class="adm-schedule-item__hour">{{ cls.time }}</span>
@@ -214,9 +216,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore }     from '@/stores/auth'
 import { useUsersStore }    from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
+
+const router = useRouter()
 import StatsGrid from '@/components/dashboard/StatsGrid.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
 

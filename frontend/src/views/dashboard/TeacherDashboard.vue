@@ -53,7 +53,7 @@
                   </svg>
                   Join
                 </button>
-                <button class="td-more-btn" type="button" aria-label="More options">
+                <button class="td-more-btn" type="button" aria-label="View lesson" @click="router.push({ name: 'LessonDetail', params: { id: cls.id } })">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <circle cx="3" cy="8" r="1.2" fill="currentColor"/>
                     <circle cx="8" cy="8" r="1.2" fill="currentColor"/>
@@ -220,9 +220,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore }     from '@/stores/auth'
 import { useUsersStore }    from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
+
+const router = useRouter()
 import StatsGrid from '@/components/dashboard/StatsGrid.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
 
