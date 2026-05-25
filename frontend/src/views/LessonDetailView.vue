@@ -527,7 +527,16 @@ function formatDateTime(iso: string): string {
 </script>
 
 <style scoped>
-.ld-page { display: flex; flex-direction: column; gap: var(--tv-space-5); }
+.ld-page {
+  padding: var(--tv-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-5);
+}
+
+@media (max-width: 767px) {
+  .ld-page { padding: var(--tv-space-4); }
+}
 
 /* Back */
 .ld-back {

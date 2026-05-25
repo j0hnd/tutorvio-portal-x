@@ -417,6 +417,10 @@ const MOCK_NOTES_INITIAL: LessonNote[] = [
   { id: 'n4', lessonId: 'l5', content: 'Worked on presentation skills for Emma\'s upcoming board meeting. Excellent progress — confidence level noticeably higher. Next: practice Q&A handling.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-21T10:00:00Z' },
   { id: 'n5', lessonId: 'ls1', content: 'Sofia completed Listening section practice test — scored 7.0. Reading still needs improvement, particularly matching headings. Assigned extra practice materials.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-18T11:00:00Z' },
   { id: 'n6', lessonId: 'lm1', content: 'Rico tackled negotiation language and deal-closing phrases. Role-played a supplier negotiation scenario. Strong performance. Homework: write a follow-up email after a negotiation.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-18T10:00:00Z' },
+  { id: 'n7', lessonId: 'ldemo1', content: 'Lea reviewed present perfect tense in business contexts. Good grasp of structure. Next focus: polite request phrases for client meetings.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-25T16:35:00Z' },
+  { id: 'n8', lessonId: 'ldemo2', content: 'Sofia completed a full IELTS Speaking mock test. Band 6.5 estimated. Key areas to improve: topic development in Part 2 and using more complex vocabulary. Will assign speaking recordings for homework.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-25T17:50:00Z' },
+  { id: 'n9', lessonId: 'ldemo3', content: 'Trial session with Rico. He has strong listening comprehension and a good active vocabulary for business contexts. Recommend starting with Business English intermediate track.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-25T18:20:00Z' },
+  { id: 'n10', lessonId: 'ldemo3', content: 'Internal: Rico is a strong candidate for fast-track. Consider pairing with Miguel for continuity since he already has rapport.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: false, createdAt: '2026-05-25T18:25:00Z' },
 ]
 
 const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
@@ -428,6 +432,8 @@ const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
   { lessonId: 'ls1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T10:02:00Z', markedById: 'u6' },
   { lessonId: 'lm1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T09:02:00Z', markedById: 'u7' },
   { lessonId: 'lm2', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student did not show. Waiting for response.', markedAt: '2026-05-19T10:30:00Z', markedById: 'u7' },
+  { lessonId: 'ldemo1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T17:05:00Z', markedById: 'u2' },
+  { lessonId: 'ldemo2', teacherStatus: 'PRESENT', studentStatus: 'LATE', absenceReason: 'Student joined 8 minutes late due to internet issues.', markedAt: '2026-05-25T18:50:00Z', markedById: 'u6' },
 ]
 
 const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
@@ -437,6 +443,10 @@ const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
   { id: 'm4', lessonId: 'ls1', title: 'IELTS Reading Practice Test 4', type: 'PDF', url: 'https://materials.tutorvio.com/files/ielts-reading-4.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-18T09:50:00Z' },
   { id: 'm5', lessonId: 'l8', title: 'Business Presentation Framework', type: 'PDF', url: 'https://materials.tutorvio.com/files/biz-framework.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-05-25T08:00:00Z' },
   { id: 'm6', lessonId: 'lm1', title: 'Negotiation Language Cheat Sheet', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/negotiation.docx', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-18T08:55:00Z' },
+  { id: 'm7', lessonId: 'ldemo1', title: 'Business Email Phrases — Intermediate', type: 'PDF', url: 'https://materials.tutorvio.com/files/biz-email-phrases.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-05-25T16:28:00Z' },
+  { id: 'm8', lessonId: 'ldemo2', title: 'IELTS Speaking Band Descriptors', type: 'PDF', url: 'https://materials.tutorvio.com/files/ielts-speaking-bands.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-25T17:43:00Z' },
+  { id: 'm9', lessonId: 'ldemo2', title: 'Speaking Part 2 — Topic Cards Set B', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/speaking-p2-setb.docx', uploadedByName: 'Sarah Lim', uploadedAt: '2026-05-25T17:44:00Z' },
+  { id: 'm10', lessonId: 'ldemo3', title: 'Business English Placement Overview', type: 'LINK', url: 'https://materials.tutorvio.com/links/be-placement', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-25T18:10:00Z' },
 ]
 
 const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
@@ -446,6 +456,8 @@ const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
   { id: 'hw4', lessonId: 'ls1', title: 'IELTS Reading — Matching Headings practice', description: 'Complete exercises 1-5 from the Reading Practice Test 4 PDF. Focus on matching headings. Submit answers by next session.', dueDate: '2026-05-23', studentId: 'u14', studentName: 'Sofia Cruz', status: 'REVIEWED', feedback: 'Good improvement! Scored 6/8 on matching headings. Keep practicing paragraph topic identification.', grade: 'B+' },
   { id: 'hw5', lessonId: 'l8', title: 'Prepare 5-minute presentation outline', description: 'Create an outline for a 5-minute business presentation on any topic of your choice. Include intro, 3 key points, and conclusion.', dueDate: '2026-05-28', studentId: 'u1', studentName: 'Emma Santos', status: 'PENDING' },
   { id: 'hw6', lessonId: 'lm1', title: 'Write a post-negotiation follow-up email', description: 'Write a professional follow-up email after a supplier negotiation. Include deal summary, agreed terms, and next steps. 200+ words.', dueDate: '2026-05-22', studentId: 'u17', studentName: 'Rico Valdez', status: 'REVIEWED', feedback: 'Well done! Clear structure and professional tone. A few vocabulary suggestions noted.', grade: 'A-' },
+  { id: 'hw7', lessonId: 'ldemo1', title: 'Write 3 polite request phrases using present perfect', description: 'Using today\'s vocabulary, write 3 sentences making polite business requests. E.g. "I was wondering if you could…" Submit via the student portal before the next session.', dueDate: '2026-05-28', studentId: 'u10', studentName: 'Lea Mendoza', status: 'PENDING' },
+  { id: 'hw8', lessonId: 'ldemo2', title: 'IELTS Speaking — 3-minute Part 2 recording', description: 'Choose any topic from the Topic Cards Set B. Record a 3-minute Part 2 response. Focus on topic development and complex vocabulary. Submit audio file via the student portal.', dueDate: '2026-05-29', studentId: 'u14', studentName: 'Sofia Cruz', status: 'PENDING' },
 ]
 
 // ---- Store ----
@@ -827,6 +839,35 @@ export const useScheduleStore = defineStore('schedule', () => {
     }
   }
 
+  function addLesson(
+    teacherId: string, teacherName: string,
+    studentId: string, studentName: string,
+    subject: string, startTime: string, durationMin: number,
+    isTrial: boolean, isRecurring: boolean,
+  ): void {
+    const id = `lc${Date.now()}`
+    const start = new Date(startTime)
+    const end = new Date(start.getTime() + durationMin * 60_000)
+    const now = new Date()
+    const status: LessonStatus = isTrial ? 'TRIAL' : 'SCHEDULED'
+    lessons.value.push({
+      id,
+      title: isTrial ? `Trial: ${subject}` : subject,
+      subject,
+      teacherId, teacherName,
+      studentId, studentName,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      status,
+      meetingUrl: start > now ? `https://meet.tutorvio.com/room/${id}` : undefined,
+      notes: undefined,
+      isTrial,
+      isRecurring,
+      canReschedule: start > now,
+      canCancel: start > now,
+    })
+  }
+
   return {
     lessons,
     availabilitySlots,
@@ -866,5 +907,6 @@ export const useScheduleStore = defineStore('schedule', () => {
     getHomeworkForLesson,
     addHomework,
     updateHomeworkStatus,
+    addLesson,
   }
 })
