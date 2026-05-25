@@ -57,7 +57,7 @@
         <div class="sv-view-switcher" role="group" aria-label="Calendar view">
           <button v-for="v in VIEWS" :key="v.key"
             :class="['sv-view-btn', { 'sv-view-btn--active': currentView === v.key }]"
-            type="button" @click="currentView = v.key">{{ v.label }}</button>
+            type="button" @click="switchView(v.key)">{{ v.label }}</button>
         </div>
       </div>
     </div>
@@ -576,6 +576,13 @@ function roleLabel(lesson: ScheduleLesson): string {
 }
 
 // ---- Navigation ----
+function switchView(v: ViewKey): void {
+  if (selectedDate.value && v !== 'month') {
+    cursor.value = new Date(`${selectedDate.value}T12:00:00`)
+  }
+  currentView.value = v
+}
+
 function navigate(dir: 1 | -1): void {
   const d = new Date(cursor.value)
   if (currentView.value === 'month') d.setMonth(d.getMonth() + dir)
