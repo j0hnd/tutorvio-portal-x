@@ -55,6 +55,11 @@ class StudentProfile extends Model
         return $this->hasMany(LessonRecord::class, 'student_id', 'user_id');
     }
 
+    public function progressRecords(): HasMany
+    {
+        return $this->hasMany(StudentProgressRecord::class, 'student_id', 'user_id');
+    }
+
     public function lessonNotes(): HasMany
     {
         return $this->hasMany(LessonNote::class, 'student_id', 'user_id');

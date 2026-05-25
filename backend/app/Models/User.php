@@ -125,6 +125,11 @@ class User extends Authenticatable
         return $this->hasMany(Homework::class, 'student_id');
     }
 
+    public function studentProgressRecords(): HasMany
+    {
+        return $this->hasMany(StudentProgressRecord::class, 'student_id');
+    }
+
     public function assignedLearningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'learning_resource_student', 'student_id', 'learning_resource_id')
@@ -177,6 +182,11 @@ class User extends Authenticatable
         return $this->hasMany(Homework::class, 'teacher_id');
     }
 
+    public function teacherProgressRecords(): HasMany
+    {
+        return $this->hasMany(StudentProgressRecord::class, 'teacher_id');
+    }
+
     public function authoredLessonNotes(): HasMany
     {
         return $this->hasMany(LessonNote::class, 'author_id');
@@ -190,6 +200,16 @@ class User extends Authenticatable
     public function updatedLessonRecords(): HasMany
     {
         return $this->hasMany(LessonRecord::class, 'updated_by');
+    }
+
+    public function createdStudentProgressRecords(): HasMany
+    {
+        return $this->hasMany(StudentProgressRecord::class, 'created_by');
+    }
+
+    public function updatedStudentProgressRecords(): HasMany
+    {
+        return $this->hasMany(StudentProgressRecord::class, 'updated_by');
     }
 
     public function completedLessonRecords(): HasMany
