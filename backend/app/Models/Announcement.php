@@ -14,9 +14,25 @@ class Announcement extends Model
 
     public const TYPE_ADMIN_ANNOUNCEMENT = 'admin_announcement';
 
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_SCHEDULED = 'scheduled';
+
+    public const STATUS_PUBLISHED = 'published';
+
+    public const STATUS_ARCHIVED = 'archived';
+
+    public const STATUSES = [
+        self::STATUS_DRAFT,
+        self::STATUS_SCHEDULED,
+        self::STATUS_PUBLISHED,
+        self::STATUS_ARCHIVED,
+    ];
+
     protected $fillable = [
         'title',
         'body',
+        'status',
         'type',
         'author_id',
         'scheduled_at',
@@ -58,5 +74,14 @@ class Announcement extends Model
     public function readStates(): HasMany
     {
         return $this->hasMany(AnnouncementReadState::class);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query
+            ->where('status', self::STATUS_PUBLISHED)
+            ->where('is_archived', false)
+            ->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
     }
 }

@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
+use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\Auth\LoginController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
+use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
@@ -57,6 +60,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}/profile', [ProfileController::class, 'showUser']);
         Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::get('/notifications/history', [NotificationController::class, 'history']);
+        Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+        Route::get('/announcements', [AnnouncementController::class, 'index']);
+        Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show']);
         Route::get('/lessons/{lesson}/join', LessonJoinController::class);
         Route::get('/lessons/{lesson}/lesson-notes', [LessonNoteController::class, 'byLesson']);
         Route::get('/students/{student}/lesson-notes', [LessonNoteController::class, 'byStudent']);
@@ -105,6 +116,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/access', function () {
                 return response()->json(['status' => 'ok']);
             });
+            Route::post('/announcements/{announcement}/publish', [AdminAnnouncementController::class, 'publish']);
+            Route::post('/announcements/{announcement}/schedule', [AdminAnnouncementController::class, 'schedule']);
+            Route::post('/announcements/{announcement}/archive', [AdminAnnouncementController::class, 'archive']);
+            Route::apiResource('announcements', AdminAnnouncementController::class)
+                ->only(['index', 'store', 'show', 'update']);
         });
 
         Route::prefix('admin')->middleware(['role:admin|staff'])->group(function () {
