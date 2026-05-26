@@ -18,15 +18,6 @@
           <span v-if="lesson.isTrial && lesson.status !== 'TRIAL'" class="ld-badge ld-badge--trial">Trial</span>
           <span v-if="lesson.isRecurring" class="ld-badge ld-badge--recur">↻ Recurring</span>
         </div>
-        <div v-if="canJoin && lesson.meetingUrl" class="ld-header-card__actions">
-          <a :href="lesson.meetingUrl" target="_blank" rel="noopener" class="ld-join-btn">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <rect x="1" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-              <path d="M9 5.5l4-2v7l-4-2V5.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-            </svg>
-            Join Meeting
-          </a>
-        </div>
       </div>
 
       <!-- Info grid -->
@@ -44,35 +35,240 @@
           <span class="ld-info-value">{{ userTimezone }}</span>
         </div>
         <div class="ld-info-item">
-          <span class="ld-info-label">Teacher</span>
-          <span class="ld-info-value">{{ lesson.teacherName }}</span>
-        </div>
-        <div class="ld-info-item">
-          <span class="ld-info-label">Student</span>
-          <span class="ld-info-value">{{ lesson.studentName }}</span>
+          <span class="ld-info-label">{{ role === 'STUDENT' ? 'Teacher' : 'Student' }}</span>
+          <span class="ld-info-value">{{ role === 'STUDENT' ? lesson.teacherName : lesson.studentName }}</span>
         </div>
         <div class="ld-info-item">
           <span class="ld-info-label">Type</span>
           <span class="ld-info-value">{{ lesson.isTrial ? 'Trial' : lesson.isRecurring ? 'Recurring' : 'One-time' }}</span>
         </div>
-        <div v-if="lesson.meetingUrl && !canJoin" class="ld-info-item ld-info-item--full">
-          <span class="ld-info-label">Meeting Link</span>
-          <span class="ld-info-value ld-info-value--muted">{{ lesson.meetingUrl }}</span>
+        <div v-if="role === 'STUDENT'" class="ld-info-item">
+          <span class="ld-info-label">Credits Remaining</span>
+          <span class="ld-info-value" style="color: var(--tv-primary); font-weight: 600;">3 Credits</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Join Panel ─── -->
+    <div v-if="activeJoinState !== 'terminal'" :class="['ld-join-panel', `ld-join-panel--${activeJoinState}`]">
+
+      <!-- Two-column grid: left = state content, right = tips -->
+      <div class="ld-join-grid">
+
+        <!-- ── LEFT COLUMN: state content ── -->
+        <div class="ld-join-col ld-join-col--main">
+
+          <!-- PENDING -->
+          <template v-if="activeJoinState === 'pending'">
+            <div class="ld-join-icon ld-join-icon--pending">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M14 8v6.5l4 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="ld-join-title">Awaiting Confirmation</p>
+            <p class="ld-join-sub">This lesson is pending confirmation. You'll be notified once it's confirmed.</p>
+          </template>
+
+          <!-- UPCOMING (>30 min away) -->
+          <template v-else-if="activeJoinState === 'upcoming'">
+            <div class="ld-join-icon ld-join-icon--upcoming">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M14 8v6.5l4 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="ld-join-title">Class starts in</p>
+            <div class="ld-countdown">
+              <div v-if="countdown.days" class="ld-countdown-unit">
+                <span class="ld-countdown-val">{{ countdown.days }}</span>
+                <span class="ld-countdown-label">{{ countdown.days === 1 ? 'day' : 'days' }}</span>
+              </div>
+              <div v-if="countdown.days" class="ld-countdown-sep">:</div>
+              <div class="ld-countdown-unit">
+                <span class="ld-countdown-val">{{ String(countdown.hours).padStart(2, '0') }}</span>
+                <span class="ld-countdown-label">hr</span>
+              </div>
+              <div class="ld-countdown-sep">:</div>
+              <div class="ld-countdown-unit">
+                <span class="ld-countdown-val">{{ String(countdown.minutes).padStart(2, '0') }}</span>
+                <span class="ld-countdown-label">min</span>
+              </div>
+              <div class="ld-countdown-sep">:</div>
+              <div class="ld-countdown-unit">
+                <span class="ld-countdown-val">{{ String(countdown.seconds).padStart(2, '0') }}</span>
+                <span class="ld-countdown-label">sec</span>
+              </div>
+            </div>
+            <p class="ld-join-sub">The join button will appear 15 minutes before class starts.</p>
+          </template>
+
+          <!-- SOON (15–30 min away) -->
+          <template v-else-if="activeJoinState === 'soon'">
+            <div class="ld-join-icon ld-join-icon--soon">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M14 8v6.5l4 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="ld-join-title">Almost time!</p>
+            <div class="ld-countdown ld-countdown--ticking">
+              <div class="ld-countdown-unit">
+                <span class="ld-countdown-val">{{ String(countdown.minutes).padStart(2, '0') }}</span>
+                <span class="ld-countdown-label">min</span>
+              </div>
+              <div class="ld-countdown-sep">:</div>
+              <div class="ld-countdown-unit">
+                <span class="ld-countdown-val">{{ String(countdown.seconds).padStart(2, '0') }}</span>
+                <span class="ld-countdown-label">sec</span>
+              </div>
+            </div>
+            <p class="ld-join-sub">Get ready. The classroom will open shortly.</p>
+          </template>
+
+          <!-- JOINABLE (within 15 min before → end) -->
+          <template v-else-if="activeJoinState === 'joinable'">
+            <p class="ld-join-title">Your class is ready</p>
+            <p class="ld-join-sub">
+              with <strong>{{ role === 'STUDENT' ? lesson.teacherName : lesson.studentName }}</strong>
+              · ends at {{ formattedEnd }}
+            </p>
+            <p class="ld-join-timer-inline">
+              {{ String(countdown.hours).padStart(2, '0') }}:{{ String(countdown.minutes).padStart(2, '0') }}:{{ String(countdown.seconds).padStart(2, '0') }} remaining
+            </p>
+            <div class="ld-join-actions">
+              <a
+                v-if="lesson.meetingUrl"
+                :href="lesson.meetingUrl"
+                target="_blank"
+                rel="noopener"
+                class="ld-join-cta"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <rect x="1" y="4" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M11 7.5l6-3v9l-6-3V7.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+                Join Meeting
+              </a>
+              <!-- Future: <button class="ld-join-cta" @click="openEmbeddedMeet">Open Classroom</button> -->
+            </div>
+          </template>
+
+          <!-- LIVE (status = IN_PROGRESS) -->
+          <template v-else-if="activeJoinState === 'live'">
+            <div class="ld-live-indicator">
+              <div class="ld-live-dot" aria-hidden="true" />
+              <span class="ld-live-label">Live now</span>
+            </div>
+            <p class="ld-join-title">Class is in progress</p>
+            <p class="ld-join-sub">
+              with <strong>{{ role === 'STUDENT' ? lesson.teacherName : lesson.studentName }}</strong>
+            </p>
+            <div class="ld-join-actions">
+              <a
+                v-if="lesson.meetingUrl"
+                :href="lesson.meetingUrl"
+                target="_blank"
+                rel="noopener"
+                class="ld-join-cta ld-join-cta--live"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <rect x="1" y="4" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M11 7.5l6-3v9l-6-3V7.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+                Rejoin Meeting
+              </a>
+            </div>
+          </template>
+
+          <!-- EXPIRED -->
+          <template v-else-if="activeJoinState === 'expired'">
+            <div class="ld-join-icon ld-join-icon--expired">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M9 9l10 10M19 9L9 19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="ld-join-title">Class time has passed</p>
+            <p class="ld-join-sub">This lesson's scheduled time has ended. Please contact your teacher or admin.</p>
+          </template>
+
+          <!-- COMPLETED -->
+          <template v-else-if="activeJoinState === 'completed'">
+            <div class="ld-join-icon ld-join-icon--completed">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M9 14.5l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <p class="ld-join-title">Class completed</p>
+            <p class="ld-join-sub">Review your lesson notes, materials, and homework below.</p>
+            <button class="ld-jump-notes-btn" type="button" @click="activeTab = 'notes'">
+              View Notes →
+            </button>
+          </template>
+
+        </div>
+
+        <!-- ── RIGHT COLUMN: tips ── -->
+        <div v-if="['upcoming', 'soon', 'joinable', 'live'].includes(activeJoinState)" class="ld-join-col ld-join-col--tips">
+          <p class="ld-tips__heading">Before you join</p>
+          <ul class="ld-tips__list">
+            <li>Use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> for the best experience.</li>
+            <li>Check your <strong>camera and microphone</strong> in your browser settings.</li>
+            <li>Connect to a <strong>stable WiFi</strong> or wired network.</li>
+            <li>Find a <strong>quiet place</strong> with good lighting.</li>
+            <li>Have your <strong>notebook or materials</strong> ready.</li>
+            <li>If you have issues, contact your teacher via the internal chat.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!--
+        ── Embedded Meet Placeholder ─────────────────────────────────────────────
+        Future: replace external meeting link with embedded classroom.
+
+        <div v-if="activeJoinState === 'joinable' || activeJoinState === 'live'" class="ld-embedded-meet">
+          <iframe
+            :src="`https://meet.tutorvio.com/${lesson.meetingRoomId}?token=${meetToken}`"
+            allow="camera; microphone; fullscreen; display-capture"
+            class="ld-embedded-meet__frame"
+          />
+        </div>
+        ──────────────────────────────────────────────────────────────────────── -->
+
+      <!-- ── Dev state tester ── -->
+      <div class="ld-dev-bar">
+        <span class="ld-dev-bar__label">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l2-2 2 2M8 4l2-2 2 2M1 8h10M3 10h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Test state:
+        </span>
+        <div class="ld-dev-bar__pills">
+          <button
+            v-for="s in DEV_STATES"
+            :key="s.value"
+            :class="['ld-dev-pill', { 'ld-dev-pill--active': devStateOverride === s.value }]"
+            type="button"
+            @click="devStateOverride = devStateOverride === s.value ? null : s.value"
+          >{{ s.label }}</button>
         </div>
       </div>
 
-      <!-- Cancelled/Rescheduled/Missed notice -->
-      <div v-if="terminalStatus" :class="['ld-notice', `ld-notice--${statusClass}`]">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
-          <path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-        </svg>
-        <span v-if="lesson.status === 'CANCELLED'">This lesson has been cancelled.</span>
-        <span v-else-if="lesson.status === 'RESCHEDULED'">This lesson has been rescheduled. Check the updated time above.</span>
-        <span v-else-if="lesson.status === 'MISSED_BY_STUDENT'">Marked as missed — student did not attend.</span>
-        <span v-else-if="lesson.status === 'MISSED_BY_TEACHER'">Marked as missed — teacher did not attend.</span>
-        <span v-else-if="lesson.status === 'COMPLETED'">This lesson has been completed.</span>
-      </div>
+    </div>
+
+    <!-- Terminal status notice (cancelled / missed / rescheduled) -->
+    <div v-if="terminalStatus && !['COMPLETED'].includes(lesson.status)" :class="['ld-notice', `ld-notice--${statusClass}`]">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      <span v-if="lesson.status === 'CANCELLED'">This lesson has been cancelled.</span>
+      <span v-else-if="lesson.status === 'RESCHEDULED'">This lesson has been rescheduled. Check the updated time above.</span>
+      <span v-else-if="lesson.status === 'MISSED_BY_STUDENT'">Marked as missed — student did not attend.</span>
+      <span v-else-if="lesson.status === 'MISSED_BY_TEACHER'">Marked as missed — teacher did not attend.</span>
     </div>
 
     <!-- Tabs -->
@@ -280,6 +476,46 @@
         <p v-else-if="!showMaterialForm" class="ld-empty">No materials for this lesson yet.</p>
       </section>
 
+      <!-- ── Student Profile Summary ── -->
+      <section v-if="activeTab === 'profile'" class="ld-section">
+        <div class="ld-section__header">
+          <h2 class="ld-section__title">Student Profile</h2>
+        </div>
+        <div v-if="studentDetails" class="ld-student-profile-card">
+          <div class="ld-profile-info-grid">
+            <div class="ld-profile-info-item">
+              <span class="ld-profile-info-label">English Level</span>
+              <span class="ld-profile-info-value">{{ studentDetails.studentProfile?.englishLevel ? levelLabel(studentDetails.studentProfile.englishLevel) : '—' }}</span>
+            </div>
+            <div class="ld-profile-info-item">
+              <span class="ld-profile-info-label">Program</span>
+              <span class="ld-profile-info-value">{{ studentDetails.studentProfile?.program || '—' }}</span>
+            </div>
+            <div class="ld-profile-info-item">
+              <span class="ld-profile-info-label">Class Type</span>
+              <span class="ld-profile-info-value">{{ studentDetails.studentProfile?.classType || '—' }}</span>
+            </div>
+            <div class="ld-profile-info-item">
+              <span class="ld-profile-info-label">Start Date</span>
+              <span class="ld-profile-info-value">{{ studentDetails.studentProfile?.startDate || '—' }}</span>
+            </div>
+            <div v-if="studentDetails.studentProfile?.goals" class="ld-profile-info-item ld-profile-info-item--full">
+              <span class="ld-profile-info-label">Goals</span>
+              <p class="ld-profile-info-text">{{ studentDetails.studentProfile.goals }}</p>
+            </div>
+            <div v-if="studentDetails.studentProfile?.learningConcerns" class="ld-profile-info-item ld-profile-info-item--full">
+              <span class="ld-profile-info-label">Learning Concerns</span>
+              <p class="ld-profile-info-text">{{ studentDetails.studentProfile.learningConcerns }}</p>
+            </div>
+            <div v-if="studentDetails.studentProfile?.notes" class="ld-profile-info-item ld-profile-info-item--full">
+              <span class="ld-profile-info-label">Academic Notes</span>
+              <p class="ld-profile-info-text">{{ studentDetails.studentProfile.notes }}</p>
+            </div>
+          </div>
+        </div>
+        <p v-else class="ld-empty">No student profile details available.</p>
+      </section>
+
     </div>
   </div>
 
@@ -291,11 +527,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useViewAs } from '@/composables/useViewAs'
+import { useToast } from '@/composables/useToast'
 import TVSelect from '@/components/ui/TVSelect.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVDatePicker from '@/components/ui/TVDatePicker.vue'
@@ -305,22 +543,44 @@ const route    = useRoute()
 const router   = useRouter()
 const schedule = useScheduleStore()
 const auth     = useAuthStore()
+const usersStore = useUsersStore()
+const toast      = useToast()
 const { effectiveRole } = useViewAs()
 
 const lessonId = route.params.id as string
 const lesson   = computed(() => schedule.getLesson(lessonId))
 
+onMounted(async () => {
+  if (!usersStore.users.length) {
+    await usersStore.fetchUsers()
+  }
+})
+
+const studentDetails = computed(() => {
+  if (!lesson.value) return null
+  return usersStore.getUserById(lesson.value.studentId)
+})
+
+function levelLabel(level: string): string {
+  const map: Record<string, string> = {
+    BEGINNER: 'Beginner',
+    ELEMENTARY: 'Elementary',
+    INTERMEDIATE: 'Intermediate',
+    UPPER_INTERMEDIATE: 'Upper Intermediate',
+    ADVANCED: 'Advanced',
+    PROFICIENCY: 'Proficiency',
+  }
+  return map[level] ?? level
+}
+
 // ── Role guards ──
-const role = computed(() => effectiveRole.value)
+const role   = computed(() => effectiveRole.value)
 const userId = computed(() => auth.user?.id ?? '')
 
-const canManageNotes    = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
-const canMarkAttendance = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
-const canAssignHomework = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
+const canManageNotes     = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
+const canMarkAttendance  = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
+const canAssignHomework  = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
 const canUploadMaterials = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
-
-// Staff with MANAGE_SCHEDULE permission can view but not edit
-// (Notes/attendance/hw/materials are view-only for STAFF & STUDENT unless noted above)
 
 // ── Status helpers ──
 const statusClass = computed(() => {
@@ -357,6 +617,82 @@ const terminalStatus = computed(() =>
   ['CANCELLED', 'RESCHEDULED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER', 'COMPLETED'].includes(lesson.value?.status ?? '')
 )
 
+// ── Countdown timer ──
+interface Countdown { days: number; hours: number; minutes: number; seconds: number }
+
+const now      = ref(new Date())
+let timerHandle: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  timerHandle = setInterval(() => { now.value = new Date() }, 1_000)
+})
+onUnmounted(() => {
+  if (timerHandle !== null) clearInterval(timerHandle)
+})
+
+function msToCountdown(ms: number): Countdown {
+  if (ms <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 }
+  const totalSec = Math.floor(ms / 1000)
+  return {
+    days:    Math.floor(totalSec / 86400),
+    hours:   Math.floor((totalSec % 86400) / 3600),
+    minutes: Math.floor((totalSec % 3600) / 60),
+    seconds: totalSec % 60,
+  }
+}
+
+// ms until class starts (negative when started)
+const msUntilStart = computed(() => {
+  if (!lesson.value) return 0
+  return new Date(lesson.value.startTime).getTime() - now.value.getTime()
+})
+
+// ms until class ends (negative when ended)
+const msUntilEnd = computed(() => {
+  if (!lesson.value) return 0
+  return new Date(lesson.value.endTime).getTime() - now.value.getTime()
+})
+
+const countdown = computed<Countdown>(() => {
+  if (msUntilStart.value > 0) return msToCountdown(msUntilStart.value)
+  if (msUntilEnd.value > 0)   return msToCountdown(msUntilEnd.value)
+  return { days: 0, hours: 0, minutes: 0, seconds: 0 }
+})
+
+// ── Join state machine ──
+type JoinState = 'terminal' | 'pending' | 'upcoming' | 'soon' | 'joinable' | 'live' | 'expired' | 'completed'
+
+const JOIN_OPEN_MS  = 15 * 60 * 1000
+const SOON_START_MS = 30 * 60 * 1000
+
+const joinState = computed<JoinState>(() => {
+  const s = lesson.value?.status
+  if (!s) return 'terminal'
+  if (['CANCELLED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER', 'RESCHEDULED'].includes(s)) return 'terminal'
+  if (s === 'COMPLETED') return 'completed'
+  if (s === 'PENDING_CONFIRMATION') return 'pending'
+  if (s === 'IN_PROGRESS') return 'live'
+  if (msUntilEnd.value <= 0)                       return 'expired'
+  if (msUntilStart.value <= 0)                     return 'joinable'
+  if (msUntilStart.value <= JOIN_OPEN_MS)          return 'joinable'
+  if (msUntilStart.value <= SOON_START_MS)         return 'soon'
+  return 'upcoming'
+})
+
+// ── Dev state tester ──
+const DEV_STATES: { value: JoinState; label: string }[] = [
+  { value: 'upcoming',  label: 'Upcoming' },
+  { value: 'soon',      label: 'Soon' },
+  { value: 'joinable',  label: 'Joinable' },
+  { value: 'live',      label: 'Live' },
+  { value: 'expired',   label: 'Expired' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'pending',   label: 'Pending' },
+  { value: 'terminal',  label: 'Terminal' },
+]
+const devStateOverride = ref<JoinState | null>(null)
+const activeJoinState  = computed<JoinState>(() => devStateOverride.value ?? joinState.value)
+
 // ── Formatted fields ──
 const userTimezone = computed(() => auth.user?.timezone ?? 'Asia/Manila')
 
@@ -369,29 +705,19 @@ const formattedEnd   = computed(() => lesson.value
 const durationMin    = computed(() => lesson.value
   ? Math.round((new Date(lesson.value.endTime).getTime() - new Date(lesson.value.startTime).getTime()) / 60_000) : 0)
 
-const canJoin = computed(() => {
-  if (!lesson.value || !['SCHEDULED', 'IN_PROGRESS', 'TRIAL'].includes(lesson.value.status)) return false
-  const now   = new Date()
-  const start = new Date(lesson.value.startTime)
-  const end   = new Date(lesson.value.endTime)
-  return now >= new Date(start.getTime() - 15 * 60_000) && now <= end
-})
-
 // ── Data ──
 const notes      = computed(() => schedule.getNotesForLesson(lessonId))
 const attendance = computed(() => schedule.getAttendanceForLesson(lessonId))
 const materials  = computed(() => schedule.getMaterialsForLesson(lessonId))
 const homework   = computed(() => schedule.getHomeworkForLesson(lessonId))
 
-// Notes visible to current user
 const visibleNotes = computed(() => {
   if (canManageNotes.value) return notes.value
-  // Students only see public notes
   return notes.value.filter(n => n.isPublic)
 })
 
 // ── Tabs ──
-type TabKey = 'notes' | 'attendance' | 'homework' | 'materials'
+type TabKey = 'notes' | 'attendance' | 'homework' | 'materials' | 'profile'
 const activeTab = ref<TabKey>('notes')
 
 const visibleTabs = computed(() => {
@@ -401,14 +727,17 @@ const visibleTabs = computed(() => {
     { key: 'homework',   label: 'Homework',   count: homework.value.length || undefined },
     { key: 'materials',  label: 'Materials',  count: materials.value.length || undefined },
   ]
+  if (['TEACHER', 'ADMIN', 'STAFF'].includes(role.value)) {
+    tabs.push({ key: 'profile', label: 'Student Profile' })
+  }
   return tabs
 })
 
 // ── Notes form ──
-const showNoteForm    = ref(false)
-const editingNoteId   = ref<string | null>(null)
-const noteContent     = ref('')
-const noteIsPublic    = ref(true)
+const showNoteForm  = ref(false)
+const editingNoteId = ref<string | null>(null)
+const noteContent   = ref('')
+const noteIsPublic  = ref(true)
 
 function openNoteForm(note?: LessonNote): void {
   editingNoteId.value = note?.id ?? null
@@ -461,6 +790,7 @@ function openAttendanceForm(): void {
 function saveAttendance(): void {
   schedule.markAttendance(lessonId, attTeacher.value, attStudent.value, attReason.value, userId.value)
   showAttendanceForm.value = false
+  toast.success('Attendance saved successfully!')
 }
 
 // ── Homework form ──
@@ -582,17 +912,6 @@ function formatDateTime(iso: string): string {
 .ld-badge--trial { background: var(--tv-purple-soft); color: var(--tv-purple); border-color: var(--tv-purple-border); }
 .ld-badge--recur { background: var(--tv-bg-soft); color: var(--tv-text-muted); border-color: var(--tv-border); }
 
-/* Join button */
-.ld-join-btn {
-  display: inline-flex; align-items: center; gap: var(--tv-space-2);
-  padding: var(--tv-space-2) var(--tv-space-5);
-  background: var(--tv-primary); color: var(--tv-text-inverse);
-  border-radius: var(--tv-radius); font-size: var(--tv-text-sm); font-weight: var(--tv-font-semibold);
-  text-decoration: none; transition: background 0.15s; white-space: nowrap;
-  box-shadow: 0 2px 8px hsla(var(--tv-primary-h), var(--tv-primary-s), 40%, 0.28);
-}
-.ld-join-btn:hover { background: var(--tv-primary-hover); }
-
 /* Info grid */
 .ld-info-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -605,6 +924,225 @@ function formatDateTime(iso: string): string {
 .ld-info-label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; }
 .ld-info-value { font-size: var(--tv-text-sm); color: var(--tv-text); font-weight: var(--tv-font-medium); }
 .ld-info-value--muted { font-weight: normal; color: var(--tv-text-secondary); word-break: break-all; }
+
+/* ── Join Panel ── */
+.ld-join-panel {
+  border-radius: var(--tv-radius-md);
+  border: 1px solid var(--tv-border);
+  padding: var(--tv-space-5) var(--tv-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-4);
+  background: var(--tv-bg-card);
+}
+
+/* Two-column grid */
+.ld-join-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-5);
+  align-items: start;
+}
+
+/* Left column */
+.ld-join-col--main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--tv-space-3);
+}
+
+/* Right column: tips */
+.ld-join-col--tips {
+  background: var(--tv-bg-soft);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius);
+  padding: var(--tv-space-4);
+}
+
+/* State variants */
+.ld-join-panel--upcoming {
+  background: var(--tv-bg-soft);
+}
+.ld-join-panel--soon {
+  background: hsl(38, 95%, 96%);
+  border-color: hsl(38, 70%, 80%);
+}
+.ld-join-panel--joinable {
+  background: linear-gradient(135deg, hsl(var(--tv-primary-h), 60%, 97%) 0%, var(--tv-bg-card) 100%);
+  border-color: var(--tv-primary-muted);
+  box-shadow: 0 2px 12px hsla(var(--tv-primary-h), var(--tv-primary-s), 50%, 0.1);
+}
+.ld-join-panel--live {
+  background: linear-gradient(135deg, hsl(148, 60%, 96%) 0%, var(--tv-bg-card) 100%);
+  border-color: var(--tv-success-border);
+  box-shadow: 0 2px 12px hsla(148, 60%, 40%, 0.12);
+}
+.ld-join-panel--expired,
+.ld-join-panel--pending {
+  background: var(--tv-bg-soft);
+  border-color: var(--tv-border);
+}
+.ld-join-panel--completed {
+  background: var(--tv-success-soft);
+  border-color: var(--tv-success-border);
+}
+
+/* Icon */
+.ld-join-icon {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ld-join-icon--upcoming  { background: var(--tv-primary-soft); color: var(--tv-primary); }
+.ld-join-icon--soon      { background: hsl(38, 90%, 90%); color: hsl(38, 75%, 35%); }
+.ld-join-icon--expired   { background: var(--tv-neutral-soft); color: var(--tv-neutral); }
+.ld-join-icon--pending   { background: hsl(220, 65%, 93%); color: hsl(220, 52%, 38%); }
+.ld-join-icon--completed { background: var(--tv-success-soft); color: var(--tv-success-fg); border: 1px solid var(--tv-success-border); }
+
+/* Live dot */
+.ld-live-dot {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  background: var(--tv-success-fg);
+  box-shadow: 0 0 0 0 hsla(148, 60%, 40%, 0.5);
+  animation: ld-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ld-pulse {
+  0%   { box-shadow: 0 0 0 0 hsla(148, 60%, 40%, 0.45); }
+  70%  { box-shadow: 0 0 0 10px hsla(148, 60%, 40%, 0); }
+  100% { box-shadow: 0 0 0 0 hsla(148, 60%, 40%, 0); }
+}
+
+/* Body */
+.ld-join-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ld-join-title {
+  font-size: var(--tv-text-base); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0;
+}
+.ld-join-sub {
+  font-size: var(--tv-text-sm); color: var(--tv-text-secondary); margin: 0; line-height: 1.5;
+}
+.ld-join-timer-inline {
+  font-size: var(--tv-text-xs); color: var(--tv-text-muted);
+}
+
+/* Countdown */
+.ld-countdown {
+  display: flex; align-items: center; gap: var(--tv-space-2);
+  margin: var(--tv-space-2) 0;
+}
+.ld-countdown--ticking .ld-countdown-val {
+  color: hsl(38, 75%, 30%);
+}
+.ld-countdown-unit { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.ld-countdown-val {
+  font-size: 2.75rem; font-weight: var(--tv-font-bold);
+  color: var(--tv-primary); line-height: 1; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.ld-countdown-label { font-size: 10px; color: var(--tv-text-muted); font-weight: var(--tv-font-medium); text-transform: uppercase; letter-spacing: .04em; }
+.ld-countdown-sep { font-size: var(--tv-text-xl); font-weight: var(--tv-font-bold); color: var(--tv-text-muted); margin-bottom: 12px; }
+
+/* Actions */
+.ld-join-actions { display: flex; align-items: center; justify-content: center; gap: var(--tv-space-3); flex-wrap: wrap; }
+
+/* CTA button */
+.ld-join-cta {
+  display: inline-flex; align-items: center; gap: var(--tv-space-2);
+  padding: var(--tv-space-3) var(--tv-space-6);
+  background: var(--tv-primary); color: var(--tv-text-inverse);
+  border-radius: var(--tv-radius); font-size: var(--tv-text-sm); font-weight: var(--tv-font-semibold);
+  text-decoration: none; border: none; cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s; white-space: nowrap;
+  box-shadow: 0 3px 12px hsla(var(--tv-primary-h), var(--tv-primary-s), 40%, 0.32);
+}
+.ld-join-cta:hover { background: var(--tv-primary-hover); box-shadow: 0 4px 16px hsla(var(--tv-primary-h), var(--tv-primary-s), 40%, 0.4); }
+
+.ld-join-cta--live {
+  background: var(--tv-success-fg);
+  box-shadow: 0 3px 12px hsla(148, 60%, 35%, 0.32);
+}
+.ld-join-cta--live:hover { background: hsl(148, 52%, 32%); }
+
+/* Tips toggle */
+.ld-tips-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-medium);
+  color: var(--tv-text-muted); background: none; border: none; cursor: pointer;
+  padding: var(--tv-space-1) 0; white-space: nowrap; transition: color 0.15s;
+}
+.ld-tips-toggle svg { transition: transform 0.2s; }
+.ld-tips-toggle:hover { color: var(--tv-primary); }
+
+/* Technical tips */
+.ld-tips {
+  width: 100%;
+  background: var(--tv-bg-soft); border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius); padding: var(--tv-space-4);
+  margin-top: var(--tv-space-2);
+}
+.ld-tips__heading {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold);
+  color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em;
+  margin: 0 0 var(--tv-space-2);
+}
+.ld-tips__list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: var(--tv-space-2);
+}
+.ld-tips__list li {
+  font-size: var(--tv-text-sm); color: var(--tv-text-secondary); line-height: 1.5;
+  padding-left: var(--tv-space-4); position: relative;
+}
+.ld-tips__list li::before {
+  content: '✓'; position: absolute; left: 0;
+  color: var(--tv-primary); font-weight: var(--tv-font-bold);
+}
+
+/* Jump to notes button */
+.ld-jump-notes-btn {
+  font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium);
+  color: var(--tv-success-fg); background: white;
+  border: 1px solid var(--tv-success-border);
+  border-radius: var(--tv-radius-sm); padding: var(--tv-space-2) var(--tv-space-4);
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+  flex-shrink: 0;
+}
+.ld-jump-notes-btn:hover { background: var(--tv-success-soft); }
+
+/* Live indicator */
+.ld-live-indicator {
+  display: flex; align-items: center; justify-content: center; gap: var(--tv-space-2);
+}
+.ld-live-label {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-bold);
+  color: var(--tv-success-fg); text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* Dev state tester bar */
+.ld-dev-bar {
+  display: flex; align-items: center; gap: var(--tv-space-3); flex-wrap: wrap;
+  padding-top: var(--tv-space-3);
+  border-top: 1px dashed var(--tv-border);
+  margin-top: var(--tv-space-1);
+}
+.ld-dev-bar__label {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold);
+  color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em;
+  white-space: nowrap; flex-shrink: 0;
+}
+.ld-dev-bar__pills {
+  display: flex; flex-wrap: wrap; gap: var(--tv-space-1);
+}
+.ld-dev-pill {
+  font-size: var(--tv-text-xs); font-weight: var(--tv-font-medium);
+  padding: 3px 10px; border-radius: var(--tv-radius-full);
+  border: 1px solid var(--tv-border); background: var(--tv-bg-soft);
+  color: var(--tv-text-muted); cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
+}
+.ld-dev-pill:hover { border-color: var(--tv-primary-muted); color: var(--tv-primary); background: var(--tv-primary-soft); }
+.ld-dev-pill--active { background: var(--tv-primary); color: var(--tv-text-inverse); border-color: var(--tv-primary); }
 
 /* Notice banner */
 .ld-notice {
@@ -621,6 +1159,7 @@ function formatDateTime(iso: string): string {
 .ld-tabs {
   display: flex; gap: 0;
   border-bottom: 2px solid var(--tv-border);
+  overflow-x: auto;
 }
 .ld-tab {
   display: inline-flex; align-items: center; gap: var(--tv-space-2);
@@ -679,7 +1218,7 @@ function formatDateTime(iso: string): string {
 .ld-note-item__date   { font-size: var(--tv-text-xs); color: var(--tv-text-muted); }
 .ld-note-item__private {
   font-size: 10px; font-weight: var(--tv-font-semibold);
-  background: var(--tv-warning-soft, hsl(38,90%,93%)); color: hsl(38,75%,35%);
+  background: hsl(38,90%,93%); color: hsl(38,75%,35%);
   border: 1px solid hsl(38,70%,75%); border-radius: var(--tv-radius-full);
   padding: 1px 6px;
 }
@@ -836,5 +1375,24 @@ function formatDateTime(iso: string): string {
 @media (max-width: 600px) {
   .ld-form-row { grid-template-columns: 1fr; }
   .ld-info-grid { grid-template-columns: 1fr 1fr; }
+  .ld-join-panel { padding: var(--tv-space-4); }
+  .ld-join-grid { grid-template-columns: 1fr; }
+  .ld-countdown-val { font-size: 2rem; }
 }
+
+/* Student Profile Tab */
+.ld-student-profile-card {
+  background: var(--tv-bg-card); border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius); padding: var(--tv-space-5);
+  display: flex; flex-direction: column; gap: var(--tv-space-4);
+}
+.ld-profile-info-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--tv-space-3) var(--tv-space-5);
+}
+.ld-profile-info-item { display: flex; flex-direction: column; gap: 2px; }
+.ld-profile-info-item--full { grid-column: 1 / -1; }
+.ld-profile-info-label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.ld-profile-info-value { font-size: var(--tv-text-sm); color: var(--tv-text); font-weight: var(--tv-font-medium); }
+.ld-profile-info-text  { font-size: var(--tv-text-sm); color: var(--tv-text); line-height: 1.6; margin: 0; }
 </style>

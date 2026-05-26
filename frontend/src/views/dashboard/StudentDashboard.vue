@@ -272,7 +272,11 @@ const upcomingLessons = computed((): Lesson[] => {
       const day = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       const time = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
       const duration = `${Math.round((end.getTime() - start.getTime()) / 60000)} min`
-      return { id: l.id, subject: l.subject, teacher: l.teacherName, avatar: '', day, time, duration, soon: isToday }
+      const msUntilStart = start.getTime() - now.getTime()
+      const msUntilEnd   = end.getTime() - now.getTime()
+      // "soon" = within 15 min before start OR already started but not ended
+      const soon = msUntilEnd > 0 && msUntilStart <= 15 * 60 * 1000
+      return { id: l.id, subject: l.subject, teacher: l.teacherName, avatar: '', day, time, duration, soon }
     })
 })
 
