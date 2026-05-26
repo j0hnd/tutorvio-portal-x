@@ -16,6 +16,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
 use App\Models\User;
 use App\Services\SubscriptionLessonBalanceService;
+use App\Services\SubscriptionRenewalReminderService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,7 +36,10 @@ class SubscriptionManagementController extends Controller
         'payment_status',
     ];
 
-    public function __construct(private readonly SubscriptionLessonBalanceService $lessonBalances) {}
+    public function __construct(
+        private readonly SubscriptionLessonBalanceService $lessonBalances,
+        private readonly SubscriptionRenewalReminderService $renewalReminders,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -96,7 +100,7 @@ class SubscriptionManagementController extends Controller
 
             $this->recordHistory($subscription, SubscriptionHistory::EVENT_ASSIGNED, [], $subscription->only($this->trackedFields()), $request->user()->id);
 
-            return $subscription;
+            return $this->renewalReminders->refreshReminderState($subscription);
         });
 
         return response()->json([
@@ -109,7 +113,7 @@ class SubscriptionManagementController extends Controller
         Gate::authorize('view', $subscription);
 
         return response()->json([
-            'data' => new SubscriptionResource($subscription->load('student')),
+            'data' => new SubscriptionResource($this->renewalReminders->refreshReminderState($subscription)->load('student')),
         ]);
     }
 
@@ -137,7 +141,7 @@ class SubscriptionManagementController extends Controller
                 $subscription->internal_notes
             );
 
-            return $subscription;
+            return $this->renewalReminders->refreshReminderState($subscription);
         });
 
         return response()->json([
@@ -226,8 +230,8 @@ class SubscriptionManagementController extends Controller
 
         return response()->json([
             'data' => new SubscriptionResource(
-                $this->lessonBalances
-                    ->manuallyAdjust($subscription, $request->validated(), $request->user())
+                $this->renewalReminders
+                    ->refreshReminderState($this->lessonBalances->manuallyAdjust($subscription, $request->validated(), $request->user()))
                     ->load('student')
             ),
         ]);
@@ -247,7 +251,9 @@ class SubscriptionManagementController extends Controller
 
             $this->recordHistory($renewal, SubscriptionHistory::EVENT_RENEWED, $subscription->only($this->trackedFields()), $renewal->only($this->trackedFields()), $request->user()->id);
 
-            return $renewal;
+            $this->renewalReminders->refreshReminderState($subscription);
+
+            return $this->renewalReminders->refreshReminderState($renewal);
         });
 
         return response()->json([
@@ -324,7 +330,7 @@ class SubscriptionManagementController extends Controller
                 $subscription->internal_notes
             );
 
-            return $subscription;
+            return $this->renewalReminders->refreshReminderState($subscription);
         });
 
         return response()->json([
@@ -350,6 +356,12 @@ class SubscriptionManagementController extends Controller
             'invoice_reference',
             'internal_notes',
             'renewed_from_subscription_id',
+            'renewal_reminder_due_at',
+            'renewal_reminder_last_sent_at',
+            'renewal_reminder_status',
+            'renewal_reminder_window_key',
+            'renewal_eligible',
+            'renewal_reminder_notes',
             'starts_at',
             'ends_at',
         ];

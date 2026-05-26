@@ -140,6 +140,13 @@ class SubscriptionModelTest extends TestCase
         ], Subscription::PAYMENT_STATUSES);
 
         $this->assertSame([
+            Subscription::RENEWAL_REMINDER_STATUS_NONE,
+            Subscription::RENEWAL_REMINDER_STATUS_PENDING,
+            Subscription::RENEWAL_REMINDER_STATUS_SENT,
+            Subscription::RENEWAL_REMINDER_STATUS_NOT_ELIGIBLE,
+        ], Subscription::RENEWAL_REMINDER_STATUSES);
+
+        $this->assertSame([
             SubscriptionHistory::EVENT_ASSIGNED,
             SubscriptionHistory::EVENT_RENEWED,
             SubscriptionHistory::EVENT_FROZEN,

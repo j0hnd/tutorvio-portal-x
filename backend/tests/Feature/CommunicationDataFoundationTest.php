@@ -198,6 +198,7 @@ class CommunicationDataFoundationTest extends TestCase
             Notification::TYPE_CLASS_REMINDER,
             Notification::TYPE_RESCHEDULE_ALERT,
             Notification::TYPE_HOMEWORK_REMINDER,
+            Notification::TYPE_RENEWAL_REMINDER,
             Notification::TYPE_ADMIN_ANNOUNCEMENT,
             Notification::TYPE_STUDENT_TEACHER_MESSAGE,
             Notification::TYPE_EMAIL,

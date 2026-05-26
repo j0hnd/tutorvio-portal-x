@@ -20,6 +20,8 @@ class Notification extends Model
 
     public const TYPE_HOMEWORK_REMINDER = 'homework_reminder';
 
+    public const TYPE_RENEWAL_REMINDER = 'renewal_reminder';
+
     public const TYPE_ADMIN_ANNOUNCEMENT = 'admin_announcement';
 
     public const TYPE_STUDENT_TEACHER_MESSAGE = 'student_teacher_message';
@@ -33,6 +35,7 @@ class Notification extends Model
         self::TYPE_CLASS_REMINDER,
         self::TYPE_RESCHEDULE_ALERT,
         self::TYPE_HOMEWORK_REMINDER,
+        self::TYPE_RENEWAL_REMINDER,
         self::TYPE_ADMIN_ANNOUNCEMENT,
         self::TYPE_STUDENT_TEACHER_MESSAGE,
         self::TYPE_EMAIL,

@@ -47,16 +47,28 @@ class StudentPackageSummaryResource extends JsonResource
      */
     private function renewalReminder(): ?array
     {
-        if ($this->resource->ends_at === null) {
+        if (
+            $this->resource->ends_at === null
+            && $this->resource->renewal_reminder_due_at === null
+            && $this->resource->renewal_reminder_status === Subscription::RENEWAL_REMINDER_STATUS_NONE
+        ) {
             return null;
         }
 
-        $daysUntilEnd = now()->startOfDay()->diffInDays($this->resource->ends_at->copy()->startOfDay(), false);
+        $daysUntilEnd = $this->resource->ends_at === null
+            ? null
+            : now()->startOfDay()->diffInDays($this->resource->ends_at->copy()->startOfDay(), false);
 
         return [
-            'reminder_date' => $this->resource->ends_at->copy()->subDays(7)->toDateString(),
+            'reminder_date' => $this->resource->renewal_reminder_due_at?->toDateString()
+                ?? $this->resource->ends_at?->copy()->subDays(7)->toDateString(),
+            'due_at' => $this->resource->renewal_reminder_due_at,
+            'last_sent_at' => $this->resource->renewal_reminder_last_sent_at,
+            'status' => $this->resource->renewal_reminder_status,
+            'renewal_eligible' => $this->resource->renewal_eligible,
             'days_until_end' => $daysUntilEnd,
-            'should_renew_soon' => $daysUntilEnd >= 0 && $daysUntilEnd <= 7,
+            'should_renew_soon' => $this->resource->renewal_reminder_status === Subscription::RENEWAL_REMINDER_STATUS_PENDING
+                || ($daysUntilEnd !== null && $daysUntilEnd >= 0 && $daysUntilEnd <= 7),
         ];
     }
 

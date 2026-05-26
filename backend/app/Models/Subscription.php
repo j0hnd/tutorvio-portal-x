@@ -50,6 +50,21 @@ class Subscription extends Model
         self::PAYMENT_STATUS_OVERDUE,
     ];
 
+    public const RENEWAL_REMINDER_STATUS_NONE = 'none';
+
+    public const RENEWAL_REMINDER_STATUS_PENDING = 'pending';
+
+    public const RENEWAL_REMINDER_STATUS_SENT = 'sent';
+
+    public const RENEWAL_REMINDER_STATUS_NOT_ELIGIBLE = 'not_eligible';
+
+    public const RENEWAL_REMINDER_STATUSES = [
+        self::RENEWAL_REMINDER_STATUS_NONE,
+        self::RENEWAL_REMINDER_STATUS_PENDING,
+        self::RENEWAL_REMINDER_STATUS_SENT,
+        self::RENEWAL_REMINDER_STATUS_NOT_ELIGIBLE,
+    ];
+
     protected $fillable = [
         'user_id',
         'plan_name',
@@ -65,6 +80,12 @@ class Subscription extends Model
         'invoice_reference',
         'internal_notes',
         'renewed_from_subscription_id',
+        'renewal_reminder_due_at',
+        'renewal_reminder_last_sent_at',
+        'renewal_reminder_status',
+        'renewal_reminder_window_key',
+        'renewal_eligible',
+        'renewal_reminder_notes',
         'created_by',
         'updated_by',
         'starts_at',
@@ -81,6 +102,9 @@ class Subscription extends Model
             'frozen_at' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'renewal_reminder_due_at' => 'datetime',
+            'renewal_reminder_last_sent_at' => 'datetime',
+            'renewal_eligible' => 'boolean',
         ];
     }
 
