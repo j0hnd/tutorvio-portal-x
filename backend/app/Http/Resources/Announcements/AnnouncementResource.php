@@ -28,6 +28,15 @@ class AnnouncementResource extends JsonResource
                 'email' => $this->resource->author?->email,
             ]),
             'archived_by' => $this->resource->archived_by,
+            'recipient_count' => $this->whenCounted('recipients'),
+            'targets' => $this->whenLoaded('targets', fn () => $this->resource->targets->map(fn ($target) => [
+                'id' => $target->id,
+                'type' => $target->target_type,
+                'target_id' => $target->target_id,
+                'user_id' => $target->user_id,
+                'role' => $target->role,
+                'metadata' => $target->metadata,
+            ])->values()),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];

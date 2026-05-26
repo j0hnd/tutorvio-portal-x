@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api\Announcements;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
+use App\Services\Announcements\AnnouncementRecipientResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AnnouncementController extends Controller
 {
+    public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
+
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -18,8 +21,17 @@ class AnnouncementController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
+        if ($request->user()->hasRole('staff') && ! $request->user()->can('dashboard.operational_notices.view')) {
+            $announcements = Announcement::query()
+                ->whereRaw('1 = 0')
+                ->paginate($validated['per_page'] ?? 25);
+
+            return response()->json($announcements->through(fn (Announcement $announcement) => new AnnouncementResource($announcement)));
+        }
+
         $announcements = Announcement::query()
             ->active()
+            ->visibleTo($request->user())
             ->when($validated['search'] ?? null, function (Builder $query, string $search) {
                 $query->where(function (Builder $query) use ($search) {
                     $query
@@ -40,7 +52,8 @@ class AnnouncementController extends Controller
             $announcement->status === Announcement::STATUS_PUBLISHED
             && ! $announcement->is_archived
             && $announcement->published_at !== null
-            && $announcement->published_at->lessThanOrEqualTo(now()),
+            && $announcement->published_at->lessThanOrEqualTo(now())
+            && $this->recipientResolver->canView($announcement, request()->user()),
             404
         );
 

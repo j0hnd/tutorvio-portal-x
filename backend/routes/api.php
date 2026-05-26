@@ -119,6 +119,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/announcements/{announcement}/publish', [AdminAnnouncementController::class, 'publish']);
             Route::post('/announcements/{announcement}/schedule', [AdminAnnouncementController::class, 'schedule']);
             Route::post('/announcements/{announcement}/archive', [AdminAnnouncementController::class, 'archive']);
+            Route::get('/announcements/{announcement}/recipient-count', [AdminAnnouncementController::class, 'recipientCount']);
             Route::apiResource('announcements', AdminAnnouncementController::class)
                 ->only(['index', 'store', 'show', 'update']);
         });

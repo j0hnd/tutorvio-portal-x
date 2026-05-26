@@ -76,6 +76,11 @@ class Announcement extends Model
         return $this->hasMany(AnnouncementReadState::class);
     }
 
+    public function recipients(): HasMany
+    {
+        return $this->hasMany(AnnouncementRecipient::class);
+    }
+
     public function scopeActive($query)
     {
         return $query
@@ -83,5 +88,10 @@ class Announcement extends Model
             ->where('is_archived', false)
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now());
+    }
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return $query->whereHas('recipients', fn ($query) => $query->where('user_id', $user->id));
     }
 }

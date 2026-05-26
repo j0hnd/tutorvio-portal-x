@@ -7,15 +7,20 @@ use App\Http\Requests\Announcements\StoreAnnouncementRequest;
 use App\Http\Requests\Announcements\UpdateAnnouncementRequest;
 use App\Http\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
+use App\Models\AnnouncementTarget;
+use App\Services\Announcements\AnnouncementRecipientResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AnnouncementController extends Controller
 {
+    public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
+
     public function index(Request $request): JsonResponse
     {
         foreach (['include_archived', 'only_archived'] as $key) {
@@ -40,6 +45,7 @@ class AnnouncementController extends Controller
 
         $announcements = Announcement::query()
             ->with('author')
+            ->withCount('recipients')
             ->when(! $includeArchived, fn (Builder $query) => $query->where('is_archived', false))
             ->when($request->boolean('only_archived'), fn (Builder $query) => $query->where('is_archived', true))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
@@ -62,27 +68,34 @@ class AnnouncementController extends Controller
         $validated = $request->validated();
         $status = $validated['status'] ?? Announcement::STATUS_DRAFT;
 
-        $announcement = Announcement::create([
-            'title' => $validated['title'],
-            'body' => $validated['content'] ?? $validated['body'],
-            'status' => $status,
-            'type' => Announcement::TYPE_ADMIN_ANNOUNCEMENT,
-            'author_id' => $request->user()->id,
-            'scheduled_at' => $status === Announcement::STATUS_SCHEDULED
-                ? Carbon::parse($validated['scheduled_at'])
-                : null,
-            'published_at' => $status === Announcement::STATUS_PUBLISHED ? now() : null,
-        ]);
+        $announcement = DB::transaction(function () use ($request, $validated, $status) {
+            $announcement = Announcement::create([
+                'title' => $validated['title'],
+                'body' => $validated['content'] ?? $validated['body'],
+                'status' => $status,
+                'type' => Announcement::TYPE_ADMIN_ANNOUNCEMENT,
+                'author_id' => $request->user()->id,
+                'scheduled_at' => $status === Announcement::STATUS_SCHEDULED
+                    ? Carbon::parse($validated['scheduled_at'])
+                    : null,
+                'published_at' => $status === Announcement::STATUS_PUBLISHED ? now() : null,
+            ]);
+
+            $this->syncTargets($announcement, $validated['targets'] ?? []);
+            $this->recipientResolver->syncRecipients($announcement);
+
+            return $announcement;
+        });
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->load('author')),
+            'data' => new AnnouncementResource($announcement->load(['author', 'targets'])->loadCount('recipients')),
         ], 201);
     }
 
     public function show(Announcement $announcement): JsonResponse
     {
         return response()->json([
-            'data' => new AnnouncementResource($announcement->load('author')),
+            'data' => new AnnouncementResource($announcement->load(['author', 'targets'])->loadCount('recipients')),
         ]);
     }
 
@@ -116,10 +129,18 @@ class AnnouncementController extends Controller
             $attributes['scheduled_at'] = $validated['scheduled_at'] === null ? null : Carbon::parse($validated['scheduled_at']);
         }
 
-        $announcement->update($attributes);
+        DB::transaction(function () use ($announcement, $attributes, $validated) {
+            $announcement->update($attributes);
+
+            if (array_key_exists('targets', $validated)) {
+                $this->syncTargets($announcement, $validated['targets']);
+            }
+
+            $this->recipientResolver->syncRecipients($announcement);
+        });
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->refresh()->load('author')),
+            'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
         ]);
     }
 
@@ -127,14 +148,18 @@ class AnnouncementController extends Controller
     {
         $this->ensureNotArchived($announcement);
 
-        $announcement->update([
-            'status' => Announcement::STATUS_PUBLISHED,
-            'published_at' => now(),
-            'scheduled_at' => null,
-        ]);
+        DB::transaction(function () use ($announcement) {
+            $announcement->update([
+                'status' => Announcement::STATUS_PUBLISHED,
+                'published_at' => now(),
+                'scheduled_at' => null,
+            ]);
+
+            $this->recipientResolver->syncRecipients($announcement);
+        });
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->refresh()->load('author')),
+            'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
         ]);
     }
 
@@ -146,14 +171,18 @@ class AnnouncementController extends Controller
             'scheduled_at' => ['required', 'date', 'after:now'],
         ]);
 
-        $announcement->update([
-            'status' => Announcement::STATUS_SCHEDULED,
-            'scheduled_at' => Carbon::parse($validated['scheduled_at']),
-            'published_at' => null,
-        ]);
+        DB::transaction(function () use ($announcement, $validated) {
+            $announcement->update([
+                'status' => Announcement::STATUS_SCHEDULED,
+                'scheduled_at' => Carbon::parse($validated['scheduled_at']),
+                'published_at' => null,
+            ]);
+
+            $this->recipientResolver->syncRecipients($announcement);
+        });
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->refresh()->load('author')),
+            'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
         ]);
     }
 
@@ -167,7 +196,17 @@ class AnnouncementController extends Controller
         ]);
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->refresh()->load('author')),
+            'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
+        ]);
+    }
+
+    public function recipientCount(Announcement $announcement): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'announcement_id' => $announcement->id,
+                'recipient_count' => $this->recipientResolver->syncRecipients($announcement),
+            ],
         ]);
     }
 
@@ -178,5 +217,32 @@ class AnnouncementController extends Controller
                 'announcement' => 'Archived announcements cannot be modified.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $targets
+     */
+    private function syncTargets(Announcement $announcement, array $targets): void
+    {
+        $announcement->targets()->delete();
+
+        $announcement->targets()->createMany(array_map(function (array $target) {
+            $type = $target['type'] ?? $target['target_type'];
+            $metadata = $target['metadata'] ?? [];
+
+            if (array_key_exists('group', $target) && $target['group'] !== null) {
+                $metadata['group'] = $target['group'];
+            }
+
+            return [
+                'target_type' => $type,
+                'target_id' => $target['target_id'] ?? null,
+                'user_id' => $type === AnnouncementTarget::TARGET_USER
+                    ? ($target['user_id'] ?? $target['target_id'] ?? null)
+                    : ($target['user_id'] ?? null),
+                'role' => $target['role'] ?? null,
+                'metadata' => $metadata,
+            ];
+        }, $targets));
     }
 }

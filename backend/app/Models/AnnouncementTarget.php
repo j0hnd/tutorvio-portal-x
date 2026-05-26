@@ -16,9 +16,15 @@ class AnnouncementTarget extends Model
 
     public const TARGET_USER = 'user';
 
+    public const TARGET_COURSE = 'course';
+
     public const TARGET_COURSE_TYPE = 'course_type';
 
     public const TARGET_COURSE_PROGRAM = 'course_program';
+
+    public const TARGET_TEACHER_GROUP = 'teacher_group';
+
+    public const TARGET_STUDENT_GROUP = 'student_group';
 
     public const TARGET_CLASS_SCHEDULE = 'class_schedule';
 
@@ -26,8 +32,11 @@ class AnnouncementTarget extends Model
         self::TARGET_ALL,
         self::TARGET_ROLE,
         self::TARGET_USER,
+        self::TARGET_COURSE,
         self::TARGET_COURSE_TYPE,
         self::TARGET_COURSE_PROGRAM,
+        self::TARGET_TEACHER_GROUP,
+        self::TARGET_STUDENT_GROUP,
         self::TARGET_CLASS_SCHEDULE,
     ];
 

@@ -252,6 +252,11 @@ class User extends Authenticatable
         return $this->hasMany(AnnouncementReadState::class);
     }
 
+    public function announcementRecipients(): HasMany
+    {
+        return $this->hasMany(AnnouncementRecipient::class);
+    }
+
     public function studentMessageThreads(): HasMany
     {
         return $this->hasMany(MessageThread::class, 'student_id');
