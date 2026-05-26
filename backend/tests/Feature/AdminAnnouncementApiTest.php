@@ -387,6 +387,36 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertOk();
     }
 
+    public function test_role_targeted_announcement_is_visible_only_to_users_in_that_role(): void
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        Sanctum::actingAs($this->admin);
+
+        $announcement = $this->postJson('/api/v1/admin/announcements', [
+            'title' => 'Teacher notice',
+            'content' => 'Visible to teachers only.',
+            'status' => Announcement::STATUS_PUBLISHED,
+            'targets' => [
+                ['type' => AnnouncementTarget::TARGET_ROLE, 'role' => 'teacher'],
+            ],
+        ])->assertCreated()->json('data');
+
+        $this->assertSame(1, $announcement['recipient_count']);
+
+        Sanctum::actingAs($teacher);
+        $this->getJson('/api/v1/announcements?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $announcement['id']);
+
+        Sanctum::actingAs($this->student);
+        $this->getJson('/api/v1/announcements?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_course_and_group_targets_resolve_students_and_teachers(): void
     {
         $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -409,6 +439,10 @@ class AdminAnnouncementApiTest extends TestCase
             'assigned_at' => now(),
             'status' => CourseProgramStudentAssignment::STATUS_ACTIVE,
         ]);
+        $unassignedStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $unassignedStudent->assignRole('student');
+        $unassignedTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $unassignedTeacher->assignRole('teacher');
 
         Sanctum::actingAs($this->admin);
 
@@ -443,6 +477,42 @@ class AdminAnnouncementApiTest extends TestCase
         $this->getJson('/api/v1/announcements?per_page=10')
             ->assertOk()
             ->assertJsonCount(2, 'data');
+
+        Sanctum::actingAs($unassignedStudent);
+        $this->getJson("/api/v1/announcements/{$courseAnnouncement['id']}")
+            ->assertNotFound();
+
+        Sanctum::actingAs($unassignedTeacher);
+        $this->getJson("/api/v1/announcements/{$courseAnnouncement['id']}")
+            ->assertNotFound();
+    }
+
+    public function test_specific_user_announcement_is_visible_only_to_selected_users(): void
+    {
+        $selectedStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $selectedStudent->assignRole('student');
+
+        Sanctum::actingAs($this->admin);
+
+        $announcement = $this->postJson('/api/v1/admin/announcements', [
+            'title' => 'Specific student notice',
+            'content' => 'Visible to one selected user only.',
+            'status' => Announcement::STATUS_PUBLISHED,
+            'targets' => [
+                ['type' => AnnouncementTarget::TARGET_USER, 'user_id' => $selectedStudent->id],
+            ],
+        ])->assertCreated()->json('data');
+
+        $this->assertSame(1, $announcement['recipient_count']);
+
+        Sanctum::actingAs($selectedStudent);
+        $this->getJson("/api/v1/announcements/{$announcement['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $announcement['id']);
+
+        Sanctum::actingAs($this->student);
+        $this->getJson("/api/v1/announcements/{$announcement['id']}")
+            ->assertNotFound();
     }
 
     public function test_staff_must_have_operational_notice_permission_to_view_resolved_announcements(): void

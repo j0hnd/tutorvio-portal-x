@@ -10,6 +10,7 @@ use App\Services\Notifications\SystemNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use RuntimeException;
 use Tests\TestCase;
 
 class SystemNotificationServiceTest extends TestCase
@@ -145,6 +146,43 @@ class SystemNotificationServiceTest extends TestCase
             'user_id' => $student->id,
             'channel' => NotificationRecipient::CHANNEL_EMAIL,
             'delivery_status' => NotificationRecipient::STATUS_SENT,
+        ]);
+    }
+
+    public function test_email_failure_does_not_prevent_in_portal_notification_creation(): void
+    {
+        $student = User::factory()->create([
+            'email' => 'student@example.test',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        NotificationFacade::shouldReceive('send')
+            ->once()
+            ->andThrow(new RuntimeException('SMTP connection failed.'));
+
+        $notification = app(SystemNotificationService::class)->adminAnnouncement(
+            $student,
+            'Schedule update',
+            'Your schedule has changed.',
+            ['announcement_id' => 321],
+            [
+                'email' => true,
+                'source_type' => 'announcement',
+                'source_id' => 321,
+            ]
+        );
+
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $notification->id,
+            'user_id' => $student->id,
+            'channel' => NotificationRecipient::CHANNEL_IN_PORTAL,
+            'delivery_status' => NotificationRecipient::STATUS_DELIVERED,
+        ]);
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $notification->id,
+            'user_id' => $student->id,
+            'channel' => NotificationRecipient::CHANNEL_EMAIL,
+            'delivery_status' => NotificationRecipient::STATUS_FAILED,
         ]);
     }
 }
