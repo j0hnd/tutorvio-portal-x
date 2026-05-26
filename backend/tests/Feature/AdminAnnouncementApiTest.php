@@ -11,12 +11,14 @@ use App\Models\NotificationRecipient;
 use App\Models\StudentProfile;
 use App\Models\TeacherProfile;
 use App\Models\User;
+use App\Notifications\SystemNotificationEmail;
 use App\Services\Announcements\AnnouncementRecipientResolver;
 use App\Services\Announcements\ScheduledAnnouncementPublisher;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -120,6 +122,8 @@ class AdminAnnouncementApiTest extends TestCase
 
     public function test_due_scheduled_announcements_are_published_with_notifications_idempotently(): void
     {
+        NotificationFacade::fake();
+
         $announcement = $this->createAnnouncement([
             'status' => Announcement::STATUS_SCHEDULED,
             'scheduled_at' => '2026-06-15 11:55:00',
@@ -174,7 +178,7 @@ class AdminAnnouncementApiTest extends TestCase
 
         $this->assertSame('School announcement', $notification->title);
         $this->assertDatabaseCount('notifications', 1);
-        $this->assertDatabaseCount('notification_recipients', 1);
+        $this->assertDatabaseCount('notification_recipients', 2);
         $this->assertDatabaseHas('notification_recipients', [
             'notification_id' => $notification->id,
             'user_id' => $this->student->id,
@@ -183,10 +187,19 @@ class AdminAnnouncementApiTest extends TestCase
             'sent_at' => '2026-06-15 12:00:00',
             'delivered_at' => '2026-06-15 12:00:00',
         ]);
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $notification->id,
+            'user_id' => $this->student->id,
+            'channel' => NotificationRecipient::CHANNEL_EMAIL,
+            'delivery_status' => NotificationRecipient::STATUS_SENT,
+        ]);
+        NotificationFacade::assertSentTo($this->student, SystemNotificationEmail::class);
     }
 
     public function test_scheduled_announcement_failures_do_not_stop_other_due_publications(): void
     {
+        NotificationFacade::fake();
+
         $failed = $this->createAnnouncement([
             'title' => 'Failed announcement',
             'status' => Announcement::STATUS_SCHEDULED,
@@ -233,7 +246,7 @@ class AdminAnnouncementApiTest extends TestCase
             'published_at' => '2026-06-15 12:00:00',
         ]);
         $this->assertDatabaseCount('notifications', 1);
-        $this->assertDatabaseCount('notification_recipients', 1);
+        $this->assertDatabaseCount('notification_recipients', 2);
     }
 
     public function test_scheduled_announcement_requires_future_scheduled_at(): void

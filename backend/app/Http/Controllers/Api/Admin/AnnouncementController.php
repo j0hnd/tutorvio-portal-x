@@ -9,17 +9,23 @@ use App\Http\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
 use App\Models\AnnouncementTarget;
 use App\Services\Announcements\AnnouncementRecipientResolver;
+use App\Services\Notifications\SystemNotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class AnnouncementController extends Controller
 {
-    public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
+    public function __construct(
+        private readonly AnnouncementRecipientResolver $recipientResolver,
+        private readonly SystemNotificationService $notificationService
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -87,6 +93,10 @@ class AnnouncementController extends Controller
             return $announcement;
         });
 
+        if ($announcement->status === Announcement::STATUS_PUBLISHED) {
+            $this->notifyPublishedAnnouncement($announcement->refresh());
+        }
+
         return response()->json([
             'data' => new AnnouncementResource($announcement->load(['author', 'targets'])->loadCount('recipients')),
         ], 201);
@@ -139,6 +149,10 @@ class AnnouncementController extends Controller
             $this->recipientResolver->syncRecipients($announcement);
         });
 
+        if (($attributes['status'] ?? null) === Announcement::STATUS_PUBLISHED) {
+            $this->notifyPublishedAnnouncement($announcement->refresh());
+        }
+
         return response()->json([
             'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
         ]);
@@ -157,6 +171,8 @@ class AnnouncementController extends Controller
 
             $this->recipientResolver->syncRecipients($announcement);
         });
+
+        $this->notifyPublishedAnnouncement($announcement->refresh());
 
         return response()->json([
             'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
@@ -215,6 +231,44 @@ class AnnouncementController extends Controller
         if ($announcement->is_archived || $announcement->status === Announcement::STATUS_ARCHIVED) {
             throw ValidationException::withMessages([
                 'announcement' => 'Archived announcements cannot be modified.',
+            ]);
+        }
+    }
+
+    private function notifyPublishedAnnouncement(Announcement $announcement): void
+    {
+        try {
+            $recipients = $announcement->recipients()
+                ->orderBy('id')
+                ->get(['user_id', 'matched_targets']);
+
+            $this->notificationService->adminAnnouncement(
+                $recipients->pluck('user_id')->all(),
+                $announcement->title,
+                $announcement->body,
+                [
+                    'announcement_id' => $announcement->id,
+                ],
+                [
+                    'email' => true,
+                    'sender_id' => $announcement->author_id,
+                    'published_at' => $announcement->published_at ?? now(),
+                    'source_type' => 'announcement',
+                    'source_id' => $announcement->id,
+                    'recipient_metadata' => $recipients
+                        ->mapWithKeys(fn ($recipient) => [
+                            $recipient->user_id => [
+                                'matched_targets' => $recipient->matched_targets ?? [],
+                            ],
+                        ])
+                        ->all(),
+                ]
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Announcement notification delivery failed.', [
+                'announcement_id' => $announcement->id,
+                'author_id' => $announcement->author_id,
+                'failure_type' => $exception::class,
             ]);
         }
     }

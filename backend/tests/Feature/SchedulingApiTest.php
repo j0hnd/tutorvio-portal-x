@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Notification as PortalNotification;
+use App\Models\NotificationRecipient;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\Holiday;
 use App\Models\Scheduling\ScheduleReminder;
@@ -1227,7 +1229,7 @@ class SchedulingApiTest extends TestCase
             'ends_at' => '2026-06-01 03:00:00',
         ]);
 
-        ScheduleReminder::create([
+        $reminder = ScheduleReminder::create([
             'class_schedule_id' => $schedule->id,
             'user_id' => $this->student->id,
             'channel' => 'email',
@@ -1240,6 +1242,23 @@ class SchedulingApiTest extends TestCase
         $this->assertSame(1, $service->sendDue($now));
 
         Notification::assertSentTo($this->student, ClassScheduleReminderNotification::class);
+        $portalNotification = PortalNotification::query()
+            ->where('type', PortalNotification::TYPE_CLASS_REMINDER)
+            ->where('metadata->schedule_reminder_id', $reminder->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $portalNotification->id,
+            'user_id' => $this->student->id,
+            'channel' => NotificationRecipient::CHANNEL_IN_PORTAL,
+            'delivery_status' => NotificationRecipient::STATUS_DELIVERED,
+        ]);
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $portalNotification->id,
+            'user_id' => $this->student->id,
+            'channel' => NotificationRecipient::CHANNEL_EMAIL,
+            'delivery_status' => NotificationRecipient::STATUS_SENT,
+        ]);
         $this->assertDatabaseHas('schedule_reminders', [
             'class_schedule_id' => $schedule->id,
             'user_id' => $this->student->id,

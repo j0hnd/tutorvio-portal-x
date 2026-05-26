@@ -124,6 +124,7 @@ class ScheduledAnnouncementPublisher
                 'announcement_id' => $announcement->id,
             ],
             [
+                'email' => true,
                 'sender_id' => $announcement->author_id,
                 'published_at' => $publishedAt,
                 'source_type' => 'announcement',

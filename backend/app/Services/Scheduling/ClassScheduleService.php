@@ -4,15 +4,21 @@ namespace App\Services\Scheduling;
 
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
+use App\Services\Notifications\SystemNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ClassScheduleService
 {
-    public function __construct(private readonly SchedulingAvailabilityService $availabilityService) {}
+    public function __construct(
+        private readonly SchedulingAvailabilityService $availabilityService,
+        private readonly SystemNotificationService $notificationService
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -224,7 +230,7 @@ class ClassScheduleService
      */
     public function reschedule(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
-        return DB::transaction(function () use ($schedule, $payload, $actor) {
+        $newSchedule = DB::transaction(function () use ($schedule, $payload, $actor) {
             $schedule->forceFill([
                 'status' => ClassSchedule::STATUS_RESCHEDULED,
                 'updated_by' => $actor->id,
@@ -245,6 +251,48 @@ class ClassScheduleService
                 'rescheduled_from_id' => $schedule->id,
             ], $actor);
         })->refresh();
+
+        $this->notifyRescheduled($schedule->refresh(), $newSchedule, $actor);
+
+        return $newSchedule;
+    }
+
+    private function notifyRescheduled(ClassSchedule $oldSchedule, ClassSchedule $newSchedule, User $actor): void
+    {
+        try {
+            $newSchedule->loadMissing(['student:id,name,email,timezone', 'teacher:id,name,email,timezone']);
+
+            $this->notificationService->rescheduleAlert(
+                collect([$newSchedule->student, $newSchedule->teacher])->filter()->unique('id')->values()->all(),
+                'Class rescheduled: '.($newSchedule->title ?: 'Scheduled class'),
+                'Your class was moved to '.$this->scheduleStartLabel($newSchedule).'.',
+                [
+                    'class_schedule_id' => $newSchedule->id,
+                    'rescheduled_from_id' => $oldSchedule->id,
+                    'actor_id' => $actor->id,
+                ],
+                [
+                    'email' => true,
+                    'source_type' => 'class_schedule',
+                    'source_id' => $newSchedule->id,
+                    'dedupe_key' => 'class_schedule_rescheduled:'.$newSchedule->id,
+                ]
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Reschedule notification delivery failed.', [
+                'class_schedule_id' => $newSchedule->id,
+                'rescheduled_from_id' => $oldSchedule->id,
+                'actor_id' => $actor->id,
+                'failure_type' => $exception::class,
+            ]);
+        }
+    }
+
+    private function scheduleStartLabel(ClassSchedule $schedule): string
+    {
+        return $schedule->starts_at
+            ->setTimezone($schedule->timezone)
+            ->format('M j, Y g:i A T');
     }
 
     public function cancel(ClassSchedule $schedule, User $actor, ?string $reason = null): ClassSchedule

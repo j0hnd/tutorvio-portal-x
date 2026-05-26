@@ -9,6 +9,7 @@ use App\Notifications\SystemNotificationEmail;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SystemNotificationService
@@ -202,10 +203,18 @@ class SystemNotificationService
                     $delivery->forceFill([
                         'delivery_status' => NotificationRecipient::STATUS_FAILED,
                         'metadata' => [
-                            ...($metadata ?? []),
-                            'error' => $exception->getMessage(),
+                            ...$metadata,
+                            'failure_type' => $exception::class,
                         ],
                     ])->save();
+
+                    Log::warning('Notification email delivery failed.', [
+                        'notification_id' => $notification->id,
+                        'notification_type' => $notification->type,
+                        'user_id' => $recipient->id,
+                        'delivery_id' => $delivery->id,
+                        'failure_type' => $exception::class,
+                    ]);
                 }
             });
     }

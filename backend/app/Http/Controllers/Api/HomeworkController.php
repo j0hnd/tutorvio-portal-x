@@ -11,16 +11,21 @@ use App\Models\Homework;
 use App\Models\LearningResource;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Services\Notifications\SystemNotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class HomeworkController extends Controller
 {
+    public function __construct(private readonly SystemNotificationService $notificationService) {}
+
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Homework::class);
@@ -94,6 +99,8 @@ class HomeworkController extends Controller
             return $homework;
         });
 
+        $this->notifyHomeworkAssigned($homework);
+
         return response()->json([
             'data' => new HomeworkResource($homework->load($this->relations())),
         ], 201);
@@ -144,6 +151,40 @@ class HomeworkController extends Controller
         if (! $student->hasRole('student')) {
             throw ValidationException::withMessages([
                 'student_id' => 'The selected user must be a student.',
+            ]);
+        }
+    }
+
+    private function notifyHomeworkAssigned(Homework $homework): void
+    {
+        try {
+            $homework->loadMissing(['student:id,name,email,timezone', 'teacher:id,name,email,timezone']);
+
+            $this->notificationService->homeworkReminder(
+                $homework->student,
+                'Homework assigned: '.$homework->title,
+                $homework->due_date
+                    ? 'Your homework is due on '.$homework->due_date->format('M j, Y').'.'
+                    : 'New homework has been assigned.',
+                [
+                    'homework_id' => $homework->id,
+                    'lesson_id' => $homework->lesson_id,
+                    'teacher_id' => $homework->teacher_id,
+                ],
+                [
+                    'email' => true,
+                    'sender_id' => $homework->teacher_id,
+                    'source_type' => 'homework',
+                    'source_id' => $homework->id,
+                    'dedupe_key' => 'homework_assigned:'.$homework->id,
+                ]
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Homework reminder notification delivery failed.', [
+                'homework_id' => $homework->id,
+                'student_id' => $homework->student_id,
+                'teacher_id' => $homework->teacher_id,
+                'failure_type' => $exception::class,
             ]);
         }
     }

@@ -2,13 +2,17 @@
 
 namespace App\Services\Scheduling;
 
+use App\Models\Notification;
+use App\Models\NotificationRecipient;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\ScheduleReminder;
 use App\Models\User;
 use App\Notifications\Scheduling\ClassScheduleReminderNotification;
+use App\Services\Notifications\SystemNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ScheduleReminderService
@@ -17,6 +21,8 @@ class ScheduleReminderService
      * @var array<int, int>
      */
     private const DEFAULT_REMINDER_OFFSETS_MINUTES = [1440, 60];
+
+    public function __construct(private readonly SystemNotificationService $notificationService) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -139,6 +145,19 @@ class ScheduleReminderService
                     return;
                 }
 
+                $portalNotification = null;
+
+                try {
+                    $portalNotification = $this->createPortalReminder($reminder, $now);
+                } catch (Throwable $exception) {
+                    Log::warning('Class reminder portal notification creation failed.', [
+                        'schedule_reminder_id' => $reminder->id,
+                        'class_schedule_id' => $reminder->class_schedule_id,
+                        'user_id' => $reminder->user_id,
+                        'failure_type' => $exception::class,
+                    ]);
+                }
+
                 try {
                     $reminder->user->notify(new ClassScheduleReminderNotification($reminder));
 
@@ -151,19 +170,85 @@ class ScheduleReminderService
                         ],
                     ])->save();
 
+                    $this->recordEmailDelivery($portalNotification, $reminder, true);
+
                     $sent++;
                 } catch (Throwable $exception) {
                     $reminder->forceFill([
                         'status' => ScheduleReminder::STATUS_FAILED,
                         'metadata' => [
                             ...($reminder->metadata ?? []),
-                            'error' => $exception->getMessage(),
+                            'failure_type' => $exception::class,
                         ],
                     ])->save();
+
+                    $this->recordEmailDelivery($portalNotification, $reminder, false, $exception);
+
+                    Log::warning('Class reminder email delivery failed.', [
+                        'schedule_reminder_id' => $reminder->id,
+                        'class_schedule_id' => $reminder->class_schedule_id,
+                        'user_id' => $reminder->user_id,
+                        'failure_type' => $exception::class,
+                    ]);
                 }
             });
 
         return $sent;
+    }
+
+    private function createPortalReminder(ScheduleReminder $reminder, CarbonImmutable $now): Notification
+    {
+        $schedule = $reminder->classSchedule;
+        $offsetMinutes = (int) data_get($reminder->metadata, 'offset_minutes', $schedule->starts_at->diffInMinutes($now));
+        $title = $schedule->title ?: 'Scheduled class';
+
+        return $this->notificationService->classReminder(
+            $reminder->user,
+            'Class reminder: '.$title,
+            'Your class starts '.$this->startsAtLabel($schedule, $reminder->user).'.',
+            [
+                'class_schedule_id' => $schedule->id,
+                'schedule_reminder_id' => $reminder->id,
+                'offset_minutes' => $offsetMinutes,
+            ],
+            [
+                'published_at' => $now,
+                'source_type' => 'schedule_reminder',
+                'source_id' => $reminder->id,
+            ]
+        );
+    }
+
+    private function recordEmailDelivery(?Notification $notification, ScheduleReminder $reminder, bool $sent, ?Throwable $exception = null): void
+    {
+        if ($notification === null) {
+            return;
+        }
+
+        NotificationRecipient::updateOrCreate([
+            'notification_id' => $notification->id,
+            'user_id' => $reminder->user_id,
+            'channel' => NotificationRecipient::CHANNEL_EMAIL,
+        ], [
+            'delivery_status' => $sent
+                ? NotificationRecipient::STATUS_SENT
+                : NotificationRecipient::STATUS_FAILED,
+            'sent_at' => $sent ? ($reminder->sent_at ?? now()) : null,
+            'metadata' => [
+                ...($reminder->metadata ?? []),
+                'schedule_reminder_id' => $reminder->id,
+                ...($exception === null ? [] : ['failure_type' => $exception::class]),
+            ],
+        ]);
+    }
+
+    private function startsAtLabel(ClassSchedule $schedule, User $recipient): string
+    {
+        $timezone = $recipient->timezone ?: $schedule->timezone;
+
+        return $schedule->starts_at
+            ->setTimezone($timezone)
+            ->format('M j, Y g:i A T');
     }
 
     private function canSend(ScheduleReminder $reminder, CarbonImmutable $now): bool

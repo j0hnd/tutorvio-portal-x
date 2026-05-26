@@ -5,10 +5,14 @@ namespace Tests\Feature;
 use App\Models\Homework;
 use App\Models\LearningResource;
 use App\Models\Lesson;
+use App\Models\Notification;
+use App\Models\NotificationRecipient;
 use App\Models\User;
+use App\Notifications\SystemNotificationEmail;
 use Carbon\Carbon;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -65,6 +69,8 @@ class HomeworkApiTest extends TestCase
 
     public function test_teacher_can_create_homework_for_managed_student_and_own_lesson(): void
     {
+        NotificationFacade::fake();
+
         Sanctum::actingAs($this->teacher);
 
         $lesson = $this->createLesson($this->student, $this->teacher);
@@ -100,6 +106,25 @@ class HomeworkApiTest extends TestCase
             'learning_resource_id' => $document->id,
             'assigned_by' => $this->teacher->id,
         ]);
+
+        $notification = Notification::query()
+            ->where('type', Notification::TYPE_HOMEWORK_REMINDER)
+            ->where('metadata->homework_id', Homework::firstOrFail()->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $notification->id,
+            'user_id' => $this->student->id,
+            'channel' => NotificationRecipient::CHANNEL_IN_PORTAL,
+            'delivery_status' => NotificationRecipient::STATUS_DELIVERED,
+        ]);
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $notification->id,
+            'user_id' => $this->student->id,
+            'channel' => NotificationRecipient::CHANNEL_EMAIL,
+            'delivery_status' => NotificationRecipient::STATUS_SENT,
+        ]);
+        NotificationFacade::assertSentTo($this->student, SystemNotificationEmail::class);
     }
 
     public function test_teacher_cannot_assign_homework_to_unmanaged_student(): void
