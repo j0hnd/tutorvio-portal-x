@@ -62,7 +62,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
-        Route::get('/notifications/history', [NotificationController::class, 'history']);
+        Route::get('/notifications/history', [NotificationController::class, 'history'])
+            ->middleware(['role:admin|staff', 'permission:notifications.history.view']);
         Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
@@ -123,6 +124,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/access', function () {
                 return response()->json(['status' => 'ok']);
             });
+        });
+
+        Route::prefix('admin')->middleware(['role:admin|staff', 'permission:announcements.manage'])->group(function () {
             Route::post('/announcements/{announcement}/publish', [AdminAnnouncementController::class, 'publish']);
             Route::post('/announcements/{announcement}/schedule', [AdminAnnouncementController::class, 'schedule']);
             Route::post('/announcements/{announcement}/archive', [AdminAnnouncementController::class, 'archive']);

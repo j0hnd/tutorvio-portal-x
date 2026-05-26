@@ -491,6 +491,32 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_staff_announcement_management_depends_on_permission(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        Sanctum::actingAs($staff);
+
+        $this->postJson('/api/v1/admin/announcements', [
+            'title' => 'Staff attempt',
+            'content' => 'Staff without permission cannot create announcements.',
+        ])
+            ->assertForbidden();
+
+        $staff->givePermissionTo('announcements.manage');
+
+        $response = $this->postJson('/api/v1/admin/announcements', [
+            'title' => 'Staff announcement',
+            'content' => 'Staff with permission can manage announcements.',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.title', 'Staff announcement')
+            ->assertJsonPath('data.created_by', $staff->id);
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      */

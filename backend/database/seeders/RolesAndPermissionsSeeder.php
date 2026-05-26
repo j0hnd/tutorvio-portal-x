@@ -32,6 +32,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'holidays.view', 'holidays.manage',
             'reminders.view', 'reminders.manage',
             'messages.view', 'messages.manage',
+            'announcements.manage', 'notifications.history.view',
             'dashboard.tasks.view', 'dashboard.operational_notices.view',
             'admin.access',
         ];

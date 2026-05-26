@@ -195,6 +195,44 @@ class MessageThreadApiTest extends TestCase
             ->assertJsonPath('data.created_by', $this->admin->id);
     }
 
+    public function test_staff_message_access_depends_on_permission(): void
+    {
+        $thread = $this->createThread();
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/message-threads')
+            ->assertForbidden();
+
+        $this->getJson("/api/v1/message-threads/{$thread->id}/messages")
+            ->assertForbidden();
+
+        $staff->givePermissionTo('messages.view');
+
+        $this->getJson('/api/v1/message-threads')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $thread->id);
+
+        $this->postJson('/api/v1/message-threads', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Staff-created thread without manage permission',
+        ])
+            ->assertForbidden();
+
+        $staff->givePermissionTo('messages.manage');
+
+        $this->postJson('/api/v1/message-threads', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Staff-created support thread',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.created_by', $staff->id);
+    }
+
     private function createThread(): MessageThread
     {
         $thread = MessageThread::create([

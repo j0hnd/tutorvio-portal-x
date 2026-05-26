@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class NotificationApiTest extends TestCase
@@ -23,6 +25,9 @@ class NotificationApiTest extends TestCase
         parent::setUp();
 
         Carbon::setTestNow('2026-06-15 12:00:00');
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->seed(RolesAndPermissionsSeeder::class);
 
         $this->user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $this->otherUser = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -161,7 +166,7 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('data.unread_count', 0);
     }
 
-    public function test_user_can_list_notification_history_with_pagination(): void
+    public function test_notification_history_requires_permission_and_includes_authorized_history(): void
     {
         Sanctum::actingAs($this->user);
 
@@ -175,13 +180,39 @@ class NotificationApiTest extends TestCase
             'published_at' => '2026-06-14 09:00:00',
             'created_at' => '2026-06-14 09:00:00',
         ]);
+        $other = $this->createNotificationFor($this->otherUser, [
+            'title' => 'Other user notification',
+            'published_at' => '2026-06-15 09:00:00',
+            'created_at' => '2026-06-15 09:00:00',
+        ]);
 
+        $this->getJson('/api/v1/notifications/history?per_page=1')
+            ->assertForbidden();
+
+        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $admin->assignRole('admin');
+
+        Sanctum::actingAs($admin);
         $this->getJson('/api/v1/notifications/history?per_page=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $second->id)
+            ->assertJsonPath('data.0.id', $other->id)
+            ->assertJsonPath('data.0.recipient_user_id', $this->otherUser->id)
             ->assertJsonPath('per_page', 1)
-            ->assertJsonPath('total', 2);
+            ->assertJsonPath('total', 3);
+
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        Sanctum::actingAs($staff);
+        $this->getJson('/api/v1/notifications/history?per_page=10')
+            ->assertForbidden();
+
+        $staff->givePermissionTo('notifications.history.view');
+
+        $this->getJson('/api/v1/notifications/history?per_page=10')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
 
         $this->assertNotSame($first->id, $second->id);
     }

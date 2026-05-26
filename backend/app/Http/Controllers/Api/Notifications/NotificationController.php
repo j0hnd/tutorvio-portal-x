@@ -33,7 +33,7 @@ class NotificationController extends Controller
         $validated = $this->validateFilters($request);
 
         return response()->json(
-            $this->applyFilters($this->visibleRecipientsFor($request->user()), $validated)
+            $this->applyFilters($this->historyRecipients(), $validated)
                 ->tap(fn (Builder $query) => $this->orderNewestFirst($query))
                 ->paginate($validated['per_page'] ?? 25)
                 ->through(fn (NotificationRecipient $recipient) => new NotificationResource($recipient))
@@ -175,6 +175,19 @@ class NotificationController extends Controller
                     ->where('is_archived', false)
                     ->whereNotNull('published_at')
                     ->where('published_at', '<=', now());
+            });
+    }
+
+    /**
+     * @return Builder<NotificationRecipient>
+     */
+    private function historyRecipients(): Builder
+    {
+        return NotificationRecipient::query()
+            ->with('notification')
+            ->whereNull('archived_at')
+            ->whereHas('notification', function (Builder $query) {
+                $query->where('is_archived', false);
             });
     }
 

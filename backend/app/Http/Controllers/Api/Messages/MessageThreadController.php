@@ -19,6 +19,8 @@ class MessageThreadController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->assertCanAccessMessages($request->user());
+
         $validated = $request->validate([
             'status' => ['sometimes', 'string', 'in:active,closed'],
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -41,6 +43,8 @@ class MessageThreadController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->assertCanAccessMessages($request->user());
+
         $validated = $request->validate([
             'recipient_id' => ['sometimes', 'integer', 'exists:users,id'],
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -91,6 +95,8 @@ class MessageThreadController extends Controller
 
     public function messages(Request $request, MessageThread $messageThread): JsonResponse
     {
+        $this->assertCanAccessMessages($request->user());
+
         $this->visibleThreadFor($request->user(), $messageThread);
 
         $validated = $request->validate([
@@ -110,6 +116,8 @@ class MessageThreadController extends Controller
 
     public function send(Request $request, MessageThread $messageThread): JsonResponse
     {
+        $this->assertCanAccessMessages($request->user());
+
         $thread = $this->visibleThreadFor($request->user(), $messageThread);
         $this->assertCanSendMessage($request->user(), $thread);
 
@@ -147,6 +155,8 @@ class MessageThreadController extends Controller
 
     public function markRead(Request $request, MessageThread $messageThread): JsonResponse
     {
+        $this->assertCanAccessMessages($request->user());
+
         $thread = $this->visibleThreadFor($request->user(), $messageThread);
         $participant = $thread->participants()->where('user_id', $request->user()->id)->firstOrFail();
         $readAt = now();
@@ -165,6 +175,7 @@ class MessageThreadController extends Controller
     public function unreadCount(Request $request): JsonResponse
     {
         $user = $request->user();
+        $this->assertCanAccessMessages($user);
 
         $count = MessageThreadParticipant::query()
             ->where('user_id', $user->id)
@@ -197,17 +208,15 @@ class MessageThreadController extends Controller
         return MessageThread::query()
             ->where('thread_type', MessageThread::TYPE_STUDENT_TEACHER)
             ->where('is_archived', false)
+            ->when(! $this->canAccessMessages($user), function (Builder $query) {
+                $query->whereRaw('0 = 1');
+            })
             ->when(! $this->canViewAllThreads($user), function (Builder $query) use ($user) {
                 $query->whereHas('participants', function (Builder $query) use ($user) {
                     $query
                         ->where('user_id', $user->id)
                         ->whereNull('archived_at');
                 });
-            })
-            ->when($user->hasRole('staff') && ! $user->hasRole('admin'), function (Builder $query) use ($user) {
-                if (! $user->can('messages.view') && ! $user->can('messages.manage')) {
-                    $query->whereRaw('0 = 1');
-                }
             });
     }
 
@@ -255,6 +264,10 @@ class MessageThreadController extends Controller
 
     private function assertCanCreateThread(User $actor, User $student, User $teacher): void
     {
+        if (! $this->canAccessMessages($actor)) {
+            abort(403);
+        }
+
         if (! $student->hasRole('student')) {
             throw ValidationException::withMessages([
                 'student_id' => 'The selected user must be a student.',
@@ -294,6 +307,10 @@ class MessageThreadController extends Controller
 
     private function assertCanSendMessage(User $actor, MessageThread $thread): void
     {
+        if (! $this->canAccessMessages($actor)) {
+            abort(403);
+        }
+
         if ($thread->status !== MessageThread::STATUS_ACTIVE) {
             abort(403, 'Closed message threads cannot receive new messages.');
         }
@@ -310,6 +327,18 @@ class MessageThreadController extends Controller
     private function canManageThreads(User $user): bool
     {
         return $user->hasRole('admin') || $user->can('messages.manage');
+    }
+
+    private function canAccessMessages(User $user): bool
+    {
+        return $user->hasRole('admin') || $user->can('messages.view') || $user->can('messages.manage');
+    }
+
+    private function assertCanAccessMessages(User $user): void
+    {
+        if (! $this->canAccessMessages($user)) {
+            abort(403);
+        }
     }
 
     private function canViewAllThreads(User $user): bool
