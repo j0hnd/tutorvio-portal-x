@@ -1,0 +1,53 @@
+<?php
+
+namespace App\Http\Resources\Subscriptions;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class SubscriptionResource extends JsonResource
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->resource->id,
+            'student_id' => $this->resource->user_id,
+            'plan_name' => $this->resource->plan_name,
+            'package_type' => $this->resource->package_type,
+            'total_lesson_count' => $this->resource->total_lesson_count,
+            'consumed_lesson_count' => $this->resource->consumed_lesson_count,
+            'remaining_lesson_count' => $this->resource->remaining_lesson_count,
+            'status' => $this->resource->status,
+            'is_frozen' => $this->resource->is_frozen,
+            'frozen_at' => $this->resource->frozen_at,
+            'payment_status' => $this->resource->payment_status,
+            'invoice_id' => $this->resource->invoice_id,
+            'invoice_reference' => $this->resource->invoice_reference,
+            'renewed_from_subscription_id' => $this->resource->renewed_from_subscription_id,
+            'starts_at' => $this->resource->starts_at,
+            'ends_at' => $this->resource->ends_at,
+            'internal_notes' => $this->when($this->canViewAdminFields($request), $this->resource->internal_notes),
+            'created_by' => $this->when($this->canViewAdminFields($request), $this->resource->created_by),
+            'updated_by' => $this->when($this->canViewAdminFields($request), $this->resource->updated_by),
+            'student' => $this->whenLoaded('student', fn () => [
+                'id' => $this->resource->student->id,
+                'name' => $this->resource->student->name,
+                'email' => $this->resource->student->email,
+                'status' => $this->resource->student->status,
+            ]),
+            'created_at' => $this->resource->created_at,
+            'updated_at' => $this->resource->updated_at,
+        ];
+    }
+
+    private function canViewAdminFields(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user?->hasRole('admin') === true
+            || ($user?->hasRole('staff') === true && $user?->can('subscriptions.view') === true);
+    }
+}

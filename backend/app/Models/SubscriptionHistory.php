@@ -24,6 +24,10 @@ class SubscriptionHistory extends Model
 
     public const EVENT_LESSONS_CONSUMED = 'lessons_consumed';
 
+    public const EVENT_UPDATED = 'updated';
+
+    public const EVENT_CANCELLED = 'cancelled';
+
     public const EVENTS = [
         self::EVENT_ASSIGNED,
         self::EVENT_RENEWED,
@@ -32,6 +36,8 @@ class SubscriptionHistory extends Model
         self::EVENT_STATUS_CHANGED,
         self::EVENT_PAYMENT_CHANGED,
         self::EVENT_LESSONS_CONSUMED,
+        self::EVENT_UPDATED,
+        self::EVENT_CANCELLED,
     ];
 
     protected $fillable = [

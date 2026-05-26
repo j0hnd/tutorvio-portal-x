@@ -33,6 +33,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'reminders.view', 'reminders.manage',
             'messages.view', 'messages.manage',
             'invoices.view', 'invoices.create', 'invoices.update',
+            'subscriptions.view', 'subscriptions.create', 'subscriptions.update', 'subscriptions.delete',
             'announcements.manage', 'notifications.history.view',
             'dashboard.tasks.view', 'dashboard.operational_notices.view',
             'admin.access',

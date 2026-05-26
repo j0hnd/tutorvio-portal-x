@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
+use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
@@ -145,6 +146,35 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/homeworks/summary', HomeworkSummaryController::class)
                 ->middleware('permission:homeworks.view');
+
+            Route::get('/students/{student}/subscriptions/history', [SubscriptionManagementController::class, 'studentHistory'])
+                ->middleware('permission:subscriptions.view');
+            Route::post('/subscriptions/{subscription}/freeze', [SubscriptionManagementController::class, 'freeze'])
+                ->middleware('permission:subscriptions.update');
+            Route::post('/subscriptions/{subscription}/unfreeze', [SubscriptionManagementController::class, 'unfreeze'])
+                ->middleware('permission:subscriptions.update');
+            Route::patch('/subscriptions/{subscription}/payment-status', [SubscriptionManagementController::class, 'updatePaymentStatus'])
+                ->middleware('permission:subscriptions.update');
+            Route::patch('/subscriptions/{subscription}/status', [SubscriptionManagementController::class, 'updateStatus'])
+                ->middleware('permission:subscriptions.update');
+            Route::patch('/subscriptions/{subscription}/notes', [SubscriptionManagementController::class, 'updateNotes'])
+                ->middleware('permission:subscriptions.update');
+            Route::patch('/subscriptions/{subscription}/invoice-reference', [SubscriptionManagementController::class, 'updateInvoiceReference'])
+                ->middleware('permission:subscriptions.update');
+            Route::post('/subscriptions/{subscription}/renew', [SubscriptionManagementController::class, 'renew'])
+                ->middleware('permission:subscriptions.create');
+            Route::post('/subscriptions/{subscription}/cancel', [SubscriptionManagementController::class, 'cancel'])
+                ->middleware('permission:subscriptions.delete');
+            Route::post('/subscriptions/{subscription}/archive', [SubscriptionManagementController::class, 'archive'])
+                ->middleware('permission:subscriptions.delete');
+            Route::get('/subscriptions', [SubscriptionManagementController::class, 'index'])
+                ->middleware('permission:subscriptions.view');
+            Route::post('/subscriptions', [SubscriptionManagementController::class, 'store'])
+                ->middleware('permission:subscriptions.create');
+            Route::get('/subscriptions/{subscription}', [SubscriptionManagementController::class, 'show'])
+                ->middleware('permission:subscriptions.view');
+            Route::match(['put', 'patch'], '/subscriptions/{subscription}', [SubscriptionManagementController::class, 'update'])
+                ->middleware('permission:subscriptions.update');
         });
 
         Route::prefix('invoices')->group(function () {
