@@ -6,10 +6,14 @@ use App\Models\Announcement;
 use App\Models\AnnouncementTarget;
 use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
+use App\Models\Notification;
+use App\Models\NotificationRecipient;
 use App\Models\StudentProfile;
 use App\Models\TeacherProfile;
 use App\Models\User;
 use App\Services\Announcements\AnnouncementRecipientResolver;
+use App\Services\Announcements\ScheduledAnnouncementPublisher;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -112,6 +116,124 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonPath('data.status', Announcement::STATUS_PUBLISHED)
             ->assertJsonPath('data.scheduled_at', null)
             ->assertJsonPath('data.published_at', '2026-06-15T12:00:00.000000Z');
+    }
+
+    public function test_due_scheduled_announcements_are_published_with_notifications_idempotently(): void
+    {
+        $announcement = $this->createAnnouncement([
+            'status' => Announcement::STATUS_SCHEDULED,
+            'scheduled_at' => '2026-06-15 11:55:00',
+        ]);
+        $announcement->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ROLE,
+            'role' => 'student',
+        ]);
+
+        $future = $this->createAnnouncement([
+            'title' => 'Future announcement',
+            'status' => Announcement::STATUS_SCHEDULED,
+            'scheduled_at' => '2026-06-15 12:30:00',
+        ]);
+        $future->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ROLE,
+            'role' => 'student',
+        ]);
+
+        $publisher = app(ScheduledAnnouncementPublisher::class);
+        $now = CarbonImmutable::parse('2026-06-15 12:00:00', 'UTC');
+
+        $this->assertSame([
+            'published' => 1,
+            'failed' => 0,
+            'notifications' => 1,
+            'recipients' => 1,
+        ], $publisher->publishDue($now));
+
+        $this->assertSame([
+            'published' => 0,
+            'failed' => 0,
+            'notifications' => 0,
+            'recipients' => 0,
+        ], $publisher->publishDue($now));
+
+        $this->assertDatabaseHas('announcements', [
+            'id' => $announcement->id,
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => '2026-06-15 12:00:00',
+            'scheduled_at' => null,
+        ]);
+        $this->assertDatabaseHas('announcements', [
+            'id' => $future->id,
+            'status' => Announcement::STATUS_SCHEDULED,
+        ]);
+
+        $notification = Notification::query()
+            ->where('type', Notification::TYPE_ADMIN_ANNOUNCEMENT)
+            ->where('metadata->announcement_id', $announcement->id)
+            ->firstOrFail();
+
+        $this->assertSame('School announcement', $notification->title);
+        $this->assertDatabaseCount('notifications', 1);
+        $this->assertDatabaseCount('notification_recipients', 1);
+        $this->assertDatabaseHas('notification_recipients', [
+            'notification_id' => $notification->id,
+            'user_id' => $this->student->id,
+            'channel' => NotificationRecipient::CHANNEL_IN_PORTAL,
+            'delivery_status' => NotificationRecipient::STATUS_DELIVERED,
+            'sent_at' => '2026-06-15 12:00:00',
+            'delivered_at' => '2026-06-15 12:00:00',
+        ]);
+    }
+
+    public function test_scheduled_announcement_failures_do_not_stop_other_due_publications(): void
+    {
+        $failed = $this->createAnnouncement([
+            'title' => 'Failed announcement',
+            'status' => Announcement::STATUS_SCHEDULED,
+            'scheduled_at' => '2026-06-15 11:55:00',
+        ]);
+
+        $published = $this->createAnnouncement([
+            'title' => 'Published announcement',
+            'status' => Announcement::STATUS_SCHEDULED,
+            'scheduled_at' => '2026-06-15 11:56:00',
+        ]);
+        $published->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ROLE,
+            'role' => 'student',
+        ]);
+
+        $resolver = new class($failed->id) extends AnnouncementRecipientResolver
+        {
+            public function __construct(private readonly int $failingAnnouncementId) {}
+
+            public function syncRecipients(Announcement $announcement): int
+            {
+                if ($announcement->id === $this->failingAnnouncementId) {
+                    throw new \RuntimeException('Recipient resolution failed.');
+                }
+
+                return parent::syncRecipients($announcement);
+            }
+        };
+
+        $results = (new ScheduledAnnouncementPublisher($resolver))
+            ->publishDue(CarbonImmutable::parse('2026-06-15 12:00:00', 'UTC'));
+
+        $this->assertSame(1, $results['published']);
+        $this->assertSame(1, $results['failed']);
+        $this->assertDatabaseHas('announcements', [
+            'id' => $failed->id,
+            'status' => Announcement::STATUS_SCHEDULED,
+            'published_at' => null,
+        ]);
+        $this->assertDatabaseHas('announcements', [
+            'id' => $published->id,
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => '2026-06-15 12:00:00',
+        ]);
+        $this->assertDatabaseCount('notifications', 1);
+        $this->assertDatabaseCount('notification_recipients', 1);
     }
 
     public function test_scheduled_announcement_requires_future_scheduled_at(): void
