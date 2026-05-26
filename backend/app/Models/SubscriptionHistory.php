@@ -16,11 +16,15 @@ class SubscriptionHistory extends Model
 
     public const EVENT_FROZEN = 'frozen';
 
-    public const EVENT_UNFROZEN = 'unfrozen';
+    public const EVENT_REACTIVATED = 'reactivated';
+
+    public const EVENT_UNFROZEN = self::EVENT_REACTIVATED;
 
     public const EVENT_STATUS_CHANGED = 'status_changed';
 
     public const EVENT_PAYMENT_CHANGED = 'payment_changed';
+
+    public const EVENT_INVOICE_REFERENCE_CHANGED = 'invoice_reference_changed';
 
     public const EVENT_LESSONS_CONSUMED = 'lessons_consumed';
 
@@ -30,17 +34,21 @@ class SubscriptionHistory extends Model
 
     public const EVENT_CANCELLED = 'cancelled';
 
+    public const EVENT_ARCHIVED = 'archived';
+
     public const EVENTS = [
         self::EVENT_ASSIGNED,
         self::EVENT_RENEWED,
         self::EVENT_FROZEN,
-        self::EVENT_UNFROZEN,
+        self::EVENT_REACTIVATED,
         self::EVENT_STATUS_CHANGED,
         self::EVENT_PAYMENT_CHANGED,
+        self::EVENT_INVOICE_REFERENCE_CHANGED,
         self::EVENT_LESSONS_CONSUMED,
         self::EVENT_MANUAL_BALANCE_ADJUSTED,
         self::EVENT_UPDATED,
         self::EVENT_CANCELLED,
+        self::EVENT_ARCHIVED,
     ];
 
     protected $fillable = [

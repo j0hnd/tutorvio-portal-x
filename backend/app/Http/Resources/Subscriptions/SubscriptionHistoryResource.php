@@ -12,6 +12,9 @@ class SubscriptionHistoryResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $canViewAdminFields = $this->canViewAdminFields($request);
+        $canViewBillingFields = $this->canViewBillingFields($request);
+
         return [
             'id' => $this->resource->id,
             'subscription_id' => $this->resource->subscription_id,
@@ -24,14 +27,14 @@ class SubscriptionHistoryResource extends JsonResource
             'remaining_lesson_count' => $this->resource->remaining_lesson_count,
             'status' => $this->resource->status,
             'is_frozen' => $this->resource->is_frozen,
-            'payment_status' => $this->resource->payment_status,
+            'payment_status' => $this->when($canViewBillingFields, $this->resource->payment_status),
             'starts_at' => $this->resource->starts_at,
             'ends_at' => $this->resource->ends_at,
-            'previous_values' => $this->resource->previous_values,
-            'new_values' => $this->resource->new_values,
-            'notes' => $this->when($this->canViewAdminFields($request), $this->resource->notes),
+            'previous_values' => $this->when($canViewAdminFields, $this->resource->previous_values),
+            'new_values' => $this->when($canViewAdminFields, $this->resource->new_values),
+            'notes' => $this->when($canViewAdminFields, $this->resource->notes),
             'effective_at' => $this->resource->effective_at,
-            'created_by' => $this->when($this->canViewAdminFields($request), $this->resource->created_by),
+            'created_by' => $this->when($canViewAdminFields, $this->resource->created_by),
             'created_at' => $this->resource->created_at,
         ];
     }
@@ -42,5 +45,10 @@ class SubscriptionHistoryResource extends JsonResource
 
         return $user?->hasRole('admin') === true
             || ($user?->hasRole('staff') === true && $user?->can('subscriptions.view') === true);
+    }
+
+    private function canViewBillingFields(Request $request): bool
+    {
+        return $this->canViewAdminFields($request);
     }
 }

@@ -221,7 +221,7 @@ class SubscriptionManagementController extends Controller
             $payload['invoice_id'] = $request->input('invoice_id');
         }
 
-        return $this->applyUpdate($request, $subscription, $payload, SubscriptionHistory::EVENT_UPDATED);
+        return $this->applyUpdate($request, $subscription, $payload, SubscriptionHistory::EVENT_INVOICE_REFERENCE_CHANGED);
     }
 
     public function adjustLessonBalance(AdjustSubscriptionLessonBalanceRequest $request, Subscription $subscription): JsonResponse
@@ -275,7 +275,14 @@ class SubscriptionManagementController extends Controller
 
     public function archive(Request $request, Subscription $subscription): JsonResponse
     {
-        return $this->cancel($request, $subscription);
+        Gate::authorize('cancel', $subscription);
+
+        return $this->applyUpdate(
+            $request,
+            $subscription,
+            ['status' => Subscription::STATUS_CANCELLED],
+            SubscriptionHistory::EVENT_ARCHIVED
+        );
     }
 
     public function studentHistory(Request $request, User $student): JsonResponse

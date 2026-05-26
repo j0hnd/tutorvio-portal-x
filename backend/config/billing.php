@@ -28,4 +28,8 @@ return [
             'automatic_enabled' => filter_var(env('BILLING_INVOICE_EMAIL_AUTOMATIC_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         ],
     ],
+
+    'package_history' => [
+        'student_visibility_enabled' => filter_var(env('BILLING_PACKAGE_HISTORY_STUDENT_VISIBILITY_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+    ],
 ];

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Invoice;
 use App\Models\Subscription;
+use App\Models\SubscriptionHistory;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +25,7 @@ class StudentPackageSummaryApiTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
 
         config(['billing.invoice.student_visibility_enabled' => true]);
+        config(['billing.package_history.student_visibility_enabled' => true]);
         Carbon::setTestNow('2026-05-26 10:00:00');
     }
 
@@ -191,6 +193,115 @@ class StudentPackageSummaryApiTest extends TestCase
         $this->getJson("/api/v1/students/{$student->id}/package-summary")
             ->assertOk()
             ->assertJsonPath('data', null);
+    }
+
+    public function test_student_can_view_safe_own_package_history_when_enabled(): void
+    {
+        $student = $this->student();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'payment_status' => Subscription::PAYMENT_STATUS_OVERDUE,
+            'invoice_reference' => 'INV-HISTORY-HIDDEN',
+            'internal_notes' => 'Never show student.',
+        ]);
+
+        SubscriptionHistory::factory()->forSubscription($subscription)->create([
+            'event_type' => SubscriptionHistory::EVENT_ASSIGNED,
+            'notes' => 'Internal assignment note.',
+            'previous_values' => ['internal_notes' => 'before'],
+            'new_values' => [
+                'invoice_reference' => 'INV-HISTORY-HIDDEN',
+                'internal_notes' => 'Never show student.',
+            ],
+            'created_by' => User::factory()->create()->id,
+        ]);
+        SubscriptionHistory::factory()->forSubscription($subscription)->create([
+            'event_type' => SubscriptionHistory::EVENT_PAYMENT_CHANGED,
+            'payment_status' => Subscription::PAYMENT_STATUS_OVERDUE,
+            'previous_values' => ['payment_status' => Subscription::PAYMENT_STATUS_UNPAID],
+            'new_values' => ['payment_status' => Subscription::PAYMENT_STATUS_OVERDUE],
+        ]);
+        SubscriptionHistory::factory()->forSubscription($subscription)->create([
+            'event_type' => SubscriptionHistory::EVENT_INVOICE_REFERENCE_CHANGED,
+            'new_values' => ['invoice_reference' => 'INV-HISTORY-HIDDEN'],
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson("/api/v1/students/{$student->id}/package-history")
+            ->assertOk()
+            ->assertJsonPath('data.0.event_type', SubscriptionHistory::EVENT_ASSIGNED)
+            ->assertJsonMissingPath('data.0.payment_status')
+            ->assertJsonMissingPath('data.0.previous_values')
+            ->assertJsonMissingPath('data.0.new_values')
+            ->assertJsonMissingPath('data.0.notes')
+            ->assertJsonMissingPath('data.0.created_by')
+            ->assertJsonMissing(['event_type' => SubscriptionHistory::EVENT_PAYMENT_CHANGED])
+            ->assertJsonMissing(['event_type' => SubscriptionHistory::EVENT_INVOICE_REFERENCE_CHANGED])
+            ->assertJsonMissing(['invoice_reference' => 'INV-HISTORY-HIDDEN'])
+            ->assertJsonMissing(['internal_notes' => 'Never show student.'])
+            ->assertJsonMissing(['notes' => 'Internal assignment note.']);
+    }
+
+    public function test_student_package_history_visibility_can_be_disabled(): void
+    {
+        config(['billing.package_history.student_visibility_enabled' => false]);
+
+        $student = $this->student();
+        SubscriptionHistory::factory()->create(['student_id' => $student->id]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson("/api/v1/students/{$student->id}/package-history")
+            ->assertForbidden();
+    }
+
+    public function test_student_cannot_view_another_students_package_history(): void
+    {
+        $student = $this->student();
+        $otherStudent = $this->student();
+        SubscriptionHistory::factory()->create([
+            'student_id' => $otherStudent->id,
+            'notes' => 'Other private note.',
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson("/api/v1/students/{$otherStudent->id}/package-history")
+            ->assertForbidden()
+            ->assertJsonMissing(['notes' => 'Other private note.']);
+    }
+
+    public function test_staff_package_history_access_depends_on_billing_permission(): void
+    {
+        $student = $this->student();
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        SubscriptionHistory::factory()->create([
+            'student_id' => $student->id,
+            'event_type' => SubscriptionHistory::EVENT_PAYMENT_CHANGED,
+            'payment_status' => Subscription::PAYMENT_STATUS_PAID,
+            'notes' => 'Staff billing note.',
+            'new_values' => ['payment_status' => Subscription::PAYMENT_STATUS_PAID],
+            'created_by' => $staff->id,
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson("/api/v1/students/{$student->id}/package-history")
+            ->assertForbidden()
+            ->assertJsonMissing(['notes' => 'Staff billing note.']);
+
+        $staff->givePermissionTo('subscriptions.view');
+
+        $this->getJson("/api/v1/students/{$student->id}/package-history")
+            ->assertOk()
+            ->assertJsonPath('data.0.event_type', SubscriptionHistory::EVENT_PAYMENT_CHANGED)
+            ->assertJsonPath('data.0.payment_status', Subscription::PAYMENT_STATUS_PAID)
+            ->assertJsonPath('data.0.notes', 'Staff billing note.')
+            ->assertJsonPath('data.0.created_by', $staff->id)
+            ->assertJsonPath('data.0.new_values.payment_status', Subscription::PAYMENT_STATUS_PAID);
     }
 
     private function student(): User

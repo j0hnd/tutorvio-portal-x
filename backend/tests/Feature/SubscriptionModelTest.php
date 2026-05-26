@@ -153,10 +153,12 @@ class SubscriptionModelTest extends TestCase
             SubscriptionHistory::EVENT_UNFROZEN,
             SubscriptionHistory::EVENT_STATUS_CHANGED,
             SubscriptionHistory::EVENT_PAYMENT_CHANGED,
+            SubscriptionHistory::EVENT_INVOICE_REFERENCE_CHANGED,
             SubscriptionHistory::EVENT_LESSONS_CONSUMED,
             SubscriptionHistory::EVENT_MANUAL_BALANCE_ADJUSTED,
             SubscriptionHistory::EVENT_UPDATED,
             SubscriptionHistory::EVENT_CANCELLED,
+            SubscriptionHistory::EVENT_ARCHIVED,
         ], SubscriptionHistory::EVENTS);
     }
 }
