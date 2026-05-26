@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\Billing\InvoiceGenerationController;
 use App\Http\Controllers\Api\CourseCatalog\CourseProgramController;
 use App\Http\Controllers\Api\CourseCatalog\CourseProgramStudentAssignmentController;
 use App\Http\Controllers\Api\CourseCatalog\CourseTypeController;
@@ -142,6 +143,10 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/homeworks/summary', HomeworkSummaryController::class)
                 ->middleware('permission:homeworks.view');
+        });
+
+        Route::prefix('invoices')->middleware(['role:admin|staff', 'permission:invoices.create'])->group(function () {
+            Route::post('/generate', [InvoiceGenerationController::class, 'store']);
         });
 
         Route::prefix('users')->middleware('role:admin|staff')->group(function () {
