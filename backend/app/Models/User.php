@@ -130,6 +130,11 @@ class User extends Authenticatable
         return $this->hasMany(StudentProgressRecord::class, 'student_id');
     }
 
+    public function studentInvoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'student_id');
+    }
+
     public function assignedLearningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'learning_resource_student', 'student_id', 'learning_resource_id')

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Invoice;
 use App\Models\Lesson;
 use App\Models\Material;
 use App\Models\StudentProfile;
@@ -139,8 +140,7 @@ class DashboardService
                     ->whereBetween('ends_at', [now(), $paymentAlertWindowEnd])
                     ->count(),
                 'inactive_subscriptions' => Subscription::where('status', '!=', 'active')->count(),
-                // TODO: Include unpaid invoices/package balances when billing tables exist.
-                'unpaid_invoices' => 0,
+                'unpaid_invoices' => Invoice::whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_OVERDUE])->count(),
                 'low_lesson_balance' => 0,
             ],
             // TODO: Return persisted operational announcements when an announcements table exists.

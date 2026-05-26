@@ -64,6 +64,11 @@ class CourseProgram extends Model
         return $this->hasMany(CourseProgramStudentAssignment::class);
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

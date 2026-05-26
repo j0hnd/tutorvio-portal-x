@@ -88,4 +88,9 @@ class StudentProfile extends Model
     {
         return $this->hasMany(Subscription::class, 'user_id', 'user_id');
     }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'student_id', 'user_id');
+    }
 }
