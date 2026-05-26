@@ -31,6 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'availability.view', 'availability.manage',
             'holidays.view', 'holidays.manage',
             'reminders.view', 'reminders.manage',
+            'messages.view', 'messages.manage',
             'dashboard.tasks.view', 'dashboard.operational_notices.view',
             'admin.access',
         ];
@@ -53,6 +54,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'classes.view',
             'schedules.view',
             'reminders.view',
+            'messages.view',
         ]);
 
         $teacherRole->syncPermissions([
@@ -73,6 +75,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'availability.view',
             'availability.manage',
             'reminders.view',
+            'messages.view',
         ]);
 
         $staffRole->syncPermissions([]);
