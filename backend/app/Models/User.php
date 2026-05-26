@@ -135,6 +135,16 @@ class User extends Authenticatable
         return $this->hasMany(Invoice::class, 'student_id');
     }
 
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class, 'user_id');
+    }
+
+    public function subscriptionHistories(): HasMany
+    {
+        return $this->hasMany(SubscriptionHistory::class, 'student_id');
+    }
+
     public function assignedLearningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'learning_resource_student', 'student_id', 'learning_resource_id')

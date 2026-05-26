@@ -84,9 +84,14 @@ class StudentProfile extends Model
             ->withTimestamps();
     }
 
-    public function subscriptions()
+    public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class, 'user_id', 'user_id');
+    }
+
+    public function subscriptionHistories(): HasMany
+    {
+        return $this->hasMany(SubscriptionHistory::class, 'student_id', 'user_id');
     }
 
     public function invoices(): HasMany

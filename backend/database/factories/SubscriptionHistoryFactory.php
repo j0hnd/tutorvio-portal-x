@@ -3,15 +3,16 @@
 namespace Database\Factories;
 
 use App\Models\Subscription;
+use App\Models\SubscriptionHistory;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Subscription>
+ * @extends Factory<SubscriptionHistory>
  */
-class SubscriptionFactory extends Factory
+class SubscriptionHistoryFactory extends Factory
 {
-    protected $model = Subscription::class;
+    protected $model = SubscriptionHistory::class;
 
     /**
      * Define the model's default state.
@@ -24,7 +25,9 @@ class SubscriptionFactory extends Factory
         $consumedLessonCount = fake()->numberBetween(0, $totalLessonCount);
 
         return [
-            'user_id' => User::factory(),
+            'subscription_id' => Subscription::factory(),
+            'student_id' => User::factory(),
+            'event_type' => SubscriptionHistory::EVENT_ASSIGNED,
             'plan_name' => fake()->randomElement(['Starter', 'Standard', 'Intensive']),
             'package_type' => Subscription::TYPE_SUBSCRIPTION,
             'total_lesson_count' => $totalLessonCount,
@@ -32,39 +35,22 @@ class SubscriptionFactory extends Factory
             'remaining_lesson_count' => $totalLessonCount - $consumedLessonCount,
             'status' => Subscription::STATUS_ACTIVE,
             'is_frozen' => false,
-            'frozen_at' => null,
             'payment_status' => Subscription::PAYMENT_STATUS_PAID,
-            'invoice_id' => null,
-            'invoice_reference' => null,
-            'internal_notes' => null,
-            'renewed_from_subscription_id' => null,
-            'created_by' => null,
-            'updated_by' => null,
             'starts_at' => now()->subMonth(),
             'ends_at' => now()->addMonth(),
+            'previous_values' => null,
+            'new_values' => null,
+            'notes' => null,
+            'effective_at' => now(),
+            'created_by' => null,
         ];
     }
 
-    public function package(): static
+    public function forSubscription(?Subscription $subscription = null): static
     {
         return $this->state(fn (array $attributes) => [
-            'package_type' => Subscription::TYPE_PACKAGE,
-        ]);
-    }
-
-    public function frozen(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'is_frozen' => true,
-            'frozen_at' => now(),
-            'status' => Subscription::STATUS_INACTIVE,
-        ]);
-    }
-
-    public function unpaid(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'payment_status' => Subscription::PAYMENT_STATUS_UNPAID,
+            'subscription_id' => $subscription?->id ?? Subscription::factory(),
+            'student_id' => $subscription?->user_id ?? User::factory(),
         ]);
     }
 }
