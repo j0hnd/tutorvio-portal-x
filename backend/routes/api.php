@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\Scheduling\LessonBookingController;
 use App\Http\Controllers\Api\Scheduling\ScheduleReminderController;
 use App\Http\Controllers\Api\Scheduling\TeacherAvailabilityController;
 use App\Http\Controllers\Api\Scheduling\TeacherUnavailableDateController;
+use App\Http\Controllers\Api\StudentPackageSummaryController;
 use App\Http\Controllers\Api\StudentProgressRecordController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -85,6 +86,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/students/{student}/progress-summary', [StudentProgressRecordController::class, 'summary']);
         Route::get('/students/{student}/progress-timeline', [StudentProgressRecordController::class, 'timeline']);
         Route::get('/students/{student}/invoices', [InvoiceController::class, 'history']);
+        Route::get('/students/{student}/package-summary', StudentPackageSummaryController::class);
         Route::get('/lesson-notes/pending', [LessonNoteController::class, 'pending']);
         Route::apiResource('lesson-notes', LessonNoteController::class)
             ->only(['index', 'store', 'show', 'update'])
