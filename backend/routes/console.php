@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Announcements\ScheduledAnnouncementPublisher;
+use App\Services\Billing\InvoiceOverdueService;
 use App\Services\Scheduling\ScheduleReminderService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -28,5 +29,12 @@ Artisan::command('announcements:publish-scheduled {--limit=100}', function (Sche
     );
 })->purpose('Publish due scheduled announcements and create portal notifications');
 
+Artisan::command('invoices:mark-overdue', function (InvoiceOverdueService $invoices): void {
+    $updated = $invoices->markOverdue();
+
+    $this->info("Marked {$updated} invoice(s) overdue.");
+})->purpose('Mark unpaid invoices overdue after their due date has passed');
+
 Schedule::command('class-reminders:send')->everyMinute();
 Schedule::command('announcements:publish-scheduled')->everyMinute();
+Schedule::command('invoices:mark-overdue')->dailyAt('00:05')->timezone(config('app.timezone'));

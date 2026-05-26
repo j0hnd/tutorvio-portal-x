@@ -201,12 +201,7 @@ class InvoiceController extends Controller
             })
             ->when(
                 array_key_exists('overdue', $filters) && (bool) $filters['overdue'],
-                fn (Builder $query) => $query
-                    ->where(fn (Builder $query) => $query
-                        ->where('status', Invoice::STATUS_OVERDUE)
-                        ->orWhere(fn (Builder $query) => $query
-                            ->where('status', Invoice::STATUS_UNPAID)
-                            ->whereDate('due_date', '<', now()->toDateString())))
+                fn (Builder $query) => $query->overdueAsOf()
             );
     }
 
