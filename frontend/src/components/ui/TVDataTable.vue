@@ -668,40 +668,30 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
 
 /* ── Responsive ── */
 @media (max-width: 767px) {
-  /* Tables scroll horizontally — never hide columns */
-  .tv-dt__scroll { -webkit-overflow-scrolling: touch; }
+  /* Full table with horizontal scroll — no column hiding */
+  .tv-dt__table { table-layout: auto; }
 
   .tv-dt__footer {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: var(--tv-space-3);
     padding: var(--tv-space-3);
   }
 
-  .tv-dt__count {
-    order: 1;
-    text-align: center;
-  }
+  .tv-dt__count { text-align: center; }
 
   .tv-dt__pagination {
-    order: 2;
+    width: 100%;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: var(--tv-space-2);
   }
 
-  .tv-dt__per-page {
-    justify-content: space-between;
-  }
-
+  .tv-dt__per-page { justify-content: center; gap: var(--tv-space-2); }
   .tv-dt__per-page-tvselect { width: 100px; }
 
-  .tv-dt__pages {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
+  .tv-dt__pages { justify-content: center; flex-wrap: wrap; }
 
-  /* Trim middle page buttons on small screens — keep first/prev/next/last + active */
   .tv-dt__page-btn {
     min-width: 34px;
     height: 34px;

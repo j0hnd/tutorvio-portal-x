@@ -5,7 +5,7 @@
     <div class="sv-header">
       <div class="sv-header__left">
         <h1 class="sv-title">Schedule</h1>
-        <span class="sv-tz-badge">{{ timezone }}</span>
+        <span class="sv-tz-badge sv-tz-badge--desktop">{{ timezone }}</span>
       </div>
 
       <!-- Center: nav + period selects -->
@@ -36,6 +36,7 @@
 
       <!-- Right: teacher filter + action buttons -->
       <div class="sv-header__right">
+        <span class="sv-tz-badge sv-tz-badge--mobile">{{ timezone }}</span>
         <TVSelect
           v-if="showTeacherFilter"
           v-model="filterTeacherId"
@@ -61,6 +62,11 @@
         </template>
       </div>
     </div>
+
+    <!-- Mobile drawer backdrop -->
+    <Transition name="sv-backdrop">
+      <div v-if="selectedDate" class="sv-drawer-backdrop" @click="selectedDate = null; selectedHour = null" />
+    </Transition>
 
     <!-- ── Body: calendar + optional side panel ── -->
     <div :class="['sv-body', { 'sv-body--panel': !!selectedDate }]">
@@ -1327,15 +1333,23 @@ function handleCreateLesson(payload: {
   .sv-panel-enter-from, .sv-panel-leave-to { opacity: 0; transform: translateY(12px); }
 }
 
+/* Timezone badge visibility */
+.sv-tz-badge--mobile { display: none; }
+
+/* Drawer backdrop hidden on desktop */
+.sv-drawer-backdrop { display: none; }
+
 @media (max-width: 767px) {
-  /* Header stacks: actions first, then title row, then nav+period */
+  .sv-tz-badge--desktop { display: none; }
+  .sv-tz-badge--mobile  { display: inline-flex; grid-column: 1 / -1; justify-self: start; }
+
+  /* Header stacks: actions (right) first, title (left), then nav+period (center) */
   .sv-header {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: var(--tv-space-2);
   }
-  /* Move right (actions) to the top visually */
   .sv-header__right  { order: -2; }
   .sv-header__left   { order: -1; }
   .sv-header__center { order: 0; }
@@ -1357,21 +1371,48 @@ function handleCreateLesson(payload: {
   .sv-view-switcher { height: 38px; }
   .sv-view-btn { padding: 0 var(--tv-space-2); font-size: var(--tv-text-xs); }
 
+  /* Right section: timezone on top row, then teacher select full-width, then two buttons */
   .sv-header__right {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--tv-space-1);
   }
-  /* Teacher select spans full width */
   .sv-ctrl-tvselect { grid-column: 1 / -1; min-width: 0; }
   .sv-add-btn { justify-content: center; padding: 0 var(--tv-space-2); height: 38px; font-size: var(--tv-text-xs); }
 
-  /* Calendar: horizontal scroll, full-size cells */
-  .sv-cal { overflow-x: auto; }
-  .sv-month { min-width: 560px; }
+  /* Calendar: full-size with horizontal scroll (no compression) */
+  .sv-body { overflow-x: auto; }
+  .sv-cal  { min-width: 580px; }
 
   /* Week/day scroll */
   .sv-week__scroll-wrap { min-height: 380px; }
   .sv-day__scroll-wrap  { min-height: 380px; }
+
+  /* Side panel → full-width bottom drawer */
+  .sv-body--panel { grid-template-columns: 1fr; }
+  .sv-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    height: 62vh;
+    border-radius: var(--tv-radius-lg) var(--tv-radius-lg) 0 0;
+    border: none;
+    border-top: 1px solid var(--tv-border);
+    box-shadow: 0 -6px 32px hsla(215, 25%, 10%, 0.18);
+    z-index: var(--tv-z-modal);
+    max-height: unset;
+  }
+  .sv-panel-enter-from, .sv-panel-leave-to { opacity: 1; transform: translateY(100%); }
+  .sv-panel-enter-active, .sv-panel-leave-active { transition: transform 0.28s ease; }
+
+  /* Drawer backdrop (mobile only) */
+  .sv-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: hsla(215, 25%, 10%, 0.35);
+    z-index: calc(var(--tv-z-modal) - 1);
+    backdrop-filter: blur(1px);
+  }
+  .sv-backdrop-enter-active, .sv-backdrop-leave-active { transition: opacity 0.22s ease; }
+  .sv-backdrop-enter-from, .sv-backdrop-leave-to { opacity: 0; }
 }
 </style>
