@@ -5,7 +5,7 @@
     <div class="sv-header">
       <div class="sv-header__left">
         <h1 class="sv-title">Schedule</h1>
-        <span class="sv-tz-badge sv-tz-badge--desktop">{{ timezone }}</span>
+        <span class="sv-tz-badge">{{ timezone }}</span>
       </div>
 
       <!-- Center: nav + period selects -->
@@ -36,7 +36,6 @@
 
       <!-- Right: teacher filter + action buttons -->
       <div class="sv-header__right">
-        <span class="sv-tz-badge sv-tz-badge--mobile">{{ timezone }}</span>
         <TVSelect
           v-if="showTeacherFilter"
           v-model="filterTeacherId"
@@ -974,17 +973,20 @@ function handleCreateLesson(payload: {
 .sv-month {
   background: var(--tv-bg-card); border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md); overflow: hidden;
+  /* Single unified grid so header and cells share identical column widths */
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 .sv-month__weekdays {
-  display: grid; grid-template-columns: repeat(7, 1fr);
-  background: var(--tv-bg-soft); border-bottom: 1px solid var(--tv-border);
+  display: contents; /* children participate directly in parent grid */
 }
 .sv-month__wday {
   padding: var(--tv-space-2) 0; text-align: center; font-size: var(--tv-text-xs);
   font-weight: var(--tv-font-semibold); color: var(--tv-text-muted);
   text-transform: uppercase; letter-spacing: .05em;
+  background: var(--tv-bg-soft); border-bottom: 1px solid var(--tv-border);
 }
-.sv-month__grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.sv-month__grid { display: contents; }
 .sv-month__cell {
   min-height: 140px; padding: var(--tv-space-2); cursor: pointer;
   border-right: 1px solid var(--tv-border); border-bottom: 1px solid var(--tv-border);
@@ -1320,6 +1322,29 @@ function handleCreateLesson(payload: {
 .rsm-btn--danger:hover { filter: brightness(.9); }
 
 /* ── Responsive ── */
+@media (max-width: 1200px) and (min-width: 768px) {
+  .sv-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--tv-space-3);
+  }
+  .sv-header__left {
+    grid-column: 1;
+  }
+  .sv-header__right {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
+  .sv-header__center {
+    grid-column: 1 / -1;
+    justify-content: center;
+    width: 100%;
+    border-top: 1px solid var(--tv-border);
+    padding-top: var(--tv-space-3);
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 1100px) {
   .sv-body--panel { grid-template-columns: 1fr 280px; }
 }
@@ -1333,28 +1358,26 @@ function handleCreateLesson(payload: {
   .sv-panel-enter-from, .sv-panel-leave-to { opacity: 0; transform: translateY(12px); }
 }
 
-/* Timezone badge visibility */
+/* Timezone badge: mobile variant hidden by default */
 .sv-tz-badge--mobile { display: none; }
-
 /* Drawer backdrop hidden on desktop */
 .sv-drawer-backdrop { display: none; }
 
 @media (max-width: 767px) {
-  .sv-tz-badge--desktop { display: none; }
-  .sv-tz-badge--mobile  { display: inline-flex; grid-column: 1 / -1; justify-self: start; }
+  /* Hide mobile tz badge duplicate (we show desktop badge via left-section which is now first) */
+  .sv-tz-badge--mobile { display: none; }
 
-  /* Header stacks: actions (right) first, title (left), then nav+period (center) */
+  /* Header stacks: title+tz (left) first, then actions (right), then nav+period (center) */
   .sv-header {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: var(--tv-space-2);
   }
-  .sv-header__right  { order: -2; }
-  .sv-header__left   { order: -1; }
+  .sv-header__left   { order: -2; justify-content: space-between; }
+  .sv-header__right  { order: -1; }
   .sv-header__center { order: 0; }
 
-  .sv-header__left { justify-content: space-between; }
   .sv-header__center {
     flex-direction: column;
     align-items: stretch;
@@ -1371,7 +1394,7 @@ function handleCreateLesson(payload: {
   .sv-view-switcher { height: 38px; }
   .sv-view-btn { padding: 0 var(--tv-space-2); font-size: var(--tv-text-xs); }
 
-  /* Right section: timezone on top row, then teacher select full-width, then two buttons */
+  /* Right: teacher select full-width, buttons in 2-col grid */
   .sv-header__right {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1380,37 +1403,90 @@ function handleCreateLesson(payload: {
   .sv-ctrl-tvselect { grid-column: 1 / -1; min-width: 0; }
   .sv-add-btn { justify-content: center; padding: 0 var(--tv-space-2); height: 38px; font-size: var(--tv-text-xs); }
 
-  /* Calendar: full-size with horizontal scroll (no compression) */
-  .sv-body { overflow-x: auto; }
-  .sv-cal  { min-width: 580px; }
+  /* Calendar: display:block breaks the grid min-width:0 constraint, enabling true scroll */
+  .sv-body, .sv-body--panel { display: block; }
+  .sv-body { overflow-x: visible; }
+  .sv-cal  { min-width: 0; width: 100%; }
+
+  /* Month cell adjustments for compact mobile view */
+  .sv-month {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .sv-month__cell {
+    min-height: 64px;
+    padding: var(--tv-space-1);
+    align-items: center;
+  }
+  .sv-month__day {
+    align-self: center;
+    font-size: var(--tv-text-xs);
+  }
+  .sv-month__cell--today .sv-month__day {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+  .sv-month__events {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: center;
+    margin-top: 2px;
+    width: 100%;
+  }
+  .sv-month__unavail-tag {
+    font-size: 8px;
+    padding: 0 2px;
+    max-width: 100%;
+    align-self: center;
+  }
+  .sv-chip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    padding: 0;
+    min-width: 0;
+    border: none !important;
+  }
+  .sv-chip__time,
+  .sv-chip__label,
+  .sv-chip__badge,
+  .sv-chip__recur,
+  .sv-chip__role {
+    display: none;
+  }
+  .sv-month__more {
+    font-size: 8px;
+    margin-left: 1px;
+    line-height: 1;
+  }
 
   /* Week/day scroll */
   .sv-week__scroll-wrap { min-height: 380px; }
   .sv-day__scroll-wrap  { min-height: 380px; }
 
-  /* Side panel → full-width bottom drawer */
-  .sv-body--panel { grid-template-columns: 1fr; }
+  /* Side panel → full-screen overlay */
   .sv-panel {
     position: fixed;
-    inset: auto 0 0 0;
-    height: 62vh;
-    border-radius: var(--tv-radius-lg) var(--tv-radius-lg) 0 0;
+    inset: 0;
+    border-radius: 0;
     border: none;
-    border-top: 1px solid var(--tv-border);
-    box-shadow: 0 -6px 32px hsla(215, 25%, 10%, 0.18);
+    box-shadow: none;
     z-index: var(--tv-z-modal);
     max-height: unset;
+    height: 100%;
   }
   .sv-panel-enter-from, .sv-panel-leave-to { opacity: 1; transform: translateY(100%); }
-  .sv-panel-enter-active, .sv-panel-leave-active { transition: transform 0.28s ease; }
+  .sv-panel-enter-active, .sv-panel-leave-active { transition: transform 0.28s ease; opacity: 1; }
 
-  /* Drawer backdrop (mobile only) */
+  /* Drawer backdrop */
   .sv-drawer-backdrop {
+    display: block;
     position: fixed;
     inset: 0;
-    background: hsla(215, 25%, 10%, 0.35);
+    background: hsla(215, 25%, 10%, 0.45);
     z-index: calc(var(--tv-z-modal) - 1);
-    backdrop-filter: blur(1px);
+    backdrop-filter: blur(2px);
   }
   .sv-backdrop-enter-active, .sv-backdrop-leave-active { transition: opacity 0.22s ease; }
   .sv-backdrop-enter-from, .sv-backdrop-leave-to { opacity: 0; }
