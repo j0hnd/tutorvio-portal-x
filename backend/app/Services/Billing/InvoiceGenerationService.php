@@ -13,7 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceGenerationService
 {
-    public function __construct(private readonly InvoiceEmailService $invoiceEmails) {}
+    public function __construct(
+        private readonly InvoiceEmailService $invoiceEmails,
+        private readonly InvoicePricingService $pricing,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -34,13 +37,15 @@ class InvoiceGenerationService
             }
 
             $subtotal = round((float) $payload['subtotal'], 2);
-            $taxRate = $this->taxRate();
-            $taxAmount = round($subtotal * $taxRate, 2);
+            $taxProfile = $this->pricing->taxProfile($payload['tax_country'] ?? null);
+            $taxRate = $taxProfile['rate'];
+            $taxAmount = $this->pricing->taxAmount($subtotal, $taxRate);
             $totalAmount = round($subtotal + $taxAmount, 2);
             $issuedDate = Carbon::parse($payload['issued_date'] ?? now())->startOfDay();
             $dueDate = isset($payload['due_date'])
                 ? Carbon::parse($payload['due_date'])->startOfDay()
                 : $issuedDate->copy()->addDays($this->dueDays());
+            $currency = $this->pricing->currency($payload['currency'] ?? null);
 
             $invoice = Invoice::create([
                 'student_id' => $student->id,
@@ -50,15 +55,16 @@ class InvoiceGenerationService
                 'amount' => $subtotal,
                 'tax_amount' => $taxAmount,
                 'total_amount' => $totalAmount,
-                'currency' => strtoupper($payload['currency'] ?? config('billing.currency', 'USD')),
+                'currency' => $currency,
                 'issued_date' => $issuedDate,
                 'due_date' => $dueDate,
                 'status' => Invoice::STATUS_UNPAID,
                 'payment_reference' => $payload['payment_reference'] ?? null,
                 'metadata' => [
                     'source' => $payload['source'] ?? 'manual',
-                    'tax_label' => config('billing.tax.label', 'VAT'),
+                    'tax_label' => $taxProfile['label'],
                     'tax_rate' => $taxRate,
+                    'tax_country' => $taxProfile['country'],
                     'generated_by' => $payload['generated_by'] ?? null,
                     ...($payload['metadata'] ?? []),
                 ],
@@ -82,7 +88,7 @@ class InvoiceGenerationService
             'student_id' => $subscription->user_id,
             'subscription_id' => $subscription->id,
             'subtotal' => $subtotal,
-            'currency' => $currency ?? config('billing.currency', 'USD'),
+            'currency' => $currency ?? $this->pricing->currency(),
             'allow_duplicate' => $allowDuplicate,
             'source' => 'purchase',
         ]);
@@ -162,11 +168,6 @@ class InvoiceGenerationService
         } while (Invoice::where('invoice_number', $invoiceNumber)->exists());
 
         return $invoiceNumber;
-    }
-
-    private function taxRate(): float
-    {
-        return round((float) config('billing.tax.rate', 0), 4);
     }
 
     private function dueDays(): int

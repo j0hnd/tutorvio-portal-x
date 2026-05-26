@@ -1,11 +1,24 @@
 <?php
 
 return [
+    'default_currency' => env('BILLING_DEFAULT_CURRENCY'),
     'currency' => env('BILLING_CURRENCY', 'USD'),
+
+    'currencies' => [
+        'default' => env('BILLING_DEFAULT_CURRENCY'),
+        'supported' => [],
+    ],
 
     'tax' => [
         'label' => env('BILLING_TAX_LABEL', 'VAT'),
-        'rate' => (float) env('BILLING_TAX_RATE', 0.12),
+        'rate' => (float) env('BILLING_TAX_RATE', env('BILLING_VAT_RATE', 0.12)),
+        'vat_rate' => env('BILLING_VAT_RATE') !== null ? (float) env('BILLING_VAT_RATE') : null,
+        'default' => [
+            'country' => env('BILLING_TAX_COUNTRY'),
+            'label' => env('BILLING_DEFAULT_TAX_LABEL'),
+            'rate' => env('BILLING_DEFAULT_TAX_RATE') !== null ? (float) env('BILLING_DEFAULT_TAX_RATE') : null,
+        ],
+        'rules' => [],
     ],
 
     'invoice' => [

@@ -28,9 +28,14 @@ class InvoiceGenerationApiTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
 
         config([
+            'billing.default_currency' => null,
             'billing.currency' => 'USD',
             'billing.tax.label' => 'VAT',
             'billing.tax.rate' => 0.12,
+            'billing.tax.default.country' => null,
+            'billing.tax.default.label' => null,
+            'billing.tax.default.rate' => null,
+            'billing.tax.rules' => [],
             'billing.invoice.due_days' => 14,
         ]);
 
@@ -128,6 +133,103 @@ class InvoiceGenerationApiTest extends TestCase
             ->assertJsonPath('data.total_amount', '280.00')
             ->assertJsonPath('data.currency', 'USD')
             ->assertJsonPath('data.course_program.title', 'Business English');
+    }
+
+    public function test_invoice_generation_uses_configured_default_currency_and_tax_profile(): void
+    {
+        config([
+            'billing.default_currency' => 'php',
+            'billing.tax.default.country' => 'PH',
+            'billing.tax.default.label' => 'VAT',
+            'billing.tax.default.rate' => 0.075,
+        ]);
+
+        $student = $this->student();
+        $courseProgram = CourseProgram::factory()->create();
+
+        $response = $this->postJson('/api/v1/invoices/generate', [
+            'student_id' => $student->id,
+            'course_program_id' => $courseProgram->id,
+            'subtotal' => 200,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.tax_amount', '15.00')
+            ->assertJsonPath('data.total_amount', '215.00')
+            ->assertJsonPath('data.currency', 'PHP')
+            ->assertJsonPath('data.metadata.tax_label', 'VAT')
+            ->assertJsonPath('data.metadata.tax_rate', 0.075)
+            ->assertJsonPath('data.metadata.tax_country', 'PH');
+
+        $this->assertDatabaseHas('invoices', [
+            'student_id' => $student->id,
+            'course_program_id' => $courseProgram->id,
+            'amount' => 200,
+            'tax_amount' => 15,
+            'total_amount' => 215,
+            'currency' => 'PHP',
+        ]);
+    }
+
+    public function test_invoice_generation_can_use_country_tax_rule_without_recalculating_old_invoices(): void
+    {
+        config([
+            'billing.default_currency' => 'USD',
+            'billing.tax.default.label' => 'VAT',
+            'billing.tax.default.rate' => 0.1,
+            'billing.tax.rules' => [
+                'PH' => [
+                    'label' => 'PH VAT',
+                    'rate' => 0.12,
+                ],
+            ],
+        ]);
+
+        $student = $this->student();
+        $courseProgram = CourseProgram::factory()->create();
+
+        $firstResponse = $this->postJson('/api/v1/invoices/generate', [
+            'student_id' => $student->id,
+            'course_program_id' => $courseProgram->id,
+            'subtotal' => 100,
+            'tax_country' => 'ph',
+        ]);
+
+        $firstResponse->assertCreated();
+        $firstInvoice = Invoice::findOrFail($firstResponse->json('data.id'));
+
+        config([
+            'billing.default_currency' => 'EUR',
+            'billing.tax.default.label' => 'VAT',
+            'billing.tax.default.rate' => 0.2,
+            'billing.tax.rules' => [],
+        ]);
+
+        $secondResponse = $this->postJson('/api/v1/invoices/generate', [
+            'student_id' => $student->id,
+            'course_program_id' => $courseProgram->id,
+            'subtotal' => 100,
+            'allow_duplicate' => true,
+        ]);
+
+        $secondResponse
+            ->assertCreated()
+            ->assertJsonPath('data.tax_amount', '20.00')
+            ->assertJsonPath('data.total_amount', '120.00')
+            ->assertJsonPath('data.currency', 'EUR')
+            ->assertJsonPath('data.metadata.tax_label', 'VAT')
+            ->assertJsonPath('data.metadata.tax_rate', 0.2);
+
+        $firstInvoice->refresh();
+
+        $this->assertSame('100.00', $firstInvoice->amount);
+        $this->assertSame('12.00', $firstInvoice->tax_amount);
+        $this->assertSame('112.00', $firstInvoice->total_amount);
+        $this->assertSame('USD', $firstInvoice->currency);
+        $this->assertSame('PH VAT', $firstInvoice->metadata['tax_label']);
+        $this->assertSame(0.12, $firstInvoice->metadata['tax_rate']);
+        $this->assertSame('PH', $firstInvoice->metadata['tax_country']);
     }
 
     public function test_invoice_generation_prevents_duplicate_subscription_invoice_by_default(): void

@@ -17,6 +17,7 @@ class GenerateInvoiceRequest extends FormRequest
             'course_program_id' => ['required_without:subscription_id', 'integer', 'exists:course_programs,id'],
             'subtotal' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'currency' => ['sometimes', 'string', 'size:3'],
+            'tax_country' => ['sometimes', 'nullable', 'string', 'size:2'],
             'issued_date' => ['sometimes', 'date'],
             'due_date' => ['sometimes', 'date', 'after_or_equal:issued_date'],
             'allow_duplicate' => ['sometimes', 'boolean'],
