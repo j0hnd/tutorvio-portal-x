@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Billing\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\Billing\InvoiceEmailService;
 use App\Services\Billing\InvoicePdfService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -64,6 +65,18 @@ class InvoiceController extends Controller
             'Content-Disposition' => 'attachment; filename="'.$pdfs->filename($invoice).'"',
             'Cache-Control' => 'private, no-store, max-age=0',
         ]);
+    }
+
+    public function sendEmail(Request $request, Invoice $invoice, InvoiceEmailService $emails): JsonResponse
+    {
+        Gate::authorize('sendEmail', $invoice);
+
+        $sent = $emails->resendManually($invoice, $request->user());
+
+        return response()->json([
+            'data' => new InvoiceResource($invoice->refresh()->load(['student', 'subscription', 'courseProgram'])),
+            'email_sent' => $sent,
+        ], $sent ? 200 : 422);
     }
 
     public function history(Request $request, User $student): JsonResponse

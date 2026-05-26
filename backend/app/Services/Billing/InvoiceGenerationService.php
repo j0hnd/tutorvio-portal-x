@@ -13,12 +13,14 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceGenerationService
 {
+    public function __construct(private readonly InvoiceEmailService $invoiceEmails) {}
+
     /**
      * @param  array<string, mixed>  $payload
      */
     public function generate(array $payload): Invoice
     {
-        return DB::transaction(function () use ($payload) {
+        $invoice = DB::transaction(function () use ($payload) {
             $student = User::findOrFail((int) $payload['student_id']);
             $subscription = $this->subscription($payload);
             $courseProgram = $this->courseProgram($payload);
@@ -64,6 +66,10 @@ class InvoiceGenerationService
 
             return $invoice->load(['student:id,name,email,status', 'subscription', 'courseProgram']);
         });
+
+        $this->invoiceEmails->sendAutomatically($invoice);
+
+        return $invoice->refresh()->load(['student:id,name,email,status', 'subscription', 'courseProgram']);
     }
 
     public function generateForSubscriptionPurchase(

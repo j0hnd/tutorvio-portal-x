@@ -40,6 +40,12 @@ class InvoicePolicy
             && (int) $invoice->student_id === (int) $user->id;
     }
 
+    public function sendEmail(User $user, Invoice $invoice): bool
+    {
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('invoices.create'));
+    }
+
     private function studentVisibilityEnabled(): bool
     {
         return (bool) config('billing.invoice.student_visibility_enabled', true);
