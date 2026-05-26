@@ -61,11 +61,17 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
-  /* ── Student-only ── */
+  /* ── Lessons ── */
   {
     path: '/lessons',
     name: 'Lessons',
     component: () => import('@/views/LessonsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/lessons/:id',
+    name: 'LessonDetail',
+    component: () => import('@/views/LessonDetailView.vue'),
     meta: { requiresAuth: true },
   },
   {
@@ -83,6 +89,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN', 'STAFF'] },
   },
   {
+    path: '/students/:id',
+    name: 'StudentDetail',
+    component: () => import('@/views/StudentDetailView.vue'),
+    meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN', 'STAFF'] },
+  },
+  {
     path: '/availability',
     name: 'Availability',
     component: () => import('@/views/AvailabilityView.vue'),
@@ -93,6 +105,40 @@ const routes: RouteRecordRaw[] = [
     name: 'Payroll',
     component: () => import('@/views/PayrollView.vue'),
     meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN'] },
+  },
+
+  /* ── Admin: User Management ── */
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/views/admin/UsersView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+  },
+  {
+    path: '/admin/users/create',
+    name: 'AdminUserCreate',
+    component: () => import('@/views/admin/UserCreateView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+  },
+  {
+    path: '/admin/users/:id/edit',
+    name: 'AdminUserEdit',
+    component: () => import('@/views/admin/UserEditView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+  },
+
+  /* ── Profile pages ── */
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/profile/ProfileView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/profile/:id',
+    name: 'UserProfile',
+    component: () => import('@/views/profile/ProfileView.vue'),
+    meta: { requiresAuth: true },
   },
 
   /* ── Error pages ── */

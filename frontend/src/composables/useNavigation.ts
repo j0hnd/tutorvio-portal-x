@@ -18,6 +18,8 @@ const ICONS = {
   availability: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   payroll: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 10h1M13.5 10h1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
   allUsers: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="6.5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  users: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M15 9v4M17 11h-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  profile: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M4.5 16c.5-2.5 2.8-4 5.5-4s5 1.5 5.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 }
 
 const ALL_NAV: NavItem[] = [
@@ -68,6 +70,12 @@ const ALL_NAV: NavItem[] = [
     label: 'Students',
     icon: ICONS.students,
     roles: ['TEACHER', 'ADMIN', 'STAFF'],
+  },
+  {
+    path: '/admin/users',
+    label: 'Users',
+    icon: ICONS.users,
+    roles: ['ADMIN'],
   },
   {
     path: '/availability',

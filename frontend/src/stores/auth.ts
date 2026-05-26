@@ -78,6 +78,32 @@ const MOCK_USERS: Record<string, MockRecord> = {
       isActive: true,
     },
   },
+  'teacher2@tutorvio.com': {
+    password: 'Tutorvio@2026',
+    user: {
+      id: 'u6',
+      firstName: 'Sarah',
+      lastName: 'Lim',
+      email: 'teacher2@tutorvio.com',
+      role: 'TEACHER',
+      timezone: 'Asia/Manila',
+      createdAt: '2024-03-01T00:00:00Z',
+      isActive: true,
+    },
+  },
+  'teacher3@tutorvio.com': {
+    password: 'Tutorvio@2026',
+    user: {
+      id: 'u7',
+      firstName: 'Miguel',
+      lastName: 'Santos',
+      email: 'teacher3@tutorvio.com',
+      role: 'TEACHER',
+      timezone: 'Asia/Manila',
+      createdAt: '2024-04-01T00:00:00Z',
+      isActive: true,
+    },
+  },
   'inactive@tutorvio.com': {
     password: 'Tutorvio@2026',
     user: {
