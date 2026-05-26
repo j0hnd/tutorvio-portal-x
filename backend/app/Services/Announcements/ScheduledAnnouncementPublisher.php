@@ -4,16 +4,22 @@ namespace App\Services\Announcements;
 
 use App\Models\Announcement;
 use App\Models\Notification;
-use App\Models\NotificationRecipient;
+use App\Services\Notifications\SystemNotificationService;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ScheduledAnnouncementPublisher
 {
-    public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
+    private readonly SystemNotificationService $notificationService;
+
+    public function __construct(
+        private readonly AnnouncementRecipientResolver $recipientResolver,
+        ?SystemNotificationService $notificationService = null
+    ) {
+        $this->notificationService = $notificationService ?? app(SystemNotificationService::class);
+    }
 
     /**
      * @return array{published: int, failed: int, notifications: int, recipients: int}
@@ -90,7 +96,6 @@ class ScheduledAnnouncementPublisher
             $this->recipientResolver->syncRecipients($announcement);
 
             $notification = $this->notificationFor($announcement, $now);
-            $this->syncNotificationRecipients($notification, $announcement, $now);
 
             $announcement->forceFill([
                 'status' => Announcement::STATUS_PUBLISHED,
@@ -107,62 +112,30 @@ class ScheduledAnnouncementPublisher
 
     private function notificationFor(Announcement $announcement, CarbonImmutable $publishedAt): Notification
     {
-        $notification = Notification::query()
-            ->where('type', Notification::TYPE_ADMIN_ANNOUNCEMENT)
-            ->where('metadata->announcement_id', $announcement->id)
-            ->first();
+        $recipients = $announcement->recipients()
+            ->orderBy('id')
+            ->get(['user_id', 'matched_targets']);
 
-        if ($notification !== null) {
-            $notification->forceFill([
-                'title' => $announcement->title,
-                'body' => $announcement->body,
-                'sender_id' => $announcement->author_id,
-                'published_at' => $notification->published_at ?? $publishedAt,
-                'scheduled_at' => null,
-                'is_archived' => false,
-            ])->save();
-
-            return $notification;
-        }
-
-        return Notification::create([
-            'title' => $announcement->title,
-            'body' => $announcement->body,
-            'type' => Notification::TYPE_ADMIN_ANNOUNCEMENT,
-            'sender_id' => $announcement->author_id,
-            'scheduled_at' => null,
-            'published_at' => $publishedAt,
-            'metadata' => [
+        return $this->notificationService->adminAnnouncement(
+            $recipients->pluck('user_id')->all(),
+            $announcement->title,
+            $announcement->body,
+            [
                 'announcement_id' => $announcement->id,
             ],
-        ]);
-    }
-
-    private function syncNotificationRecipients(Notification $notification, Announcement $announcement, CarbonImmutable $publishedAt): void
-    {
-        $now = now();
-
-        $announcement->recipients()
-            ->orderBy('id')
-            ->chunk(500, function (Collection $recipients) use ($notification, $announcement, $publishedAt, $now): void {
-                NotificationRecipient::upsert(
-                    $recipients->map(fn ($recipient) => [
-                        'notification_id' => $notification->id,
-                        'user_id' => $recipient->user_id,
-                        'channel' => NotificationRecipient::CHANNEL_IN_PORTAL,
-                        'delivery_status' => NotificationRecipient::STATUS_DELIVERED,
-                        'sent_at' => $publishedAt,
-                        'delivered_at' => $publishedAt,
-                        'metadata' => json_encode([
-                            'announcement_id' => $announcement->id,
+            [
+                'sender_id' => $announcement->author_id,
+                'published_at' => $publishedAt,
+                'source_type' => 'announcement',
+                'source_id' => $announcement->id,
+                'recipient_metadata' => $recipients
+                    ->mapWithKeys(fn ($recipient) => [
+                        $recipient->user_id => [
                             'matched_targets' => $recipient->matched_targets ?? [],
-                        ]),
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ])->all(),
-                    ['notification_id', 'user_id', 'channel'],
-                    ['delivery_status', 'sent_at', 'delivered_at', 'metadata', 'updated_at']
-                );
-            });
+                        ],
+                    ])
+                    ->all(),
+            ]
+        );
     }
 }
