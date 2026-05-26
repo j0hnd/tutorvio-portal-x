@@ -232,6 +232,51 @@ class User extends Authenticatable
         return $this->hasMany(ScheduleReminder::class);
     }
 
+    public function sentNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'sender_id');
+    }
+
+    public function notificationRecipients(): HasMany
+    {
+        return $this->hasMany(NotificationRecipient::class);
+    }
+
+    public function authoredAnnouncements(): HasMany
+    {
+        return $this->hasMany(Announcement::class, 'author_id');
+    }
+
+    public function announcementReadStates(): HasMany
+    {
+        return $this->hasMany(AnnouncementReadState::class);
+    }
+
+    public function studentMessageThreads(): HasMany
+    {
+        return $this->hasMany(MessageThread::class, 'student_id');
+    }
+
+    public function teacherMessageThreads(): HasMany
+    {
+        return $this->hasMany(MessageThread::class, 'teacher_id');
+    }
+
+    public function createdMessageThreads(): HasMany
+    {
+        return $this->hasMany(MessageThread::class, 'created_by');
+    }
+
+    public function messageThreadParticipants(): HasMany
+    {
+        return $this->hasMany(MessageThreadParticipant::class);
+    }
+
+    public function sentMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(self::class, 'created_by');
