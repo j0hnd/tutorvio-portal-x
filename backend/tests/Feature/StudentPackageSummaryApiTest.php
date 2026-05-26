@@ -116,6 +116,60 @@ class StudentPackageSummaryApiTest extends TestCase
             ->assertJsonMissingPath('data.invoice_reference');
     }
 
+    public function test_assigned_teacher_can_view_limited_student_package_balance_without_billing_fields(): void
+    {
+        $teacher = $this->teacher();
+        $student = $this->student();
+        $student->studentProfile()->create(['assigned_teacher_id' => $teacher->id]);
+
+        Subscription::factory()->create([
+            'user_id' => $student->id,
+            'plan_name' => 'Assigned Student Package',
+            'total_lesson_count' => 12,
+            'consumed_lesson_count' => 5,
+            'remaining_lesson_count' => 7,
+            'payment_status' => Subscription::PAYMENT_STATUS_OVERDUE,
+            'invoice_reference' => 'INV-TEACHER-HIDDEN',
+            'internal_notes' => 'Teacher must not see this.',
+        ]);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+            ->assertOk()
+            ->assertJsonPath('data.plan_name', 'Assigned Student Package')
+            ->assertJsonPath('data.total_lessons', 12)
+            ->assertJsonPath('data.consumed_lessons', 5)
+            ->assertJsonPath('data.remaining_lessons', 7)
+            ->assertJsonMissingPath('data.payment_status')
+            ->assertJsonMissingPath('data.invoice_reference')
+            ->assertJsonMissingPath('data.invoice_id')
+            ->assertJsonMissingPath('data.internal_notes')
+            ->assertJsonMissing(['invoice_reference' => 'INV-TEACHER-HIDDEN'])
+            ->assertJsonMissing(['internal_notes' => 'Teacher must not see this.']);
+    }
+
+    public function test_teacher_cannot_view_unassigned_student_package_summary(): void
+    {
+        $teacher = $this->teacher();
+        $otherTeacher = $this->teacher();
+        $student = $this->student();
+        $student->studentProfile()->create(['assigned_teacher_id' => $otherTeacher->id]);
+
+        Subscription::factory()->create([
+            'user_id' => $student->id,
+            'invoice_reference' => 'INV-UNASSIGNED-HIDDEN',
+            'internal_notes' => 'Unassigned teacher must not see this.',
+        ]);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+            ->assertForbidden()
+            ->assertJsonMissing(['invoice_reference' => 'INV-UNASSIGNED-HIDDEN'])
+            ->assertJsonMissing(['internal_notes' => 'Unassigned teacher must not see this.']);
+    }
+
     public function test_frozen_package_uses_frozen_student_status(): void
     {
         $student = $this->student();
@@ -145,5 +199,13 @@ class StudentPackageSummaryApiTest extends TestCase
         $student->assignRole('student');
 
         return $student;
+    }
+
+    private function teacher(): User
+    {
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        return $teacher;
     }
 }

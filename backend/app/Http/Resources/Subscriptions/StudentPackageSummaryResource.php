@@ -22,10 +22,10 @@ class StudentPackageSummaryResource extends JsonResource
             'total_lessons' => $this->resource->total_lesson_count,
             'consumed_lessons' => $this->resource->consumed_lesson_count,
             'remaining_lessons' => $this->resource->remaining_lesson_count,
-            'payment_status' => $this->when($this->canViewBillingReferences(), $this->resource->payment_status),
+            'payment_status' => $this->when($this->canViewBillingReferences($request), $this->resource->payment_status),
             'renewal_reminder' => $this->renewalReminder(),
             'invoice_reference' => $this->when(
-                $this->canViewBillingReferences(),
+                $this->canViewBillingReferences($request),
                 $this->resource->invoice_reference ?? $this->resource->invoice?->invoice_number
             ),
         ];
@@ -60,8 +60,15 @@ class StudentPackageSummaryResource extends JsonResource
         ];
     }
 
-    private function canViewBillingReferences(): bool
+    private function canViewBillingReferences(Request $request): bool
     {
-        return (bool) config('billing.invoice.student_visibility_enabled', true);
+        $user = $request->user();
+
+        if ($user?->hasRole('student') === true) {
+            return (bool) config('billing.invoice.student_visibility_enabled', true);
+        }
+
+        return $user?->hasRole('admin') === true
+            || ($user?->hasRole('staff') === true && $user?->can('invoices.view') === true);
     }
 }

@@ -10,13 +10,13 @@ class InvoicePolicy
     public function viewAny(User $user): bool
     {
         return $user->hasRole('admin')
-            || $user->can('invoices.view')
+            || ($user->hasRole('staff') && $user->can('invoices.view'))
             || ($user->hasRole('student') && $this->studentVisibilityEnabled());
     }
 
     public function view(User $user, Invoice $invoice): bool
     {
-        if ($user->hasRole('admin') || $user->can('invoices.view')) {
+        if ($user->hasRole('admin') || ($user->hasRole('staff') && $user->can('invoices.view'))) {
             return true;
         }
 

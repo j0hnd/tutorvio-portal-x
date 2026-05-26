@@ -149,17 +149,22 @@ class InvoiceViewingApiTest extends TestCase
         $this->getJson("/api/v1/invoices/{$invoice->id}")->assertForbidden();
     }
 
-    public function test_teacher_with_explicit_invoice_permission_can_view_invoices(): void
+    public function test_teacher_with_invoice_permission_is_still_blocked_from_invoice_details(): void
     {
         $teacher = $this->userWithRole('teacher');
         $teacher->givePermissionTo('invoices.view');
-        $invoice = Invoice::factory()->create(['student_id' => $this->userWithRole('student')->id]);
+        $invoice = Invoice::factory()->create([
+            'student_id' => $this->userWithRole('student')->id,
+            'payment_reference' => 'teacher-must-not-see-payment-reference',
+            'metadata' => ['internal_note' => 'teacher-hidden'],
+        ]);
 
         Sanctum::actingAs($teacher);
 
         $this->getJson("/api/v1/invoices/{$invoice->id}")
-            ->assertOk()
-            ->assertJsonPath('data.id', $invoice->id);
+            ->assertForbidden()
+            ->assertJsonMissing(['payment_reference' => 'teacher-must-not-see-payment-reference'])
+            ->assertJsonMissing(['internal_note' => 'teacher-hidden']);
     }
 
     public function test_invoice_list_filters_by_student_status_package_reference_date_and_overdue(): void

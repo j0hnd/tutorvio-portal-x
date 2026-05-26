@@ -266,6 +266,62 @@ class AdminSubscriptionManagementApiTest extends TestCase
             ->assertJsonMissing(['internal_notes' => 'Private admin note.']);
     }
 
+    public function test_staff_without_billing_permission_cannot_access_or_manage_subscriptions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $student = $this->student();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'payment_status' => Subscription::PAYMENT_STATUS_OVERDUE,
+            'invoice_reference' => 'INV-STAFF-HIDDEN',
+            'internal_notes' => 'Staff without billing permission must not see this.',
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/subscriptions')
+            ->assertForbidden()
+            ->assertJsonMissing(['invoice_reference' => 'INV-STAFF-HIDDEN'])
+            ->assertJsonMissing(['internal_notes' => 'Staff without billing permission must not see this.']);
+
+        $this->getJson("/api/v1/admin/subscriptions/{$subscription->id}")
+            ->assertForbidden()
+            ->assertJsonMissing(['invoice_reference' => 'INV-STAFF-HIDDEN'])
+            ->assertJsonMissing(['internal_notes' => 'Staff without billing permission must not see this.']);
+
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/payment-status", [
+            'payment_status' => Subscription::PAYMENT_STATUS_PAID,
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'payment_status' => Subscription::PAYMENT_STATUS_OVERDUE,
+        ]);
+    }
+
+    public function test_staff_with_billing_permission_can_access_subscription_billing_fields(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $staff->givePermissionTo('subscriptions.view');
+
+        $subscription = Subscription::factory()->create([
+            'user_id' => $this->student()->id,
+            'payment_status' => Subscription::PAYMENT_STATUS_PARTIAL,
+            'invoice_reference' => 'INV-STAFF-VISIBLE',
+            'internal_notes' => 'Staff billing note.',
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson("/api/v1/admin/subscriptions/{$subscription->id}")
+            ->assertOk()
+            ->assertJsonPath('data.payment_status', Subscription::PAYMENT_STATUS_PARTIAL)
+            ->assertJsonPath('data.invoice_reference', 'INV-STAFF-VISIBLE')
+            ->assertJsonPath('data.internal_notes', 'Staff billing note.');
+    }
+
     private function student(): User
     {
         $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);

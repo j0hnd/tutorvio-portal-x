@@ -222,7 +222,8 @@ class InvoiceController extends Controller
 
     private function canViewAllInvoices(User $user): bool
     {
-        return $user->hasRole('admin') || $user->can('invoices.view');
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('invoices.view'));
     }
 
     private function assertAllowedPaymentStatusTransition(Invoice $invoice, string $newStatus): void

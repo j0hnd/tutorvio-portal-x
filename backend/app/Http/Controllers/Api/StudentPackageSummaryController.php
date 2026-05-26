@@ -14,7 +14,7 @@ class StudentPackageSummaryController extends Controller
     public function __invoke(Request $request, User $student): JsonResponse
     {
         abort_unless($student->hasRole('student'), 404);
-        abort_unless($request->user()->hasRole('student') && (int) $request->user()->id === (int) $student->id, 403);
+        abort_unless($this->canViewPackageSummary($request->user(), $student), 403);
 
         $subscription = Subscription::query()
             ->with('invoice:id,invoice_number')
@@ -27,5 +27,18 @@ class StudentPackageSummaryController extends Controller
         return response()->json([
             'data' => $subscription ? new StudentPackageSummaryResource($subscription) : null,
         ]);
+    }
+
+    private function canViewPackageSummary(User $user, User $student): bool
+    {
+        if ($user->hasRole('student')) {
+            return (int) $user->id === (int) $student->id;
+        }
+
+        if ($user->hasRole('teacher')) {
+            return (int) $student->studentProfile?->assigned_teacher_id === (int) $user->id;
+        }
+
+        return false;
     }
 }
