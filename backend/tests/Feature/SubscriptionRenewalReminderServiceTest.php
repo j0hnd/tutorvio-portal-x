@@ -73,6 +73,42 @@ class SubscriptionRenewalReminderServiceTest extends TestCase
         $this->assertNull($notYetDue->renewal_reminder_due_at);
     }
 
+    public function test_refresh_due_candidates_only_identifies_eligible_packages(): void
+    {
+        $student = User::factory()->create();
+        $eligible = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'remaining_lesson_count' => 1,
+            'renewal_eligible' => true,
+            'status' => Subscription::STATUS_ACTIVE,
+        ]);
+        $cancelled = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'remaining_lesson_count' => 1,
+            'status' => Subscription::STATUS_CANCELLED,
+        ]);
+        $ineligible = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'remaining_lesson_count' => 1,
+            'renewal_eligible' => false,
+        ]);
+        $alreadyRenewed = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'remaining_lesson_count' => 1,
+        ]);
+        Subscription::factory()->create([
+            'user_id' => $student->id,
+            'renewed_from_subscription_id' => $alreadyRenewed->id,
+        ]);
+
+        $this->assertSame(1, $this->reminders->refreshDueCandidates());
+
+        $this->assertSame(Subscription::RENEWAL_REMINDER_STATUS_PENDING, $eligible->refresh()->renewal_reminder_status);
+        $this->assertSame(Subscription::RENEWAL_REMINDER_STATUS_NONE, $cancelled->refresh()->renewal_reminder_status);
+        $this->assertSame(Subscription::RENEWAL_REMINDER_STATUS_NONE, $ineligible->refresh()->renewal_reminder_status);
+        $this->assertSame(Subscription::RENEWAL_REMINDER_STATUS_NONE, $alreadyRenewed->refresh()->renewal_reminder_status);
+    }
+
     public function test_send_due_creates_one_notification_per_reminder_window(): void
     {
         $student = User::factory()->create();

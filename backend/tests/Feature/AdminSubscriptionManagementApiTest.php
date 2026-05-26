@@ -215,6 +215,42 @@ class AdminSubscriptionManagementApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_lesson_balance_adjustment_rejects_over_consumption_and_negative_remaining(): void
+    {
+        $student = $this->student();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'total_lesson_count' => 5,
+            'consumed_lesson_count' => 2,
+            'remaining_lesson_count' => 3,
+        ]);
+
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+            'consumed_lesson_count' => 6,
+            'notes' => 'Invalid correction that over-consumes lessons.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('consumed_lesson_count');
+
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+            'remaining_lesson_count' => -1,
+            'notes' => 'Invalid correction with negative remaining lessons.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('remaining_lesson_count');
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'total_lesson_count' => 5,
+            'consumed_lesson_count' => 2,
+            'remaining_lesson_count' => 3,
+        ]);
+        $this->assertDatabaseMissing('subscription_histories', [
+            'subscription_id' => $subscription->id,
+            'event_type' => SubscriptionHistory::EVENT_MANUAL_BALANCE_ADJUSTED,
+        ]);
+    }
+
     public function test_subscription_validation_rejects_invalid_student_lessons_dates_and_statuses(): void
     {
         $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);

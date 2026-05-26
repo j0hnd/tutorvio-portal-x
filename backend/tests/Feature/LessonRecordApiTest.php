@@ -300,6 +300,46 @@ class LessonRecordApiTest extends TestCase
             ->count());
     }
 
+    public function test_completed_lessons_cannot_consume_more_than_available_balance(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $subscription = Subscription::factory()->create([
+            'user_id' => $this->student->id,
+            'total_lesson_count' => 1,
+            'consumed_lesson_count' => 0,
+            'remaining_lesson_count' => 1,
+            'status' => Subscription::STATUS_ACTIVE,
+            'is_frozen' => false,
+        ]);
+        $firstLessonRecord = $this->createLessonRecord();
+        $secondLessonRecord = $this->createLessonRecord([
+            'scheduled_date' => '2026-06-02',
+        ]);
+
+        $this->patchJson('/api/v1/lesson-records/'.$firstLessonRecord->id, [
+            'lesson_status' => LessonRecord::STATUS_COMPLETED,
+            'is_completed' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', $subscription->id);
+
+        $this->patchJson('/api/v1/lesson-records/'.$secondLessonRecord->id, [
+            'lesson_status' => LessonRecord::STATUS_COMPLETED,
+            'is_completed' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', null);
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'consumed_lesson_count' => 1,
+            'remaining_lesson_count' => 0,
+        ]);
+        $this->assertSame(1, SubscriptionHistory::where('subscription_id', $subscription->id)
+            ->where('event_type', SubscriptionHistory::EVENT_LESSONS_CONSUMED)
+            ->count());
+    }
+
     public function test_completed_lesson_ignores_frozen_and_inactive_subscriptions(): void
     {
         Sanctum::actingAs($this->admin);
