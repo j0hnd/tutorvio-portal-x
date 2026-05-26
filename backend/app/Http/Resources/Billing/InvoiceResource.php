@@ -29,8 +29,8 @@ class InvoiceResource extends JsonResource
             'due_date' => $this->resource->due_date,
             'paid_date' => $this->resource->paid_date,
             'status' => $this->resource->status,
-            'payment_reference' => $this->resource->payment_reference,
-            'metadata' => $this->resource->metadata ?? [],
+            'payment_reference' => $this->when($this->canViewPaymentDetails($request), $this->resource->payment_reference),
+            'metadata' => $this->when($this->canViewPaymentDetails($request), $this->resource->metadata ?? []),
             'student' => $this->whenLoaded('student', fn () => [
                 'id' => $this->resource->student->id,
                 'name' => $this->resource->student->name,
@@ -48,5 +48,12 @@ class InvoiceResource extends JsonResource
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];
+    }
+
+    private function canViewPaymentDetails(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user?->hasRole('admin') === true || $user?->can('invoices.view') === true;
     }
 }

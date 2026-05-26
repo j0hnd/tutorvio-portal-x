@@ -10,5 +10,6 @@ return [
 
     'invoice' => [
         'due_days' => (int) env('BILLING_INVOICE_DUE_DAYS', 14),
+        'student_visibility_enabled' => filter_var(env('BILLING_INVOICE_STUDENT_VISIBILITY_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     ],
 ];

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\Billing\InvoiceController;
 use App\Http\Controllers\Api\Billing\InvoiceGenerationController;
 use App\Http\Controllers\Api\CourseCatalog\CourseProgramController;
 use App\Http\Controllers\Api\CourseCatalog\CourseProgramStudentAssignmentController;
@@ -82,6 +83,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/students/{student}/lesson-notes', [LessonNoteController::class, 'byStudent']);
         Route::get('/students/{student}/progress-summary', [StudentProgressRecordController::class, 'summary']);
         Route::get('/students/{student}/progress-timeline', [StudentProgressRecordController::class, 'timeline']);
+        Route::get('/students/{student}/invoices', [InvoiceController::class, 'history']);
         Route::get('/lesson-notes/pending', [LessonNoteController::class, 'pending']);
         Route::apiResource('lesson-notes', LessonNoteController::class)
             ->only(['index', 'store', 'show', 'update'])
@@ -145,8 +147,11 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:homeworks.view');
         });
 
-        Route::prefix('invoices')->middleware(['role:admin|staff', 'permission:invoices.create'])->group(function () {
-            Route::post('/generate', [InvoiceGenerationController::class, 'store']);
+        Route::prefix('invoices')->group(function () {
+            Route::get('/', [InvoiceController::class, 'index']);
+            Route::get('/{invoice}', [InvoiceController::class, 'show']);
+            Route::post('/generate', [InvoiceGenerationController::class, 'store'])
+                ->middleware(['role:admin|staff', 'permission:invoices.create']);
         });
 
         Route::prefix('users')->middleware('role:admin|staff')->group(function () {
