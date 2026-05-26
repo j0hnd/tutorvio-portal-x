@@ -1328,14 +1328,19 @@ function handleCreateLesson(payload: {
 }
 
 @media (max-width: 767px) {
-  /* Header stacks: title row, then nav+period, then actions */
+  /* Header stacks: actions first, then title row, then nav+period */
   .sv-header {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: var(--tv-space-2);
   }
-  .sv-header__left  { justify-content: space-between; }
+  /* Move right (actions) to the top visually */
+  .sv-header__right  { order: -2; }
+  .sv-header__left   { order: -1; }
+  .sv-header__center { order: 0; }
+
+  .sv-header__left { justify-content: space-between; }
   .sv-header__center {
     flex-direction: column;
     align-items: stretch;
@@ -1356,24 +1361,17 @@ function handleCreateLesson(payload: {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--tv-space-1);
-    justify-content: stretch;
   }
-  /* Teacher select spans full width when it's the only item */
+  /* Teacher select spans full width */
   .sv-ctrl-tvselect { grid-column: 1 / -1; min-width: 0; }
   .sv-add-btn { justify-content: center; padding: 0 var(--tv-space-2); height: 38px; font-size: var(--tv-text-xs); }
 
-  /* Month cells compact */
-  .sv-month__cell { min-height: 60px; padding: 3px; }
-  .sv-month__wday { font-size: 9px; padding: var(--tv-space-1) 0; }
-  .sv-chip { font-size: 9px; padding: 1px 3px; }
-  .sv-chip__time { display: none; }
+  /* Calendar: horizontal scroll, full-size cells */
+  .sv-cal { overflow-x: auto; }
+  .sv-month { min-width: 560px; }
 
   /* Week/day scroll */
   .sv-week__scroll-wrap { min-height: 380px; }
   .sv-day__scroll-wrap  { min-height: 380px; }
-}
-
-@media (max-width: 640px) {
-  .sv-month__cell { min-height: 48px; }
 }
 </style>

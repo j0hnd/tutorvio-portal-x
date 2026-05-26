@@ -433,11 +433,13 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
 
 .tv-dt__scroll {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Table ── */
 .tv-dt__table {
   width: 100%;
+  min-width: 560px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--tv-text-sm);
@@ -665,18 +667,9 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
 }
 
 /* ── Responsive ── */
-@media (max-width: 1100px) {
-  .tv-dt__th--hide-md,
-  .tv-dt__td--hide-md {
-    display: none;
-  }
-}
-
 @media (max-width: 767px) {
-  .tv-dt__th--hide-sm,
-  .tv-dt__td--hide-sm {
-    display: none;
-  }
+  /* Tables scroll horizontally — never hide columns */
+  .tv-dt__scroll { -webkit-overflow-scrolling: touch; }
 
   .tv-dt__footer {
     flex-direction: column;
