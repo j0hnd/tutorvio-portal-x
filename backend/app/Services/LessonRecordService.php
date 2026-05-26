@@ -11,7 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class LessonRecordService
 {
-    public function __construct(private readonly LessonRecordRepository $lessonRecords) {}
+    public function __construct(
+        private readonly LessonRecordRepository $lessonRecords,
+        private readonly SubscriptionLessonBalanceService $lessonBalances,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -28,6 +31,8 @@ class LessonRecordService
                 'updated_by' => $actor->id,
             ]);
 
+            $this->lessonBalances->consumeForCompletedLesson($lessonRecord, $actor);
+
             return $this->syncMaterials($lessonRecord, $payload);
         });
     }
@@ -42,11 +47,16 @@ class LessonRecordService
         $this->assertStudentAndTeacherRoles($studentId, $teacherId);
 
         return DB::transaction(function () use ($lessonRecord, $payload, $actor): LessonRecord {
+            $wasCompleted = $lessonRecord->is_completed && $lessonRecord->lesson_status === LessonRecord::STATUS_COMPLETED;
             $updatedLessonRecord = $this->lessonRecords->update($lessonRecord, [
                 ...Arr::only($payload, $this->mutableFields()),
                 ...$this->completionFields($payload, $actor, $lessonRecord),
                 'updated_by' => $actor->id,
             ]);
+
+            if (! $wasCompleted) {
+                $this->lessonBalances->consumeForCompletedLesson($updatedLessonRecord, $actor);
+            }
 
             return $this->syncMaterials($updatedLessonRecord, $payload);
         });

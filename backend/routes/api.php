@@ -161,6 +161,8 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:subscriptions.update');
             Route::patch('/subscriptions/{subscription}/invoice-reference', [SubscriptionManagementController::class, 'updateInvoiceReference'])
                 ->middleware('permission:subscriptions.update');
+            Route::patch('/subscriptions/{subscription}/lesson-balance', [SubscriptionManagementController::class, 'adjustLessonBalance'])
+                ->middleware('permission:subscriptions.update');
             Route::post('/subscriptions/{subscription}/renew', [SubscriptionManagementController::class, 'renew'])
                 ->middleware('permission:subscriptions.create');
             Route::post('/subscriptions/{subscription}/cancel', [SubscriptionManagementController::class, 'cancel'])

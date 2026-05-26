@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Subscriptions\AdjustSubscriptionLessonBalanceRequest;
 use App\Http\Requests\Subscriptions\StoreSubscriptionRequest;
 use App\Http\Requests\Subscriptions\UpdateSubscriptionInvoiceReferenceRequest;
 use App\Http\Requests\Subscriptions\UpdateSubscriptionNotesRequest;
@@ -14,6 +15,7 @@ use App\Http\Resources\Subscriptions\SubscriptionResource;
 use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
 use App\Models\User;
+use App\Services\SubscriptionLessonBalanceService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,6 +34,8 @@ class SubscriptionManagementController extends Controller
         'status',
         'payment_status',
     ];
+
+    public function __construct(private readonly SubscriptionLessonBalanceService $lessonBalances) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -214,6 +218,19 @@ class SubscriptionManagementController extends Controller
         }
 
         return $this->applyUpdate($request, $subscription, $payload, SubscriptionHistory::EVENT_UPDATED);
+    }
+
+    public function adjustLessonBalance(AdjustSubscriptionLessonBalanceRequest $request, Subscription $subscription): JsonResponse
+    {
+        Gate::authorize('update', $subscription);
+
+        return response()->json([
+            'data' => new SubscriptionResource(
+                $this->lessonBalances
+                    ->manuallyAdjust($subscription, $request->validated(), $request->user())
+                    ->load('student')
+            ),
+        ]);
     }
 
     public function renew(StoreSubscriptionRequest $request, Subscription $subscription): JsonResponse

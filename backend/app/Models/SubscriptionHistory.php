@@ -24,6 +24,8 @@ class SubscriptionHistory extends Model
 
     public const EVENT_LESSONS_CONSUMED = 'lessons_consumed';
 
+    public const EVENT_MANUAL_BALANCE_ADJUSTED = 'manual_balance_adjusted';
+
     public const EVENT_UPDATED = 'updated';
 
     public const EVENT_CANCELLED = 'cancelled';
@@ -36,6 +38,7 @@ class SubscriptionHistory extends Model
         self::EVENT_STATUS_CHANGED,
         self::EVENT_PAYMENT_CHANGED,
         self::EVENT_LESSONS_CONSUMED,
+        self::EVENT_MANUAL_BALANCE_ADJUSTED,
         self::EVENT_UPDATED,
         self::EVENT_CANCELLED,
     ];

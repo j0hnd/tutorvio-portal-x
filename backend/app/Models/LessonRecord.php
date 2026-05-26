@@ -109,6 +109,8 @@ class LessonRecord extends Model
         'is_completed',
         'completed_at',
         'completed_by',
+        'lesson_balance_consumed_subscription_id',
+        'lesson_balance_consumed_at',
         'internal_remarks',
         'created_by',
         'updated_by',
@@ -124,6 +126,7 @@ class LessonRecord extends Model
             'join_available_from' => 'immutable_datetime',
             'join_available_until' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',
+            'lesson_balance_consumed_at' => 'immutable_datetime',
         ];
     }
 
@@ -140,6 +143,11 @@ class LessonRecord extends Model
     public function completedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'completed_by');
+    }
+
+    public function lessonBalanceConsumedSubscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class, 'lesson_balance_consumed_subscription_id');
     }
 
     public function createdBy(): BelongsTo

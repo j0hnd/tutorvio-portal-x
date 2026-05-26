@@ -33,6 +33,8 @@ class LessonRecordResource extends JsonResource
             'is_completed' => $this->resource->is_completed,
             'completed_at' => $this->resource->completed_at,
             'completed_by' => $this->resource->completed_by,
+            'lesson_balance_consumed_subscription_id' => $this->resource->lesson_balance_consumed_subscription_id,
+            'lesson_balance_consumed_at' => $this->resource->lesson_balance_consumed_at,
             'created_by' => $this->resource->created_by,
             'updated_by' => $this->resource->updated_by,
             'student' => $this->whenLoaded('student', fn () => [

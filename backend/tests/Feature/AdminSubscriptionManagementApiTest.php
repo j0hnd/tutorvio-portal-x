@@ -173,6 +173,48 @@ class AdminSubscriptionManagementApiTest extends TestCase
             ->assertJsonFragment(['event_type' => SubscriptionHistory::EVENT_UNFROZEN]);
     }
 
+    public function test_admin_can_manually_adjust_lesson_balance_with_required_notes(): void
+    {
+        $student = $this->student();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $student->id,
+            'total_lesson_count' => 12,
+            'consumed_lesson_count' => 4,
+            'remaining_lesson_count' => 8,
+        ]);
+
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+            'consumed_lesson_count' => 5,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('notes');
+
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+            'total_lesson_count' => 12,
+            'consumed_lesson_count' => 5,
+            'remaining_lesson_count' => 8,
+            'notes' => 'Corrected one missed completion entry.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('remaining_lesson_count');
+
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+            'consumed_lesson_count' => 5,
+            'notes' => 'Corrected one missed completion entry.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.total_lesson_count', 12)
+            ->assertJsonPath('data.consumed_lesson_count', 5)
+            ->assertJsonPath('data.remaining_lesson_count', 7);
+
+        $this->assertDatabaseHas('subscription_histories', [
+            'subscription_id' => $subscription->id,
+            'event_type' => SubscriptionHistory::EVENT_MANUAL_BALANCE_ADJUSTED,
+            'notes' => 'Corrected one missed completion entry.',
+            'created_by' => $this->admin->id,
+        ]);
+    }
+
     public function test_subscription_validation_rejects_invalid_student_lessons_dates_and_statuses(): void
     {
         $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);

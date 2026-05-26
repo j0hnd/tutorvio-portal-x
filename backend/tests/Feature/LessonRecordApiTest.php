@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\LessonRecord;
 use App\Models\Material;
+use App\Models\Subscription;
+use App\Models\SubscriptionHistory;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -251,6 +253,94 @@ class LessonRecordApiTest extends TestCase
         $this->assertSame(LessonRecord::STATUS_COMPLETED, $lessonRecord->lesson_status);
         $this->assertNotNull($lessonRecord->completed_at);
         $this->assertSame($this->admin->id, $lessonRecord->completed_by);
+    }
+
+    public function test_completed_lesson_consumes_active_subscription_balance_once(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $subscription = Subscription::factory()->create([
+            'user_id' => $this->student->id,
+            'total_lesson_count' => 3,
+            'consumed_lesson_count' => 1,
+            'remaining_lesson_count' => 2,
+            'status' => Subscription::STATUS_ACTIVE,
+            'is_frozen' => false,
+        ]);
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_status' => LessonRecord::STATUS_COMPLETED,
+            'is_completed' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', $subscription->id);
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'consumed_lesson_count' => 2,
+            'remaining_lesson_count' => 1,
+        ]);
+        $this->assertDatabaseHas('subscription_histories', [
+            'subscription_id' => $subscription->id,
+            'event_type' => SubscriptionHistory::EVENT_LESSONS_CONSUMED,
+            'created_by' => $this->admin->id,
+        ]);
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_notes' => 'Updated after completion.',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'consumed_lesson_count' => 2,
+            'remaining_lesson_count' => 1,
+        ]);
+        $this->assertSame(1, SubscriptionHistory::where('subscription_id', $subscription->id)
+            ->where('event_type', SubscriptionHistory::EVENT_LESSONS_CONSUMED)
+            ->count());
+    }
+
+    public function test_completed_lesson_ignores_frozen_and_inactive_subscriptions(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $frozen = Subscription::factory()->create([
+            'user_id' => $this->student->id,
+            'total_lesson_count' => 3,
+            'consumed_lesson_count' => 1,
+            'remaining_lesson_count' => 2,
+            'status' => Subscription::STATUS_INACTIVE,
+            'is_frozen' => true,
+        ]);
+        $inactive = Subscription::factory()->create([
+            'user_id' => $this->student->id,
+            'total_lesson_count' => 3,
+            'consumed_lesson_count' => 1,
+            'remaining_lesson_count' => 2,
+            'status' => Subscription::STATUS_INACTIVE,
+            'is_frozen' => false,
+        ]);
+        $lessonRecord = $this->createLessonRecord();
+
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+            'lesson_status' => LessonRecord::STATUS_COMPLETED,
+            'is_completed' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', null);
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $frozen->id,
+            'consumed_lesson_count' => 1,
+            'remaining_lesson_count' => 2,
+        ]);
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $inactive->id,
+            'consumed_lesson_count' => 1,
+            'remaining_lesson_count' => 2,
+        ]);
+        $this->assertDatabaseMissing('subscription_histories', [
+            'event_type' => SubscriptionHistory::EVENT_LESSONS_CONSUMED,
+        ]);
     }
 
     public function test_lesson_notes_and_homework_are_saved_on_update(): void
