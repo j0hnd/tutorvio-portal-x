@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Billing\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\Billing\InvoicePdfService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -47,6 +49,20 @@ class InvoiceController extends Controller
 
         return response()->json([
             'data' => new InvoiceResource($invoice->load(['student', 'subscription', 'courseProgram'])),
+        ]);
+    }
+
+    public function download(Invoice $invoice, InvoicePdfService $pdfs): Response
+    {
+        Gate::authorize('download', $invoice);
+
+        $pdf = $pdfs->render($invoice);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => strlen($pdf),
+            'Content-Disposition' => 'attachment; filename="'.$pdfs->filename($invoice).'"',
+            'Cache-Control' => 'private, no-store, max-age=0',
         ]);
     }
 

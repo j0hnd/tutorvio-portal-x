@@ -149,6 +149,7 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('invoices')->group(function () {
             Route::get('/', [InvoiceController::class, 'index']);
+            Route::get('/{invoice}/download', [InvoiceController::class, 'download']);
             Route::get('/{invoice}', [InvoiceController::class, 'show']);
             Route::post('/generate', [InvoiceGenerationController::class, 'store'])
                 ->middleware(['role:admin|staff', 'permission:invoices.create']);

@@ -25,6 +25,21 @@ class InvoicePolicy
             && (int) $invoice->student_id === (int) $user->id;
     }
 
+    public function download(User $user, Invoice $invoice): bool
+    {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        if ($user->hasRole('staff') && $user->can('invoices.view')) {
+            return true;
+        }
+
+        return $user->hasRole('student')
+            && $this->studentVisibilityEnabled()
+            && (int) $invoice->student_id === (int) $user->id;
+    }
+
     private function studentVisibilityEnabled(): bool
     {
         return (bool) config('billing.invoice.student_visibility_enabled', true);
