@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class InvoiceController extends Controller
 {
@@ -77,6 +78,48 @@ class InvoiceController extends Controller
             'data' => new InvoiceResource($invoice->refresh()->load(['student', 'subscription', 'courseProgram'])),
             'email_sent' => $sent,
         ], $sent ? 200 : 422);
+    }
+
+    public function updatePaymentStatus(Request $request, Invoice $invoice): JsonResponse
+    {
+        Gate::authorize('updatePaymentStatus', $invoice);
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', Rule::in([Invoice::STATUS_PAID, Invoice::STATUS_UNPAID])],
+            'paid_date' => ['sometimes', 'nullable', 'date'],
+        ]);
+
+        $newStatus = $validated['status'];
+        $this->assertAllowedPaymentStatusTransition($invoice, $newStatus);
+
+        $oldStatus = $invoice->status;
+        $oldPaidDate = $invoice->paid_date?->toDateString();
+        $newPaidDate = $newStatus === Invoice::STATUS_PAID
+            ? ($validated['paid_date'] ?? now()->toDateString())
+            : null;
+
+        $metadata = $invoice->metadata ?? [];
+        $metadata['payment_status_history'] = [
+            ...($metadata['payment_status_history'] ?? []),
+            [
+                'from_status' => $oldStatus,
+                'to_status' => $newStatus,
+                'from_paid_date' => $oldPaidDate,
+                'to_paid_date' => $newPaidDate,
+                'changed_by' => $request->user()->id,
+                'changed_at' => now()->toISOString(),
+            ],
+        ];
+
+        $invoice->forceFill([
+            'status' => $newStatus,
+            'paid_date' => $newPaidDate,
+            'metadata' => $metadata,
+        ])->save();
+
+        return response()->json([
+            'data' => new InvoiceResource($invoice->refresh()->load(['student', 'subscription', 'courseProgram'])),
+        ]);
     }
 
     public function history(Request $request, User $student): JsonResponse
@@ -185,5 +228,20 @@ class InvoiceController extends Controller
     private function canViewAllInvoices(User $user): bool
     {
         return $user->hasRole('admin') || $user->can('invoices.view');
+    }
+
+    private function assertAllowedPaymentStatusTransition(Invoice $invoice, string $newStatus): void
+    {
+        $allowed = match ($invoice->status) {
+            Invoice::STATUS_UNPAID, Invoice::STATUS_OVERDUE => $newStatus === Invoice::STATUS_PAID,
+            Invoice::STATUS_PAID => $newStatus === Invoice::STATUS_UNPAID,
+            default => false,
+        };
+
+        if (! $allowed) {
+            throw ValidationException::withMessages([
+                'status' => 'The requested invoice payment status transition is not allowed.',
+            ]);
+        }
     }
 }

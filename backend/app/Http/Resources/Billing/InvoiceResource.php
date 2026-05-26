@@ -54,6 +54,8 @@ class InvoiceResource extends JsonResource
     {
         $user = $request->user();
 
-        return $user?->hasRole('admin') === true || $user?->can('invoices.view') === true;
+        return $user?->hasRole('admin') === true
+            || $user?->can('invoices.view') === true
+            || $user?->can('invoices.update') === true;
     }
 }

@@ -151,6 +151,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [InvoiceController::class, 'index']);
             Route::get('/{invoice}/download', [InvoiceController::class, 'download']);
             Route::get('/{invoice}', [InvoiceController::class, 'show']);
+            Route::patch('/{invoice}/payment-status', [InvoiceController::class, 'updatePaymentStatus'])
+                ->middleware(['role:admin|staff', 'permission:invoices.update']);
             Route::post('/{invoice}/send-email', [InvoiceController::class, 'sendEmail'])
                 ->middleware(['role:admin|staff', 'permission:invoices.create']);
             Route::post('/generate', [InvoiceGenerationController::class, 'store'])

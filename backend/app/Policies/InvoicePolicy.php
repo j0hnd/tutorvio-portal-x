@@ -46,6 +46,12 @@ class InvoicePolicy
             || ($user->hasRole('staff') && $user->can('invoices.create'));
     }
 
+    public function updatePaymentStatus(User $user, Invoice $invoice): bool
+    {
+        return $user->hasRole('admin')
+            || ($user->hasRole('staff') && $user->can('invoices.update'));
+    }
+
     private function studentVisibilityEnabled(): bool
     {
         return (bool) config('billing.invoice.student_visibility_enabled', true);
