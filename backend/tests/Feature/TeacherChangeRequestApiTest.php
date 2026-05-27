@@ -56,6 +56,7 @@ class TeacherChangeRequestApiTest extends TestCase
             ->assertJsonPath('data.status', TeacherChangeRequest::STATUS_PENDING)
             ->assertJsonMissingPath('data.admin_notes')
             ->assertJsonMissingPath('data.reviewed_by');
+        $this->assertResponseDoesNotExposeTeacherPayroll($response->json());
 
         $requestId = $response->json('data.id');
 
@@ -99,14 +100,17 @@ class TeacherChangeRequestApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $request->id);
 
-        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/reject", [
+        $response = $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/reject", [
             'review_reason' => 'Please try the new class schedule first.',
             'admin_notes' => 'Reviewed with student support.',
-        ])
+        ]);
+
+        $response
             ->assertOk()
             ->assertJsonPath('data.status', TeacherChangeRequest::STATUS_REJECTED)
             ->assertJsonPath('data.reviewed_by', $this->admin->id)
             ->assertJsonPath('data.admin_notes', 'Reviewed with student support.');
+        $this->assertResponseDoesNotExposeTeacherPayroll($response->json());
 
         $this->assertDatabaseHas('teacher_change_requests', [
             'id' => $request->id,
@@ -115,6 +119,13 @@ class TeacherChangeRequestApiTest extends TestCase
             'review_reason' => 'Please try the new class schedule first.',
             'admin_notes' => 'Reviewed with student support.',
         ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/teacher-change-requests/{$request->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('data.admin_notes')
+            ->assertJsonMissingPath('data.reviewed_by');
     }
 
     public function test_admin_can_approve_and_optionally_reassign_to_selected_teacher(): void
@@ -130,15 +141,18 @@ class TeacherChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
+        $response = $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
             'new_teacher_id' => $newTeacher->id,
             'reassign' => true,
             'review_reason' => 'Approved for evening availability.',
             'admin_notes' => 'Moved to the new teacher immediately.',
-        ])
+        ]);
+
+        $response
             ->assertOk()
             ->assertJsonPath('data.status', TeacherChangeRequest::STATUS_APPROVED)
             ->assertJsonPath('data.approved_teacher_id', $newTeacher->id);
+        $this->assertResponseDoesNotExposeTeacherPayroll($response->json());
 
         $this->assertDatabaseHas('teacher_student_assignments', [
             'student_id' => $this->student->id,
@@ -158,6 +172,48 @@ class TeacherChangeRequestApiTest extends TestCase
             'user_id' => $this->student->id,
             'assigned_teacher_id' => $newTeacher->id,
         ]);
+    }
+
+    public function test_admin_cannot_approve_teacher_change_to_unavailable_or_full_teacher(): void
+    {
+        $unavailableTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $unavailableTeacher->assignRole('teacher');
+        $unavailableTeacher->teacherProfile()->create(['internal_status' => 'unavailable']);
+
+        $request = TeacherChangeRequest::factory()->create([
+            'student_id' => $this->student->id,
+            'current_teacher_id' => $this->teacher->id,
+            'requested_reason' => 'Need a better schedule fit.',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
+            'new_teacher_id' => $unavailableTeacher->id,
+            'reassign' => false,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('new_teacher_id')
+            ->assertJsonPath('errors.new_teacher_id.0', 'The selected teacher is currently unavailable.');
+
+        $fullTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $fullTeacher->assignRole('teacher');
+        $fullTeacher->teacherProfile()->create([
+            'internal_status' => 'available',
+            'class_load' => 1,
+        ]);
+
+        $assignedStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $assignedStudent->assignRole('student');
+        $this->createActiveAssignment($assignedStudent, $fullTeacher);
+
+        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
+            'new_teacher_id' => $fullTeacher->id,
+            'reassign' => false,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('new_teacher_id')
+            ->assertJsonPath('errors.new_teacher_id.0', 'The selected teacher has reached assignment capacity.');
     }
 
     public function test_staff_requires_permissions_and_teacher_cannot_view_requests(): void
@@ -235,5 +291,17 @@ class TeacherChangeRequestApiTest extends TestCase
             'status' => TeacherStudentAssignment::STATUS_ACTIVE,
             'active_student_id' => $student->id,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertResponseDoesNotExposeTeacherPayroll(array $payload): void
+    {
+        $json = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        foreach (['pay_model', 'pay_rate', 'default_pay_rate', 'base_rate', 'payroll', 'payout'] as $sensitiveKey) {
+            $this->assertStringNotContainsString($sensitiveKey, $json);
+        }
     }
 }

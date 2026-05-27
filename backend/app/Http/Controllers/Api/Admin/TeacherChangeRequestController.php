@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TeacherChangeRequests\TeacherChangeRequestResource;
 use App\Models\TeacherChangeRequest;
 use App\Models\User;
+use App\Services\TeacherSlotDiscoveryService;
 use App\Services\TeacherStudentAssignmentService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class TeacherChangeRequestController extends Controller
 {
-    public function __construct(private readonly TeacherStudentAssignmentService $assignments) {}
+    public function __construct(
+        private readonly TeacherStudentAssignmentService $assignments,
+        private readonly TeacherSlotDiscoveryService $teacherSlots
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -87,6 +91,16 @@ class TeacherChangeRequestController extends Controller
             throw ValidationException::withMessages([
                 'new_teacher_id' => 'The selected new teacher must be different from the current teacher.',
             ]);
+        }
+
+        if ($newTeacher) {
+            $assignmentErrors = $this->teacherSlots->assignmentErrors($teacherChangeRequest->student, $newTeacher);
+
+            if (isset($assignmentErrors['teacher_id'])) {
+                throw ValidationException::withMessages([
+                    'new_teacher_id' => $assignmentErrors['teacher_id'],
+                ]);
+            }
         }
 
         $shouldReassign = $newTeacher && ($validated['reassign'] ?? true);

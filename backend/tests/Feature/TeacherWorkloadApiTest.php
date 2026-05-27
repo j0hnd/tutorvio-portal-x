@@ -68,6 +68,7 @@ class TeacherWorkloadApiTest extends TestCase
             ->assertJsonPath('data.0.current_schedule_load.open_minutes', 60)
             ->assertJsonPath('data.0.workload_status', 'near_capacity')
             ->assertJsonPath('data.0.unavailable_periods.0.reason', 'Training');
+        $this->assertResponseDoesNotExposeTeacherPayroll($response->json());
     }
 
     public function test_admin_can_view_single_teacher_workload_details(): void
@@ -157,5 +158,17 @@ class TeacherWorkloadApiTest extends TestCase
             'ends_at' => '2026-06-01 04:00:00',
             'reason' => 'Training',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertResponseDoesNotExposeTeacherPayroll(array $payload): void
+    {
+        $json = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        foreach (['pay_model', 'pay_rate', 'default_pay_rate', 'base_rate', 'payroll', 'payout'] as $sensitiveKey) {
+            $this->assertStringNotContainsString($sensitiveKey, $json);
+        }
     }
 }

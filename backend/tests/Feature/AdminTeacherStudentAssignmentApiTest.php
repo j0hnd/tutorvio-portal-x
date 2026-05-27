@@ -56,6 +56,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertJsonPath('data.teacher_id', $this->teacher->id)
             ->assertJsonPath('data.status', TeacherStudentAssignment::STATUS_ACTIVE)
             ->assertJsonPath('data.reason', 'Initial placement');
+        $this->assertResponseDoesNotExposeTeacherPayroll($firstResponse->json());
 
         $firstAssignmentId = $firstResponse->json('data.id');
 
@@ -118,14 +119,16 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             'teacher_id' => $inactiveTeacher->id,
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('teacher_id');
+            ->assertJsonValidationErrors('teacher_id')
+            ->assertJsonPath('errors.teacher_id.0', 'The selected teacher must be an active teacher.');
 
         $this->postJson('/api/v1/admin/teacher-student-assignments', [
             'student_id' => $nonStudent->id,
             'teacher_id' => $this->teacher->id,
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('student_id');
+            ->assertJsonValidationErrors('student_id')
+            ->assertJsonPath('errors.student_id.0', 'The selected student must be an active student.');
     }
 
     public function test_staff_requires_permission_and_students_teachers_cannot_manage_assignments(): void
@@ -157,7 +160,18 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         ])
             ->assertForbidden();
 
+        $this->postJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment/reassign", [
+            'teacher_id' => $this->teacher->id,
+        ])
+            ->assertForbidden();
+
         Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+        ])
+            ->assertForbidden();
 
         $this->patchJson("/api/v1/admin/teacher-student-assignments/{$assignmentId}", [
             'status' => TeacherStudentAssignment::STATUS_ENDED,
@@ -211,7 +225,9 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         ], hasAvailability: true);
         $inactiveTeacher->update(['status' => User::STATUS_INACTIVE]);
 
-        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila&slot_minutes=60")
+        $response = $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila&slot_minutes=60");
+
+        $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.teacher_id', $availableTeacher->id)
@@ -223,6 +239,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertJsonPath('data.0.reasons.max_capacity', 3)
             ->assertJsonPath('data.0.available_capacity', 2)
             ->assertJsonPath('data.0.workload_status', 'available');
+        $this->assertResponseDoesNotExposeTeacherPayroll($response->json());
     }
 
     public function test_available_teacher_discovery_requires_admin_or_staff_permission(): void
@@ -381,12 +398,14 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
         $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $otherTeacher->assignRole('teacher');
+        $this->createActiveAssignmentForTeacher($otherTeacher);
 
         Sanctum::actingAs($this->teacher);
 
         $this->getJson("/api/v1/teachers/{$this->teacher->id}/assigned-students")
             ->assertOk()
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.student_id', $this->student->id);
 
         $this->getJson("/api/v1/teachers/{$otherTeacher->id}/assigned-students")
             ->assertForbidden();
@@ -443,7 +462,8 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             'teacher_id' => $unavailableTeacher->id,
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('teacher_id');
+            ->assertJsonValidationErrors('teacher_id')
+            ->assertJsonPath('errors.teacher_id.0', 'The selected teacher is currently unavailable.');
 
         $capacityTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $capacityTeacher->assignRole('teacher');
@@ -465,6 +485,19 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             'teacher_id' => $capacityTeacher->id,
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('teacher_id');
+            ->assertJsonValidationErrors('teacher_id')
+            ->assertJsonPath('errors.teacher_id.0', 'The selected teacher has reached assignment capacity.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertResponseDoesNotExposeTeacherPayroll(array $payload): void
+    {
+        $json = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        foreach (['pay_model', 'pay_rate', 'default_pay_rate', 'base_rate', 'payroll', 'payout'] as $sensitiveKey) {
+            $this->assertStringNotContainsString($sensitiveKey, $json);
+        }
     }
 }
