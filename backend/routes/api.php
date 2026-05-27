@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\TeacherCompensationController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
 use App\Http\Controllers\Api\Admin\TeacherEarningController as AdminTeacherEarningController;
 use App\Http\Controllers\Api\Admin\TeacherPayoutAdjustmentController as AdminTeacherPayoutAdjustmentController;
+use App\Http\Controllers\Api\Admin\TeacherStudentAssignmentController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
@@ -167,6 +168,14 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:teacher_earnings.view');
             Route::get('/teachers/{teacher}/payout-report', [PayoutReportController::class, 'teacher'])
                 ->middleware('permission:payroll.view');
+            Route::get('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'index'])
+                ->middleware('permission:teacher_assignments.view');
+            Route::post('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'store'])
+                ->middleware('permission:teacher_assignments.manage');
+            Route::get('/teacher-student-assignments/{teacherStudentAssignment}', [TeacherStudentAssignmentController::class, 'show'])
+                ->middleware('permission:teacher_assignments.view');
+            Route::match(['put', 'patch'], '/teacher-student-assignments/{teacherStudentAssignment}', [TeacherStudentAssignmentController::class, 'update'])
+                ->middleware('permission:teacher_assignments.manage');
             Route::get('/teacher-earnings', [AdminTeacherEarningController::class, 'index'])
                 ->middleware('permission:teacher_earnings.view');
             Route::get('/payout-adjustments', [AdminTeacherPayoutAdjustmentController::class, 'index'])

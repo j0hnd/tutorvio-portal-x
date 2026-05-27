@@ -19,6 +19,7 @@ use App\Models\StudentProgressRecord;
 use App\Models\Subscription;
 use App\Models\TeacherCompensation;
 use App\Models\TeacherEarning;
+use App\Models\TeacherStudentAssignment;
 use App\Policies\ClassSchedulePolicy;
 use App\Policies\CourseProgramPolicy;
 use App\Policies\CourseTypePolicy;
@@ -35,6 +36,7 @@ use App\Policies\SubscriptionPolicy;
 use App\Policies\TeacherAvailabilityPolicy;
 use App\Policies\TeacherCompensationPolicy;
 use App\Policies\TeacherEarningPolicy;
+use App\Policies\TeacherStudentAssignmentPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -69,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CourseProgram::class, CourseProgramPolicy::class);
         Gate::policy(TeacherCompensation::class, TeacherCompensationPolicy::class);
         Gate::policy(TeacherEarning::class, TeacherEarningPolicy::class);
+        Gate::policy(TeacherStudentAssignment::class, TeacherStudentAssignmentPolicy::class);
         Gate::policy(PayoutPeriod::class, PayoutPeriodPolicy::class);
     }
 }

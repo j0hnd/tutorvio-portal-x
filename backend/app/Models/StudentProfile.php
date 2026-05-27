@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StudentProfile extends Model
 {
@@ -43,6 +44,17 @@ class StudentProfile extends Model
     public function assignedTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_teacher_id');
+    }
+
+    public function teacherAssignments(): HasMany
+    {
+        return $this->hasMany(TeacherStudentAssignment::class, 'student_id', 'user_id');
+    }
+
+    public function activeTeacherAssignment(): HasOne
+    {
+        return $this->hasOne(TeacherStudentAssignment::class, 'student_id', 'user_id')
+            ->where('status', TeacherStudentAssignment::STATUS_ACTIVE);
     }
 
     public function lessons(): HasMany

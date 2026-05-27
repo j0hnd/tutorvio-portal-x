@@ -75,6 +75,27 @@ class User extends Authenticatable
         return $this->hasMany(StudentProfile::class, 'assigned_teacher_id');
     }
 
+    public function studentTeacherAssignments(): HasMany
+    {
+        return $this->hasMany(TeacherStudentAssignment::class, 'student_id');
+    }
+
+    public function activeTeacherAssignment(): HasOne
+    {
+        return $this->hasOne(TeacherStudentAssignment::class, 'student_id')
+            ->where('status', TeacherStudentAssignment::STATUS_ACTIVE);
+    }
+
+    public function teacherStudentAssignments(): HasMany
+    {
+        return $this->hasMany(TeacherStudentAssignment::class, 'teacher_id');
+    }
+
+    public function createdTeacherStudentAssignments(): HasMany
+    {
+        return $this->hasMany(TeacherStudentAssignment::class, 'assigned_by');
+    }
+
     public function statusHistories(): HasMany
     {
         return $this->hasMany(UserStatusHistory::class);
