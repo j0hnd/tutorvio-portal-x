@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
+use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
@@ -162,6 +163,14 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:teacher_earnings.view');
             Route::get('/teacher-earnings', [AdminTeacherEarningController::class, 'index'])
                 ->middleware('permission:teacher_earnings.view');
+            Route::get('/payout-periods', [PayoutPeriodController::class, 'index'])
+                ->middleware('permission:payout_periods.view');
+            Route::post('/payout-periods', [PayoutPeriodController::class, 'store'])
+                ->middleware('permission:payout_periods.manage');
+            Route::get('/payout-periods/{payoutPeriod}', [PayoutPeriodController::class, 'show'])
+                ->middleware('permission:payout_periods.view');
+            Route::match(['put', 'patch'], '/payout-periods/{payoutPeriod}', [PayoutPeriodController::class, 'update'])
+                ->middleware('permission:payout_periods.manage');
             Route::post('/teacher-compensations/{teacherCompensation}/archive', [TeacherCompensationController::class, 'archive'])
                 ->middleware('permission:teacher_compensations.manage');
             Route::get('/teacher-compensations/{teacherCompensation}/rate-rules', [TeacherCompensationRateRuleController::class, 'index'])

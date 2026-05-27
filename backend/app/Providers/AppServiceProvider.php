@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\LearningResource;
 use App\Models\LessonNote;
 use App\Models\LessonRecord;
+use App\Models\PayoutPeriod;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\Holiday;
 use App\Models\Scheduling\ScheduleReminder;
@@ -27,6 +28,7 @@ use App\Policies\InvoicePolicy;
 use App\Policies\LearningResourcePolicy;
 use App\Policies\LessonNotePolicy;
 use App\Policies\LessonRecordPolicy;
+use App\Policies\PayoutPeriodPolicy;
 use App\Policies\ScheduleReminderPolicy;
 use App\Policies\StudentProgressRecordPolicy;
 use App\Policies\SubscriptionPolicy;
@@ -67,5 +69,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CourseProgram::class, CourseProgramPolicy::class);
         Gate::policy(TeacherCompensation::class, TeacherCompensationPolicy::class);
         Gate::policy(TeacherEarning::class, TeacherEarningPolicy::class);
+        Gate::policy(PayoutPeriod::class, PayoutPeriodPolicy::class);
     }
 }

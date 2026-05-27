@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class TeacherEarning extends Model
 {
@@ -62,5 +63,11 @@ class TeacherEarning extends Model
     public function lessonRecord(): BelongsTo
     {
         return $this->belongsTo(LessonRecord::class);
+    }
+
+    public function payoutPeriods(): BelongsToMany
+    {
+        return $this->belongsToMany(PayoutPeriod::class, 'payout_period_teacher_earning')
+            ->withTimestamps();
     }
 }
