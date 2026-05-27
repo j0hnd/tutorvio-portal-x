@@ -124,6 +124,42 @@ class AdminTeacherCompensationApiTest extends TestCase
             ->assertJsonValidationErrors('effective_start_date');
     }
 
+    public function test_invalid_pay_models_are_rejected(): void
+    {
+        $this->postJson('/api/v1/admin/teacher-compensations', [
+            'teacher_id' => $this->teacher->id,
+            'pay_model' => 'salary',
+            'default_pay_rate' => 30,
+            'currency' => 'USD',
+            'effective_start_date' => '2026-08-01',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('pay_model');
+    }
+
+    public function test_negative_compensation_and_rate_rule_rates_are_rejected(): void
+    {
+        $this->postJson('/api/v1/admin/teacher-compensations', [
+            'teacher_id' => $this->teacher->id,
+            'pay_model' => TeacherCompensation::PAY_MODEL_PER_HOUR,
+            'default_pay_rate' => -1,
+            'currency' => 'USD',
+            'effective_start_date' => '2026-08-01',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('default_pay_rate');
+
+        $compensation = TeacherCompensation::factory()->create([
+            'teacher_id' => $this->teacher->id,
+        ]);
+
+        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->id}/rate-rules", [
+            'pay_rate' => -5,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('pay_rate');
+    }
+
     public function test_admin_can_manage_variable_rate_rules_for_compensation(): void
     {
         $courseType = CourseType::factory()->create(['name' => 'Business English']);
@@ -199,6 +235,47 @@ class AdminTeacherCompensationApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-compensations')
             ->assertForbidden()
             ->assertJsonMissing(['internal_admin_notes' => 'Private payroll note.']);
+    }
+
+    public function test_staff_with_general_payroll_permission_cannot_access_compensation_data(): void
+    {
+        TeacherCompensation::factory()->create([
+            'teacher_id' => $this->teacher->id,
+            'internal_admin_notes' => 'Private compensation note.',
+        ]);
+
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $staff->givePermissionTo('payroll.view');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/teacher-compensations')
+            ->assertForbidden()
+            ->assertJsonMissing(['internal_admin_notes' => 'Private compensation note.']);
+    }
+
+    public function test_teacher_cannot_manage_their_own_compensation_settings(): void
+    {
+        $compensation = TeacherCompensation::factory()->create([
+            'teacher_id' => $this->teacher->id,
+            'default_pay_rate' => 30,
+        ]);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->id}", [
+            'default_pay_rate' => 99,
+        ])->assertForbidden();
+
+        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->id}/archive")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('teacher_compensations', [
+            'id' => $compensation->id,
+            'default_pay_rate' => 30,
+            'archived_at' => null,
+        ]);
     }
 
     public function test_staff_with_payroll_permission_can_access_and_manage_compensation_settings(): void

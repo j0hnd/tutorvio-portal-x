@@ -136,6 +136,22 @@ class TeacherEarningApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-earnings')->assertForbidden();
     }
 
+    public function test_teacher_can_view_own_earnings_when_self_access_is_enabled(): void
+    {
+        $ownEarning = $this->createEarning($this->teacher);
+        $this->createEarning($this->otherTeacher);
+
+        config(['teacher_earnings.teacher_self_access_enabled' => true]);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/teacher-earnings')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ownEarning->id)
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
+    }
+
     public function test_teacher_with_explicit_permission_can_view_only_own_earnings(): void
     {
         $ownEarning = $this->createEarning($this->teacher);
@@ -152,6 +168,25 @@ class TeacherEarningApiTest extends TestCase
             ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
 
         $this->getJson('/api/v1/admin/teacher-earnings')->assertForbidden();
+    }
+
+    public function test_teacher_cannot_view_another_teachers_earnings(): void
+    {
+        $ownEarning = $this->createEarning($this->teacher);
+        $otherEarning = $this->createEarning($this->otherTeacher);
+
+        $this->teacher->givePermissionTo('teacher_earnings.view_own');
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/teacher-earnings?teacher_id='.$this->otherTeacher->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ownEarning->id)
+            ->assertJsonMissing(['id' => $otherEarning->id]);
+
+        $this->getJson("/api/v1/admin/teachers/{$this->otherTeacher->id}/teacher-earnings")
+            ->assertForbidden();
     }
 
     /**

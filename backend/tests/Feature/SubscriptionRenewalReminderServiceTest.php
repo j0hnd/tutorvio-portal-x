@@ -99,6 +99,10 @@ class SubscriptionRenewalReminderServiceTest extends TestCase
         Subscription::factory()->create([
             'user_id' => $student->id,
             'renewed_from_subscription_id' => $alreadyRenewed->id,
+            'total_lesson_count' => 8,
+            'consumed_lesson_count' => 0,
+            'remaining_lesson_count' => 8,
+            'ends_at' => '2026-08-01 09:00:00',
         ]);
 
         $this->assertSame(1, $this->reminders->refreshDueCandidates());

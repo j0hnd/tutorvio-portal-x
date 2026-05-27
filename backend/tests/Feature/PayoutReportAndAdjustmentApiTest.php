@@ -145,16 +145,43 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
 
         Sanctum::actingAs($staff);
         $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")->assertForbidden();
+        $this->getJson('/api/v1/admin/payout-adjustments')->assertForbidden();
 
         $staff->givePermissionTo('payroll.view');
 
         $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")->assertOk();
+        $this->getJson('/api/v1/admin/payout-adjustments')->assertOk();
+        $this->postJson('/api/v1/admin/payout-adjustments', [
+            'teacher_id' => $this->teacher->id,
+            'payout_period_id' => $this->period->id,
+            'type' => TeacherPayoutAdjustment::TYPE_BONUS,
+            'amount' => 10,
+            'reason' => 'Approved bonus.',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('payroll.manage');
+
+        $this->postJson('/api/v1/admin/payout-adjustments', [
+            'teacher_id' => $this->teacher->id,
+            'payout_period_id' => $this->period->id,
+            'type' => TeacherPayoutAdjustment::TYPE_BONUS,
+            'amount' => 10,
+            'reason' => 'Approved bonus.',
+        ])->assertCreated();
 
         $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $student->assignRole('student');
 
         Sanctum::actingAs($student);
         $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")->assertForbidden();
+        $this->getJson("/api/v1/admin/teachers/{$this->teacher->id}/payout-report")->assertForbidden();
+        $this->getJson('/api/v1/admin/payout-adjustments')->assertForbidden();
+        $this->postJson('/api/v1/admin/payout-adjustments', [
+            'teacher_id' => $this->teacher->id,
+            'type' => TeacherPayoutAdjustment::TYPE_BONUS,
+            'amount' => 10,
+            'reason' => 'Student attempt.',
+        ])->assertForbidden();
         $this->getJson('/api/v1/payroll-adjustments')->assertForbidden();
     }
 
