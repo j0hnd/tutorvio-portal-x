@@ -37,6 +37,8 @@ class TeacherCompensation extends Model
         'effective_start_date',
         'effective_end_date',
         'internal_admin_notes',
+        'archived_at',
+        'archived_by',
     ];
 
     protected function casts(): array
@@ -45,6 +47,7 @@ class TeacherCompensation extends Model
             'default_pay_rate' => 'decimal:2',
             'effective_start_date' => 'date',
             'effective_end_date' => 'date',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -56,6 +59,20 @@ class TeacherCompensation extends Model
     public function rateRules(): HasMany
     {
         return $this->hasMany(TeacherCompensationRateRule::class);
+    }
+
+    public function archivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archived_by');
+    }
+
+    /**
+     * @param  Builder<TeacherCompensation>  $query
+     * @return Builder<TeacherCompensation>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
     }
 
     /**

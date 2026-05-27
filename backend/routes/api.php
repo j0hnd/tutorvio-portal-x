@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
+use App\Http\Controllers\Api\Admin\TeacherCompensationController;
+use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
@@ -150,6 +152,29 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/homeworks/summary', HomeworkSummaryController::class)
                 ->middleware('permission:homeworks.view');
+
+            Route::get('/teachers/{teacher}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
+                ->middleware('permission:teacher_compensations.view');
+            Route::post('/teacher-compensations/{teacherCompensation}/archive', [TeacherCompensationController::class, 'archive'])
+                ->middleware('permission:teacher_compensations.manage');
+            Route::get('/teacher-compensations/{teacherCompensation}/rate-rules', [TeacherCompensationRateRuleController::class, 'index'])
+                ->middleware('permission:teacher_compensations.view');
+            Route::post('/teacher-compensations/{teacherCompensation}/rate-rules', [TeacherCompensationRateRuleController::class, 'store'])
+                ->middleware('permission:teacher_compensations.manage');
+            Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation}/rate-rules/{teacherCompensationRateRule}', [TeacherCompensationRateRuleController::class, 'update'])
+                ->middleware('permission:teacher_compensations.manage');
+            Route::post('/teacher-compensations/{teacherCompensation}/rate-rules/{teacherCompensationRateRule}/archive', [TeacherCompensationRateRuleController::class, 'archive'])
+                ->middleware('permission:teacher_compensations.manage');
+            Route::delete('/teacher-compensations/{teacherCompensation}/rate-rules/{teacherCompensationRateRule}', [TeacherCompensationRateRuleController::class, 'destroy'])
+                ->middleware('permission:teacher_compensations.manage');
+            Route::get('/teacher-compensations', [TeacherCompensationController::class, 'index'])
+                ->middleware('permission:teacher_compensations.view');
+            Route::post('/teacher-compensations', [TeacherCompensationController::class, 'store'])
+                ->middleware('permission:teacher_compensations.manage');
+            Route::get('/teacher-compensations/{teacherCompensation}', [TeacherCompensationController::class, 'show'])
+                ->middleware('permission:teacher_compensations.view');
+            Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation}', [TeacherCompensationController::class, 'update'])
+                ->middleware('permission:teacher_compensations.manage');
 
             Route::get('/students/{student}/subscriptions/history', [SubscriptionManagementController::class, 'studentHistory'])
                 ->middleware('permission:subscriptions.view');
