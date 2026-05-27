@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AuditLogServiceTest extends TestCase
@@ -119,6 +120,38 @@ class AuditLogServiceTest extends TestCase
             'card_note' => 'keep',
             'reference_value' => '[REDACTED]',
         ], $log->metadata);
+    }
+
+    public function test_it_does_not_save_sensitive_values_in_the_database(): void
+    {
+        $actor = User::factory()->create();
+        $service = app(AuditLogService::class);
+
+        $log = $service->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::PAYMENT_UPDATED,
+            module: AuditModule::BILLING,
+            targetEntityType: 'invoice',
+            targetEntityId: 51,
+            metadata: [
+                'authorization_header' => 'Bearer sensitive-token-value',
+                'gateway_reference' => '4111 1111 1111 1111',
+                'safe_note' => 'payment confirmed',
+            ]
+        );
+
+        $this->assertNotNull($log);
+        $this->assertSame('[REDACTED]', $log->metadata['authorization_header'] ?? null);
+        $this->assertSame('[REDACTED]', $log->metadata['gateway_reference'] ?? null);
+        $this->assertSame('payment confirmed', $log->metadata['safe_note'] ?? null);
+
+        $rawMetadata = DB::table('audit_logs')
+            ->where('id', $log->id)
+            ->value('metadata');
+
+        $this->assertIsString($rawMetadata);
+        $this->assertStringNotContainsString('sensitive-token-value', $rawMetadata);
+        $this->assertStringNotContainsString('4111 1111 1111 1111', $rawMetadata);
     }
 
     public function test_it_does_not_throw_on_logging_failure_by_default(): void

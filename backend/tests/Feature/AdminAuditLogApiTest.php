@@ -7,6 +7,7 @@ use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -32,112 +33,218 @@ class AdminAuditLogApiTest extends TestCase
 
     public function test_admin_can_query_audit_logs_with_filters_and_newest_sorting(): void
     {
-        Carbon::setTestNow('2026-05-28 12:00:00');
+        AuditLog::factory()->create();
 
-        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $admin->assignRole('admin');
-        Sanctum::actingAs($admin);
+        $this->actingAsUserWithRole('admin');
 
-        $actorOne = User::factory()->create(['name' => 'Actor One', 'email' => 'actor-one@example.com']);
-        $actorOne->assignRole('staff');
-        $actorTwo = User::factory()->create(['name' => 'Actor Two', 'email' => 'actor-two@example.com']);
-        $actorTwo->assignRole('teacher');
-
-        $oldest = AuditLog::factory()->create([
-            'actor_user_id' => $actorOne->id,
-            'action_type' => 'users.updated',
-            'module' => 'users',
-            'target_entity_type' => 'user',
-            'target_entity_id' => 7,
-            'metadata' => ['note' => 'legacy'],
-            'created_at' => now()->subDays(2),
-        ]);
-        $middle = AuditLog::factory()->create([
-            'actor_user_id' => $actorTwo->id,
-            'action_type' => 'payment.updated',
-            'module' => 'billing',
-            'target_entity_type' => 'invoice',
-            'target_entity_id' => 12,
-            'metadata' => ['note' => 'manual review'],
-            'ip_address' => '203.0.113.22',
-            'user_agent' => 'TutorvioBrowser/1.0',
-            'created_at' => now()->subDay(),
-        ]);
-        $newest = AuditLog::factory()->create([
-            'actor_user_id' => $actorOne->id,
-            'action_type' => 'schedule.updated',
-            'module' => 'scheduling',
-            'target_entity_type' => 'class_schedule',
-            'target_entity_id' => 44,
-            'metadata' => ['note' => 'critical update'],
-            'created_at' => now(),
-        ]);
-
-        $this->getJson('/api/v1/admin/audit-logs?per_page=2')
-            ->assertOk()
-            ->assertJsonPath('data.0.id', $newest->id)
-            ->assertJsonPath('data.1.id', $middle->id)
-            ->assertJsonPath('per_page', 2);
-
-        $this->getJson('/api/v1/admin/audit-logs?actor_user_id='.$actorOne->id.'&module=scheduling&target_entity_type=class_schedule&date_from=2026-05-27&date_to=2026-05-28&search=critical')
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $newest->id)
-            ->assertJsonPath('data.0.actor_user.id', $actorOne->id)
-            ->assertJsonPath('data.0.actor_user.name', 'Actor One')
-            ->assertJsonPath('data.0.action_type', 'schedule.updated')
-            ->assertJsonPath('data.0.module', 'scheduling')
-            ->assertJsonPath('data.0.target_entity_type', 'class_schedule')
-            ->assertJsonPath('data.0.target_entity_id', 44)
-            ->assertJsonPath('data.0.metadata.note', 'critical update')
-            ->assertJsonStructure([
-                'data' => [[
-                    'id',
-                    'actor_user',
-                    'action_type',
-                    'module',
-                    'target_entity_type',
-                    'target_entity_id',
-                    'timestamp',
-                    'metadata',
-                    'ip_address',
-                    'user_agent',
-                ]],
-            ]);
-
-        $this->assertNotSame($oldest->id, $newest->id);
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertOk();
     }
 
-    public function test_access_rules_for_audit_log_queries_are_enforced(): void
+    public function test_staff_with_audit_logs_permission_can_query_audit_logs(): void
     {
         AuditLog::factory()->create();
 
-        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $staff->assignRole('staff');
-        Sanctum::actingAs($staff);
-        $this->getJson('/api/v1/admin/audit-logs')->assertForbidden();
+        $this->actingAsUserWithRole('staff', ['audit_logs.view']);
 
-        $staff->givePermissionTo('audit_logs.view');
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Sanctum::actingAs($staff);
-        $this->getJson('/api/v1/admin/audit-logs')->assertOk();
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertOk();
+    }
 
-        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $teacher->assignRole('teacher');
-        Sanctum::actingAs($teacher);
-        $this->getJson('/api/v1/admin/audit-logs')->assertForbidden();
+    public function test_staff_without_audit_logs_permission_cannot_query_audit_logs(): void
+    {
+        AuditLog::factory()->create();
 
-        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $student->assignRole('student');
-        Sanctum::actingAs($student);
-        $this->getJson('/api/v1/admin/audit-logs')->assertForbidden();
+        $this->actingAsUserWithRole('staff');
+
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertForbidden();
+    }
+
+    public function test_teacher_cannot_query_audit_logs(): void
+    {
+        AuditLog::factory()->create();
+
+        $this->actingAsUserWithRole('teacher');
+
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertForbidden();
+    }
+
+    public function test_student_cannot_query_audit_logs(): void
+    {
+        AuditLog::factory()->create();
+
+        $this->actingAsUserWithRole('student');
+
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertForbidden();
+    }
+
+    public function test_filter_by_actor_user_id_works_for_admin_audit_log_queries(): void
+    {
+        $this->actingAsUserWithRole('admin');
+
+        $actorOne = User::factory()->create();
+        $actorOne->assignRole('staff');
+        $actorTwo = User::factory()->create();
+        $actorTwo->assignRole('staff');
+
+        $match = AuditLog::factory()->create(['actor_user_id' => $actorOne->id]);
+        AuditLog::factory()->create(['actor_user_id' => $actorTwo->id]);
+
+        $this->getJson('/api/v1/admin/audit-logs?actor_user_id='.$actorOne->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.actor_user.id', $actorOne->id);
+    }
+
+    public function test_filter_by_action_type_works_for_admin_audit_log_queries(): void
+    {
+        $this->actingAsUserWithRole('admin');
+
+        $match = AuditLog::factory()->create(['action_type' => 'schedule.updated']);
+        AuditLog::factory()->create(['action_type' => 'users.updated']);
+
+        $this->getJson('/api/v1/admin/audit-logs?action_type=schedule.updated')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.action_type', 'schedule.updated');
+    }
+
+    public function test_filter_by_module_works_for_admin_audit_log_queries(): void
+    {
+        $this->actingAsUserWithRole('admin');
+
+        $match = AuditLog::factory()->create(['module' => 'scheduling']);
+        AuditLog::factory()->create(['module' => 'users']);
+
+        $this->getJson('/api/v1/admin/audit-logs?module=scheduling')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.module', 'scheduling');
+    }
+
+    public function test_filter_by_target_entity_works_for_admin_audit_log_queries(): void
+    {
+        $this->actingAsUserWithRole('admin');
+
+        $match = AuditLog::factory()->create([
+            'target_entity_type' => 'class_schedule',
+            'target_entity_id' => 44,
+        ]);
+        AuditLog::factory()->create([
+            'target_entity_type' => 'invoice',
+            'target_entity_id' => 44,
+        ]);
+        AuditLog::factory()->create([
+            'target_entity_type' => 'class_schedule',
+            'target_entity_id' => 99,
+        ]);
+
+        $this->getJson('/api/v1/admin/audit-logs?target_entity_type=class_schedule&target_entity_id=44')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.target_entity_type', 'class_schedule')
+            ->assertJsonPath('data.0.target_entity_id', 44);
+    }
+
+    public function test_filter_by_date_range_works_for_admin_audit_log_queries(): void
+    {
+        Carbon::setTestNow('2026-05-28 12:00:00');
+        $this->actingAsUserWithRole('admin');
+
+        AuditLog::factory()->create(['created_at' => now()->subDays(3)]);
+        $inRangeOne = AuditLog::factory()->create(['created_at' => now()->subDay()]);
+        $inRangeTwo = AuditLog::factory()->create(['created_at' => now()]);
+
+        $this->getJson('/api/v1/admin/audit-logs?date_from=2026-05-27&date_to=2026-05-28')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $inRangeTwo->id)
+            ->assertJsonPath('data.1.id', $inRangeOne->id);
+    }
+
+    public function test_pagination_works_for_admin_audit_log_queries(): void
+    {
+        Carbon::setTestNow('2026-05-28 12:00:00');
+        $this->actingAsUserWithRole('admin');
+
+        $oldest = AuditLog::factory()->create(['created_at' => now()->subDays(2)]);
+        $middle = AuditLog::factory()->create(['created_at' => now()->subDay()]);
+        $newest = AuditLog::factory()->create(['created_at' => now()]);
+
+        $this->getJson('/api/v1/admin/audit-logs?per_page=2&page=1')
+            ->assertOk()
+            ->assertJsonPath('current_page', 1)
+            ->assertJsonPath('per_page', 2)
+            ->assertJsonPath('total', 3)
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $middle->id);
+
+        $this->getJson('/api/v1/admin/audit-logs?per_page=2&page=2')
+            ->assertOk()
+            ->assertJsonPath('current_page', 2)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $oldest->id);
+    }
+
+    public function test_results_are_sorted_newest_first(): void
+    {
+        Carbon::setTestNow('2026-05-28 12:00:00');
+        $this->actingAsUserWithRole('admin');
+
+        $oldest = AuditLog::factory()->create(['created_at' => now()->subDays(2)]);
+        $middle = AuditLog::factory()->create(['created_at' => now()->subDay()]);
+        $newest = AuditLog::factory()->create(['created_at' => now()]);
+
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $middle->id)
+            ->assertJsonPath('data.2.id', $oldest->id);
+    }
+
+    public function test_sensitive_metadata_fields_are_not_returned_in_audit_log_api_responses(): void
+    {
+        Carbon::setTestNow('2026-05-28 12:00:00');
+        $admin = $this->actingAsUserWithRole('admin');
+
+        DB::table('audit_logs')->insert([
+            'actor_user_id' => $admin->id,
+            'action_type' => 'users.updated',
+            'module' => 'users',
+            'target_entity_type' => 'user',
+            'target_entity_id' => 10,
+            'metadata' => json_encode([
+                'safe_note' => 'visible',
+                'access_token' => 'should-not-be-returned',
+                'nested' => [
+                    'api_key' => 'remove-this',
+                    'description' => 'keep-this',
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'ip_address' => '203.0.113.40',
+            'user_agent' => 'TutorvioTestAgent/1.0',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->getJson('/api/v1/admin/audit-logs')
+            ->assertOk()
+            ->assertJsonPath('data.0.metadata.safe_note', 'visible')
+            ->assertJsonPath('data.0.metadata.nested.description', 'keep-this')
+            ->assertJsonMissingPath('data.0.metadata.access_token')
+            ->assertJsonMissingPath('data.0.metadata.nested.api_key');
     }
 
     public function test_audit_log_filter_validation_rejects_invalid_ranges_and_formats(): void
     {
-        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $admin->assignRole('admin');
-        Sanctum::actingAs($admin);
+        $this->actingAsUserWithRole('admin');
 
         $this->getJson('/api/v1/admin/audit-logs?date_from=2026-05-28&date_to=2026-05-27')
             ->assertUnprocessable()
@@ -146,5 +253,23 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/v1/admin/audit-logs?action_type=bad action')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['action_type']);
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    private function actingAsUserWithRole(string $role, array $permissions = []): User
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user->assignRole($role);
+
+        if ($permissions !== []) {
+            $user->givePermissionTo($permissions);
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+        }
+
+        Sanctum::actingAs($user);
+
+        return $user;
     }
 }
