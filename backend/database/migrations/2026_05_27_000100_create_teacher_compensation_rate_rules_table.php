@@ -34,7 +34,7 @@ return new class extends Migration
             $table->index('contract_agreement');
             $table->index('course_type_id');
             $table->index('course_program_id');
-            $table->index(['teacher_compensation_id', 'is_active', 'priority']);
+            $table->index(['teacher_compensation_id', 'is_active', 'priority'], 'teacher_comp_rate_rules_active_priority_idx');
         });
     }
 
