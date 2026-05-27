@@ -191,4 +191,157 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             'assigned_teacher_id' => null,
         ]);
     }
+
+    public function test_dedicated_assignment_end_and_history_endpoints_preserve_current_and_past_assignments(): void
+    {
+        $firstResponse = $this->postJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment", [
+            'teacher_id' => $this->teacher->id,
+            'reason' => 'Initial match',
+        ]);
+
+        $firstResponse->assertCreated();
+
+        $secondTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $secondTeacher->assignRole('teacher');
+
+        $this->postJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment/reassign", [
+            'teacher_id' => $secondTeacher->id,
+            'reason' => 'Better schedule fit',
+            'notes' => 'Moved to evenings.',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.teacher_id', $secondTeacher->id);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/assigned-teacher")
+            ->assertOk()
+            ->assertJsonPath('data.teacher_id', $secondTeacher->id);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/teacher-assignment-history")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->getJson("/api/v1/teachers/{$secondTeacher->id}/assigned-students")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.student_id', $this->student->id);
+
+        $this->getJson("/api/v1/teachers/{$this->teacher->id}/student-assignment-history")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', TeacherStudentAssignment::STATUS_REASSIGNED);
+
+        $this->deleteJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment", [
+            'reason' => 'Program complete',
+            'notes' => 'No replacement needed.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TeacherStudentAssignment::STATUS_ENDED);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/assigned-teacher")
+            ->assertOk()
+            ->assertJsonPath('data', null);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/teacher-assignment-history")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_teacher_and_student_views_are_limited_to_their_own_assignments(): void
+    {
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+        ])->assertCreated();
+
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $otherTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherTeacher->assignRole('teacher');
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson("/api/v1/teachers/{$this->teacher->id}/assigned-students")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->getJson("/api/v1/teachers/{$otherTeacher->id}/assigned-students")
+            ->assertForbidden();
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/students/{$this->student->id}/assigned-teacher")
+            ->assertOk()
+            ->assertJsonPath('data.teacher_id', $this->teacher->id);
+
+        $this->getJson("/api/v1/students/{$otherStudent->id}/assigned-teacher")
+            ->assertForbidden();
+    }
+
+    public function test_repeating_same_assignment_is_idempotent_but_changed_duplicate_payload_is_rejected(): void
+    {
+        $firstResponse = $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'assigned_at' => '2026-06-01 09:00:00',
+            'reason' => 'Initial placement',
+        ]);
+
+        $firstResponse->assertCreated();
+
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'assigned_at' => '2026-06-01 09:00:00',
+            'reason' => 'Initial placement',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $firstResponse->json('data.id'));
+
+        $this->assertDatabaseCount('teacher_student_assignments', 1);
+
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'reason' => 'Changed reason',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('teacher_id');
+    }
+
+    public function test_assignment_rejects_unavailable_teacher_and_teacher_over_capacity(): void
+    {
+        $unavailableTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $unavailableTeacher->assignRole('teacher');
+        $unavailableTeacher->teacherProfile()->create(['internal_status' => 'unavailable']);
+
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $unavailableTeacher->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('teacher_id');
+
+        $capacityTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $capacityTeacher->assignRole('teacher');
+        $capacityTeacher->teacherProfile()->create([
+            'internal_status' => 'available',
+            'class_load' => 1,
+        ]);
+
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $otherStudent->id,
+            'teacher_id' => $capacityTeacher->id,
+        ])->assertCreated();
+
+        $this->postJson('/api/v1/admin/teacher-student-assignments', [
+            'student_id' => $this->student->id,
+            'teacher_id' => $capacityTeacher->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('teacher_id');
+    }
 }

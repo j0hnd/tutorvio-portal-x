@@ -98,6 +98,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/students/{student}/invoices', [InvoiceController::class, 'history']);
         Route::get('/students/{student}/package-history', StudentPackageHistoryController::class);
         Route::get('/students/{student}/package-summary', StudentPackageSummaryController::class);
+        Route::get('/students/{student}/assigned-teacher', [TeacherStudentAssignmentController::class, 'currentTeacher']);
+        Route::get('/students/{student}/teacher-assignment-history', [TeacherStudentAssignmentController::class, 'studentHistory']);
+        Route::get('/teachers/{teacher}/assigned-students', [TeacherStudentAssignmentController::class, 'teacherStudents']);
+        Route::get('/teachers/{teacher}/student-assignment-history', [TeacherStudentAssignmentController::class, 'teacherHistory']);
         Route::get('/lesson-notes/pending', [LessonNoteController::class, 'pending']);
         Route::apiResource('lesson-notes', LessonNoteController::class)
             ->only(['index', 'store', 'show', 'update'])
@@ -171,6 +175,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'index'])
                 ->middleware('permission:teacher_assignments.view');
             Route::post('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'store'])
+                ->middleware('permission:teacher_assignments.manage');
+            Route::post('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'assignStudent'])
+                ->middleware('permission:teacher_assignments.manage');
+            Route::post('/students/{student}/teacher-assignment/reassign', [TeacherStudentAssignmentController::class, 'assignStudent'])
+                ->middleware('permission:teacher_assignments.manage');
+            Route::delete('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'endActive'])
                 ->middleware('permission:teacher_assignments.manage');
             Route::get('/teacher-student-assignments/{teacherStudentAssignment}', [TeacherStudentAssignmentController::class, 'show'])
                 ->middleware('permission:teacher_assignments.view');

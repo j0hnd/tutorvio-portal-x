@@ -56,7 +56,59 @@ class TeacherStudentAssignmentController extends Controller
 
         return response()->json([
             'data' => new TeacherStudentAssignmentResource($assignment),
-        ], 201);
+        ], $assignment->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function assignStudent(StoreTeacherStudentAssignmentRequest $request, User $student): JsonResponse
+    {
+        Gate::authorize('create', TeacherStudentAssignment::class);
+
+        $validated = $request->validated();
+        $teacher = User::query()->findOrFail($validated['teacher_id']);
+
+        $assignment = $this->assignments->assign($student, $teacher, $request->user(), [
+            ...$validated,
+            'student_id' => $student->id,
+        ]);
+
+        return response()->json([
+            'data' => new TeacherStudentAssignmentResource($assignment),
+        ], $assignment->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function endActive(Request $request, User $student): JsonResponse
+    {
+        Gate::authorize('create', TeacherStudentAssignment::class);
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:5000'],
+            'notes' => ['nullable', 'string', 'max:10000'],
+            'ended_at' => ['nullable', 'date'],
+        ]);
+
+        $assignment = TeacherStudentAssignment::query()
+            ->where('student_id', $student->id)
+            ->active()
+            ->first();
+
+        if (! $assignment) {
+            return response()->json([
+                'message' => 'The selected student does not have an active teacher assignment.',
+                'errors' => [
+                    'student_id' => ['The selected student does not have an active teacher assignment.'],
+                ],
+            ], 422);
+        }
+
+        $assignment = $this->assignments->updateStatus(
+            $assignment,
+            TeacherStudentAssignment::STATUS_ENDED,
+            $validated
+        );
+
+        return response()->json([
+            'data' => new TeacherStudentAssignmentResource($assignment),
+        ]);
     }
 
     public function show(TeacherStudentAssignment $teacherStudentAssignment): JsonResponse
@@ -82,5 +134,93 @@ class TeacherStudentAssignmentController extends Controller
         return response()->json([
             'data' => new TeacherStudentAssignmentResource($assignment),
         ]);
+    }
+
+    public function currentTeacher(Request $request, User $student): JsonResponse
+    {
+        $this->authorizeStudentView($request, $student);
+
+        $assignment = TeacherStudentAssignment::query()
+            ->with(['student', 'teacher', 'assignedBy'])
+            ->where('student_id', $student->id)
+            ->active()
+            ->first();
+
+        return response()->json([
+            'data' => $assignment ? new TeacherStudentAssignmentResource($assignment) : null,
+        ]);
+    }
+
+    public function teacherStudents(Request $request, User $teacher): JsonResponse
+    {
+        $this->authorizeTeacherView($request, $teacher);
+
+        $assignments = TeacherStudentAssignment::query()
+            ->with(['student', 'teacher', 'assignedBy'])
+            ->where('teacher_id', $teacher->id)
+            ->active()
+            ->latest('assigned_at')
+            ->latest('id')
+            ->get();
+
+        return response()->json([
+            'data' => TeacherStudentAssignmentResource::collection($assignments),
+        ]);
+    }
+
+    public function studentHistory(Request $request, User $student): JsonResponse
+    {
+        $this->authorizeStudentView($request, $student);
+
+        $assignments = TeacherStudentAssignment::query()
+            ->with(['student', 'teacher', 'assignedBy'])
+            ->where('student_id', $student->id)
+            ->latest('assigned_at')
+            ->latest('id')
+            ->get();
+
+        return response()->json([
+            'data' => TeacherStudentAssignmentResource::collection($assignments),
+        ]);
+    }
+
+    public function teacherHistory(Request $request, User $teacher): JsonResponse
+    {
+        $this->authorizeTeacherView($request, $teacher);
+
+        $assignments = TeacherStudentAssignment::query()
+            ->with(['student', 'teacher', 'assignedBy'])
+            ->where('teacher_id', $teacher->id)
+            ->latest('assigned_at')
+            ->latest('id')
+            ->get();
+
+        return response()->json([
+            'data' => TeacherStudentAssignmentResource::collection($assignments),
+        ]);
+    }
+
+    private function authorizeStudentView(Request $request, User $student): void
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user?->hasRole('admin')
+                || ($user?->hasRole('staff') && $user->can('teacher_assignments.view'))
+                || ($user?->hasRole('student') && (int) $user->id === (int) $student->id),
+            403
+        );
+    }
+
+    private function authorizeTeacherView(Request $request, User $teacher): void
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user?->hasRole('admin')
+                || ($user?->hasRole('staff') && $user->can('teacher_assignments.view'))
+                || ($user?->hasRole('teacher') && (int) $user->id === (int) $teacher->id),
+            403
+        );
     }
 }

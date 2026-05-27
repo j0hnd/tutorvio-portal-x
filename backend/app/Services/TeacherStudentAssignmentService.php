@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\StudentProfile;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +26,10 @@ class TeacherStudentAssignmentService
                 ->first();
 
             if ($activeAssignment && (int) $activeAssignment->teacher_id === (int) $teacher->id) {
+                if ($this->isIdempotentAssignment($activeAssignment, $attributes)) {
+                    return $activeAssignment->load(['student', 'teacher', 'assignedBy']);
+                }
+
                 throw ValidationException::withMessages([
                     'teacher_id' => 'The selected teacher is already actively assigned to this student.',
                 ]);
@@ -122,7 +127,7 @@ class TeacherStudentAssignmentService
     {
         $errors = [];
 
-        $errors = $this->activeStudentAndTeacherErrors($student, $teacher);
+        $errors = $this->activeStudentAndTeacherErrors($student, $teacher, $student->id);
 
         if ($assignedBy->status !== User::STATUS_ACTIVE) {
             $errors['assigned_by'] = 'Assignments can only be created by an active user.';
@@ -139,7 +144,7 @@ class TeacherStudentAssignmentService
 
     private function assertActiveStudentAndTeacher(User $student, User $teacher): void
     {
-        $errors = $this->activeStudentAndTeacherErrors($student, $teacher);
+        $errors = $this->activeStudentAndTeacherErrors($student, $teacher, $student->id);
 
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
@@ -149,7 +154,7 @@ class TeacherStudentAssignmentService
     /**
      * @return array<string, string>
      */
-    private function activeStudentAndTeacherErrors(User $student, User $teacher): array
+    private function activeStudentAndTeacherErrors(User $student, User $teacher, ?int $exceptStudentId = null): array
     {
         $errors = [];
 
@@ -159,8 +164,37 @@ class TeacherStudentAssignmentService
 
         if ($teacher->status !== User::STATUS_ACTIVE || ! $teacher->hasRole('teacher')) {
             $errors['teacher_id'] = 'The selected teacher must be an active teacher.';
+        } elseif ($teacher->teacherProfile?->internal_status !== null
+            && ! in_array($teacher->teacherProfile->internal_status, ['available', 'active'], true)) {
+            $errors['teacher_id'] = 'The selected teacher is currently unavailable.';
+        } elseif ($teacher->teacherProfile?->class_load !== null
+            && TeacherStudentAssignment::query()
+                ->where('teacher_id', $teacher->id)
+                ->active()
+                ->when($exceptStudentId, fn ($query) => $query->where('student_id', '!=', $exceptStudentId))
+                ->count() >= $teacher->teacherProfile->class_load) {
+            $errors['teacher_id'] = 'The selected teacher has reached assignment capacity.';
         }
 
         return $errors;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function isIdempotentAssignment(TeacherStudentAssignment $assignment, array $attributes): bool
+    {
+        foreach (['reason', 'notes'] as $attribute) {
+            if (array_key_exists($attribute, $attributes) && $attributes[$attribute] !== $assignment->{$attribute}) {
+                return false;
+            }
+        }
+
+        if (array_key_exists('assigned_at', $attributes)
+            && $assignment->assigned_at?->ne(Carbon::parse($attributes['assigned_at']))) {
+            return false;
+        }
+
+        return true;
     }
 }

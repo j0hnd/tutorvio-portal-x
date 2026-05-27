@@ -21,7 +21,7 @@ class StoreTeacherStudentAssignmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_id' => ['required', 'integer', 'exists:users,id'],
+            'student_id' => [$this->route('student') ? 'sometimes' : 'required', 'integer', 'exists:users,id'],
             'teacher_id' => ['required', 'integer', 'different:student_id', 'exists:users,id'],
             'assigned_at' => ['sometimes', 'date'],
             'reason' => ['nullable', 'string', 'max:5000'],
@@ -33,7 +33,9 @@ class StoreTeacherStudentAssignmentRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $student = User::query()->find($this->integer('student_id'));
+            $student = $this->route('student') instanceof User
+                ? $this->route('student')
+                : User::query()->find($this->integer('student_id'));
             $teacher = User::query()->find($this->integer('teacher_id'));
 
             if ($student && ($student->status !== User::STATUS_ACTIVE || ! $student->hasRole('student'))) {
@@ -42,6 +44,10 @@ class StoreTeacherStudentAssignmentRequest extends FormRequest
 
             if ($teacher && ($teacher->status !== User::STATUS_ACTIVE || ! $teacher->hasRole('teacher'))) {
                 $validator->errors()->add('teacher_id', 'The selected teacher must be an active teacher.');
+            }
+
+            if ($student && $teacher && (int) $student->id === (int) $teacher->id) {
+                $validator->errors()->add('teacher_id', 'The selected teacher and student must be different users.');
             }
 
             if ($teacher && $this->user()?->hasRole('teacher') && (int) $this->user()->id === (int) $teacher->id) {
