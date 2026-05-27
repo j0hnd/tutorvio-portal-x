@@ -181,6 +181,8 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:teacher_assignments.manage');
             Route::post('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'assignStudent'])
                 ->middleware('permission:teacher_assignments.manage');
+            Route::get('/students/{student}/available-teachers', [TeacherStudentAssignmentController::class, 'availableTeachers'])
+                ->middleware('permission:teacher_assignments.view');
             Route::post('/students/{student}/teacher-assignment/reassign', [TeacherStudentAssignmentController::class, 'assignStudent'])
                 ->middleware('permission:teacher_assignments.manage');
             Route::delete('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'endActive'])

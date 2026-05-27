@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class TeacherStudentAssignmentService
 {
+    public function __construct(private readonly TeacherSlotDiscoveryService $teacherSlots) {}
+
     /**
      * @param  array<string, mixed>  $attributes
      */
@@ -156,27 +158,7 @@ class TeacherStudentAssignmentService
      */
     private function activeStudentAndTeacherErrors(User $student, User $teacher, ?int $exceptStudentId = null): array
     {
-        $errors = [];
-
-        if ($student->status !== User::STATUS_ACTIVE || ! $student->hasRole('student')) {
-            $errors['student_id'] = 'The selected student must be an active student.';
-        }
-
-        if ($teacher->status !== User::STATUS_ACTIVE || ! $teacher->hasRole('teacher')) {
-            $errors['teacher_id'] = 'The selected teacher must be an active teacher.';
-        } elseif ($teacher->teacherProfile?->internal_status !== null
-            && ! in_array($teacher->teacherProfile->internal_status, ['available', 'active'], true)) {
-            $errors['teacher_id'] = 'The selected teacher is currently unavailable.';
-        } elseif ($teacher->teacherProfile?->class_load !== null
-            && TeacherStudentAssignment::query()
-                ->where('teacher_id', $teacher->id)
-                ->active()
-                ->when($exceptStudentId, fn ($query) => $query->where('student_id', '!=', $exceptStudentId))
-                ->count() >= $teacher->teacherProfile->class_load) {
-            $errors['teacher_id'] = 'The selected teacher has reached assignment capacity.';
-        }
-
-        return $errors;
+        return $this->teacherSlots->assignmentErrors($student, $teacher);
     }
 
     /**

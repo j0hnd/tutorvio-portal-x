@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\TeacherAssignments\StoreTeacherStudentAssignmentRequest;
 use App\Http\Requests\TeacherAssignments\UpdateTeacherStudentAssignmentRequest;
 use App\Http\Resources\TeacherAssignments\TeacherStudentAssignmentResource;
+use App\Models\LessonRecord;
+use App\Models\Scheduling\ClassSchedule;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use App\Services\TeacherSlotDiscoveryService;
 use App\Services\TeacherStudentAssignmentService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +20,10 @@ use Illuminate\Validation\Rule;
 
 class TeacherStudentAssignmentController extends Controller
 {
-    public function __construct(private readonly TeacherStudentAssignmentService $assignments) {}
+    public function __construct(
+        private readonly TeacherStudentAssignmentService $assignments,
+        private readonly TeacherSlotDiscoveryService $teacherSlots
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -74,6 +80,26 @@ class TeacherStudentAssignmentController extends Controller
         return response()->json([
             'data' => new TeacherStudentAssignmentResource($assignment),
         ], $assignment->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function availableTeachers(Request $request, User $student): JsonResponse
+    {
+        Gate::authorize('viewAny', TeacherStudentAssignment::class);
+        abort_unless($student->hasRole('student'), 404);
+
+        $validated = $request->validate([
+            'from' => ['sometimes', 'date'],
+            'to' => ['sometimes', 'date', 'after_or_equal:from'],
+            'timezone' => ['sometimes', 'string', Rule::in(timezone_identifiers_list())],
+            'lesson_type' => ['sometimes', 'string', Rule::in([...ClassSchedule::CLASS_TYPES, ...LessonRecord::LESSON_TYPES])],
+            'course' => ['sometimes', 'string', 'max:255'],
+            'slot_minutes' => ['sometimes', 'integer', 'min:15', 'max:240'],
+            'max_results' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return response()->json([
+            'data' => $this->teacherSlots->discoverForStudent($student, $validated),
+        ]);
     }
 
     public function endActive(Request $request, User $student): JsonResponse

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Scheduling\TeacherAvailability;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -164,6 +165,87 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_discover_available_teachers_for_student_assignment(): void
+    {
+        $this->student->studentProfile()->create([
+            'course' => 'General English',
+            'class_type' => 'regular',
+        ]);
+
+        $availableTeacher = $this->createTeacherOption('Available Teacher', [
+            'class_load' => 3,
+            'internal_status' => 'available',
+            'specialization' => 'General English regular lessons',
+        ], hasAvailability: true);
+        $this->createActiveAssignmentForTeacher($availableTeacher);
+
+        $fullTeacher = $this->createTeacherOption('Full Teacher', [
+            'class_load' => 1,
+            'internal_status' => 'available',
+            'specialization' => 'General English regular lessons',
+        ], hasAvailability: true);
+        $this->createActiveAssignmentForTeacher($fullTeacher);
+
+        $this->createTeacherOption('No Schedule Teacher', [
+            'class_load' => 3,
+            'internal_status' => 'available',
+            'specialization' => 'General English regular lessons',
+        ]);
+
+        $this->createTeacherOption('Unavailable Teacher', [
+            'class_load' => 3,
+            'internal_status' => 'unavailable',
+            'specialization' => 'General English regular lessons',
+        ], hasAvailability: true);
+
+        $this->createTeacherOption('Incompatible Teacher', [
+            'class_load' => 3,
+            'internal_status' => 'available',
+            'specialization' => 'IELTS trial prep',
+        ], hasAvailability: true);
+
+        $inactiveTeacher = $this->createTeacherOption('Inactive Teacher', [
+            'class_load' => 3,
+            'internal_status' => 'available',
+            'specialization' => 'General English regular lessons',
+        ], hasAvailability: true);
+        $inactiveTeacher->update(['status' => User::STATUS_INACTIVE]);
+
+        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila&slot_minutes=60")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.teacher_id', $availableTeacher->id)
+            ->assertJsonPath('data.0.reasons.has_capacity', true)
+            ->assertJsonPath('data.0.reasons.has_open_schedule', true)
+            ->assertJsonPath('data.0.reasons.compatible_lesson_type', true)
+            ->assertJsonPath('data.0.reasons.available_slots', 3)
+            ->assertJsonPath('data.0.reasons.current_active_students', 1)
+            ->assertJsonPath('data.0.reasons.max_capacity', 3)
+            ->assertJsonPath('data.0.available_capacity', 2)
+            ->assertJsonPath('data.0.workload_status', 'available');
+    }
+
+    public function test_available_teacher_discovery_requires_admin_or_staff_permission(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers")
+            ->assertForbidden();
+
+        $staff->givePermissionTo('teacher_assignments.view');
+
+        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers")
+            ->assertOk();
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers")
+            ->assertForbidden();
+    }
+
     public function test_assignment_can_be_ended_and_profile_active_teacher_is_cleared(): void
     {
         $assignmentId = $this->postJson('/api/v1/admin/teacher-student-assignments', [
@@ -189,6 +271,47 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         $this->assertDatabaseHas('student_profiles', [
             'user_id' => $this->student->id,
             'assigned_teacher_id' => null,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $profile
+     */
+    private function createTeacherOption(string $name, array $profile, bool $hasAvailability = false): User
+    {
+        $teacher = User::factory()->create([
+            'name' => $name,
+            'status' => User::STATUS_ACTIVE,
+            'timezone' => 'Asia/Manila',
+        ]);
+        $teacher->assignRole('teacher');
+        $teacher->teacherProfile()->create($profile);
+
+        if ($hasAvailability) {
+            TeacherAvailability::create([
+                'teacher_id' => $teacher->id,
+                'day_of_week' => 1,
+                'start_time' => '09:00',
+                'end_time' => '12:00',
+                'timezone' => 'Asia/Manila',
+            ]);
+        }
+
+        return $teacher;
+    }
+
+    private function createActiveAssignmentForTeacher(User $teacher): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        TeacherStudentAssignment::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => '2026-05-01 00:00:00',
+            'status' => TeacherStudentAssignment::STATUS_ACTIVE,
+            'active_student_id' => $student->id,
         ]);
     }
 
