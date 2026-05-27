@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
+use App\Http\Controllers\Api\Admin\TeacherEarningController as AdminTeacherEarningController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\Scheduling\TeacherUnavailableDateController;
 use App\Http\Controllers\Api\StudentPackageHistoryController;
 use App\Http\Controllers\Api\StudentPackageSummaryController;
 use App\Http\Controllers\Api\StudentProgressRecordController;
+use App\Http\Controllers\Api\TeacherEarningController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -107,6 +109,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/homeworks/{homework}', [HomeworkController::class, 'show']);
         Route::patch('/homeworks/{homework}/progress', [HomeworkController::class, 'updateProgress']);
         Route::patch('/homeworks/{homework}/review', [HomeworkController::class, 'review']);
+        Route::get('/teacher-earnings', [TeacherEarningController::class, 'index']);
         Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
         Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
         Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);
@@ -155,6 +158,10 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/teachers/{teacher}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
                 ->middleware('permission:teacher_compensations.view');
+            Route::get('/teachers/{teacher}/teacher-earnings', [AdminTeacherEarningController::class, 'teacher'])
+                ->middleware('permission:teacher_earnings.view');
+            Route::get('/teacher-earnings', [AdminTeacherEarningController::class, 'index'])
+                ->middleware('permission:teacher_earnings.view');
             Route::post('/teacher-compensations/{teacherCompensation}/archive', [TeacherCompensationController::class, 'archive'])
                 ->middleware('permission:teacher_compensations.manage');
             Route::get('/teacher-compensations/{teacherCompensation}/rate-rules', [TeacherCompensationRateRuleController::class, 'index'])
