@@ -80,15 +80,35 @@ export interface LessonNote {
   updatedAt?: string
 }
 
-export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'
+export type AttendanceStatus =
+  | 'PRESENT'
+  | 'ABSENT_WITH_NOTICE'
+  | 'ABSENT_WITHOUT_NOTICE'
+  | 'TEACHER_ABSENT'
+  | 'RESCHEDULED'
+  | 'LATE'
+  | 'EXCUSED'
 
 export interface LessonAttendance {
   lessonId: string
   teacherStatus: AttendanceStatus
   studentStatus: AttendanceStatus
   absenceReason?: string
+  comments?: string
   markedAt: string
   markedById: string
+  isOverridden?: boolean
+  overriddenById?: string
+  overriddenAt?: string
+}
+
+export interface AttendanceFilters {
+  dateFrom?: string
+  dateTo?: string
+  teacherId?: string
+  studentId?: string
+  status?: AttendanceStatus
+  subject?: string
 }
 
 export type MaterialType = 'PDF' | 'VIDEO' | 'LINK' | 'DOCUMENT' | 'IMAGE'
@@ -436,20 +456,19 @@ const MOCK_NOTES_INITIAL: LessonNote[] = [
 ]
 
 const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
-  { lessonId: 'l1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T09:02:00Z', markedById: 'u2' },
+  { lessonId: 'l1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', comments: 'Good focus throughout.', markedAt: '2026-05-18T09:02:00Z', markedById: 'u2' },
   { lessonId: 'l2', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T14:02:00Z', markedById: 'u2' },
-  { lessonId: 'l3', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student did not join. No prior notice.', markedAt: '2026-05-19T10:20:00Z', markedById: 'u2' },
+  { lessonId: 'l3', teacherStatus: 'PRESENT', studentStatus: 'ABSENT_WITHOUT_NOTICE', absenceReason: 'Student did not join. No prior notice.', comments: 'Sent follow-up message via portal.', markedAt: '2026-05-19T10:20:00Z', markedById: 'u2' },
   { lessonId: 'l4', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-20T09:02:00Z', markedById: 'u2' },
   { lessonId: 'l5', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-21T09:02:00Z', markedById: 'u2' },
   { lessonId: 'ls1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T10:02:00Z', markedById: 'u6' },
   { lessonId: 'lm1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T09:02:00Z', markedById: 'u7' },
-  { lessonId: 'lm2', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student did not show. Waiting for response.', markedAt: '2026-05-19T10:30:00Z', markedById: 'u7' },
+  { lessonId: 'lm2', teacherStatus: 'PRESENT', studentStatus: 'ABSENT_WITHOUT_NOTICE', absenceReason: 'Student did not show. Waiting for response.', markedAt: '2026-05-19T10:30:00Z', markedById: 'u7', isOverridden: true, overriddenById: 'u1admin', overriddenAt: '2026-05-19T14:00:00Z' },
   { lessonId: 'ldemo1', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T17:05:00Z', markedById: 'u2' },
   { lessonId: 'ldemo2', teacherStatus: 'PRESENT', studentStatus: 'LATE', absenceReason: 'Student joined 8 minutes late due to internet issues.', markedAt: '2026-05-25T18:50:00Z', markedById: 'u6' },
-  { lessonId: 'l2', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-18T15:02:00Z', markedById: 'u2' },
   { lessonId: 'l8', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T10:02:00Z', markedById: 'u2' },
   { lessonId: 'ls2', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-19T09:02:00Z', markedById: 'u6' },
-  { lessonId: 'ls3', teacherStatus: 'PRESENT', studentStatus: 'ABSENT', absenceReason: 'Student cancelled 2 hours before session. No makeup scheduled yet.', markedAt: '2026-05-20T10:05:00Z', markedById: 'u6' },
+  { lessonId: 'ls3', teacherStatus: 'PRESENT', studentStatus: 'ABSENT_WITH_NOTICE', absenceReason: 'Student cancelled 2 hours before session. No makeup scheduled yet.', markedAt: '2026-05-20T10:05:00Z', markedById: 'u6' },
   { lessonId: 'ls5', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-25T10:02:00Z', markedById: 'u6' },
   { lessonId: 'lm3', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-20T09:02:00Z', markedById: 'u7' },
   { lessonId: 'lm4', teacherStatus: 'PRESENT', studentStatus: 'PRESENT', markedAt: '2026-05-21T10:02:00Z', markedById: 'u7' },
@@ -786,21 +805,79 @@ export const useScheduleStore = defineStore('schedule', () => {
     return lessonAttendance.value.find(a => a.lessonId === lessonId)
   }
 
-  function markAttendance(lessonId: string, teacherStatus: AttendanceStatus, studentStatus: AttendanceStatus, absenceReason: string, markerId: string): void {
+  function markAttendance(
+    lessonId: string,
+    teacherStatus: AttendanceStatus,
+    studentStatus: AttendanceStatus,
+    absenceReason: string,
+    markerId: string,
+    comments?: string,
+  ): void {
     const existing = lessonAttendance.value.find(a => a.lessonId === lessonId)
     if (existing) {
       existing.teacherStatus = teacherStatus
       existing.studentStatus = studentStatus
       existing.absenceReason = absenceReason || undefined
+      existing.comments = comments || undefined
       existing.markedAt = new Date().toISOString()
       existing.markedById = markerId
     } else {
       lessonAttendance.value.push({
         lessonId, teacherStatus, studentStatus,
         absenceReason: absenceReason || undefined,
+        comments: comments || undefined,
         markedAt: new Date().toISOString(), markedById: markerId,
       })
     }
+  }
+
+  function overrideAttendance(
+    lessonId: string,
+    teacherStatus: AttendanceStatus,
+    studentStatus: AttendanceStatus,
+    absenceReason: string,
+    adminId: string,
+    comments?: string,
+  ): void {
+    const existing = lessonAttendance.value.find(a => a.lessonId === lessonId)
+    const now = new Date().toISOString()
+    if (existing) {
+      existing.teacherStatus = teacherStatus
+      existing.studentStatus = studentStatus
+      existing.absenceReason = absenceReason || undefined
+      existing.comments = comments || undefined
+      existing.isOverridden = true
+      existing.overriddenById = adminId
+      existing.overriddenAt = now
+    } else {
+      lessonAttendance.value.push({
+        lessonId, teacherStatus, studentStatus,
+        absenceReason: absenceReason || undefined,
+        comments: comments || undefined,
+        markedAt: now, markedById: adminId,
+        isOverridden: true, overriddenById: adminId, overriddenAt: now,
+      })
+    }
+  }
+
+  function getAllAttendance(filters: AttendanceFilters = {}): (LessonAttendance & { lesson: ScheduleLesson })[] {
+    return lessonAttendance.value
+      .map(a => {
+        const lesson = lessons.value.find(l => l.id === a.lessonId)
+        return lesson ? { ...a, lesson } : null
+      })
+      .filter((a): a is LessonAttendance & { lesson: ScheduleLesson } => a !== null)
+      .filter(a => {
+        const lessonDate = a.lesson.startTime.slice(0, 10)
+        if (filters.dateFrom && lessonDate < filters.dateFrom) return false
+        if (filters.dateTo && lessonDate > filters.dateTo) return false
+        if (filters.teacherId && a.lesson.teacherId !== filters.teacherId) return false
+        if (filters.studentId && a.lesson.studentId !== filters.studentId) return false
+        if (filters.status && a.studentStatus !== filters.status && a.teacherStatus !== filters.status) return false
+        if (filters.subject && !a.lesson.subject.toLowerCase().includes(filters.subject.toLowerCase())) return false
+        return true
+      })
+      .sort((a, b) => b.lesson.startTime.localeCompare(a.lesson.startTime))
   }
 
   function getMaterialsForLesson(lessonId: string): LessonMaterial[] {
@@ -934,7 +1011,9 @@ export const useScheduleStore = defineStore('schedule', () => {
     updateNote,
     deleteNote,
     getAttendanceForLesson,
+    getAllAttendance,
     markAttendance,
+    overrideAttendance,
     getMaterialsForLesson,
     addMaterial,
     deleteMaterial,

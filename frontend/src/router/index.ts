@@ -81,6 +81,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['STUDENT', 'ADMIN'] },
   },
 
+  /* ── Attendance ── */
+  {
+    path: '/attendance',
+    name: 'Attendance',
+    component: () => import('@/views/AttendanceView.vue'),
+    meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN', 'STAFF', 'STUDENT'] },
+  },
+
   /* ── Teacher / Admin / Staff ── */
   {
     path: '/students',

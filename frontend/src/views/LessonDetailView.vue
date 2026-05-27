@@ -9,7 +9,10 @@
       Back to Lessons
     </button>
 
-    <!-- Header card -->
+    <!-- Two-column top layout -->
+    <div :class="['ld-top-cols', { 'ld-top-cols--single': activeJoinState === 'terminal' }]">
+
+    <!-- Header card (left) -->
     <div class="ld-header-card">
       <div class="ld-header-card__top">
         <div class="ld-header-card__title-row">
@@ -47,15 +50,25 @@
           <span class="ld-info-value" style="color: var(--tv-primary); font-weight: 600;">3 Credits</span>
         </div>
       </div>
+
+      <!-- Before You Join tips (shown inside left card when join panel is active) -->
+      <div v-if="['upcoming', 'soon', 'joinable', 'live'].includes(activeJoinState)" class="ld-join-col--tips">
+        <p class="ld-tips__heading">Before you join</p>
+        <ul class="ld-tips__list">
+          <li>Use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> for the best experience.</li>
+          <li>Check your <strong>camera and microphone</strong> in your browser settings.</li>
+          <li>Connect to a <strong>stable WiFi</strong> or wired network.</li>
+          <li>Find a <strong>quiet place</strong> with good lighting.</li>
+          <li>Have your <strong>notebook or materials</strong> ready.</li>
+          <li>If you have issues, contact your teacher via the internal chat.</li>
+        </ul>
+      </div>
     </div>
 
-    <!-- ─── Join Panel ─── -->
+    <!-- ─── Join Panel (right card) ─── -->
     <div v-if="activeJoinState !== 'terminal'" :class="['ld-join-panel', `ld-join-panel--${activeJoinState}`]">
 
-      <!-- Two-column grid: left = state content, right = tips -->
-      <div class="ld-join-grid">
-
-        <!-- ── LEFT COLUMN: state content ── -->
+        <!-- ── State content ── -->
         <div class="ld-join-col ld-join-col--main">
 
           <!-- PENDING -->
@@ -210,21 +223,6 @@
 
         </div>
 
-        <!-- ── RIGHT COLUMN: tips ── -->
-        <div v-if="['upcoming', 'soon', 'joinable', 'live'].includes(activeJoinState)" class="ld-join-col ld-join-col--tips">
-          <p class="ld-tips__heading">Before you join</p>
-          <ul class="ld-tips__list">
-            <li>Use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> for the best experience.</li>
-            <li>Check your <strong>camera and microphone</strong> in your browser settings.</li>
-            <li>Connect to a <strong>stable WiFi</strong> or wired network.</li>
-            <li>Find a <strong>quiet place</strong> with good lighting.</li>
-            <li>Have your <strong>notebook or materials</strong> ready.</li>
-            <li>If you have issues, contact your teacher via the internal chat.</li>
-          </ul>
-        </div>
-
-      </div>
-
       <!--
         ── Embedded Meet Placeholder ─────────────────────────────────────────────
         Future: replace external meeting link with embedded classroom.
@@ -258,6 +256,8 @@
       </div>
 
     </div>
+
+    </div><!-- /ld-top-cols -->
 
     <!-- Terminal status notice (cancelled / missed / rescheduled) -->
     <div v-if="terminalStatus && !['COMPLETED'].includes(lesson.status)" :class="['ld-notice', `ld-notice--${statusClass}`]">
@@ -353,21 +353,29 @@
 
         <!-- Current attendance -->
         <div v-if="attendance && !showAttendanceForm" class="ld-attendance-card">
+          <div v-if="attendance.isOverridden" class="ld-attendance-override-notice">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1.5L12.5 11H1.5L7 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 5.5v3M7 10h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            This record was overridden by an admin.
+          </div>
           <div class="ld-attendance-row">
             <span class="ld-attendance-who">Teacher</span>
-            <span :class="['ld-attendance-status', `ld-attendance-status--${attendance.teacherStatus.toLowerCase()}`]">
-              {{ attendance.teacherStatus }}
+            <span :class="['ld-attendance-status', `ld-attendance-status--${attStatusClass(attendance.teacherStatus)}`]">
+              {{ attStatusLabel(attendance.teacherStatus) }}
             </span>
           </div>
           <div class="ld-attendance-row">
             <span class="ld-attendance-who">Student</span>
-            <span :class="['ld-attendance-status', `ld-attendance-status--${attendance.studentStatus.toLowerCase()}`]">
-              {{ attendance.studentStatus }}
+            <span :class="['ld-attendance-status', `ld-attendance-status--${attStatusClass(attendance.studentStatus)}`]">
+              {{ attStatusLabel(attendance.studentStatus) }}
             </span>
           </div>
           <div v-if="attendance.absenceReason" class="ld-attendance-reason">
             <span class="ld-attendance-reason__label">Reason</span>
             <span class="ld-attendance-reason__text">{{ attendance.absenceReason }}</span>
+          </div>
+          <div v-if="attendance.comments" class="ld-attendance-reason">
+            <span class="ld-attendance-reason__label">Comments</span>
+            <span class="ld-attendance-reason__text">{{ attendance.comments }}</span>
           </div>
           <p class="ld-attendance-meta">Marked {{ formatDateTime(attendance.markedAt) }}</p>
         </div>
@@ -376,16 +384,22 @@
         <!-- Attendance form -->
         <div v-if="showAttendanceForm" class="ld-attendance-form">
           <div class="ld-form-row">
-            <TVSelect v-model="attTeacher" :options="attendanceOptions" label="Teacher" />
-            <TVSelect v-model="attStudent" :options="attendanceOptions" label="Student" />
+            <TVSelect v-model="attTeacher" :options="attendanceOptions" label="Teacher Status" />
+            <TVSelect v-model="attStudent" :options="attendanceOptions" label="Student Status" />
           </div>
           <div class="ld-field">
             <label class="ld-label">Absence Reason (optional)</label>
             <input v-model="attReason" type="text" class="ld-input" placeholder="e.g. Student did not show, no prior notice" />
           </div>
+          <div class="ld-field">
+            <label class="ld-label">Comments (optional)</label>
+            <textarea v-model="attComments" class="ld-textarea" rows="2" placeholder="Additional notes visible to admins…" />
+          </div>
           <div class="ld-form-actions">
             <button class="ld-btn ld-btn--ghost" type="button" @click="showAttendanceForm = false">Cancel</button>
-            <button class="ld-btn ld-btn--primary" type="button" @click="saveAttendance">Save Attendance</button>
+            <button class="ld-btn ld-btn--primary" type="button" @click="saveAttendance">
+              {{ attendance ? 'Update Attendance' : 'Save Attendance' }}
+            </button>
           </div>
         </div>
       </section>
@@ -768,27 +782,47 @@ function removeNote(noteId: string): void {
 
 // ── Attendance form ──
 const showAttendanceForm = ref(false)
-const attTeacher = ref<AttendanceStatus>('PRESENT')
-const attStudent = ref<AttendanceStatus>('PRESENT')
-const attReason  = ref('')
+const attTeacher  = ref<AttendanceStatus>('PRESENT')
+const attStudent  = ref<AttendanceStatus>('PRESENT')
+const attReason   = ref('')
+const attComments = ref('')
 
 const attendanceOptions = [
-  { value: 'PRESENT', label: 'Present' },
-  { value: 'ABSENT',  label: 'Absent' },
-  { value: 'LATE',    label: 'Late' },
-  { value: 'EXCUSED', label: 'Excused' },
+  { value: 'PRESENT',               label: 'Present' },
+  { value: 'LATE',                  label: 'Late' },
+  { value: 'ABSENT_WITH_NOTICE',    label: 'Absent with notice' },
+  { value: 'ABSENT_WITHOUT_NOTICE', label: 'Absent without notice' },
+  { value: 'EXCUSED',               label: 'Excused' },
+  { value: 'TEACHER_ABSENT',        label: 'Teacher absent' },
+  { value: 'RESCHEDULED',           label: 'Rescheduled' },
 ]
+
+function attStatusLabel(status: AttendanceStatus): string {
+  return attendanceOptions.find(o => o.value === status)?.label ?? status
+}
+
+function attStatusClass(status: AttendanceStatus): string {
+  if (status === 'PRESENT') return 'present'
+  if (status === 'LATE') return 'late'
+  if (status === 'ABSENT_WITH_NOTICE') return 'absent-notice'
+  if (status === 'ABSENT_WITHOUT_NOTICE') return 'absent'
+  if (status === 'EXCUSED') return 'excused'
+  if (status === 'TEACHER_ABSENT') return 'absent'
+  if (status === 'RESCHEDULED') return 'rescheduled'
+  return 'default'
+}
 
 function openAttendanceForm(): void {
   const a = attendance.value
-  attTeacher.value = a?.teacherStatus ?? 'PRESENT'
-  attStudent.value = a?.studentStatus ?? 'PRESENT'
-  attReason.value  = a?.absenceReason ?? ''
+  attTeacher.value  = a?.teacherStatus ?? 'PRESENT'
+  attStudent.value  = a?.studentStatus ?? 'PRESENT'
+  attReason.value   = a?.absenceReason ?? ''
+  attComments.value = a?.comments ?? ''
   showAttendanceForm.value = true
 }
 
 function saveAttendance(): void {
-  schedule.markAttendance(lessonId, attTeacher.value, attStudent.value, attReason.value, userId.value)
+  schedule.markAttendance(lessonId, attTeacher.value, attStudent.value, attReason.value, userId.value, attComments.value)
   showAttendanceForm.value = false
   toast.success('Attendance saved successfully!')
 }
@@ -925,6 +959,17 @@ function formatDateTime(iso: string): string {
 .ld-info-value { font-size: var(--tv-text-sm); color: var(--tv-text); font-weight: var(--tv-font-medium); }
 .ld-info-value--muted { font-weight: normal; color: var(--tv-text-secondary); word-break: break-all; }
 
+/* ── Top two-column layout ── */
+.ld-top-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-space-5);
+  align-items: stretch;
+}
+.ld-top-cols--single {
+  grid-template-columns: 1fr;
+}
+
 /* ── Join Panel ── */
 .ld-join-panel {
   border-radius: var(--tv-radius-md);
@@ -934,14 +979,6 @@ function formatDateTime(iso: string): string {
   flex-direction: column;
   gap: var(--tv-space-4);
   background: var(--tv-bg-card);
-}
-
-/* Two-column grid */
-.ld-join-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--tv-space-5);
-  align-items: start;
 }
 
 /* Left column */
@@ -1035,7 +1072,7 @@ function formatDateTime(iso: string): string {
 }
 .ld-countdown-unit { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .ld-countdown-val {
-  font-size: 2.75rem; font-weight: var(--tv-font-bold);
+  font-size: 4.5rem; font-weight: var(--tv-font-bold);
   color: var(--tv-primary); line-height: 1; font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -1237,10 +1274,25 @@ function formatDateTime(iso: string): string {
   font-size: var(--tv-text-sm); font-weight: var(--tv-font-semibold);
   padding: 2px var(--tv-space-3); border-radius: var(--tv-radius-full); border: 1px solid;
 }
-.ld-attendance-status--present { background: var(--tv-success-soft); color: var(--tv-success-fg); border-color: var(--tv-success-border); }
-.ld-attendance-status--absent  { background: var(--tv-danger-soft); color: var(--tv-danger-fg); border-color: var(--tv-danger-border); }
-.ld-attendance-status--late    { background: hsl(38,88%,93%); color: hsl(38,75%,35%); border-color: hsl(38,70%,70%); }
-.ld-attendance-status--excused { background: var(--tv-neutral-soft); color: var(--tv-neutral); border-color: var(--tv-neutral-border); }
+.ld-attendance-status--present       { background: var(--tv-success-soft); color: var(--tv-success-fg); border-color: var(--tv-success-border); }
+.ld-attendance-status--absent        { background: var(--tv-danger-soft); color: var(--tv-danger-fg); border-color: var(--tv-danger-border); }
+.ld-attendance-status--absent-notice { background: hsl(30,85%,92%); color: hsl(25,75%,35%); border-color: hsl(30,70%,75%); }
+.ld-attendance-status--late          { background: hsl(38,88%,93%); color: hsl(38,75%,35%); border-color: hsl(38,70%,70%); }
+.ld-attendance-status--excused       { background: var(--tv-neutral-soft); color: var(--tv-neutral); border-color: var(--tv-neutral-border); }
+.ld-attendance-status--rescheduled   { background: hsl(270,50%,93%); color: hsl(270,55%,40%); border-color: hsl(270,45%,78%); }
+.ld-attendance-status--default       { background: var(--tv-bg-soft); color: var(--tv-text-muted); border-color: var(--tv-border); }
+.ld-attendance-override-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--tv-text-xs);
+  color: hsl(30, 75%, 35%);
+  background: hsl(38, 90%, 93%);
+  border: 1px solid hsl(38, 75%, 75%);
+  border-radius: var(--tv-radius);
+  padding: 6px 10px;
+  margin-bottom: var(--tv-space-2);
+}
 .ld-attendance-reason { display: flex; flex-direction: column; gap: 2px; padding-top: var(--tv-space-2); border-top: 1px solid var(--tv-border); }
 .ld-attendance-reason__label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; }
 .ld-attendance-reason__text  { font-size: var(--tv-text-sm); color: var(--tv-text); }
@@ -1372,11 +1424,14 @@ function formatDateTime(iso: string): string {
   gap: var(--tv-space-4); padding: var(--tv-space-8); color: var(--tv-text-muted);
 }
 
+@media (max-width: 900px) {
+  .ld-top-cols { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
   .ld-form-row { grid-template-columns: 1fr; }
   .ld-info-grid { grid-template-columns: 1fr 1fr; }
   .ld-join-panel { padding: var(--tv-space-4); }
-  .ld-join-grid { grid-template-columns: 1fr; }
   .ld-countdown-val { font-size: 2rem; }
 }
 

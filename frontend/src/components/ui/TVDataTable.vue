@@ -10,6 +10,7 @@
     <!-- Table -->
     <template v-else>
       <div v-if="hasRows" class="tv-dt__wrap">
+        <div class="tv-dt__scroll-wrap">
         <div class="tv-dt__scroll">
           <table class="tv-dt__table" :aria-label="ariaLabel">
             <thead>
@@ -90,6 +91,7 @@
             </tbody>
           </table>
         </div>
+        </div><!-- /tv-dt__scroll-wrap -->
 
         <!-- Footer -->
         <div class="tv-dt__footer">
@@ -428,7 +430,11 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md);
   box-shadow: var(--tv-shadow-sm);
+}
+
+.tv-dt__scroll-wrap {
   overflow: hidden;
+  border-radius: var(--tv-radius-md) var(--tv-radius-md) 0 0;
 }
 
 .tv-dt__scroll {

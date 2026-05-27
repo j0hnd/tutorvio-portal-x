@@ -138,8 +138,8 @@
           </div>
         </div>
 
-        <!-- Quick actions -->
-        <div class="sd-account-actions">
+        <!-- Quick actions — only admins can deactivate -->
+        <div v-if="isAdmin" class="sd-account-actions">
           <button
             class="sd-action-btn"
             :class="student.isActive ? 'sd-action-btn--danger' : 'sd-action-btn--success'"
@@ -152,47 +152,54 @@
       </section>
     </div>
 
-    <!-- Recent Lessons -->
+    <!-- Lessons -->
     <section class="sd-panel sd-panel--full">
       <div class="sd-panel__header">
         <h2 class="sd-panel__title">Lessons</h2>
-        <button class="sd-panel__link" type="button" @click="router.push({ name: 'Lessons' })">View all →</button>
+        <div class="sd-panel__search">
+          <TVInput v-model="lessonSearch" placeholder="Search lessons…" aria-label="Search lessons">
+            <template #icon-start>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <circle cx="5.5" cy="5.5" r="3.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M9.5 9.5l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </template>
+          </TVInput>
+        </div>
       </div>
 
-      <div v-if="recentLessons.length" class="sd-lessons-table-wrap">
-        <table class="sd-lessons-table" aria-label="Student lessons">
-          <thead>
-            <tr>
-              <th class="sd-th">Subject</th>
-              <th class="sd-th">Teacher</th>
-              <th class="sd-th">Date</th>
-              <th class="sd-th">Status</th>
-              <th class="sd-th"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="lesson in recentLessons"
-              :key="lesson.id"
-              class="sd-tr"
-              @click="router.push({ name: 'LessonDetail', params: { id: lesson.id } })"
+      <TVDataTable
+        :columns="lessonColumns"
+        :rows="lessonRows"
+        row-key="id"
+        :page-size="10"
+        :page-size-options="[10, 25, 50]"
+        clickable
+        aria-label="Student lessons"
+        empty-title="No lessons found"
+        empty-subtitle="Try adjusting your search"
+        @row-click="(row) => router.push({ name: 'LessonDetail', params: { id: row.id } })"
+      >
+        <template #cell-date="{ row }">
+          <span class="sd-td--muted">{{ row._date }}</span>
+        </template>
+
+        <template #cell-status="{ row }">
+          <span :class="['sd-status', `sd-status--${row._statusClass}`]">{{ row._statusLabel }}</span>
+        </template>
+
+        <template #cell-actions="{ row }">
+          <div @click.stop>
+            <button
+              class="sd-view-btn"
+              type="button"
+              @click="router.push({ name: 'LessonDetail', params: { id: row.id } })"
             >
-              <td class="sd-td sd-td--subject">{{ lesson.title }}</td>
-              <td class="sd-td sd-td--muted">{{ lesson.teacherName }}</td>
-              <td class="sd-td sd-td--muted">{{ formatDate(lesson.startTime) }}</td>
-              <td class="sd-td">
-                <span :class="['sd-status', `sd-status--${statusClass(lesson.status)}`]">{{ statusLabel(lesson.status) }}</span>
-              </td>
-              <td class="sd-td sd-td--right">
-                <button class="sd-view-btn" type="button" @click.stop="router.push({ name: 'LessonDetail', params: { id: lesson.id } })">
-                  View →
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-else class="sd-empty-lessons">No lessons recorded for this student yet.</p>
+              View →
+            </button>
+          </div>
+        </template>
+      </TVDataTable>
     </section>
 
   </div>
@@ -205,13 +212,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUsersStore } from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
+import { useViewAs } from '@/composables/useViewAs'
 import { useToast } from '@/composables/useToast'
 import TVButton from '@/components/ui/TVButton.vue'
 import TVBadge from '@/components/ui/TVBadge.vue'
+import TVInput from '@/components/ui/TVInput.vue'
+import TVDataTable from '@/components/ui/TVDataTable.vue'
+import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import type { LessonStatus } from '@/stores/schedule'
 
 const route    = useRoute()
@@ -219,6 +230,10 @@ const router   = useRouter()
 const store    = useUsersStore()
 const schedule = useScheduleStore()
 const toast    = useToast()
+const { effectiveRole } = useViewAs()
+
+const isTeacher = computed(() => effectiveRole.value === 'TEACHER')
+const isAdmin   = computed(() => effectiveRole.value === 'ADMIN' || effectiveRole.value === 'STAFF')
 
 const studentId = route.params.id as string
 const student   = computed(() => store.getUserById(studentId))
@@ -241,7 +256,28 @@ const studentLessons = computed(() =>
     .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
 )
 
-const recentLessons = computed(() => studentLessons.value.slice(0, 10))
+const lessonSearch = ref('')
+
+const lessonColumns: DataTableColumn[] = [
+  { key: 'title',       label: 'Subject',  sortable: true,  width: '30%' },
+  { key: 'teacherName', label: 'Teacher',  sortable: true,  width: '20%', hide: 'sm' },
+  { key: 'date',        label: 'Date',     sortable: true,  sortKey: '_startRaw', width: '22%' },
+  { key: 'status',      label: 'Status',   sortable: true,  sortKey: 'status', width: '18%' },
+  { key: 'actions',     label: '',         stopClick: true, width: '10%' },
+]
+
+const lessonRows = computed(() => {
+  const q = lessonSearch.value.toLowerCase()
+  return studentLessons.value
+    .filter(l => !q || l.title.toLowerCase().includes(q) || l.teacherName.toLowerCase().includes(q))
+    .map(l => ({
+      ...l,
+      _startRaw: l.startTime,
+      _date: formatDate(l.startTime),
+      _statusClass: statusClass(l.status),
+      _statusLabel: statusLabel(l.status),
+    }))
+})
 
 const totalLessons     = computed(() => studentLessons.value.length)
 const completedLessons = computed(() => studentLessons.value.filter(l => l.status === 'COMPLETED').length)
@@ -413,6 +449,7 @@ function toggleActive(): void {
   cursor: pointer; padding: 0; font-weight: var(--tv-font-medium);
 }
 .sd-panel__link:hover { text-decoration: underline; }
+.sd-panel__search { width: 220px; }
 
 /* Info list */
 .sd-info-list { display: flex; flex-direction: column; gap: 0; }
@@ -426,9 +463,9 @@ function toggleActive(): void {
 
 .sd-info-label {
   font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted);
-  text-transform: uppercase; letter-spacing: .05em; width: 120px; flex-shrink: 0;
+  text-transform: uppercase; letter-spacing: .05em; width: 148px; min-width: 148px; flex-shrink: 0;
 }
-.sd-info-value { font-size: var(--tv-text-sm); color: var(--tv-text); }
+.sd-info-value { font-size: var(--tv-text-sm); color: var(--tv-text); flex: 1; min-width: 0; }
 .sd-info-text  { font-size: var(--tv-text-sm); color: var(--tv-text); line-height: 1.6; margin: 0; }
 
 /* Account actions */

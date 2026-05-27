@@ -97,11 +97,12 @@
             @click="router.push(`/students/${row.id}`)"
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-              <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
-              <circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M1.5 7.5C1.5 7.5 3.5 3 7.5 3s6 4.5 6 4.5-2 4.5-6 4.5-6-4.5-6-4.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+              <circle cx="7.5" cy="7.5" r="1.8" stroke="currentColor" stroke-width="1.3"/>
             </svg>
           </button>
           <button
+            v-if="canCreate"
             class="sv-icon-btn sv-icon-btn--edit"
             :aria-label="`Edit ${row._fullName}`"
             title="Edit"
@@ -135,6 +136,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUsersStore } from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
+import { useAuthStore } from '@/stores/auth'
 import { useViewAs } from '@/composables/useViewAs'
 import TVButton from '@/components/ui/TVButton.vue'
 import TVInput from '@/components/ui/TVInput.vue'
@@ -146,7 +148,23 @@ import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 const router   = useRouter()
 const store    = useUsersStore()
 const schedule = useScheduleStore()
+const auth     = useAuthStore()
 const { effectiveRole } = useViewAs()
+
+// True only when the actual logged-in user IS a teacher (not admin viewing as teacher)
+const isRealTeacher = computed(() =>
+  effectiveRole.value === 'TEACHER' && auth.user?.role === 'TEACHER',
+)
+
+// Student IDs that have at least one lesson with the logged-in teacher
+const teacherStudentIds = computed((): Set<string> => {
+  if (!isRealTeacher.value || !auth.user?.id) return new Set()
+  return new Set(
+    schedule.lessons
+      .filter(l => l.teacherId === auth.user!.id)
+      .map(l => l.studentId),
+  )
+})
 
 const search       = ref('')
 const levelFilter  = ref('')
@@ -210,7 +228,10 @@ const filteredStudents = computed(() => {
     if (statusFilter.value === 'active' && !u.isActive) return false
     if (statusFilter.value === 'inactive' && u.isActive) return false
     if (levelFilter.value && u.studentProfile?.englishLevel !== levelFilter.value) return false
-    if (teacherFilter.value && u.studentProfile?.assignedTeacherId !== teacherFilter.value) return false
+    // Real teacher: restrict to students they have lessons with
+    if (isRealTeacher.value && !teacherStudentIds.value.has(u.id)) return false
+    // Admin/staff teacher-filter dropdown
+    if (!isRealTeacher.value && teacherFilter.value && u.studentProfile?.assignedTeacherId !== teacherFilter.value) return false
     if (q && !`${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(q)) return false
     return true
   })
