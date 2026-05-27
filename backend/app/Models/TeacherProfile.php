@@ -56,4 +56,9 @@ class TeacherProfile extends Model
     {
         return $this->hasMany(LessonNote::class, 'teacher_id', 'user_id');
     }
+
+    public function compensations(): HasMany
+    {
+        return $this->hasMany(TeacherCompensation::class, 'teacher_id', 'user_id');
+    }
 }

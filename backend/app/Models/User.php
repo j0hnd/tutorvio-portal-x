@@ -202,6 +202,11 @@ class User extends Authenticatable
         return $this->hasMany(StudentProgressRecord::class, 'teacher_id');
     }
 
+    public function teacherCompensations(): HasMany
+    {
+        return $this->hasMany(TeacherCompensation::class, 'teacher_id');
+    }
+
     public function authoredLessonNotes(): HasMany
     {
         return $this->hasMany(LessonNote::class, 'author_id');

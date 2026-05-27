@@ -69,6 +69,11 @@ class CourseProgram extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function teacherCompensationRateRules(): HasMany
+    {
+        return $this->hasMany(TeacherCompensationRateRule::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

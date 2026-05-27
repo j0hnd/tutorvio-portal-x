@@ -45,6 +45,11 @@ class CourseType extends Model
         return $this->hasMany(CourseProgram::class);
     }
 
+    public function teacherCompensationRateRules(): HasMany
+    {
+        return $this->hasMany(TeacherCompensationRateRule::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
