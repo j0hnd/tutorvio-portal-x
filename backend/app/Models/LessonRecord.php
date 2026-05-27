@@ -171,6 +171,11 @@ class LessonRecord extends Model
         return $this->hasOne(LessonNote::class);
     }
 
+    public function teacherEarning(): HasOne
+    {
+        return $this->hasOne(TeacherEarning::class);
+    }
+
     public function isJoinAvailable(?CarbonInterface $now = null): bool
     {
         if (! $this->meeting_link || ! in_array($this->lesson_status, [self::STATUS_SCHEDULED, self::STATUS_PENDING_CONFIRMATION], true)) {
