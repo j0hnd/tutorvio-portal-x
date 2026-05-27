@@ -338,6 +338,11 @@ class User extends Authenticatable
         return $this->hasMany(Message::class, 'sender_id');
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'actor_user_id');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(self::class, 'created_by');
