@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
+use App\Http\Controllers\Api\Admin\TeacherChangeRequestController as AdminTeacherChangeRequestController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
 use App\Http\Controllers\Api\Admin\TeacherEarningController as AdminTeacherEarningController;
@@ -41,6 +42,7 @@ use App\Http\Controllers\Api\Scheduling\TeacherUnavailableDateController;
 use App\Http\Controllers\Api\StudentPackageHistoryController;
 use App\Http\Controllers\Api\StudentPackageSummaryController;
 use App\Http\Controllers\Api\StudentProgressRecordController;
+use App\Http\Controllers\Api\TeacherChangeRequestController;
 use App\Http\Controllers\Api\TeacherEarningController;
 use App\Http\Controllers\Api\TeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\TeacherWorkloadController;
@@ -123,6 +125,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/teacher-workloads', [TeacherWorkloadController::class, 'index']);
         Route::get('/teacher-workloads/{teacher}', [TeacherWorkloadController::class, 'show']);
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
+        Route::get('/teacher-change-requests', [TeacherChangeRequestController::class, 'index'])
+            ->middleware('role:student');
+        Route::post('/teacher-change-requests', [TeacherChangeRequestController::class, 'store'])
+            ->middleware('role:student');
+        Route::get('/teacher-change-requests/{teacherChangeRequest}', [TeacherChangeRequestController::class, 'show'])
+            ->middleware('role:student');
+        Route::post('/teacher-change-requests/{teacherChangeRequest}/cancel', [TeacherChangeRequestController::class, 'cancel'])
+            ->middleware('role:student');
         Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
         Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
         Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);
@@ -177,6 +187,16 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:payroll.view');
             Route::get('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'index'])
                 ->middleware('permission:teacher_assignments.view');
+            Route::get('/teacher-change-requests/pending', [AdminTeacherChangeRequestController::class, 'pending'])
+                ->middleware('permission:teacher_change_requests.view');
+            Route::get('/teacher-change-requests', [AdminTeacherChangeRequestController::class, 'index'])
+                ->middleware('permission:teacher_change_requests.view');
+            Route::get('/teacher-change-requests/{teacherChangeRequest}', [AdminTeacherChangeRequestController::class, 'show'])
+                ->middleware('permission:teacher_change_requests.view');
+            Route::post('/teacher-change-requests/{teacherChangeRequest}/approve', [AdminTeacherChangeRequestController::class, 'approve'])
+                ->middleware('permission:teacher_change_requests.manage');
+            Route::post('/teacher-change-requests/{teacherChangeRequest}/reject', [AdminTeacherChangeRequestController::class, 'reject'])
+                ->middleware('permission:teacher_change_requests.manage');
             Route::post('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'store'])
                 ->middleware('permission:teacher_assignments.manage');
             Route::post('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'assignStudent'])

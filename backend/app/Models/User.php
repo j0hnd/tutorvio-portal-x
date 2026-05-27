@@ -80,6 +80,16 @@ class User extends Authenticatable
         return $this->hasMany(TeacherStudentAssignment::class, 'student_id');
     }
 
+    public function teacherChangeRequests(): HasMany
+    {
+        return $this->hasMany(TeacherChangeRequest::class, 'student_id');
+    }
+
+    public function reviewedTeacherChangeRequests(): HasMany
+    {
+        return $this->hasMany(TeacherChangeRequest::class, 'reviewed_by');
+    }
+
     public function activeTeacherAssignment(): HasOne
     {
         return $this->hasOne(TeacherStudentAssignment::class, 'student_id')
