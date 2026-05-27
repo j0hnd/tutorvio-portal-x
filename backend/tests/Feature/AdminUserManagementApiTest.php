@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -190,6 +193,92 @@ class AdminUserManagementApiTest extends TestCase
         $this->assertTrue($user->hasRole('staff'));
         $this->assertTrue($user->hasDirectPermission('users.create'));
         $this->assertDatabaseHas('staff_profiles', ['user_id' => $user->id]);
+        $roleAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::ROLE_UPDATED->value)
+            ->where('module', AuditModule::USERS->value)
+            ->where('target_entity_id', $user->id)
+            ->latest('id')
+            ->first();
+        $permissionAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::PERMISSION_UPDATED->value)
+            ->where('module', AuditModule::PERMISSIONS->value)
+            ->where('target_entity_id', $user->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($roleAudit);
+        $this->assertSame('student', $roleAudit->metadata['old_role'] ?? null);
+        $this->assertSame('staff', $roleAudit->metadata['new_role'] ?? null);
+        $this->assertNotNull($permissionAudit);
+        $this->assertSame($user->id, $permissionAudit->metadata['affected_user_id'] ?? null);
+    }
+
+    public function test_admin_staff_access_level_change_is_audited(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $staff->staffProfile()->create([
+            'department' => 'Operations',
+            'access_limitations' => 'Scheduling only',
+        ]);
+
+        $this->patchJson("/api/v1/users/{$staff->id}", [
+            'staff_profile' => [
+                'access_limitations' => 'Scheduling and billing',
+            ],
+        ])->assertOk();
+
+        $accessAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::STAFF_ACCESS_LEVEL_CHANGED->value)
+            ->where('module', AuditModule::USERS->value)
+            ->where('target_entity_type', 'staff_profile')
+            ->where('target_entity_id', $staff->staffProfile->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($accessAudit);
+        $this->assertSame('Scheduling only', $accessAudit->metadata['old_access_level'] ?? null);
+        $this->assertSame('Scheduling and billing', $accessAudit->metadata['new_access_level'] ?? null);
+    }
+
+    public function test_admin_permission_add_and_remove_are_audited(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $staff->staffProfile()->create();
+
+        $this->patchJson("/api/v1/users/{$staff->id}", [
+            'permissions' => ['invoices.update'],
+        ])->assertOk();
+
+        $addedAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::PERMISSION_UPDATED->value)
+            ->where('target_entity_id', $staff->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($addedAudit);
+        $this->assertTrue(($addedAudit->metadata['changed_fields']['permissions'] ?? false) === true);
+
+        $this->patchJson("/api/v1/users/{$staff->id}", [
+            'permissions' => [],
+        ])->assertOk();
+
+        $removedAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::PERMISSION_UPDATED->value)
+            ->where('target_entity_id', $staff->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($removedAudit);
+        $this->assertTrue(($removedAudit->metadata['changed_fields']['permissions'] ?? false) === true);
+        $this->assertSame(
+            2,
+            AuditLog::query()
+                ->where('action_type', AuditActionType::PERMISSION_UPDATED->value)
+                ->where('target_entity_id', $staff->id)
+                ->count()
+        );
     }
 
     public function test_student_is_blocked_from_user_management(): void

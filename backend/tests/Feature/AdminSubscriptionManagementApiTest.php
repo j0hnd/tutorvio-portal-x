@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
 use App\Models\User;
@@ -73,6 +76,18 @@ class AdminSubscriptionManagementApiTest extends TestCase
             'event_type' => SubscriptionHistory::EVENT_ASSIGNED,
             'created_by' => $this->admin->id,
         ]);
+        $assignmentAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::PACKAGE_ASSIGNED->value)
+            ->where('module', AuditModule::PACKAGES->value)
+            ->where('target_entity_type', 'subscription')
+            ->where('target_entity_id', $subscriptionId)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($assignmentAudit);
+        $this->assertSame($this->admin->id, $assignmentAudit->actor_user_id);
+        $this->assertSame($student->id, $assignmentAudit->metadata['affected_user_id'] ?? null);
+        $this->assertTrue(($assignmentAudit->metadata['changed_fields']['payment_status'] ?? false) === true);
 
         $this->getJson('/api/v1/admin/subscriptions?package_type=package&payment_status=partial&search=Intensive')
             ->assertOk()
@@ -105,6 +120,15 @@ class AdminSubscriptionManagementApiTest extends TestCase
             'subscription_id' => $subscriptionId,
             'event_type' => SubscriptionHistory::EVENT_CANCELLED,
         ]);
+        $statusAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::PACKAGE_STATUS_CHANGED->value)
+            ->where('target_entity_id', $subscriptionId)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($statusAudit);
+        $this->assertSame(Subscription::STATUS_ACTIVE, $statusAudit->metadata['old_status'] ?? null);
+        $this->assertSame(Subscription::STATUS_CANCELLED, $statusAudit->metadata['new_status'] ?? null);
     }
 
     public function test_admin_can_manage_status_freeze_notes_invoice_reference_and_renewal(): void
@@ -120,6 +144,17 @@ class AdminSubscriptionManagementApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.payment_status', Subscription::PAYMENT_STATUS_PAID);
+        $paymentAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::PAYMENT_UPDATED->value)
+            ->where('module', AuditModule::BILLING->value)
+            ->where('target_entity_type', 'subscription')
+            ->where('target_entity_id', $subscription->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($paymentAudit);
+        $this->assertSame(Subscription::PAYMENT_STATUS_UNPAID, $paymentAudit->metadata['old_payment_status'] ?? null);
+        $this->assertSame(Subscription::PAYMENT_STATUS_PAID, $paymentAudit->metadata['new_payment_status'] ?? null);
 
         $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/status", [
             'status' => Subscription::STATUS_INACTIVE,
@@ -213,6 +248,16 @@ class AdminSubscriptionManagementApiTest extends TestCase
             'notes' => 'Corrected one missed completion entry.',
             'created_by' => $this->admin->id,
         ]);
+        $balanceAudit = AuditLog::query()
+            ->where('action_type', AuditActionType::LESSON_BALANCE_ADJUSTED->value)
+            ->where('module', AuditModule::PACKAGES->value)
+            ->where('target_entity_id', $subscription->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($balanceAudit);
+        $this->assertSame(-1, $balanceAudit->metadata['adjustment_amount'] ?? null);
+        $this->assertSame($student->id, $balanceAudit->metadata['affected_user_id'] ?? null);
     }
 
     public function test_admin_lesson_balance_adjustment_rejects_over_consumption_and_negative_remaining(): void

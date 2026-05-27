@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Models\LessonRecord;
 use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
@@ -11,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class SubscriptionLessonBalanceService
 {
+    public function __construct(private readonly AuditLogService $auditLogService) {}
+
     public function consumeForCompletedLesson(LessonRecord $lessonRecord, User $actor): LessonRecord
     {
         if (! $lessonRecord->is_completed || $lessonRecord->lesson_status !== LessonRecord::STATUS_COMPLETED) {
@@ -102,14 +106,35 @@ class SubscriptionLessonBalanceService
                 'updated_by' => $actor->id,
             ])->save();
             $subscription->refresh();
+            $current = $subscription->only($this->trackedFields());
 
             $this->recordHistory(
                 $subscription,
                 SubscriptionHistory::EVENT_MANUAL_BALANCE_ADJUSTED,
                 $previous,
-                $subscription->only($this->trackedFields()),
+                $current,
                 $actor->id,
                 (string) $payload['notes']
+            );
+
+            $changedFields = $this->changedFields($previous, $current);
+            $adjustmentAmount = (int) ($current['remaining_lesson_count'] ?? 0) - (int) ($previous['remaining_lesson_count'] ?? 0);
+
+            $this->auditLogService->record(
+                actorUserId: $actor->id,
+                actionType: AuditActionType::LESSON_BALANCE_ADJUSTED,
+                module: AuditModule::PACKAGES,
+                targetEntityType: 'subscription',
+                targetEntityId: $subscription->id,
+                metadata: [
+                    'subscription_id' => $subscription->id,
+                    'package_id' => $subscription->id,
+                    'affected_user_id' => $subscription->user_id,
+                    'changed_fields' => array_fill_keys($changedFields, true),
+                    'adjustment_amount' => $adjustmentAmount,
+                    'old_status' => $previous['status'] ?? null,
+                    'new_status' => $current['status'] ?? null,
+                ],
             );
 
             return $subscription;
@@ -210,5 +235,23 @@ class SubscriptionLessonBalanceService
             'effective_at' => now(),
             'created_by' => $createdBy,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $previous
+     * @param  array<string, mixed>  $current
+     * @return array<int, string>
+     */
+    private function changedFields(array $previous, array $current): array
+    {
+        $changed = [];
+
+        foreach ($current as $field => $value) {
+            if (! array_key_exists($field, $previous) || $previous[$field] != $value) {
+                $changed[] = $field;
+            }
+        }
+
+        return array_values(array_unique($changed));
     }
 }

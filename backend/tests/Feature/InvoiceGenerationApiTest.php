@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\CourseProgram;
 use App\Models\Invoice;
 use App\Models\Subscription;
@@ -110,6 +113,20 @@ class InvoiceGenerationApiTest extends TestCase
             'currency' => 'PHP',
             'status' => Invoice::STATUS_UNPAID,
         ]);
+        $audit = AuditLog::query()
+            ->where('action_type', AuditActionType::PAYMENT_CREATED->value)
+            ->where('module', AuditModule::BILLING->value)
+            ->where('target_entity_type', 'invoice')
+            ->where('target_entity_id', $response->json('data.id'))
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($audit);
+        $this->assertSame($student->id, $audit->metadata['affected_user_id'] ?? null);
+        $this->assertSame($subscription->id, $audit->metadata['subscription_id'] ?? null);
+        $this->assertTrue(($audit->metadata['payment_reference_present'] ?? false) === true);
+        $this->assertArrayNotHasKey('payment_reference', $audit->metadata);
+        $this->assertArrayNotHasKey('card_number', $audit->metadata);
     }
 
     public function test_admin_can_generate_course_program_invoice(): void

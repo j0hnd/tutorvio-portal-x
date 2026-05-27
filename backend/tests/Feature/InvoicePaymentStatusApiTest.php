@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\Invoice;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -60,6 +63,18 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         $this->assertSame(Invoice::STATUS_PAID, $invoice->status);
         $this->assertSame('2026-05-20', $invoice->paid_date->toDateString());
+        $audit = AuditLog::query()
+            ->where('action_type', AuditActionType::PAYMENT_ADJUSTED->value)
+            ->where('module', AuditModule::BILLING->value)
+            ->where('target_entity_type', 'invoice')
+            ->where('target_entity_id', $invoice->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($audit);
+        $this->assertSame(Invoice::STATUS_UNPAID, $audit->metadata['old_status'] ?? null);
+        $this->assertSame(Invoice::STATUS_PAID, $audit->metadata['new_status'] ?? null);
+        $this->assertSame('2026-05-20', $audit->metadata['new_paid_date'] ?? null);
     }
 
     public function test_staff_with_billing_permission_can_update_invoice_payment_status(): void

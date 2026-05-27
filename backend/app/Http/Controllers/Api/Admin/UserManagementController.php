@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\StudentProfile;
 use App\Models\User;
 use App\Models\UserStatusHistory;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -18,6 +21,8 @@ use Spatie\Permission\Models\Permission;
 class UserManagementController extends Controller
 {
     private const MANAGED_ROLES = ['student', 'teacher', 'admin', 'staff'];
+
+    public function __construct(private readonly AuditLogService $auditLogService) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -98,8 +103,12 @@ class UserManagementController extends Controller
     public function update(Request $request, User $user): JsonResponse
     {
         $validated = $this->validateUserPayload($request, false, $user);
+        $actorId = $request->user()->id;
+        $oldPrimaryRole = $this->primaryRole($user);
+        $oldPermissions = $this->directPermissionNames($user);
+        $oldStaffAccessLevel = $user->staffProfile?->access_limitations;
 
-        $user = DB::transaction(function () use ($validated, $request, $user) {
+        $user = DB::transaction(function () use ($validated, $actorId, $user) {
             $role = $validated['role'] ?? $this->primaryRole($user);
             $oldStatus = $user->status;
 
@@ -117,7 +126,7 @@ class UserManagementController extends Controller
                 $user->password = $validated['password'];
             }
 
-            $user->updated_by = $request->user()->id;
+            $user->updated_by = $actorId;
             $user->save();
 
             if (array_key_exists('status', $validated) && $oldStatus !== $user->status) {
@@ -126,7 +135,7 @@ class UserManagementController extends Controller
                     'old_status' => $oldStatus,
                     'new_status' => $user->status,
                     'reason' => $validated['status_reason'] ?? null,
-                    'changed_by' => $request->user()->id,
+                    'changed_by' => $actorId,
                     'changed_at' => now(),
                 ]);
             }
@@ -145,9 +154,20 @@ class UserManagementController extends Controller
 
             return $user;
         });
+        $user = $user->fresh($this->userRelations());
+        $this->auditAccessControlChanges(
+            actorUserId: $actorId,
+            targetUser: $user,
+            oldRole: $oldPrimaryRole,
+            newRole: $this->primaryRole($user),
+            oldPermissions: $oldPermissions,
+            newPermissions: $this->directPermissionNames($user),
+            oldStaffAccessLevel: $oldStaffAccessLevel,
+            newStaffAccessLevel: $user->staffProfile?->access_limitations,
+        );
 
         return response()->json([
-            'data' => $this->serializeUser($user->fresh($this->userRelations())),
+            'data' => $this->serializeUser($user),
         ]);
     }
 
@@ -171,17 +191,33 @@ class UserManagementController extends Controller
 
         $this->validateStaffPermissions($validated['role'], $validated['permissions'] ?? null);
 
-        DB::transaction(function () use ($validated, $request, $user) {
+        $actorId = $request->user()->id;
+        $oldRole = $this->primaryRole($user);
+        $oldPermissions = $this->directPermissionNames($user);
+        $oldStaffAccessLevel = $user->staffProfile?->access_limitations;
+
+        DB::transaction(function () use ($validated, $actorId, $user) {
             $user->syncRoles([$validated['role']]);
-            $user->updated_by = $request->user()->id;
+            $user->updated_by = $actorId;
             $user->save();
 
             $this->syncRoleProfile($user, $validated['role'], []);
             $this->syncStaffPermissions($user, $validated['role'], $validated['permissions'] ?? null);
         });
+        $user = $user->fresh($this->userRelations());
+        $this->auditAccessControlChanges(
+            actorUserId: $actorId,
+            targetUser: $user,
+            oldRole: $oldRole,
+            newRole: $this->primaryRole($user),
+            oldPermissions: $oldPermissions,
+            newPermissions: $this->directPermissionNames($user),
+            oldStaffAccessLevel: $oldStaffAccessLevel,
+            newStaffAccessLevel: $user->staffProfile?->access_limitations,
+        );
 
         return response()->json([
-            'data' => $this->serializeUser($user->fresh($this->userRelations())),
+            'data' => $this->serializeUser($user),
         ]);
     }
 
@@ -421,6 +457,82 @@ class UserManagementController extends Controller
         }
 
         return $user->roles()->whereIn('name', self::MANAGED_ROLES)->value('name');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function directPermissionNames(User $user): array
+    {
+        return $user->getAllPermissions()->pluck('name')->sort()->values()->all();
+    }
+
+    /**
+     * @param  array<int, string>  $oldPermissions
+     * @param  array<int, string>  $newPermissions
+     */
+    private function auditAccessControlChanges(
+        int $actorUserId,
+        User $targetUser,
+        ?string $oldRole,
+        ?string $newRole,
+        array $oldPermissions,
+        array $newPermissions,
+        ?string $oldStaffAccessLevel,
+        ?string $newStaffAccessLevel,
+    ): void {
+        if ($oldRole !== $newRole) {
+            $this->auditLogService->record(
+                actorUserId: $actorUserId,
+                actionType: AuditActionType::ROLE_UPDATED,
+                module: AuditModule::USERS,
+                targetEntityType: 'user',
+                targetEntityId: $targetUser->id,
+                metadata: [
+                    'affected_user_id' => $targetUser->id,
+                    'changed_fields' => ['role' => true],
+                    'old_role' => $oldRole,
+                    'new_role' => $newRole,
+                ],
+            );
+        }
+
+        $addedPermissions = array_values(array_diff($newPermissions, $oldPermissions));
+        $removedPermissions = array_values(array_diff($oldPermissions, $newPermissions));
+
+        if ($addedPermissions !== [] || $removedPermissions !== []) {
+            $this->auditLogService->record(
+                actorUserId: $actorUserId,
+                actionType: AuditActionType::PERMISSION_UPDATED,
+                module: AuditModule::PERMISSIONS,
+                targetEntityType: 'user',
+                targetEntityId: $targetUser->id,
+                metadata: [
+                    'affected_user_id' => $targetUser->id,
+                    'changed_fields' => ['permissions' => true],
+                    'added_permissions' => array_values($addedPermissions),
+                    'removed_permissions' => array_values($removedPermissions),
+                ],
+            );
+        }
+
+        if ($oldStaffAccessLevel !== $newStaffAccessLevel) {
+            $this->auditLogService->record(
+                actorUserId: $actorUserId,
+                actionType: AuditActionType::STAFF_ACCESS_LEVEL_CHANGED,
+                module: AuditModule::USERS,
+                targetEntityType: 'staff_profile',
+                targetEntityId: $targetUser->staffProfile?->id ?? $targetUser->id,
+                metadata: [
+                    'affected_user_id' => $targetUser->id,
+                    'changed_fields' => ['staff_profile.access_limitations' => true],
+                    'old_access_level' => $oldStaffAccessLevel,
+                    'new_access_level' => $newStaffAccessLevel,
+                    'old_role' => $oldRole,
+                    'new_role' => $newRole,
+                ],
+            );
+        }
     }
 
     /**

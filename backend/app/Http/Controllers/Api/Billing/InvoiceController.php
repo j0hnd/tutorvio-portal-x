@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api\Billing;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Billing\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\Billing\InvoiceEmailService;
 use App\Services\Billing\InvoicePdfService;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceController extends Controller
 {
+    public function __construct(private readonly AuditLogService $auditLogService) {}
+
     private const SORTABLE_COLUMNS = [
         'created_at',
         'updated_at',
@@ -116,6 +121,28 @@ class InvoiceController extends Controller
             'paid_date' => $newPaidDate,
             'metadata' => $metadata,
         ])->save();
+        $changedFields = ['status'];
+        if ($oldPaidDate !== $newPaidDate) {
+            $changedFields[] = 'paid_date';
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $request->user()->id,
+            actionType: AuditActionType::PAYMENT_ADJUSTED,
+            module: AuditModule::BILLING,
+            targetEntityType: 'invoice',
+            targetEntityId: $invoice->id,
+            metadata: [
+                'invoice_id' => $invoice->id,
+                'subscription_id' => $invoice->subscription_id,
+                'affected_user_id' => $invoice->student_id,
+                'changed_fields' => array_fill_keys($changedFields, true),
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'old_paid_date' => $oldPaidDate,
+                'new_paid_date' => $newPaidDate,
+            ],
+        );
 
         return response()->json([
             'data' => new InvoiceResource($invoice->refresh()->load(['student', 'subscription', 'courseProgram'])),

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Subscriptions\AdjustSubscriptionLessonBalanceRequest;
 use App\Http\Requests\Subscriptions\StoreSubscriptionRequest;
@@ -15,11 +17,13 @@ use App\Http\Resources\Subscriptions\SubscriptionResource;
 use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\SubscriptionLessonBalanceService;
 use App\Services\SubscriptionRenewalReminderService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -39,6 +43,7 @@ class SubscriptionManagementController extends Controller
     public function __construct(
         private readonly SubscriptionLessonBalanceService $lessonBalances,
         private readonly SubscriptionRenewalReminderService $renewalReminders,
+        private readonly AuditLogService $auditLogService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -88,20 +93,33 @@ class SubscriptionManagementController extends Controller
     {
         Gate::authorize('create', Subscription::class);
 
-        $subscription = DB::transaction(function () use ($request) {
+        $actorId = $request->user()->id;
+        $subscription = DB::transaction(function () use ($request, $actorId) {
             $subscription = Subscription::create($this->subscriptionPayload($request->validated()) + [
                 'user_id' => $request->integer('student_id'),
-                'created_by' => $request->user()->id,
-                'updated_by' => $request->user()->id,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
                 'frozen_at' => $request->input('status') === Subscription::STATUS_INACTIVE && $request->boolean('is_frozen')
                     ? now()
                     : null,
             ]);
 
-            $this->recordHistory($subscription, SubscriptionHistory::EVENT_ASSIGNED, [], $subscription->only($this->trackedFields()), $request->user()->id);
+            $this->recordHistory($subscription, SubscriptionHistory::EVENT_ASSIGNED, [], $subscription->only($this->trackedFields()), $actorId);
 
             return $this->renewalReminders->refreshReminderState($subscription);
         });
+        $this->auditSubscriptionMutation(
+            actorId: $actorId,
+            actionType: AuditActionType::PACKAGE_ASSIGNED,
+            subscription: $subscription,
+            previous: [],
+            current: $subscription->only($this->trackedFields()),
+            additionalMetadata: [
+                'affected_user_id' => $subscription->user_id,
+                'subscription_id' => $subscription->id,
+                'package_id' => $subscription->id,
+            ],
+        );
 
         return response()->json([
             'data' => new SubscriptionResource($subscription->load('student')),
@@ -121,7 +139,10 @@ class SubscriptionManagementController extends Controller
     {
         Gate::authorize('update', $subscription);
 
-        $subscription = DB::transaction(function () use ($request, $subscription) {
+        $actorId = $request->user()->id;
+        $previous = [];
+        $current = [];
+        $subscription = DB::transaction(function () use ($request, $subscription, $actorId, &$previous, &$current) {
             $previous = $subscription->only($this->trackedFields());
             $payload = $this->subscriptionPayload($request->validated());
 
@@ -129,20 +150,33 @@ class SubscriptionManagementController extends Controller
                 $payload['user_id'] = $request->integer('student_id');
             }
 
-            $subscription->fill($payload + ['updated_by' => $request->user()->id])->save();
+            $subscription->fill($payload + ['updated_by' => $actorId])->save();
             $subscription->refresh();
+            $current = $subscription->only($this->trackedFields());
 
             $this->recordHistory(
                 $subscription,
                 SubscriptionHistory::EVENT_UPDATED,
                 $previous,
-                $subscription->only($this->trackedFields()),
-                $request->user()->id,
+                $current,
+                $actorId,
                 $subscription->internal_notes
             );
 
             return $this->renewalReminders->refreshReminderState($subscription);
         });
+        $this->auditSubscriptionMutation(
+            actorId: $actorId,
+            actionType: AuditActionType::PACKAGE_UPDATED,
+            subscription: $subscription,
+            previous: $previous,
+            current: $current,
+            additionalMetadata: [
+                'affected_user_id' => $subscription->user_id,
+                'subscription_id' => $subscription->id,
+                'package_id' => $subscription->id,
+            ],
+        );
 
         return response()->json([
             'data' => new SubscriptionResource($subscription->load('student')),
@@ -159,7 +193,8 @@ class SubscriptionManagementController extends Controller
             $request,
             $subscription,
             ['payment_status' => $paymentStatus],
-            SubscriptionHistory::EVENT_PAYMENT_CHANGED
+            SubscriptionHistory::EVENT_PAYMENT_CHANGED,
+            AuditActionType::PAYMENT_UPDATED
         );
     }
 
@@ -171,7 +206,8 @@ class SubscriptionManagementController extends Controller
             $request,
             $subscription,
             ['status' => $request->input('status')],
-            SubscriptionHistory::EVENT_STATUS_CHANGED
+            SubscriptionHistory::EVENT_STATUS_CHANGED,
+            AuditActionType::PACKAGE_STATUS_CHANGED
         );
     }
 
@@ -183,7 +219,7 @@ class SubscriptionManagementController extends Controller
             'is_frozen' => true,
             'frozen_at' => now(),
             'status' => Subscription::STATUS_INACTIVE,
-        ], SubscriptionHistory::EVENT_FROZEN);
+        ], SubscriptionHistory::EVENT_FROZEN, AuditActionType::PACKAGE_STATUS_CHANGED);
     }
 
     public function unfreeze(Request $request, Subscription $subscription): JsonResponse
@@ -194,7 +230,7 @@ class SubscriptionManagementController extends Controller
             'is_frozen' => false,
             'frozen_at' => null,
             'status' => Subscription::STATUS_ACTIVE,
-        ], SubscriptionHistory::EVENT_UNFROZEN);
+        ], SubscriptionHistory::EVENT_UNFROZEN, AuditActionType::PACKAGE_STATUS_CHANGED);
     }
 
     public function updateNotes(UpdateSubscriptionNotesRequest $request, Subscription $subscription): JsonResponse
@@ -205,7 +241,8 @@ class SubscriptionManagementController extends Controller
             $request,
             $subscription,
             ['internal_notes' => $request->input('internal_notes', $request->input('notes'))],
-            SubscriptionHistory::EVENT_UPDATED
+            SubscriptionHistory::EVENT_UPDATED,
+            AuditActionType::PACKAGE_UPDATED
         );
     }
 
@@ -221,7 +258,13 @@ class SubscriptionManagementController extends Controller
             $payload['invoice_id'] = $request->input('invoice_id');
         }
 
-        return $this->applyUpdate($request, $subscription, $payload, SubscriptionHistory::EVENT_INVOICE_REFERENCE_CHANGED);
+        return $this->applyUpdate(
+            $request,
+            $subscription,
+            $payload,
+            SubscriptionHistory::EVENT_INVOICE_REFERENCE_CHANGED,
+            AuditActionType::PAYMENT_UPDATED
+        );
     }
 
     public function adjustLessonBalance(AdjustSubscriptionLessonBalanceRequest $request, Subscription $subscription): JsonResponse
@@ -241,20 +284,34 @@ class SubscriptionManagementController extends Controller
     {
         Gate::authorize('renew', $subscription);
 
-        $renewal = DB::transaction(function () use ($request, $subscription) {
+        $actorId = $request->user()->id;
+        $renewal = DB::transaction(function () use ($request, $subscription, $actorId) {
             $renewal = Subscription::create($this->subscriptionPayload($request->validated()) + [
                 'user_id' => $request->integer('student_id'),
                 'renewed_from_subscription_id' => $subscription->id,
-                'created_by' => $request->user()->id,
-                'updated_by' => $request->user()->id,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
             ]);
 
-            $this->recordHistory($renewal, SubscriptionHistory::EVENT_RENEWED, $subscription->only($this->trackedFields()), $renewal->only($this->trackedFields()), $request->user()->id);
+            $this->recordHistory($renewal, SubscriptionHistory::EVENT_RENEWED, $subscription->only($this->trackedFields()), $renewal->only($this->trackedFields()), $actorId);
 
             $this->renewalReminders->refreshReminderState($subscription);
 
             return $this->renewalReminders->refreshReminderState($renewal);
         });
+        $this->auditSubscriptionMutation(
+            actorId: $actorId,
+            actionType: AuditActionType::PACKAGE_ASSIGNED,
+            subscription: $renewal,
+            previous: ['renewed_from_subscription_id' => $subscription->id],
+            current: $renewal->only($this->trackedFields()),
+            additionalMetadata: [
+                'affected_user_id' => $renewal->user_id,
+                'subscription_id' => $renewal->id,
+                'package_id' => $renewal->id,
+                'renewed_from_subscription_id' => $subscription->id,
+            ],
+        );
 
         return response()->json([
             'data' => new SubscriptionResource($renewal->load('student')),
@@ -269,7 +326,8 @@ class SubscriptionManagementController extends Controller
             $request,
             $subscription,
             ['status' => Subscription::STATUS_CANCELLED],
-            SubscriptionHistory::EVENT_CANCELLED
+            SubscriptionHistory::EVENT_CANCELLED,
+            AuditActionType::PACKAGE_STATUS_CHANGED
         );
     }
 
@@ -281,7 +339,8 @@ class SubscriptionManagementController extends Controller
             $request,
             $subscription,
             ['status' => Subscription::STATUS_CANCELLED],
-            SubscriptionHistory::EVENT_ARCHIVED
+            SubscriptionHistory::EVENT_ARCHIVED,
+            AuditActionType::PACKAGE_STATUS_CHANGED
         );
     }
 
@@ -320,25 +379,46 @@ class SubscriptionManagementController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function applyUpdate(Request $request, Subscription $subscription, array $payload, string $eventType): JsonResponse
-    {
-        $subscription = DB::transaction(function () use ($request, $subscription, $payload, $eventType) {
+    private function applyUpdate(
+        Request $request,
+        Subscription $subscription,
+        array $payload,
+        string $eventType,
+        AuditActionType|string $auditActionType = AuditActionType::PACKAGE_UPDATED
+    ): JsonResponse {
+        $actorId = $request->user()->id;
+        $previous = [];
+        $current = [];
+        $subscription = DB::transaction(function () use ($subscription, $payload, $eventType, $actorId, &$previous, &$current) {
             $previous = $subscription->only($this->trackedFields());
 
-            $subscription->fill($payload + ['updated_by' => $request->user()->id])->save();
+            $subscription->fill($payload + ['updated_by' => $actorId])->save();
             $subscription->refresh();
+            $current = $subscription->only($this->trackedFields());
 
             $this->recordHistory(
                 $subscription,
                 $eventType,
                 $previous,
-                $subscription->only($this->trackedFields()),
-                $request->user()->id,
+                $current,
+                $actorId,
                 $subscription->internal_notes
             );
 
             return $this->renewalReminders->refreshReminderState($subscription);
         });
+        $this->auditSubscriptionMutation(
+            actorId: $actorId,
+            actionType: $auditActionType,
+            subscription: $subscription,
+            previous: $previous,
+            current: $current,
+            additionalMetadata: [
+                'affected_user_id' => $subscription->user_id,
+                'subscription_id' => $subscription->id,
+                'package_id' => $subscription->id,
+            ],
+        );
 
         return response()->json([
             'data' => new SubscriptionResource($subscription->load('student')),
@@ -400,5 +480,73 @@ class SubscriptionManagementController extends Controller
             'effective_at' => now(),
             'created_by' => $createdBy,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $previous
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>  $additionalMetadata
+     */
+    private function auditSubscriptionMutation(
+        int $actorId,
+        AuditActionType|string $actionType,
+        Subscription $subscription,
+        array $previous,
+        array $current,
+        array $additionalMetadata = [],
+    ): void {
+        $changedFields = $this->changedFields($previous, $current);
+
+        if ($changedFields === [] && $actionType === AuditActionType::PACKAGE_UPDATED) {
+            return;
+        }
+
+        $metadata = [
+            ...$additionalMetadata,
+            'changed_fields' => array_fill_keys($changedFields, true),
+            'old_status' => $previous['status'] ?? null,
+            'new_status' => $current['status'] ?? $subscription->status,
+            'old_payment_status' => $previous['payment_status'] ?? null,
+            'new_payment_status' => $current['payment_status'] ?? $subscription->payment_status,
+            'invoice_reference_updated' => in_array('invoice_reference', $changedFields, true),
+        ];
+        $actionTypeValue = $actionType instanceof AuditActionType ? $actionType->value : $actionType;
+
+        $this->auditLogService->record(
+            actorUserId: $actorId,
+            actionType: $actionType,
+            module: in_array($actionTypeValue, [
+                AuditActionType::PAYMENT_UPDATED->value,
+                AuditActionType::PAYMENT_ADJUSTED->value,
+                AuditActionType::PAYMENT_CREATED->value,
+            ], true) ? AuditModule::BILLING : AuditModule::PACKAGES,
+            targetEntityType: 'subscription',
+            targetEntityId: $subscription->id,
+            metadata: Arr::whereNotNull($metadata),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $previous
+     * @param  array<string, mixed>  $current
+     * @return array<int, string>
+     */
+    private function changedFields(array $previous, array $current): array
+    {
+        $changed = [];
+
+        foreach ($current as $field => $value) {
+            if (! array_key_exists($field, $previous)) {
+                $changed[] = $field;
+
+                continue;
+            }
+
+            if ($previous[$field] != $value) {
+                $changed[] = $field;
+            }
+        }
+
+        return array_values(array_unique($changed));
     }
 }
