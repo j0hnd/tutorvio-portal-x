@@ -36,6 +36,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'teacher_compensations.view', 'teacher_compensations.manage',
             'teacher_earnings.view', 'teacher_earnings.view_own',
             'payout_periods.view', 'payout_periods.manage',
+            'payroll.view', 'payroll.manage',
             'subscriptions.view', 'subscriptions.create', 'subscriptions.update', 'subscriptions.delete',
             'announcements.manage', 'notifications.history.view',
             'dashboard.tasks.view', 'dashboard.operational_notices.view',

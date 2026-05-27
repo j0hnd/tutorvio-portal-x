@@ -3,10 +3,12 @@
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
+use App\Http\Controllers\Api\Admin\PayoutReportController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
 use App\Http\Controllers\Api\Admin\TeacherEarningController as AdminTeacherEarningController;
+use App\Http\Controllers\Api\Admin\TeacherPayoutAdjustmentController as AdminTeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
@@ -39,6 +41,7 @@ use App\Http\Controllers\Api\StudentPackageHistoryController;
 use App\Http\Controllers\Api\StudentPackageSummaryController;
 use App\Http\Controllers\Api\StudentProgressRecordController;
 use App\Http\Controllers\Api\TeacherEarningController;
+use App\Http\Controllers\Api\TeacherPayoutAdjustmentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -111,6 +114,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/homeworks/{homework}/progress', [HomeworkController::class, 'updateProgress']);
         Route::patch('/homeworks/{homework}/review', [HomeworkController::class, 'review']);
         Route::get('/teacher-earnings', [TeacherEarningController::class, 'index']);
+        Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
         Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
         Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
         Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);
@@ -161,12 +165,20 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:teacher_compensations.view');
             Route::get('/teachers/{teacher}/teacher-earnings', [AdminTeacherEarningController::class, 'teacher'])
                 ->middleware('permission:teacher_earnings.view');
+            Route::get('/teachers/{teacher}/payout-report', [PayoutReportController::class, 'teacher'])
+                ->middleware('permission:payroll.view');
             Route::get('/teacher-earnings', [AdminTeacherEarningController::class, 'index'])
                 ->middleware('permission:teacher_earnings.view');
+            Route::get('/payout-adjustments', [AdminTeacherPayoutAdjustmentController::class, 'index'])
+                ->middleware('permission:payroll.view');
+            Route::post('/payout-adjustments', [AdminTeacherPayoutAdjustmentController::class, 'store'])
+                ->middleware('permission:payroll.manage');
             Route::get('/payout-periods', [PayoutPeriodController::class, 'index'])
                 ->middleware('permission:payout_periods.view');
             Route::post('/payout-periods', [PayoutPeriodController::class, 'store'])
                 ->middleware('permission:payout_periods.manage');
+            Route::get('/payout-periods/{payoutPeriod}/report', [PayoutReportController::class, 'period'])
+                ->middleware('permission:payroll.view');
             Route::get('/payout-periods/{payoutPeriod}', [PayoutPeriodController::class, 'show'])
                 ->middleware('permission:payout_periods.view');
             Route::match(['put', 'patch'], '/payout-periods/{payoutPeriod}', [PayoutPeriodController::class, 'update'])
