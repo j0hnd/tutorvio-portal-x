@@ -69,13 +69,24 @@ export interface TeacherAvailability {
   weeklySlots: WeeklyAvailabilitySlot[]
 }
 
+export type SpeakingConfidence = 'low' | 'medium' | 'high' | ''
+export type NoteStatus = 'draft' | 'submitted'
+
 export interface LessonNote {
   id: string
   lessonId: string
-  content: string
   authorId: string
   authorName: string
-  isPublic: boolean   // visible to student
+  lessonObjective: string
+  topicsCovered: string
+  vocabularyLearned: string
+  grammarFocus: string
+  pronunciationIssues: string
+  speakingConfidence: SpeakingConfidence
+  homeworkAssignment: string
+  nextLessonRecommendation: string
+  internalNote: string
+  status: NoteStatus
   createdAt: string
   updatedAt?: string
 }
@@ -431,28 +442,230 @@ const MOCK_UNAVAILABLE_INITIAL: UnavailableDate[] = [
 // ---- Lesson Detail Mock Data ----
 
 const MOCK_NOTES_INITIAL: LessonNote[] = [
-  { id: 'n1', lessonId: 'l1', content: 'Emma did an excellent job with formal email writing. She constructed three different business email templates with minimal errors. Focus next session on board-meeting phrases and presentations.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-18T10:05:00Z' },
-  { id: 'n2', lessonId: 'l1', content: 'Internal: Student is progressing faster than average. Consider recommending advanced track.', authorId: 'u2', authorName: 'James Reyes', isPublic: false, createdAt: '2026-05-18T10:10:00Z' },
-  { id: 'n3', lessonId: 'l4', content: 'Marco showed strong improvement in conversational fluency. Practiced ordering food, shopping, and directions scenarios. Recommended: 30 min daily shadowing exercises.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-20T10:00:00Z' },
-  { id: 'n4', lessonId: 'l5', content: 'Worked on presentation skills for Emma\'s upcoming board meeting. Excellent progress — confidence level noticeably higher. Next: practice Q&A handling.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-21T10:00:00Z' },
-  { id: 'n5', lessonId: 'ls1', content: 'Sofia completed Listening section practice test — scored 7.0. Reading still needs improvement, particularly matching headings. Assigned extra practice materials.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-18T11:00:00Z' },
-  { id: 'n6', lessonId: 'lm1', content: 'Rico tackled negotiation language and deal-closing phrases. Role-played a supplier negotiation scenario. Strong performance. Homework: write a follow-up email after a negotiation.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-18T10:00:00Z' },
-  { id: 'n7', lessonId: 'ldemo1', content: 'Lea reviewed present perfect tense in business contexts. Good grasp of structure. Next focus: polite request phrases for client meetings.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-25T16:35:00Z' },
-  { id: 'n8', lessonId: 'ldemo2', content: 'Sofia completed a full IELTS Speaking mock test. Band 6.5 estimated. Key areas to improve: topic development in Part 2 and using more complex vocabulary. Will assign speaking recordings for homework.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-25T17:50:00Z' },
-  { id: 'n9', lessonId: 'ldemo3', content: 'Trial session with Rico. He has strong listening comprehension and a good active vocabulary for business contexts. Recommend starting with Business English intermediate track.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-25T18:20:00Z' },
-  { id: 'n10', lessonId: 'ldemo3', content: 'Internal: Rico is a strong candidate for fast-track. Consider pairing with Miguel for continuity since he already has rapport.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: false, createdAt: '2026-05-25T18:25:00Z' },
-  // James Reyes — additional lessons
-  { id: 'n11', lessonId: 'l2', content: 'Lea worked on phrasal verbs in workplace contexts. Good retention from last session. Assigned 10 fill-in-the-blank exercises for home practice.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-18T15:05:00Z' },
-  { id: 'n12', lessonId: 'l3', content: 'Carlos was absent — no prior notice. Reminder sent via email. Will discuss rescheduling at next available slot.', authorId: 'u2', authorName: 'James Reyes', isPublic: false, createdAt: '2026-05-19T10:25:00Z' },
-  { id: 'n13', lessonId: 'l8', content: 'Emma worked on executive summary writing and key business report phrases. Excellent understanding of structure. Next session: stakeholder presentation language.', authorId: 'u2', authorName: 'James Reyes', isPublic: true, createdAt: '2026-05-25T10:05:00Z' },
-  { id: 'n14', lessonId: 'l8', content: 'Internal: Emma is consistently top of class. Flag for testimonial request.', authorId: 'u2', authorName: 'James Reyes', isPublic: false, createdAt: '2026-05-25T10:07:00Z' },
-  // Sarah Lim — additional lessons
-  { id: 'n15', lessonId: 'ls2', content: 'Juan completed Academic Writing Task 1 — line graphs. Score improved to band 6.0. Main issue: incorrect use of comparative language. Drilled contrast connectors.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-19T10:05:00Z' },
-  { id: 'n16', lessonId: 'ls5', content: 'Juan focused on IELTS Listening sections 3 and 4 — academic discussions and monologues. Strong section 3 performance. Section 4 needs work on note completion tasks.', authorId: 'u6', authorName: 'Sarah Lim', isPublic: true, createdAt: '2026-05-25T11:05:00Z' },
-  // Miguel Santos — additional lessons
-  { id: 'n17', lessonId: 'lm3', content: 'Rico worked through advanced negotiation phrases and cross-cultural business communication. Role-played a multi-party deal scenario. Very strong performance — ready for advanced module.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-20T10:00:00Z' },
-  { id: 'n18', lessonId: 'lm4', content: 'Lia focused on small-talk and relationship-building language for business contexts. Practiced 3 different opening scenarios. Homework: record a 2-minute self-introduction.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-21T11:05:00Z' },
-  { id: 'n19', lessonId: 'lm6', content: 'Rescheduled session with Lia. Focused on conversational fluency — speed and natural phrasing improved noticeably. Recommended daily 15-min podcast shadowing.', authorId: 'u7', authorName: 'Miguel Santos', isPublic: true, createdAt: '2026-05-25T10:05:00Z' },
+  {
+    id: 'n1', lessonId: 'l1', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'Develop confidence in formal written business communication.',
+    topicsCovered: 'Formal email writing, business email templates, professional salutations and closings.',
+    vocabularyLearned: 'Board-level terminology: "As per our discussion", "Further to your email", "Please revert at your earliest convenience".',
+    grammarFocus: 'Passive constructions in formal correspondence. Avoiding contractions in professional writing.',
+    pronunciationIssues: 'Minor hesitation on multi-syllabic words like "remuneration" and "correspondence".',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'Write one meeting request email and one follow-up email after a board presentation. Minimum 150 words each.',
+    nextLessonRecommendation: 'Board-meeting phrases and presentation openers. Practice Q&A handling for executive settings.',
+    internalNote: 'Student is progressing faster than average. Consider recommending advanced Business English track.',
+    status: 'submitted',
+    createdAt: '2026-05-18T10:05:00Z',
+  },
+  {
+    id: 'n3', lessonId: 'l4', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'Build fluency and confidence in everyday conversational scenarios.',
+    topicsCovered: 'Ordering food at a restaurant, shopping negotiations, asking for and giving directions.',
+    vocabularyLearned: '"Could I get…", "I\'m looking for…", "How do I get to…", polite request forms.',
+    grammarFocus: 'Indirect questions vs. direct questions. Polite modal verbs: could, would, might.',
+    pronunciationIssues: 'Slight difficulty with the /θ/ sound ("think", "through") — needs continued drilling.',
+    speakingConfidence: 'medium',
+    homeworkAssignment: 'Record yourself completing the food ordering, shopping, and directions scenarios. Submit audio files via the student portal.',
+    nextLessonRecommendation: 'Workplace small-talk and networking language. Introduce idioms for casual conversation.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-20T10:00:00Z',
+  },
+  {
+    id: 'n4', lessonId: 'l5', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'Improve executive presentation delivery and handling audience questions.',
+    topicsCovered: 'Presentation structure, confident openers, signposting language, Q&A techniques.',
+    vocabularyLearned: '"To summarise…", "Building on that point…", "That\'s a great question — to address that…"',
+    grammarFocus: 'Conditional structures for hedging: "Should this be approved…", "Were we to proceed…"',
+    pronunciationIssues: 'Pacing improved significantly. Still tends to rush during the closing segment.',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'Prepare 5 Q&A response scripts using the STAR method for at least 3 responses.',
+    nextLessonRecommendation: 'Stakeholder persuasion language. Practice impromptu speaking on business topics.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-21T10:00:00Z',
+  },
+  {
+    id: 'n5', lessonId: 'ls1', authorId: 'u6', authorName: 'Sarah Lim',
+    lessonObjective: 'Assess IELTS Listening performance and address weak areas in Reading.',
+    topicsCovered: 'IELTS Listening full practice test (Sections 1–4). Matching headings strategy for Reading.',
+    vocabularyLearned: 'Academic collocations: "significant decline", "marginal increase", "in contrast to".',
+    grammarFocus: 'Identifying paraphrase in Listening answers. Skimming and scanning strategies for Reading.',
+    pronunciationIssues: 'Comprehension of fast-paced native speakers needs improvement, especially in Section 4.',
+    speakingConfidence: 'medium',
+    homeworkAssignment: 'Complete exercises 1–5 from Reading Practice Test 4. Focus on matching headings. Submit answers before next session.',
+    nextLessonRecommendation: 'Reading — True/False/Not Given strategy. Introduce Writing Task 2 essay structure.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-18T11:00:00Z',
+  },
+  {
+    id: 'n6', lessonId: 'lm1', authorId: 'u7', authorName: 'Miguel Santos',
+    lessonObjective: 'Master negotiation language and deal-closing strategies in business English.',
+    topicsCovered: 'Supplier negotiation role-play, deal-closing phrases, handling objections professionally.',
+    vocabularyLearned: '"We\'d be willing to consider…", "Subject to approval…", "Let\'s find a middle ground…"',
+    grammarFocus: 'Conditional clauses in negotiation: "If you can meet X, we\'ll agree to Y."',
+    pronunciationIssues: 'Strong overall. Slight over-emphasis on sentence-final words — sounds assertive but could be softened.',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'Write a professional post-negotiation follow-up email (200+ words). Include deal summary, agreed terms, and next steps.',
+    nextLessonRecommendation: 'Cross-cultural communication and diplomatic refusal language. Introduce advanced module.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-18T10:00:00Z',
+  },
+  {
+    id: 'n7', lessonId: 'ldemo1', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'Review present perfect tense in professional contexts and introduce polite request phrases.',
+    topicsCovered: 'Present perfect for updates and reporting, polite requests for client meetings.',
+    vocabularyLearned: '"I have forwarded…", "We have completed…", "I was wondering if you could…"',
+    grammarFocus: 'Present perfect vs. simple past in business reporting. Using "already", "yet", "just" correctly.',
+    pronunciationIssues: 'Good overall. Some lengthening on stressed syllables — sounds natural.',
+    speakingConfidence: 'medium',
+    homeworkAssignment: 'Write 3 sentences making polite business requests using present perfect. Submit via the student portal.',
+    nextLessonRecommendation: 'Meeting management language: agenda-setting, interrupting politely, summarising action items.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-25T16:35:00Z',
+  },
+  {
+    id: 'n8', lessonId: 'ldemo2', authorId: 'u6', authorName: 'Sarah Lim',
+    lessonObjective: 'Simulate IELTS Speaking test conditions and identify key improvement areas.',
+    topicsCovered: 'IELTS Speaking full mock test — Parts 1, 2, and 3. Estimated band: 6.5.',
+    vocabularyLearned: 'Discourse markers: "On the one hand…", "Having said that…", "To elaborate on that…"',
+    grammarFocus: 'Using complex sentence structures in Part 3 responses. Avoiding filler words.',
+    pronunciationIssues: 'Intonation pattern in Part 2 becomes flat — needs more variation to sound engaged.',
+    speakingConfidence: 'medium',
+    homeworkAssignment: 'Record a 3-minute Part 2 response from Topic Cards Set B. Focus on topic development and complex vocabulary.',
+    nextLessonRecommendation: 'Part 2 topic development strategies. Introduce advanced lexical resource techniques for band 7+.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-25T17:50:00Z',
+  },
+  {
+    id: 'n9', lessonId: 'ldemo3', authorId: 'u7', authorName: 'Miguel Santos',
+    lessonObjective: 'Assess Rico\'s English level and identify the most appropriate starting track.',
+    topicsCovered: 'Placement conversation covering workplace scenarios, self-introduction, and opinion expression.',
+    vocabularyLearned: 'N/A — assessment session. No new vocabulary introduced.',
+    grammarFocus: 'Observed strong command of simple and compound sentences. Some gaps in conditional usage.',
+    pronunciationIssues: 'Clear pronunciation with neutral accent. Occasional difficulty with vowel length distinctions.',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'No formal homework. Encouraged to read 1 English business article before first official session.',
+    nextLessonRecommendation: 'Start with Business English Intermediate Track — Module 1: Professional Introductions and Networking.',
+    internalNote: 'Rico is a strong candidate for fast-track. Consider pairing with Miguel for continuity since he already has rapport.',
+    status: 'submitted',
+    createdAt: '2026-05-25T18:20:00Z',
+  },
+  {
+    id: 'n11', lessonId: 'l2', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'Expand functional vocabulary through workplace phrasal verbs.',
+    topicsCovered: 'Phrasal verbs in professional contexts: "follow up", "carry out", "put forward", "bring up".',
+    vocabularyLearned: '12 new phrasal verbs with workplace usage examples. Contextual sentence practice.',
+    grammarFocus: 'Separable vs. inseparable phrasal verbs. Using phrasal verbs in formal vs. informal registers.',
+    pronunciationIssues: 'Good retention of stress patterns on phrasal verbs.',
+    speakingConfidence: 'medium',
+    homeworkAssignment: 'Complete 10 fill-in-the-blank exercises from the PDF. Write 5 original sentences using different phrasal verbs from today.',
+    nextLessonRecommendation: 'Business idioms and fixed expressions for meetings and negotiations.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-18T15:05:00Z',
+  },
+  {
+    id: 'n12', lessonId: 'l3', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'IELTS Preparation — Writing Task 2 essay structure.',
+    topicsCovered: 'N/A — student was absent.',
+    vocabularyLearned: '',
+    grammarFocus: '',
+    pronunciationIssues: '',
+    speakingConfidence: '',
+    homeworkAssignment: '',
+    nextLessonRecommendation: 'Resume Writing Task 2 at next available session. Confirm reschedule with student.',
+    internalNote: 'Carlos was absent with no prior notice. Reminder sent via email. Follow up on rescheduling.',
+    status: 'submitted',
+    createdAt: '2026-05-19T10:25:00Z',
+  },
+  {
+    id: 'n13', lessonId: 'l8', authorId: 'u2', authorName: 'James Reyes',
+    lessonObjective: 'Develop skills in executive summary writing and business report language.',
+    topicsCovered: 'Executive summary structure, key business report phrases, stakeholder-focused writing.',
+    vocabularyLearned: '"The purpose of this report is to…", "Key findings indicate…", "It is recommended that…"',
+    grammarFocus: 'Impersonal passive for objective reporting. Nominalisation in formal writing.',
+    pronunciationIssues: 'Strong session — speaking component was minimal but confident.',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'Write a 300-word executive summary for any business scenario. Use today\'s guide as template.',
+    nextLessonRecommendation: 'Stakeholder presentation language. Practice delivering the executive summary verbally.',
+    internalNote: 'Emma is consistently top of class. Flag for testimonial request at next admin review.',
+    status: 'submitted',
+    createdAt: '2026-05-25T10:05:00Z',
+  },
+  {
+    id: 'n15', lessonId: 'ls2', authorId: 'u6', authorName: 'Sarah Lim',
+    lessonObjective: 'Improve IELTS Writing Task 1 accuracy with graph and chart descriptions.',
+    topicsCovered: 'Line graph description, comparative language, data sequencing for Writing Task 1.',
+    vocabularyLearned: 'Contrast connectors: "whereas", "in contrast", "on the other hand". Trend verbs: "peaked", "levelled off".',
+    grammarFocus: 'Comparative and superlative structures for data description. Passive voice for objectivity.',
+    pronunciationIssues: 'N/A — writing focused session.',
+    speakingConfidence: '',
+    homeworkAssignment: 'Complete exercises 3 and 4 from the Writing Task 1 PDF. Minimum 150 words each. Focus on comparative language.',
+    nextLessonRecommendation: 'Writing Task 2 — argument essay structure. Introduce coherence and cohesion strategies.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-19T10:05:00Z',
+  },
+  {
+    id: 'n16', lessonId: 'ls5', authorId: 'u6', authorName: 'Sarah Lim',
+    lessonObjective: 'Strengthen IELTS Listening performance in Sections 3 and 4.',
+    topicsCovered: 'Academic discussions (Section 3) and academic monologues (Section 4). Note completion strategy.',
+    vocabularyLearned: 'Academic listening vocabulary: "methodology", "findings suggest", "in conclusion".',
+    grammarFocus: 'Anticipating answers from context. Identifying paraphrase between question and audio.',
+    pronunciationIssues: 'N/A — listening focused session.',
+    speakingConfidence: '',
+    homeworkAssignment: 'Complete Listening Practice sections 4a and 4b from the PDF. Focus on note completion accuracy.',
+    nextLessonRecommendation: 'IELTS Reading — True/False/Not Given. Timed practice under exam conditions.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-25T11:05:00Z',
+  },
+  {
+    id: 'n17', lessonId: 'lm3', authorId: 'u7', authorName: 'Miguel Santos',
+    lessonObjective: 'Apply advanced negotiation language in a complex multi-party scenario.',
+    topicsCovered: 'Cross-cultural business communication, multi-party negotiation role-play, diplomatic refusal.',
+    vocabularyLearned: '"With all due respect…", "We appreciate your position, however…", "Let\'s table that for now."',
+    grammarFocus: 'Hedging language for diplomatic communication. Formal conditional: "Were we to accept…"',
+    pronunciationIssues: 'Excellent overall. Tone is appropriately assertive without being aggressive.',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'Write a 250-word summary memo of today\'s negotiation role-play. Include agreed terms, outstanding issues, and next steps.',
+    nextLessonRecommendation: 'Advanced Module — intercultural competence and managing conflict in business contexts.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-20T10:00:00Z',
+  },
+  {
+    id: 'n18', lessonId: 'lm4', authorId: 'u7', authorName: 'Miguel Santos',
+    lessonObjective: 'Develop natural small-talk and relationship-building language for professional settings.',
+    topicsCovered: 'Business small-talk openers, finding common ground, transitioning from small-talk to business.',
+    vocabularyLearned: '"How has the week been treating you?", "Speaking of which…", "Circling back to…"',
+    grammarFocus: 'Tag questions for rapport-building. Using "actually" and "to be honest" naturally.',
+    pronunciationIssues: 'Natural rhythm improving. Occasional hesitation at turn-taking moments.',
+    speakingConfidence: 'medium',
+    homeworkAssignment: 'Record a 2-minute business self-introduction as if meeting a new client. Include name, role, company background, and one recent achievement.',
+    nextLessonRecommendation: 'Telephone and video call etiquette. Opening and closing professional calls gracefully.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-21T11:05:00Z',
+  },
+  {
+    id: 'n19', lessonId: 'lm6', authorId: 'u7', authorName: 'Miguel Santos',
+    lessonObjective: 'Rebuild conversational flow and naturalness after a one-week gap.',
+    topicsCovered: 'Free conversation on current events, storytelling, expressing opinions on workplace topics.',
+    vocabularyLearned: 'Hedging expressions: "As far as I know…", "I\'m not entirely sure, but…", "It seems to me that…"',
+    grammarFocus: 'Narrative tenses for storytelling. Linking ideas across multiple sentences fluently.',
+    pronunciationIssues: 'Speed and natural phrasing improved noticeably. Intonation variation is much better.',
+    speakingConfidence: 'high',
+    homeworkAssignment: 'Listen to a 15-minute podcast on a business topic. Note 5 new expressions and use them in a short written reflection.',
+    nextLessonRecommendation: 'Continue fluency-focused sessions. Introduce persuasive language for presentations.',
+    internalNote: '',
+    status: 'submitted',
+    createdAt: '2026-05-25T10:05:00Z',
+  },
 ]
 
 const MOCK_ATTENDANCE_INITIAL: LessonAttendance[] = [
@@ -785,20 +998,35 @@ export const useScheduleStore = defineStore('schedule', () => {
     return lessonNotes.value.filter(n => n.lessonId === lessonId)
   }
 
-  function addNote(lessonId: string, content: string, authorId: string, authorName: string, isPublic: boolean): void {
-    lessonNotes.value.push({
-      id: `n${Date.now()}`, lessonId, content, authorId, authorName, isPublic,
-      createdAt: new Date().toISOString(),
-    })
+  function getNoteForLesson(lessonId: string): LessonNote | undefined {
+    return lessonNotes.value.find(n => n.lessonId === lessonId)
   }
 
-  function updateNote(noteId: string, content: string, isPublic: boolean): void {
-    const note = lessonNotes.value.find(n => n.id === noteId)
-    if (note) { note.content = content; note.isPublic = isPublic; note.updatedAt = new Date().toISOString() }
+  function saveNote(lessonId: string, authorId: string, authorName: string, data: Omit<LessonNote, 'id' | 'lessonId' | 'authorId' | 'authorName' | 'createdAt' | 'updatedAt'>): void {
+    const existing = lessonNotes.value.find(n => n.lessonId === lessonId)
+    if (existing) {
+      Object.assign(existing, data)
+      existing.updatedAt = new Date().toISOString()
+    } else {
+      lessonNotes.value.push({
+        id: `n${Date.now()}`, lessonId, authorId, authorName,
+        createdAt: new Date().toISOString(),
+        ...data,
+      })
+    }
   }
 
   function deleteNote(noteId: string): void {
     lessonNotes.value = lessonNotes.value.filter(n => n.id !== noteId)
+  }
+
+  function getPendingNoteLessons(teacherId: string): ScheduleLesson[] {
+    const needsNote: LessonStatus[] = ['COMPLETED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER']
+    return lessons.value.filter(l =>
+      l.teacherId === teacherId &&
+      needsNote.includes(l.status) &&
+      !lessonNotes.value.some(n => n.lessonId === l.id && n.status === 'submitted')
+    )
   }
 
   function getAttendanceForLesson(lessonId: string): LessonAttendance | undefined {
@@ -1007,9 +1235,10 @@ export const useScheduleStore = defineStore('schedule', () => {
     lessonMaterials,
     lessonHomework,
     getNotesForLesson,
-    addNote,
-    updateNote,
+    getNoteForLesson,
+    saveNote,
     deleteNote,
+    getPendingNoteLessons,
     getAttendanceForLesson,
     getAllAttendance,
     markAttendance,

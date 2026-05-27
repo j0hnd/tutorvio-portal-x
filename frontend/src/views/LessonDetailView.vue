@@ -10,7 +10,7 @@
     </button>
 
     <!-- Two-column top layout -->
-    <div :class="['ld-top-cols', { 'ld-top-cols--single': activeJoinState === 'terminal' }]">
+    <div class="ld-top-cols">
 
     <!-- Header card (left) -->
     <div class="ld-header-card">
@@ -66,7 +66,7 @@
     </div>
 
     <!-- ─── Join Panel (right card) ─── -->
-    <div v-if="activeJoinState !== 'terminal'" :class="['ld-join-panel', `ld-join-panel--${activeJoinState}`]">
+    <div :class="['ld-join-panel', `ld-join-panel--${activeJoinState}`]">
 
         <!-- ── State content ── -->
         <div class="ld-join-col ld-join-col--main">
@@ -221,6 +221,28 @@
             </button>
           </template>
 
+          <!-- TERMINAL (cancelled / missed / rescheduled) -->
+          <template v-else-if="activeJoinState === 'terminal'">
+            <div class="ld-join-icon ld-join-icon--expired">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M14 8v5.5M14 16.5v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="ld-join-title">
+              <span v-if="lesson.status === 'CANCELLED'">Lesson Cancelled</span>
+              <span v-else-if="lesson.status === 'RESCHEDULED'">Lesson Rescheduled</span>
+              <span v-else-if="lesson.status === 'MISSED_BY_STUDENT'">Missed by Student</span>
+              <span v-else-if="lesson.status === 'MISSED_BY_TEACHER'">Missed by Teacher</span>
+            </p>
+            <p class="ld-join-sub">
+              <span v-if="lesson.status === 'CANCELLED'">This lesson has been cancelled.</span>
+              <span v-else-if="lesson.status === 'RESCHEDULED'">This lesson has been rescheduled. Check the updated time on the left.</span>
+              <span v-else-if="lesson.status === 'MISSED_BY_STUDENT'">Marked as missed — student did not attend.</span>
+              <span v-else-if="lesson.status === 'MISSED_BY_TEACHER'">Marked as missed — teacher did not attend.</span>
+            </p>
+          </template>
+
         </div>
 
       <!--
@@ -259,18 +281,6 @@
 
     </div><!-- /ld-top-cols -->
 
-    <!-- Terminal status notice (cancelled / missed / rescheduled) -->
-    <div v-if="terminalStatus && !['COMPLETED'].includes(lesson.status)" :class="['ld-notice', `ld-notice--${statusClass}`]">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-        <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
-        <path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
-      <span v-if="lesson.status === 'CANCELLED'">This lesson has been cancelled.</span>
-      <span v-else-if="lesson.status === 'RESCHEDULED'">This lesson has been rescheduled. Check the updated time above.</span>
-      <span v-else-if="lesson.status === 'MISSED_BY_STUDENT'">Marked as missed — student did not attend.</span>
-      <span v-else-if="lesson.status === 'MISSED_BY_TEACHER'">Marked as missed — teacher did not attend.</span>
-    </div>
-
     <!-- Tabs -->
     <div class="ld-tabs" role="tablist" aria-label="Lesson sections">
       <button
@@ -284,6 +294,7 @@
       >
         {{ tab.label }}
         <span v-if="tab.count" class="ld-tab__count">{{ tab.count }}</span>
+        <span v-if="tab.pending" class="ld-tab__pending-dot" aria-label="Pending" />
       </button>
     </div>
 
@@ -292,67 +303,98 @@
 
       <!-- ── Notes ── -->
       <section v-if="activeTab === 'notes'" class="ld-section">
-        <div class="ld-section__header">
-          <h2 class="ld-section__title">Session Notes</h2>
-          <button v-if="canManageNotes" class="ld-add-btn" type="button" @click="openNoteForm()">+ Add Note</button>
-        </div>
 
-        <!-- Add/Edit form -->
-        <div v-if="showNoteForm" class="ld-note-form">
-          <textarea
-            v-model="noteContent"
-            class="ld-textarea"
-            rows="4"
-            placeholder="Write your session notes here…"
-          />
-          <div v-if="canManageNotes" class="ld-note-form__public">
-            <label class="ld-checkbox">
-              <input v-model="noteIsPublic" type="checkbox" class="ld-checkbox__input" />
-              <span class="ld-checkbox__box" />
-              Visible to student
-            </label>
+        <!-- READ VIEW -->
+        <template v-if="lessonNote && !showNoteModal">
+          <div class="ld-section__header">
+            <h2 class="ld-section__title">Lesson Notes</h2>
+            <button v-if="canManageNotes" class="ld-add-btn" type="button" @click="openNoteForm">Edit Notes</button>
           </div>
-          <div class="ld-note-form__actions">
-            <button class="ld-btn ld-btn--ghost" type="button" @click="cancelNoteForm">Cancel</button>
-            <button class="ld-btn ld-btn--primary" type="button" :disabled="!noteContent.trim()" @click="saveNote">
-              {{ editingNoteId ? 'Update Note' : 'Save Note' }}
-            </button>
-          </div>
-        </div>
 
-        <!-- Notes list -->
-        <div v-if="visibleNotes.length" class="ld-notes-list">
-          <div v-for="note in visibleNotes" :key="note.id" class="ld-note-item">
-            <div class="ld-note-item__header">
-              <span class="ld-note-item__author">{{ note.authorName }}</span>
-              <span class="ld-note-item__date">{{ formatDateTime(note.updatedAt ?? note.createdAt) }}</span>
-              <span v-if="!note.isPublic" class="ld-note-item__private">Private</span>
-              <div v-if="canManageNotes" class="ld-note-item__actions">
-                <button class="ld-icon-btn" type="button" title="Edit" @click="openNoteForm(note)">
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M9 2l2 2-7 7H2V9L9 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
-                </button>
-                <button class="ld-icon-btn ld-icon-btn--danger" type="button" title="Delete" @click="removeNote(note.id)">
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2.5 2.5l8 8M10.5 2.5l-8 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-                </button>
+          <div class="ld-note-read">
+            <div class="ld-note-status-row">
+              <span :class="['ld-note-status', lessonNote.status === 'submitted' ? 'ld-note-status--submitted' : 'ld-note-status--draft']">
+                {{ lessonNote.status === 'submitted' ? 'Submitted' : 'Draft' }}
+              </span>
+              <span class="ld-note-date">
+                {{ lessonNote.status === 'submitted' ? 'Submitted' : 'Saved' }} {{ formatDateTime(lessonNote.updatedAt ?? lessonNote.createdAt) }}
+              </span>
+            </div>
+
+            <div class="ld-note-fields">
+              <div v-if="lessonNote.lessonObjective" class="ld-note-field">
+                <span class="ld-note-field__label">Lesson Objective</span>
+                <p class="ld-note-field__value">{{ lessonNote.lessonObjective }}</p>
+              </div>
+              <div v-if="lessonNote.topicsCovered" class="ld-note-field">
+                <span class="ld-note-field__label">Topics Covered</span>
+                <p class="ld-note-field__value">{{ lessonNote.topicsCovered }}</p>
+              </div>
+              <div v-if="lessonNote.vocabularyLearned" class="ld-note-field">
+                <span class="ld-note-field__label">Vocabulary Learned</span>
+                <p class="ld-note-field__value">{{ lessonNote.vocabularyLearned }}</p>
+              </div>
+              <div v-if="lessonNote.grammarFocus" class="ld-note-field">
+                <span class="ld-note-field__label">Grammar Focus</span>
+                <p class="ld-note-field__value">{{ lessonNote.grammarFocus }}</p>
+              </div>
+              <div v-if="lessonNote.pronunciationIssues" class="ld-note-field">
+                <span class="ld-note-field__label">Pronunciation Issues</span>
+                <p class="ld-note-field__value">{{ lessonNote.pronunciationIssues }}</p>
+              </div>
+              <div v-if="lessonNote.speakingConfidence" class="ld-note-field">
+                <span class="ld-note-field__label">Speaking Confidence</span>
+                <p class="ld-note-field__value" style="text-transform: capitalize;">{{ lessonNote.speakingConfidence }}</p>
+              </div>
+              <div v-if="lessonNote.homeworkAssignment" class="ld-note-field ld-note-field--full">
+                <span class="ld-note-field__label">Homework Assignment</span>
+                <p class="ld-note-field__value">{{ lessonNote.homeworkAssignment }}</p>
+              </div>
+              <div v-if="lessonNote.nextLessonRecommendation" class="ld-note-field ld-note-field--full">
+                <span class="ld-note-field__label">Next Lesson Recommendation</span>
+                <p class="ld-note-field__value">{{ lessonNote.nextLessonRecommendation }}</p>
               </div>
             </div>
-            <p class="ld-note-item__body">{{ note.content }}</p>
+
+            <div v-if="canManageNotes && lessonNote.internalNote" class="ld-note-internal">
+              <div class="ld-note-internal__heading">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1zm0 4v3M6 4.5v-.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                Internal Only
+              </div>
+              <p class="ld-note-internal__body">{{ lessonNote.internalNote }}</p>
+            </div>
+
+            <div v-if="lesson && ['COMPLETED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER'].includes(lesson.status) && lessonNote.status === 'draft'" class="ld-notice ld-notice--missed" style="margin-top: 0;">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1.5l5.5 10H1.5L7 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 6v2.5M7 10.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+              This lesson is completed but the note is still a draft. Submit it when ready.
+            </div>
           </div>
-        </div>
-        <p v-else-if="!showNoteForm" class="ld-empty">No notes for this lesson yet.</p>
+        </template>
+
+        <!-- EMPTY VIEW -->
+        <template v-else>
+          <div class="ld-section__header">
+            <h2 class="ld-section__title">Lesson Notes</h2>
+            <button v-if="canManageNotes" class="ld-add-btn" type="button" @click="openNoteForm">Write Notes</button>
+          </div>
+          <p class="ld-empty">No lesson notes yet.</p>
+        </template>
+
       </section>
 
       <!-- ── Attendance ── -->
       <section v-if="activeTab === 'attendance'" class="ld-section">
         <div class="ld-section__header">
           <h2 class="ld-section__title">Attendance</h2>
-          <button v-if="canMarkAttendance && !showAttendanceForm" class="ld-add-btn" type="button" @click="openAttendanceForm">
+          <button v-if="canMarkAttendance" class="ld-add-btn" type="button" @click="openAttendanceForm">
             {{ attendance ? 'Edit' : 'Mark Attendance' }}
           </button>
         </div>
 
         <!-- Current attendance -->
-        <div v-if="attendance && !showAttendanceForm" class="ld-attendance-card">
+        <div v-if="attendance" class="ld-attendance-card">
           <div v-if="attendance.isOverridden" class="ld-attendance-override-notice">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1.5L12.5 11H1.5L7 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 5.5v3M7 10h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
             This record was overridden by an admin.
@@ -379,52 +421,14 @@
           </div>
           <p class="ld-attendance-meta">Marked {{ formatDateTime(attendance.markedAt) }}</p>
         </div>
-        <p v-else-if="!showAttendanceForm" class="ld-empty">Attendance has not been marked yet.</p>
-
-        <!-- Attendance form -->
-        <div v-if="showAttendanceForm" class="ld-attendance-form">
-          <div class="ld-form-row">
-            <TVSelect v-model="attTeacher" :options="attendanceOptions" label="Teacher Status" />
-            <TVSelect v-model="attStudent" :options="attendanceOptions" label="Student Status" />
-          </div>
-          <div class="ld-field">
-            <label class="ld-label">Absence Reason (optional)</label>
-            <input v-model="attReason" type="text" class="ld-input" placeholder="e.g. Student did not show, no prior notice" />
-          </div>
-          <div class="ld-field">
-            <label class="ld-label">Comments (optional)</label>
-            <textarea v-model="attComments" class="ld-textarea" rows="2" placeholder="Additional notes visible to admins…" />
-          </div>
-          <div class="ld-form-actions">
-            <button class="ld-btn ld-btn--ghost" type="button" @click="showAttendanceForm = false">Cancel</button>
-            <button class="ld-btn ld-btn--primary" type="button" @click="saveAttendance">
-              {{ attendance ? 'Update Attendance' : 'Save Attendance' }}
-            </button>
-          </div>
-        </div>
+        <p v-else class="ld-empty">Attendance has not been marked yet.</p>
       </section>
 
       <!-- ── Homework ── -->
       <section v-if="activeTab === 'homework'" class="ld-section">
         <div class="ld-section__header">
           <h2 class="ld-section__title">Homework</h2>
-          <button v-if="canAssignHomework && !showHomeworkForm" class="ld-add-btn" type="button" @click="showHomeworkForm = true">+ Assign</button>
-        </div>
-
-        <!-- Assign form -->
-        <div v-if="showHomeworkForm" class="ld-hw-form">
-          <TVInput v-model="hwTitle" label="Title" placeholder="e.g. Write 2 business emails" required />
-          <div class="ld-field">
-            <label class="ld-label">Description</label>
-            <textarea v-model="hwDescription" class="ld-textarea" rows="3" placeholder="Describe the assignment…" />
-          </div>
-          <div class="ld-form-row">
-            <TVDatePicker v-model="hwDueDate" label="Due Date" :min="today" />
-          </div>
-          <div class="ld-form-actions">
-            <button class="ld-btn ld-btn--ghost" type="button" @click="showHomeworkForm = false">Cancel</button>
-            <button class="ld-btn ld-btn--primary" type="button" :disabled="!hwTitle.trim() || !hwDueDate" @click="saveHomework">Assign</button>
-          </div>
+          <button v-if="canAssignHomework" class="ld-add-btn" type="button" @click="showHomeworkModal = true">+ Assign</button>
         </div>
 
         <!-- Homework list -->
@@ -449,27 +453,14 @@
             </div>
           </div>
         </div>
-        <p v-else-if="!showHomeworkForm" class="ld-empty">No homework assigned for this lesson.</p>
+        <p v-else class="ld-empty">No homework assigned for this lesson.</p>
       </section>
 
       <!-- ── Materials ── -->
       <section v-if="activeTab === 'materials'" class="ld-section">
         <div class="ld-section__header">
           <h2 class="ld-section__title">Materials</h2>
-          <button v-if="canUploadMaterials && !showMaterialForm" class="ld-add-btn" type="button" @click="showMaterialForm = true">+ Add</button>
-        </div>
-
-        <!-- Upload form (simulated) -->
-        <div v-if="showMaterialForm" class="ld-mat-form">
-          <TVInput v-model="matTitle" label="Title" placeholder="e.g. Vocabulary Workbook" required />
-          <div class="ld-form-row">
-            <TVSelect v-model="matType" :options="materialTypeOptions" label="Type" />
-            <TVInput v-model="matUrl" label="URL / Link" placeholder="https://…" />
-          </div>
-          <div class="ld-form-actions">
-            <button class="ld-btn ld-btn--ghost" type="button" @click="showMaterialForm = false">Cancel</button>
-            <button class="ld-btn ld-btn--primary" type="button" :disabled="!matTitle.trim() || !matUrl.trim()" @click="saveMaterial">Add Material</button>
-          </div>
+          <button v-if="canUploadMaterials" class="ld-add-btn" type="button" @click="showMaterialModal = true">+ Add</button>
         </div>
 
         <!-- Materials list -->
@@ -487,7 +478,7 @@
             </button>
           </div>
         </div>
-        <p v-else-if="!showMaterialForm" class="ld-empty">No materials for this lesson yet.</p>
+        <p v-else class="ld-empty">No materials for this lesson yet.</p>
       </section>
 
       <!-- ── Student Profile Summary ── -->
@@ -531,6 +522,92 @@
       </section>
 
     </div>
+
+    <!-- ── Notes Modal ── -->
+    <TVModal v-model="showNoteModal" title="Write Lesson Notes" maxWidth="700px">
+      <div class="ld-note-form-section">
+        <p class="ld-note-form-section__heading">Lesson Summary</p>
+        <TVInput v-model="nObjective" label="Lesson Objective" placeholder="What was the goal of this lesson?" />
+        <TVInput v-model="nTopics" label="Topics Covered" placeholder="Main topics discussed" />
+        <div class="ld-form-row">
+          <TVInput v-model="nVocab" label="Vocabulary Learned" placeholder="Key words introduced" />
+          <TVInput v-model="nGrammar" label="Grammar Focus" placeholder="Grammar points practiced" />
+        </div>
+        <div class="ld-form-row">
+          <TVInput v-model="nPronunciation" label="Pronunciation Issues" placeholder="Areas to work on" />
+          <TVSelect v-model="nConfidence" label="Speaking Confidence" :options="[
+            { value: '', label: 'Not assessed' },
+            { value: 'low', label: 'Low' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High' },
+          ]" />
+        </div>
+      </div>
+      <div class="ld-note-form-section">
+        <p class="ld-note-form-section__heading">Follow-up</p>
+        <div class="ld-field">
+          <label class="ld-label">Homework Assignment</label>
+          <textarea v-model="nHomework" class="ld-textarea" rows="2" placeholder="What should the student practice?" />
+        </div>
+        <div class="ld-field">
+          <label class="ld-label">Next Lesson Recommendation</label>
+          <textarea v-model="nNextLesson" class="ld-textarea" rows="2" placeholder="Suggested focus for next session" />
+        </div>
+      </div>
+      <div v-if="canManageNotes" class="ld-note-internal-form">
+        <p class="ld-note-internal-form__heading">Internal Note (Teacher/Admin only)</p>
+        <textarea v-model="nInternal" class="ld-textarea" rows="2" placeholder="Private notes not visible to student" />
+      </div>
+      <template #footer>
+        <button class="ld-btn ld-btn--ghost" type="button" @click="showNoteModal = false">Cancel</button>
+        <button class="ld-btn ld-btn--ghost" type="button" @click="saveNoteForm('draft')">Save Draft</button>
+        <button class="ld-btn ld-btn--primary" type="button" @click="saveNoteForm('submitted')">Submit Notes</button>
+      </template>
+    </TVModal>
+
+    <!-- ── Attendance Modal ── -->
+    <TVModal v-model="showAttendanceModal" title="Mark Attendance" maxWidth="480px">
+      <TVSelect v-model="attTeacher" label="Teacher Status" :options="attendanceOptions" />
+      <TVSelect v-model="attStudent" label="Student Status" :options="attendanceOptions" />
+      <div class="ld-field">
+        <label class="ld-label">Absence Reason</label>
+        <input v-model="attReason" class="ld-input" type="text" placeholder="If absent, reason for absence" />
+      </div>
+      <div class="ld-field">
+        <label class="ld-label">Comments</label>
+        <textarea v-model="attComments" class="ld-textarea" rows="2" placeholder="Additional notes" />
+      </div>
+      <template #footer>
+        <button class="ld-btn ld-btn--ghost" type="button" @click="showAttendanceModal = false">Cancel</button>
+        <button class="ld-btn ld-btn--primary" type="button" @click="saveAttendance">Save</button>
+      </template>
+    </TVModal>
+
+    <!-- ── Homework Modal ── -->
+    <TVModal v-model="showHomeworkModal" title="Assign Homework" maxWidth="480px">
+      <TVInput v-model="hwTitle" label="Title" placeholder="e.g. Practice modal verbs" required />
+      <div class="ld-field">
+        <label class="ld-label">Description</label>
+        <textarea v-model="hwDescription" class="ld-textarea" rows="3" placeholder="Instructions for the student" />
+      </div>
+      <TVDatePicker v-model="hwDueDate" label="Due Date" :min="today" required />
+      <template #footer>
+        <button class="ld-btn ld-btn--ghost" type="button" @click="showHomeworkModal = false">Cancel</button>
+        <button class="ld-btn ld-btn--primary" type="button" :disabled="!hwTitle.trim() || !hwDueDate" @click="saveHomework">Assign</button>
+      </template>
+    </TVModal>
+
+    <!-- ── Materials Modal ── -->
+    <TVModal v-model="showMaterialModal" title="Add Material" maxWidth="480px">
+      <TVInput v-model="matTitle" label="Title" placeholder="e.g. Lesson slides" required />
+      <TVSelect v-model="matType" label="Type" :options="materialTypeOptions" />
+      <TVInput v-model="matUrl" label="URL" placeholder="https://..." required />
+      <template #footer>
+        <button class="ld-btn ld-btn--ghost" type="button" @click="showMaterialModal = false">Cancel</button>
+        <button class="ld-btn ld-btn--primary" type="button" :disabled="!matTitle.trim() || !matUrl.trim()" @click="saveMaterial">Add Material</button>
+      </template>
+    </TVModal>
+
   </div>
 
   <!-- Not found -->
@@ -549,9 +626,10 @@ import { useUsersStore } from '@/stores/users'
 import { useViewAs } from '@/composables/useViewAs'
 import { useToast } from '@/composables/useToast'
 import TVSelect from '@/components/ui/TVSelect.vue'
+import TVModal from '@/components/ui/TVModal.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVDatePicker from '@/components/ui/TVDatePicker.vue'
-import type { LessonNote, AttendanceStatus, MaterialType } from '@/stores/schedule'
+import type { AttendanceStatus, MaterialType, NoteStatus, SpeakingConfidence } from '@/stores/schedule'
 
 const route    = useRoute()
 const router   = useRouter()
@@ -591,10 +669,11 @@ function levelLabel(level: string): string {
 const role   = computed(() => effectiveRole.value)
 const userId = computed(() => auth.user?.id ?? '')
 
-const canManageNotes     = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
-const canMarkAttendance  = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
-const canAssignHomework  = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
-const canUploadMaterials = computed(() => ['ADMIN', 'TEACHER'].includes(role.value))
+const isAssignedTeacher  = computed(() => role.value === 'TEACHER' && lesson.value?.teacherId === userId.value)
+const canManageNotes     = computed(() => role.value === 'ADMIN' || isAssignedTeacher.value)
+const canMarkAttendance  = computed(() => role.value === 'ADMIN' || isAssignedTeacher.value)
+const canAssignHomework  = computed(() => role.value === 'ADMIN' || isAssignedTeacher.value)
+const canUploadMaterials = computed(() => role.value === 'ADMIN' || isAssignedTeacher.value)
 
 // ── Status helpers ──
 const statusClass = computed(() => {
@@ -627,9 +706,6 @@ const statusLabel = computed(() => {
   }
 })
 
-const terminalStatus = computed(() =>
-  ['CANCELLED', 'RESCHEDULED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER', 'COMPLETED'].includes(lesson.value?.status ?? '')
-)
 
 // ── Countdown timer ──
 interface Countdown { days: number; hours: number; minutes: number; seconds: number }
@@ -720,23 +796,20 @@ const durationMin    = computed(() => lesson.value
   ? Math.round((new Date(lesson.value.endTime).getTime() - new Date(lesson.value.startTime).getTime()) / 60_000) : 0)
 
 // ── Data ──
-const notes      = computed(() => schedule.getNotesForLesson(lessonId))
 const attendance = computed(() => schedule.getAttendanceForLesson(lessonId))
 const materials  = computed(() => schedule.getMaterialsForLesson(lessonId))
 const homework   = computed(() => schedule.getHomeworkForLesson(lessonId))
-
-const visibleNotes = computed(() => {
-  if (canManageNotes.value) return notes.value
-  return notes.value.filter(n => n.isPublic)
-})
+const lessonNote = computed(() => schedule.getNoteForLesson(lessonId))
 
 // ── Tabs ──
 type TabKey = 'notes' | 'attendance' | 'homework' | 'materials' | 'profile'
 const activeTab = ref<TabKey>('notes')
 
 const visibleTabs = computed(() => {
-  const tabs: { key: TabKey; label: string; count?: number }[] = [
-    { key: 'notes',      label: 'Notes',      count: visibleNotes.value.length || undefined },
+  const hasSubmittedNote = lessonNote.value?.status === 'submitted'
+  const needsNote = lesson.value && ['COMPLETED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER'].includes(lesson.value.status) && !hasSubmittedNote && canManageNotes.value
+  const tabs: { key: TabKey; label: string; count?: number; pending?: boolean }[] = [
+    { key: 'notes',      label: 'Notes',      count: hasSubmittedNote ? 1 : undefined, pending: !!needsNote },
     { key: 'attendance', label: 'Attendance' },
     { key: 'homework',   label: 'Homework',   count: homework.value.length || undefined },
     { key: 'materials',  label: 'Materials',  count: materials.value.length || undefined },
@@ -747,41 +820,51 @@ const visibleTabs = computed(() => {
   return tabs
 })
 
-// ── Notes form ──
-const showNoteForm  = ref(false)
-const editingNoteId = ref<string | null>(null)
-const noteContent   = ref('')
-const noteIsPublic  = ref(true)
+// ── Notes modal ──
+const showNoteModal  = ref(false)
+const nObjective     = ref('')
+const nTopics        = ref('')
+const nVocab         = ref('')
+const nGrammar       = ref('')
+const nPronunciation = ref('')
+const nConfidence    = ref<SpeakingConfidence>('')
+const nHomework      = ref('')
+const nNextLesson    = ref('')
+const nInternal      = ref('')
 
-function openNoteForm(note?: LessonNote): void {
-  editingNoteId.value = note?.id ?? null
-  noteContent.value   = note?.content ?? ''
-  noteIsPublic.value  = note?.isPublic ?? true
-  showNoteForm.value  = true
+function openNoteForm(): void {
+  const n = lessonNote.value
+  nObjective.value     = n?.lessonObjective ?? ''
+  nTopics.value        = n?.topicsCovered ?? ''
+  nVocab.value         = n?.vocabularyLearned ?? ''
+  nGrammar.value       = n?.grammarFocus ?? ''
+  nPronunciation.value = n?.pronunciationIssues ?? ''
+  nConfidence.value    = n?.speakingConfidence ?? ''
+  nHomework.value      = n?.homeworkAssignment ?? ''
+  nNextLesson.value    = n?.nextLessonRecommendation ?? ''
+  nInternal.value      = n?.internalNote ?? ''
+  showNoteModal.value  = true
 }
 
-function cancelNoteForm(): void {
-  showNoteForm.value  = false
-  editingNoteId.value = null
-  noteContent.value   = ''
+function saveNoteForm(submitStatus: NoteStatus): void {
+  schedule.saveNote(lessonId, userId.value, auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Unknown', {
+    lessonObjective: nObjective.value,
+    topicsCovered: nTopics.value,
+    vocabularyLearned: nVocab.value,
+    grammarFocus: nGrammar.value,
+    pronunciationIssues: nPronunciation.value,
+    speakingConfidence: nConfidence.value,
+    homeworkAssignment: nHomework.value,
+    nextLessonRecommendation: nNextLesson.value,
+    internalNote: nInternal.value,
+    status: submitStatus,
+  })
+  showNoteModal.value = false
+  toast.success(submitStatus === 'submitted' ? 'Note submitted!' : 'Draft saved.')
 }
 
-function saveNote(): void {
-  if (!noteContent.value.trim()) return
-  if (editingNoteId.value) {
-    schedule.updateNote(editingNoteId.value, noteContent.value.trim(), noteIsPublic.value)
-  } else {
-    schedule.addNote(lessonId, noteContent.value.trim(), userId.value, auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Unknown', noteIsPublic.value)
-  }
-  cancelNoteForm()
-}
-
-function removeNote(noteId: string): void {
-  schedule.deleteNote(noteId)
-}
-
-// ── Attendance form ──
-const showAttendanceForm = ref(false)
+// ── Attendance modal ──
+const showAttendanceModal = ref(false)
 const attTeacher  = ref<AttendanceStatus>('PRESENT')
 const attStudent  = ref<AttendanceStatus>('PRESENT')
 const attReason   = ref('')
@@ -814,21 +897,21 @@ function attStatusClass(status: AttendanceStatus): string {
 
 function openAttendanceForm(): void {
   const a = attendance.value
-  attTeacher.value  = a?.teacherStatus ?? 'PRESENT'
-  attStudent.value  = a?.studentStatus ?? 'PRESENT'
-  attReason.value   = a?.absenceReason ?? ''
-  attComments.value = a?.comments ?? ''
-  showAttendanceForm.value = true
+  attTeacher.value        = a?.teacherStatus ?? 'PRESENT'
+  attStudent.value        = a?.studentStatus ?? 'PRESENT'
+  attReason.value         = a?.absenceReason ?? ''
+  attComments.value       = a?.comments ?? ''
+  showAttendanceModal.value = true
 }
 
 function saveAttendance(): void {
   schedule.markAttendance(lessonId, attTeacher.value, attStudent.value, attReason.value, userId.value, attComments.value)
-  showAttendanceForm.value = false
+  showAttendanceModal.value = false
   toast.success('Attendance saved successfully!')
 }
 
-// ── Homework form ──
-const showHomeworkForm = ref(false)
+// ── Homework modal ──
+const showHomeworkModal = ref(false)
 const hwTitle       = ref('')
 const hwDescription = ref('')
 const hwDueDate     = ref('')
@@ -840,11 +923,11 @@ function saveHomework(): void {
   const studentName = lesson.value?.studentName ?? ''
   schedule.addHomework(lessonId, hwTitle.value.trim(), hwDescription.value.trim(), hwDueDate.value, studentId, studentName)
   hwTitle.value = ''; hwDescription.value = ''; hwDueDate.value = ''
-  showHomeworkForm.value = false
+  showHomeworkModal.value = false
 }
 
-// ── Materials form ──
-const showMaterialForm = ref(false)
+// ── Materials modal ──
+const showMaterialModal = ref(false)
 const matTitle = ref('')
 const matType  = ref<MaterialType>('PDF')
 const matUrl   = ref('')
@@ -862,7 +945,7 @@ function saveMaterial(): void {
   const uploaderName = auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Unknown'
   schedule.addMaterial(lessonId, matTitle.value.trim(), matType.value, matUrl.value.trim(), uploaderName)
   matTitle.value = ''; matUrl.value = ''; matType.value = 'PDF'
-  showMaterialForm.value = false
+  showMaterialModal.value = false
 }
 
 function removeMaterial(id: string): void {
@@ -988,6 +1071,7 @@ function formatDateTime(iso: string): string {
   align-items: center;
   text-align: center;
   gap: var(--tv-space-3);
+  flex: 1;
 }
 
 /* Right column: tips */
@@ -1160,7 +1244,8 @@ function formatDateTime(iso: string): string {
   display: flex; align-items: center; gap: var(--tv-space-3); flex-wrap: wrap;
   padding-top: var(--tv-space-3);
   border-top: 1px dashed var(--tv-border);
-  margin-top: var(--tv-space-1);
+  margin-top: auto;
+  width: 100%;
 }
 .ld-dev-bar__label {
   display: inline-flex; align-items: center; gap: 4px;
@@ -1197,7 +1282,9 @@ function formatDateTime(iso: string): string {
   display: flex; gap: 0;
   border-bottom: 2px solid var(--tv-border);
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.ld-tabs::-webkit-scrollbar { display: none; }
 .ld-tab {
   display: inline-flex; align-items: center; gap: var(--tv-space-2);
   padding: var(--tv-space-2) var(--tv-space-4);
@@ -1450,4 +1537,29 @@ function formatDateTime(iso: string): string {
 .ld-profile-info-label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; }
 .ld-profile-info-value { font-size: var(--tv-text-sm); color: var(--tv-text); font-weight: var(--tv-font-medium); }
 .ld-profile-info-text  { font-size: var(--tv-text-sm); color: var(--tv-text); line-height: 1.6; margin: 0; }
+
+/* Note read view */
+.ld-note-read { display: flex; flex-direction: column; gap: var(--tv-space-4); }
+.ld-note-status-row { display: flex; align-items: center; gap: var(--tv-space-3); flex-wrap: wrap; }
+.ld-note-status { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); padding: 2px 10px; border-radius: var(--tv-radius-full); border: 1px solid; }
+.ld-note-status--submitted { background: var(--tv-success-soft); color: var(--tv-success-fg); border-color: var(--tv-success-border); }
+.ld-note-status--draft { background: hsl(38,88%,93%); color: hsl(38,70%,32%); border-color: hsl(38,70%,70%); }
+.ld-note-date { font-size: var(--tv-text-xs); color: var(--tv-text-muted); }
+.ld-note-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--tv-space-4); }
+.ld-note-field { display: flex; flex-direction: column; gap: 4px; }
+.ld-note-field--full { grid-column: 1 / -1; }
+.ld-note-field__label { font-size: var(--tv-text-xs); font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.ld-note-field__value { font-size: var(--tv-text-sm); color: var(--tv-text); line-height: 1.6; white-space: pre-wrap; margin: 0; }
+.ld-note-internal { background: hsl(38,88%,95%); border: 1px solid hsl(38,70%,78%); border-radius: var(--tv-radius); padding: var(--tv-space-4); display: flex; flex-direction: column; gap: var(--tv-space-2); }
+.ld-note-internal__heading { font-size: var(--tv-text-xs); font-weight: var(--tv-font-bold); color: hsl(38,70%,32%); text-transform: uppercase; letter-spacing: .06em; display: flex; align-items: center; gap: var(--tv-space-2); }
+.ld-note-internal__body { font-size: var(--tv-text-sm); color: var(--tv-text); line-height: 1.6; white-space: pre-wrap; margin: 0; }
+
+/* Note form sections */
+.ld-note-form-section { display: flex; flex-direction: column; gap: var(--tv-space-3); }
+.ld-note-form-section__heading { font-size: var(--tv-text-xs); font-weight: var(--tv-font-bold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--tv-border); padding-bottom: var(--tv-space-2); margin: 0; }
+.ld-note-internal-form { background: hsl(38,88%,95%); border: 1px solid hsl(38,70%,78%); border-radius: var(--tv-radius); padding: var(--tv-space-4); display: flex; flex-direction: column; gap: var(--tv-space-2); }
+.ld-note-internal-form__heading { font-size: var(--tv-text-xs); font-weight: var(--tv-font-bold); color: hsl(38,70%,32%); text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+
+/* Pending dot on tab */
+.ld-tab__pending-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tv-danger-fg); flex-shrink: 0; }
 </style>
