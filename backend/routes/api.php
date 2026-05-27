@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
+use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
@@ -178,6 +179,8 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/homeworks/summary', HomeworkSummaryController::class)
                 ->middleware('permission:homeworks.view');
+            Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
+                ->middleware('permission:audit_logs.view');
 
             Route::get('/teachers/{teacher}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
                 ->middleware('permission:teacher_compensations.view');

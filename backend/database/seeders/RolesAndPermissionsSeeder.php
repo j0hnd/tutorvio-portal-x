@@ -42,6 +42,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'payroll.view', 'payroll.manage',
             'subscriptions.view', 'subscriptions.create', 'subscriptions.update', 'subscriptions.delete',
             'announcements.manage', 'notifications.history.view',
+            'audit_logs.view',
             'dashboard.tasks.view', 'dashboard.operational_notices.view',
             'admin.access',
         ];
