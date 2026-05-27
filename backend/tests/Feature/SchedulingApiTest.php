@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\Notification as PortalNotification;
 use App\Models\NotificationRecipient;
 use App\Models\Scheduling\ClassSchedule;
@@ -79,6 +82,18 @@ class SchedulingApiTest extends TestCase
             'starts_at' => '2026-06-01 02:00:00',
             'ends_at' => '2026-06-01 03:00:00',
         ]);
+
+        $auditLog = AuditLog::query()
+            ->where('action_type', AuditActionType::LESSON_CREATED->value)
+            ->where('module', AuditModule::LESSONS->value)
+            ->where('target_entity_type', 'class_schedule')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertSame($this->admin->id, $auditLog->actor_user_id);
+        $this->assertSame($this->student->id, $auditLog->metadata['student_id'] ?? null);
+        $this->assertSame($this->teacher->id, $auditLog->metadata['teacher_id'] ?? null);
     }
 
     public function test_schedule_creation_rejects_unavailable_teacher_time(): void
@@ -1142,6 +1157,63 @@ class SchedulingApiTest extends TestCase
         $this->getJson('/api/v1/scheduling/class-schedules/'.$schedule->id)
             ->assertOk()
             ->assertJsonPath('data.status', ClassSchedule::STATUS_COMPLETED);
+
+        $auditLog = AuditLog::query()
+            ->where('action_type', AuditActionType::SCHEDULE_UPDATED->value)
+            ->where('module', AuditModule::SCHEDULING->value)
+            ->where('target_entity_type', 'class_schedule')
+            ->where('target_entity_id', $schedule->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertSame($this->teacher->id, $auditLog->actor_user_id);
+        $this->assertSame(ClassSchedule::STATUS_SCHEDULED, $auditLog->metadata['previous_status'] ?? null);
+        $this->assertSame(ClassSchedule::STATUS_COMPLETED, $auditLog->metadata['new_status'] ?? null);
+    }
+
+    public function test_teacher_schedule_datetime_update_creates_audit_log_with_before_after_values(): void
+    {
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        $schedule = ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->patchJson('/api/v1/scheduling/class-schedules/'.$schedule->id, [
+            'starts_at' => '2026-06-01 12:00:00',
+            'ends_at' => '2026-06-01 13:00:00',
+            'timezone' => 'Asia/Manila',
+        ])->assertOk();
+
+        $auditLog = AuditLog::query()
+            ->where('action_type', AuditActionType::SCHEDULE_UPDATED->value)
+            ->where('module', AuditModule::SCHEDULING->value)
+            ->where('target_entity_type', 'class_schedule')
+            ->where('target_entity_id', $schedule->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertSame($this->teacher->id, $auditLog->actor_user_id);
+        $this->assertTrue($auditLog->metadata['teacher_or_admin_change'] ?? false);
+        $this->assertArrayHasKey('starts_at', $auditLog->metadata['changed_fields'] ?? []);
+        $this->assertArrayHasKey('ends_at', $auditLog->metadata['changed_fields'] ?? []);
+        $this->assertSame('2026-06-01T02:00:00+00:00', $auditLog->metadata['schedule_before']['starts_at'] ?? null);
+        $this->assertSame('2026-06-01T04:00:00+00:00', $auditLog->metadata['schedule_after']['starts_at'] ?? null);
     }
 
     public function test_reminder_service_queues_student_and_teacher_reminders_without_duplicates(): void

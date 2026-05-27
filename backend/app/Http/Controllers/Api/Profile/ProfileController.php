@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers\Api\Profile;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Profile\UpdateProfileRequest;
 use App\Http\Resources\Profile\UserResource;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
+    public function __construct(private readonly AuditLogService $auditLogService) {}
+
     public function show(Request $request): UserResource
     {
         $user = $request->user();
@@ -79,6 +84,9 @@ class ProfileController extends Controller
 
     private function updateProfileData(User $user, array $data): UserResource
     {
+        $originalUser = $user->only(['name', 'phone', 'timezone']);
+        $originalStudentProfile = $user->studentProfile?->only(array_keys($data['student_profile'] ?? [])) ?? [];
+
         DB::transaction(function () use ($user, $data) {
             $user->update(array_intersect_key($data, array_flip(['name', 'phone', 'timezone'])));
 
@@ -101,6 +109,58 @@ class ProfileController extends Controller
             'staffProfile',
         ]);
 
+        $this->logStudentProfileUpdate($user, $data, $originalUser, $originalStudentProfile);
+
         return new UserResource($user);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $originalUser
+     * @param  array<string, mixed>  $originalStudentProfile
+     */
+    private function logStudentProfileUpdate(
+        User $user,
+        array $data,
+        array $originalUser,
+        array $originalStudentProfile
+    ): void {
+        if (! $user->hasRole('student')) {
+            return;
+        }
+
+        $changedFields = [];
+        foreach (['name', 'phone', 'timezone'] as $field) {
+            if (array_key_exists($field, $data) && ($originalUser[$field] ?? null) !== $user->{$field}) {
+                $changedFields[] = $field;
+            }
+        }
+
+        foreach (array_keys($data['student_profile'] ?? []) as $field) {
+            $originalValue = $originalStudentProfile[$field] ?? null;
+            $updatedValue = $user->studentProfile?->{$field};
+
+            if ($originalValue != $updatedValue) {
+                $changedFields[] = 'student_profile.'.$field;
+            }
+        }
+
+        $changedFields = array_values(array_unique($changedFields));
+        if ($changedFields === []) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: auth()->id(),
+            actionType: AuditActionType::STUDENT_UPDATED,
+            module: AuditModule::STUDENTS,
+            targetEntityType: 'student_profile',
+            targetEntityId: $user->studentProfile?->id ?? $user->id,
+            metadata: [
+                'student_id' => $user->id,
+                'teacher_id' => $user->studentProfile?->assigned_teacher_id,
+                'changed_fields' => array_fill_keys($changedFields, true),
+            ],
+        );
     }
 }

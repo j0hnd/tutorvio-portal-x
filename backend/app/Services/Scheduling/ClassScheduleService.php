@@ -2,8 +2,11 @@
 
 namespace App\Services\Scheduling;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\Notifications\SystemNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
@@ -17,7 +20,8 @@ class ClassScheduleService
 {
     public function __construct(
         private readonly SchedulingAvailabilityService $availabilityService,
-        private readonly SystemNotificationService $notificationService
+        private readonly SystemNotificationService $notificationService,
+        private readonly AuditLogService $auditLogService,
     ) {}
 
     /**
@@ -45,7 +49,7 @@ class ClassScheduleService
             teacherBlockedUntilUtc: $teacherBlockedUntilUtc
         );
 
-        return ClassSchedule::create([
+        $schedule = ClassSchedule::create([
             ...Arr::only($payload, ['student_id', 'teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes', 'rescheduled_from_id']),
             'status' => $payload['status'] ?? ClassSchedule::STATUS_SCHEDULED,
             'class_type' => $classType,
@@ -55,6 +59,10 @@ class ClassScheduleService
             'created_by' => $actor->id,
             'updated_by' => $actor->id,
         ]);
+
+        $this->logLessonCreated($schedule, $actor);
+
+        return $schedule;
     }
 
     /**
@@ -102,7 +110,7 @@ class ClassScheduleService
                         teacherBlockedUntilUtc: $teacherBlockedUntilUtc
                     );
 
-                    $created[] = ClassSchedule::create([
+                    $schedule = ClassSchedule::create([
                         ...Arr::only($payload, ['student_id', 'teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
                         'status' => $payload['status'] ?? ClassSchedule::STATUS_SCHEDULED,
                         'class_type' => $classType,
@@ -112,6 +120,8 @@ class ClassScheduleService
                         'created_by' => $actor->id,
                         'updated_by' => $actor->id,
                     ]);
+                    $this->logLessonCreated($schedule, $actor);
+                    $created[] = $schedule;
                 } catch (ValidationException $exception) {
                     $skipped[] = [
                         'date' => $occurrence['date'],
@@ -170,7 +180,7 @@ class ClassScheduleService
                 teacherBlockedUntilUtc: $teacherBlockedUntilUtc
             );
 
-            return ClassSchedule::create([
+            $schedule = ClassSchedule::create([
                 ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
                 'student_id' => $student->id,
                 'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
@@ -181,6 +191,10 @@ class ClassScheduleService
                 'created_by' => $student->id,
                 'updated_by' => $student->id,
             ]);
+
+            $this->logLessonCreated($schedule, $student);
+
+            return $schedule;
         });
     }
 
@@ -189,6 +203,8 @@ class ClassScheduleService
      */
     public function update(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
+        $before = clone $schedule;
+
         [$startsAtUtc, $endsAtUtc] = $this->utcRange(
             $payload['starts_at'] ?? $schedule->starts_at,
             $payload['ends_at'] ?? $schedule->ends_at,
@@ -220,9 +236,13 @@ class ClassScheduleService
             'teacher_blocked_until' => $teacherBlockedUntilUtc,
             'updated_by' => $actor->id,
         ]);
+        $changedFields = $this->scheduleChangedFields($schedule->getDirty());
         $schedule->save();
 
-        return $schedule->refresh();
+        $updatedSchedule = $schedule->refresh();
+        $this->logScheduleUpdated($before, $updatedSchedule, $actor, $changedFields);
+
+        return $updatedSchedule;
     }
 
     /**
@@ -230,6 +250,8 @@ class ClassScheduleService
      */
     public function reschedule(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
+        $before = clone $schedule;
+
         $newSchedule = DB::transaction(function () use ($schedule, $payload, $actor) {
             $schedule->forceFill([
                 'status' => ClassSchedule::STATUS_RESCHEDULED,
@@ -252,6 +274,12 @@ class ClassScheduleService
             ], $actor);
         })->refresh();
 
+        $this->logScheduleUpdated(
+            $before,
+            $newSchedule,
+            $actor,
+            ['status', 'starts_at', 'ends_at', 'timezone', 'rescheduled_from_id']
+        );
         $this->notifyRescheduled($schedule->refresh(), $newSchedule, $actor);
 
         return $newSchedule;
@@ -297,6 +325,8 @@ class ClassScheduleService
 
     public function cancel(ClassSchedule $schedule, User $actor, ?string $reason = null): ClassSchedule
     {
+        $before = clone $schedule;
+
         $schedule->forceFill([
             'status' => ClassSchedule::STATUS_CANCELLED,
             'cancelled_by' => $actor->id,
@@ -305,17 +335,25 @@ class ClassScheduleService
             'updated_by' => $actor->id,
         ])->save();
 
-        return $schedule->refresh();
+        $updatedSchedule = $schedule->refresh();
+        $this->logScheduleUpdated($before, $updatedSchedule, $actor, ['status', 'cancelled_by', 'cancelled_at', 'cancellation_reason']);
+
+        return $updatedSchedule;
     }
 
     public function updateStatus(ClassSchedule $schedule, string $status, User $actor): ClassSchedule
     {
+        $before = clone $schedule;
+
         $schedule->forceFill([
             'status' => $status,
             'updated_by' => $actor->id,
         ])->save();
 
-        return $schedule->refresh();
+        $updatedSchedule = $schedule->refresh();
+        $this->logScheduleUpdated($before, $updatedSchedule, $actor, ['status']);
+
+        return $updatedSchedule;
     }
 
     /**
@@ -433,5 +471,111 @@ class ClassScheduleService
         $firstField = array_key_first($errors);
 
         return $firstField ? (string) $errors[$firstField][0] : $exception->getMessage();
+    }
+
+    private function logLessonCreated(ClassSchedule $schedule, User $actor): void
+    {
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::LESSON_CREATED,
+            module: AuditModule::LESSONS,
+            targetEntityType: 'class_schedule',
+            targetEntityId: $schedule->id,
+            metadata: [
+                'lesson_id' => $schedule->id,
+                'student_id' => $schedule->student_id,
+                'teacher_id' => $schedule->teacher_id,
+                'new_status' => $schedule->status,
+                'schedule_after' => $this->scheduleSnapshot($schedule),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $changedFields
+     */
+    private function logScheduleUpdated(ClassSchedule $before, ClassSchedule $after, User $actor, array $changedFields): void
+    {
+        if ($changedFields === []) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::SCHEDULE_UPDATED,
+            module: AuditModule::SCHEDULING,
+            targetEntityType: 'class_schedule',
+            targetEntityId: $after->id,
+            metadata: [
+                'lesson_id' => $after->id,
+                'student_id' => $after->student_id,
+                'teacher_id' => $after->teacher_id,
+                'previous_status' => $before->status,
+                'new_status' => $after->status,
+                'changed_fields' => array_fill_keys(array_values(array_unique($changedFields)), true),
+                'schedule_before' => $this->scheduleSnapshot($before),
+                'schedule_after' => $this->scheduleSnapshot($after),
+                'actor_role' => $this->actorRoleLabel($actor),
+                'teacher_or_admin_change' => $actor->hasAnyRole(['teacher', 'admin']),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $dirty
+     * @return array<int, string>
+     */
+    private function scheduleChangedFields(array $dirty): array
+    {
+        return array_values(array_intersect(array_keys($dirty), [
+            'student_id',
+            'teacher_id',
+            'title',
+            'description',
+            'status',
+            'class_type',
+            'timezone',
+            'starts_at',
+            'ends_at',
+            'meeting_url',
+            'notes',
+            'rescheduled_from_id',
+            'cancelled_by',
+            'cancelled_at',
+            'cancellation_reason',
+        ]));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function scheduleSnapshot(ClassSchedule $schedule): array
+    {
+        return [
+            'timezone' => $schedule->timezone,
+            'starts_at' => $schedule->starts_at?->toIso8601String(),
+            'ends_at' => $schedule->ends_at?->toIso8601String(),
+        ];
+    }
+
+    private function actorRoleLabel(User $actor): string
+    {
+        if ($actor->hasRole('admin')) {
+            return 'admin';
+        }
+
+        if ($actor->hasRole('teacher')) {
+            return 'teacher';
+        }
+
+        if ($actor->hasRole('staff')) {
+            return 'staff';
+        }
+
+        if ($actor->hasRole('student')) {
+            return 'student';
+        }
+
+        return 'user';
     }
 }

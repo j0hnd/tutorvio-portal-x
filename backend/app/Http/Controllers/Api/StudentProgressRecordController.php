@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StudentProgressRecords\StoreStudentProgressRecordRequest;
 use App\Http\Requests\StudentProgressRecords\UpdateStudentProgressRecordRequest;
 use App\Http\Resources\StudentProgressRecords\StudentProgressRecordResource;
 use App\Models\StudentProgressRecord;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class StudentProgressRecordController extends Controller
 {
+    public function __construct(private readonly AuditLogService $auditLogService) {}
+
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', StudentProgressRecord::class);
@@ -167,6 +172,7 @@ class StudentProgressRecordController extends Controller
     {
         Gate::authorize('update', $studentProgressRecord);
 
+        $before = clone $studentProgressRecord;
         $payload = $this->normalizePayload($request->validated());
         $studentId = $payload['student_id'] ?? $studentProgressRecord->student_id;
         $teacherId = $payload['teacher_id'] ?? $studentProgressRecord->teacher_id;
@@ -178,9 +184,28 @@ class StudentProgressRecordController extends Controller
             ...$payload,
             'updated_by' => $request->user()->id,
         ])->save();
+        $studentProgressRecord = $studentProgressRecord->refresh();
+        $changedFields = $this->changedProgressFields($before, $studentProgressRecord, $payload);
+
+        if ($changedFields !== []) {
+            $this->auditLogService->record(
+                actorUserId: $request->user()->id,
+                actionType: AuditActionType::STUDENT_UPDATED,
+                module: AuditModule::STUDENTS,
+                targetEntityType: 'student_progress_record',
+                targetEntityId: $studentProgressRecord->id,
+                metadata: [
+                    'student_id' => $studentProgressRecord->student_id,
+                    'teacher_id' => $studentProgressRecord->teacher_id,
+                    'changed_fields' => array_fill_keys($changedFields, true),
+                    'previous_status' => $before->progress_status,
+                    'new_status' => $studentProgressRecord->progress_status,
+                ],
+            );
+        }
 
         return response()->json([
-            'data' => new StudentProgressRecordResource($studentProgressRecord->refresh()->load($this->relations())),
+            'data' => new StudentProgressRecordResource($studentProgressRecord->load($this->relations())),
         ]);
     }
 
@@ -445,6 +470,33 @@ class StudentProgressRecordController extends Controller
             ->filter(fn (mixed $value) => is_string($value) && ! blank($value))
             ->unique()
             ->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<int, string>
+     */
+    private function changedProgressFields(
+        StudentProgressRecord $before,
+        StudentProgressRecord $after,
+        array $payload
+    ): array {
+        $changedFields = [];
+
+        foreach (array_keys($payload) as $field) {
+            if (! array_key_exists($field, $after->getAttributes())) {
+                continue;
+            }
+
+            $beforeValue = $before->getAttribute($field);
+            $afterValue = $after->getAttribute($field);
+
+            if ($beforeValue != $afterValue) {
+                $changedFields[] = $field;
+            }
+        }
+
+        return array_values(array_unique($changedFields));
     }
 
     /**

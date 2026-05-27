@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\StudentProgressRecord;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -100,6 +103,20 @@ class StudentProgressRecordApiTest extends TestCase
             ->assertJsonPath('data.speaking_confidence_rating', StudentProgressRecord::RATING_STRONG)
             ->assertJsonPath('data.progress_status', StudentProgressRecord::STATUS_COMPLETED)
             ->assertJsonPath('data.updated_by', $this->admin->id);
+
+        $auditLog = AuditLog::query()
+            ->where('action_type', AuditActionType::STUDENT_UPDATED->value)
+            ->where('module', AuditModule::STUDENTS->value)
+            ->where('target_entity_type', 'student_progress_record')
+            ->where('target_entity_id', $recordId)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertSame($this->admin->id, $auditLog->actor_user_id);
+        $this->assertArrayHasKey('skill_area', $auditLog->metadata['changed_fields'] ?? []);
+        $this->assertSame(StudentProgressRecord::STATUS_IN_PROGRESS, $auditLog->metadata['previous_status'] ?? null);
+        $this->assertSame(StudentProgressRecord::STATUS_COMPLETED, $auditLog->metadata['new_status'] ?? null);
 
         $this->deleteJson("/api/v1/student-progress-records/{$recordId}")
             ->assertNoContent();

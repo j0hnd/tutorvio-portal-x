@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Models\LessonRecord;
 use App\Models\User;
 use App\Repositories\LessonRecordRepository;
@@ -14,6 +16,7 @@ class LessonRecordService
     public function __construct(
         private readonly LessonRecordRepository $lessonRecords,
         private readonly SubscriptionLessonBalanceService $lessonBalances,
+        private readonly AuditLogService $auditLogService,
     ) {}
 
     /**
@@ -33,7 +36,11 @@ class LessonRecordService
 
             $this->lessonBalances->consumeForCompletedLesson($lessonRecord, $actor);
 
-            return $this->syncMaterials($lessonRecord, $payload);
+            $syncedLessonRecord = $this->syncMaterials($lessonRecord, $payload);
+            $this->logLessonCreated($syncedLessonRecord, $actor);
+            $this->logAttendanceChange($syncedLessonRecord, $actor, null, $syncedLessonRecord->attendance_status);
+
+            return $syncedLessonRecord;
         });
     }
 
@@ -47,6 +54,7 @@ class LessonRecordService
         $this->assertStudentAndTeacherRoles($studentId, $teacherId);
 
         return DB::transaction(function () use ($lessonRecord, $payload, $actor): LessonRecord {
+            $before = clone $lessonRecord;
             $wasCompleted = $lessonRecord->is_completed && $lessonRecord->lesson_status === LessonRecord::STATUS_COMPLETED;
             $updatedLessonRecord = $this->lessonRecords->update($lessonRecord, [
                 ...Arr::only($payload, $this->mutableFields()),
@@ -58,7 +66,11 @@ class LessonRecordService
                 $this->lessonBalances->consumeForCompletedLesson($updatedLessonRecord, $actor);
             }
 
-            return $this->syncMaterials($updatedLessonRecord, $payload);
+            $syncedLessonRecord = $this->syncMaterials($updatedLessonRecord, $payload);
+            $this->logLessonScheduleUpdate($before, $syncedLessonRecord, $actor, $payload);
+            $this->logAttendanceChange($syncedLessonRecord, $actor, $before->attendance_status, $syncedLessonRecord->attendance_status);
+
+            return $syncedLessonRecord;
         });
     }
 
@@ -187,5 +199,107 @@ class LessonRecordService
             'materials:id,title,description,url',
             'lessonNote:id,lesson_id,lesson_record_id,lesson_objective,topics_covered,vocabulary_learned,grammar_focus,pronunciation_issues,student_speaking_confidence_observation,homework_assignment,recommendation_for_next_lesson,internal_note,submitted_at',
         ]);
+    }
+
+    private function logLessonCreated(LessonRecord $lessonRecord, User $actor): void
+    {
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::LESSON_CREATED,
+            module: AuditModule::LESSONS,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $lessonRecord->id,
+            metadata: [
+                'lesson_id' => $lessonRecord->id,
+                'student_id' => $lessonRecord->student_id,
+                'teacher_id' => $lessonRecord->teacher_id,
+                'new_status' => $lessonRecord->lesson_status,
+                'schedule_after' => $this->lessonScheduleSnapshot($lessonRecord),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function logLessonScheduleUpdate(LessonRecord $before, LessonRecord $after, User $actor, array $payload): void
+    {
+        if (! $this->payloadContainsScheduleChange($payload)) {
+            return;
+        }
+
+        $changedFields = [];
+        foreach (['scheduled_date', 'start_time', 'end_time'] as $field) {
+            if (array_key_exists($field, $payload) && $before->{$field} !== $after->{$field}) {
+                $changedFields[] = $field;
+            }
+        }
+
+        if ($changedFields === []) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::SCHEDULE_UPDATED,
+            module: AuditModule::SCHEDULING,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $after->id,
+            metadata: [
+                'lesson_id' => $after->id,
+                'student_id' => $after->student_id,
+                'teacher_id' => $after->teacher_id,
+                'previous_status' => $before->lesson_status,
+                'new_status' => $after->lesson_status,
+                'changed_fields' => array_fill_keys($changedFields, true),
+                'schedule_before' => $this->lessonScheduleSnapshot($before),
+                'schedule_after' => $this->lessonScheduleSnapshot($after),
+            ],
+        );
+    }
+
+    private function logAttendanceChange(LessonRecord $lessonRecord, User $actor, ?string $previousStatus, ?string $newStatus): void
+    {
+        if ($previousStatus === $newStatus || $newStatus === null) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::ATTENDANCE_MARKED,
+            module: AuditModule::ATTENDANCE,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $lessonRecord->id,
+            metadata: [
+                'lesson_id' => $lessonRecord->id,
+                'student_id' => $lessonRecord->student_id,
+                'teacher_id' => $lessonRecord->teacher_id,
+                'previous_status' => $previousStatus,
+                'new_status' => $newStatus,
+                'changed_fields' => [
+                    'attendance_status' => true,
+                ],
+            ],
+        );
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function lessonScheduleSnapshot(LessonRecord $lessonRecord): array
+    {
+        return [
+            'scheduled_date' => $lessonRecord->scheduled_date?->toDateString(),
+            'start_time' => $lessonRecord->start_time,
+            'end_time' => $lessonRecord->end_time,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function payloadContainsScheduleChange(array $payload): bool
+    {
+        return array_intersect(array_keys($payload), ['scheduled_date', 'start_time', 'end_time']) !== [];
     }
 }

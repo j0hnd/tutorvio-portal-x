@@ -2,14 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\StudentProfile;
 use App\Models\TeacherProfile;
-use App\Models\StaffProfile;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class ProfileApiTest extends TestCase
 {
@@ -18,13 +20,13 @@ class ProfileApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Ensure roles exist
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'student', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'teacher', 'guard_name' => 'web']);
         $staffRole = Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web']);
-        
+
         // Ensure permissions exist
         Permission::firstOrCreate(['name' => 'users.view', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'users.update', 'guard_name' => 'web']);
@@ -42,19 +44,19 @@ class ProfileApiTest extends TestCase
         $response = $this->actingAs($student)->getJson('/api/v1/profile');
 
         $response->assertStatus(200)
-                 ->assertJsonPath('data.id', $student->id)
-                 ->assertJsonPath('data.student_profile.preferences', 'Morning classes');
+            ->assertJsonPath('data.id', $student->id)
+            ->assertJsonPath('data.student_profile.preferences', 'Morning classes');
     }
 
     public function test_student_cannot_view_another_student_profile()
     {
         $student1 = User::factory()->create();
         $student1->assignRole('student');
-        
+
         $student2 = User::factory()->create();
         $student2->assignRole('student');
 
-        $response = $this->actingAs($student1)->getJson('/api/v1/users/' . $student2->id . '/profile');
+        $response = $this->actingAs($student1)->getJson('/api/v1/users/'.$student2->id.'/profile');
 
         $response->assertStatus(403);
     }
@@ -86,8 +88,8 @@ class ProfileApiTest extends TestCase
         $response = $this->actingAs($teacher)->getJson('/api/v1/profile');
 
         $response->assertStatus(200)
-                 ->assertJsonPath('data.id', $teacher->id)
-                 ->assertJsonPath('data.teacher_profile.bio', 'Great teacher');
+            ->assertJsonPath('data.id', $teacher->id)
+            ->assertJsonPath('data.teacher_profile.bio', 'Great teacher');
     }
 
     public function test_teacher_can_view_assigned_student_profile()
@@ -102,10 +104,10 @@ class ProfileApiTest extends TestCase
             'assigned_teacher_id' => $teacher->id,
         ]);
 
-        $response = $this->actingAs($teacher)->getJson('/api/v1/users/' . $student->id . '/profile');
+        $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->id.'/profile');
 
         $response->assertStatus(200)
-                 ->assertJsonPath('data.id', $student->id);
+            ->assertJsonPath('data.id', $student->id);
     }
 
     public function test_teacher_cannot_view_unassigned_student_profile()
@@ -114,7 +116,7 @@ class ProfileApiTest extends TestCase
         $teacher->assignRole('teacher');
 
         $teacher2 = User::factory()->create();
-        
+
         $student = User::factory()->create();
         $student->assignRole('student');
         StudentProfile::create([
@@ -122,7 +124,7 @@ class ProfileApiTest extends TestCase
             'assigned_teacher_id' => $teacher2->id, // Assigned to another
         ]);
 
-        $response = $this->actingAs($teacher)->getJson('/api/v1/users/' . $student->id . '/profile');
+        $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->id.'/profile');
 
         $response->assertStatus(403);
     }
@@ -135,7 +137,7 @@ class ProfileApiTest extends TestCase
         $student = User::factory()->create();
         $student->assignRole('student');
 
-        $response = $this->actingAs($admin)->getJson('/api/v1/users/' . $student->id . '/profile');
+        $response = $this->actingAs($admin)->getJson('/api/v1/users/'.$student->id.'/profile');
 
         $response->assertStatus(200);
     }
@@ -149,13 +151,13 @@ class ProfileApiTest extends TestCase
         $student->assignRole('student');
 
         // Without permission
-        $response = $this->actingAs($staff)->getJson('/api/v1/users/' . $student->id . '/profile');
+        $response = $this->actingAs($staff)->getJson('/api/v1/users/'.$student->id.'/profile');
         $response->assertStatus(403);
 
         // With permission
         $staff->givePermissionTo('users.view');
-        
-        $response2 = $this->actingAs($staff)->getJson('/api/v1/users/' . $student->id . '/profile');
+
+        $response2 = $this->actingAs($staff)->getJson('/api/v1/users/'.$student->id.'/profile');
         $response2->assertStatus(200);
     }
 
@@ -173,14 +175,26 @@ class ProfileApiTest extends TestCase
             'student_profile' => [
                 'preferences' => 'New prefs',
                 'internal_notes' => 'Hacked notes',
-            ]
+            ],
         ]);
 
         $response->assertStatus(200);
-        
+
         // Ensure preferences changed but internal notes didn't
         $student->refresh();
         $this->assertEquals('New prefs', $student->studentProfile->preferences);
         $this->assertNull($student->studentProfile->internal_notes);
+
+        $auditLog = AuditLog::query()
+            ->where('action_type', AuditActionType::STUDENT_UPDATED->value)
+            ->where('module', AuditModule::STUDENTS->value)
+            ->where('target_entity_type', 'student_profile')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertSame($student->id, $auditLog->actor_user_id);
+        $this->assertSame($student->id, $auditLog->metadata['student_id'] ?? null);
+        $this->assertArrayHasKey('student_profile.preferences', $auditLog->metadata['changed_fields'] ?? []);
     }
 }

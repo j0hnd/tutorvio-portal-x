@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\LessonRecord;
 use App\Models\Material;
 use App\Models\Subscription;
@@ -85,6 +88,31 @@ class LessonRecordApiTest extends TestCase
             'internal_remarks' => 'Parent asked for a progress review.',
             'created_by' => $this->admin->id,
         ]);
+
+        $lessonId = (int) $response->json('data.id');
+
+        $lessonLog = AuditLog::query()
+            ->where('action_type', AuditActionType::LESSON_CREATED->value)
+            ->where('module', AuditModule::LESSONS->value)
+            ->where('target_entity_type', 'lesson_record')
+            ->where('target_entity_id', $lessonId)
+            ->latest('id')
+            ->first();
+
+        $attendanceLog = AuditLog::query()
+            ->where('action_type', AuditActionType::ATTENDANCE_MARKED->value)
+            ->where('module', AuditModule::ATTENDANCE->value)
+            ->where('target_entity_type', 'lesson_record')
+            ->where('target_entity_id', $lessonId)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($lessonLog);
+        $this->assertNotNull($attendanceLog);
+        $this->assertSame($this->admin->id, $lessonLog->actor_user_id);
+        $this->assertSame($this->admin->id, $attendanceLog->actor_user_id);
+        $this->assertNull($attendanceLog->metadata['previous_status'] ?? null);
+        $this->assertSame(LessonRecord::ATTENDANCE_PRESENT, $attendanceLog->metadata['new_status'] ?? null);
     }
 
     public function test_create_lesson_record_requires_core_fields(): void
@@ -253,6 +281,18 @@ class LessonRecordApiTest extends TestCase
         $this->assertSame(LessonRecord::STATUS_COMPLETED, $lessonRecord->lesson_status);
         $this->assertNotNull($lessonRecord->completed_at);
         $this->assertSame($this->admin->id, $lessonRecord->completed_by);
+
+        $attendanceLog = AuditLog::query()
+            ->where('action_type', AuditActionType::ATTENDANCE_MARKED->value)
+            ->where('module', AuditModule::ATTENDANCE->value)
+            ->where('target_entity_type', 'lesson_record')
+            ->where('target_entity_id', $lessonRecord->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($attendanceLog);
+        $this->assertNull($attendanceLog->metadata['previous_status'] ?? null);
+        $this->assertSame(LessonRecord::ATTENDANCE_PRESENT, $attendanceLog->metadata['new_status'] ?? null);
     }
 
     public function test_completed_lesson_consumes_active_subscription_balance_once(): void
