@@ -122,16 +122,24 @@ export interface AttendanceFilters {
   subject?: string
 }
 
-export type MaterialType = 'PDF' | 'VIDEO' | 'LINK' | 'DOCUMENT' | 'IMAGE'
+export type MaterialType = 'PDF' | 'WORKSHEET' | 'SLIDES' | 'VIDEO' | 'LINK' | 'DOCUMENT' | 'IMAGE'
+export type MaterialCategory = 'beginner-english' | 'business-english' | 'travel-english' | 'speaking-practice' | 'grammar-support' | 'pronunciation-practice' | 'tutorvio-custom'
+export type MaterialLevel = 'beginner' | 'elementary' | 'intermediate' | 'upper-intermediate' | 'advanced' | 'all'
+export type MaterialVisibility = 'public' | 'student-visible' | 'teacher-only'
 
 export interface LessonMaterial {
   id: string
-  lessonId: string
+  lessonId: string | null
   title: string
   type: MaterialType
   url: string
   uploadedByName: string
+  uploadedById?: string
   uploadedAt: string
+  category?: MaterialCategory
+  level?: MaterialLevel
+  visibility?: MaterialVisibility
+  description?: string
 }
 
 export type HomeworkStatus = 'PENDING' | 'SUBMITTED' | 'REVIEWED'
@@ -707,6 +715,22 @@ const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
   { id: 'm16', lessonId: 'lm3', title: 'Advanced Negotiation Language — Module 2', type: 'PDF', url: 'https://materials.tutorvio.com/files/negotiation-m2.pdf', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-20T08:55:00Z' },
   { id: 'm17', lessonId: 'lm4', title: 'Small Talk & Business Relationship Phrases', type: 'DOCUMENT', url: 'https://materials.tutorvio.com/files/small-talk.docx', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-21T09:55:00Z' },
   { id: 'm18', lessonId: 'lm6', title: 'Conversational Fluency — Podcast List', type: 'LINK', url: 'https://materials.tutorvio.com/links/fluency-podcasts', uploadedByName: 'Miguel Santos', uploadedAt: '2026-05-25T09:00:00Z' },
+  // ── Library-wide materials (lessonId: null) ──
+  { id: 'lib1',  lessonId: null, title: 'Tutorvio Student Handbook', type: 'PDF', url: 'https://materials.tutorvio.com/library/student-handbook.pdf', uploadedByName: 'Admin', uploadedAt: '2026-01-10T09:00:00Z', category: 'tutorvio-custom', level: 'all', visibility: 'public', description: 'Complete guide for new students — expectations, platform usage, and learning tips.' },
+  { id: 'lib2',  lessonId: null, title: 'Beginner English — Course Overview Slides', type: 'SLIDES', url: 'https://materials.tutorvio.com/library/beginner-overview.pptx', uploadedByName: 'Admin', uploadedAt: '2026-01-10T09:05:00Z', category: 'beginner-english', level: 'beginner', visibility: 'student-visible', description: 'Course overview and syllabus for beginner track students.' },
+  { id: 'lib3',  lessonId: null, title: 'A1–A2 Grammar Reference Sheet', type: 'PDF', url: 'https://materials.tutorvio.com/library/a1-a2-grammar.pdf', uploadedByName: 'Admin', uploadedAt: '2026-01-12T10:00:00Z', category: 'grammar-support', level: 'beginner', visibility: 'student-visible', description: 'Key grammar rules for A1 and A2 learners with examples.' },
+  { id: 'lib4',  lessonId: null, title: 'Business English — Module 1 Workbook', type: 'WORKSHEET', url: 'https://materials.tutorvio.com/library/biz-eng-m1.pdf', uploadedByName: 'Admin', uploadedAt: '2026-02-01T08:00:00Z', category: 'business-english', level: 'intermediate', visibility: 'student-visible', description: 'Exercises covering emails, meetings, and presentations for business learners.' },
+  { id: 'lib5',  lessonId: null, title: 'Business English — Teacher Guide Module 1', type: 'PDF', url: 'https://materials.tutorvio.com/library/biz-eng-m1-teacher.pdf', uploadedByName: 'Admin', uploadedAt: '2026-02-01T08:10:00Z', category: 'business-english', level: 'intermediate', visibility: 'teacher-only', description: 'Answer keys and teaching notes for Business English Module 1.' },
+  { id: 'lib6',  lessonId: null, title: 'Travel English — Survival Phrases Pack', type: 'PDF', url: 'https://materials.tutorvio.com/library/travel-phrases.pdf', uploadedByName: 'Admin', uploadedAt: '2026-02-15T09:00:00Z', category: 'travel-english', level: 'elementary', visibility: 'student-visible', description: 'Essential phrases for airports, hotels, restaurants, and transport.' },
+  { id: 'lib7',  lessonId: null, title: 'Pronunciation — Minimal Pairs Drill Set', type: 'WORKSHEET', url: 'https://materials.tutorvio.com/library/minimal-pairs.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-03-01T08:00:00Z', category: 'pronunciation-practice', level: 'elementary', visibility: 'student-visible', description: 'Targeted drills for common pronunciation confusion pairs (e.g. ship/sheep, live/leave).' },
+  { id: 'lib8',  lessonId: null, title: 'Speaking Practice — Daily Topic Cards', type: 'WORKSHEET', url: 'https://materials.tutorvio.com/library/topic-cards.pdf', uploadedByName: 'Miguel Santos', uploadedAt: '2026-03-05T10:00:00Z', category: 'speaking-practice', level: 'all', visibility: 'student-visible', description: '50 conversation prompt cards for speaking warm-ups and fluency practice.' },
+  { id: 'lib9',  lessonId: null, title: 'Upper-Intermediate Grammar Deep Dive', type: 'PDF', url: 'https://materials.tutorvio.com/library/ui-grammar.pdf', uploadedByName: 'James Reyes', uploadedAt: '2026-03-10T08:00:00Z', category: 'grammar-support', level: 'upper-intermediate', visibility: 'student-visible', description: 'Conditionals, passive voice, and reported speech — comprehensive reference.' },
+  { id: 'lib10', lessonId: null, title: 'Advanced Business Negotiation — Case Studies', type: 'PDF', url: 'https://materials.tutorvio.com/library/negotiation-cases.pdf', uploadedByName: 'Miguel Santos', uploadedAt: '2026-03-15T09:00:00Z', category: 'business-english', level: 'advanced', visibility: 'student-visible', description: 'Real-world negotiation scenarios with language scaffolding and debrief questions.' },
+  { id: 'lib11', lessonId: null, title: 'Tutorvio Teaching Standards & Rubric', type: 'PDF', url: 'https://materials.tutorvio.com/library/teaching-rubric.pdf', uploadedByName: 'Admin', uploadedAt: '2026-01-15T08:00:00Z', category: 'tutorvio-custom', level: 'all', visibility: 'teacher-only', description: 'Internal rubric for lesson quality, feedback standards, and student assessment.' },
+  { id: 'lib12', lessonId: null, title: 'Pronunciation — IPA Quick Reference', type: 'LINK', url: 'https://www.ipachart.com', uploadedByName: 'Admin', uploadedAt: '2026-02-20T08:00:00Z', category: 'pronunciation-practice', level: 'all', visibility: 'public', description: 'Interactive IPA chart for teachers and advanced students.' },
+  { id: 'lib13', lessonId: null, title: 'Travel English — Role Play Scenarios', type: 'WORKSHEET', url: 'https://materials.tutorvio.com/library/travel-roleplay.pdf', uploadedByName: 'Sarah Lim', uploadedAt: '2026-04-01T08:00:00Z', category: 'travel-english', level: 'elementary', visibility: 'student-visible', description: 'Paired role-play cards for travel situations: check-in, ordering, asking directions.' },
+  { id: 'lib14', lessonId: null, title: 'Speaking Confidence — Weekly Tracker', type: 'WORKSHEET', url: 'https://materials.tutorvio.com/library/confidence-tracker.pdf', uploadedByName: 'Admin', uploadedAt: '2026-04-10T09:00:00Z', category: 'speaking-practice', level: 'all', visibility: 'student-visible', description: 'Self-assessment sheet for students to track weekly speaking confidence growth.' },
+  { id: 'lib15', lessonId: null, title: 'Tutorvio Custom Curriculum Map', type: 'SLIDES', url: 'https://materials.tutorvio.com/library/curriculum-map.pptx', uploadedByName: 'Admin', uploadedAt: '2026-01-05T08:00:00Z', category: 'tutorvio-custom', level: 'all', visibility: 'teacher-only', description: 'Full curriculum progression map across all tracks and levels.' },
 ]
 
 const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
@@ -1112,10 +1136,31 @@ export const useScheduleStore = defineStore('schedule', () => {
     return lessonMaterials.value.filter(m => m.lessonId === lessonId)
   }
 
+  function getLibraryMaterials(role: string): LessonMaterial[] {
+    const all = lessonMaterials.value.filter(m => m.lessonId === null)
+    if (role === 'ADMIN' || role === 'TEACHER' || role === 'STAFF') return all
+    return all.filter(m => m.visibility === 'public' || m.visibility === 'student-visible')
+  }
+
   function addMaterial(lessonId: string, title: string, type: MaterialType, url: string, uploaderName: string): void {
     lessonMaterials.value.push({
       id: `m${Date.now()}`, lessonId, title, type, url,
       uploadedByName: uploaderName, uploadedAt: new Date().toISOString(),
+    })
+  }
+
+  function addLibraryMaterial(data: {
+    title: string; type: MaterialType; url: string; uploaderName: string; uploaderId: string
+    category?: MaterialCategory; level?: MaterialLevel; visibility?: MaterialVisibility; description?: string
+  }): void {
+    lessonMaterials.value.push({
+      id: `lib${Date.now()}`, lessonId: null,
+      title: data.title, type: data.type, url: data.url,
+      uploadedByName: data.uploaderName, uploadedById: data.uploaderId,
+      uploadedAt: new Date().toISOString(),
+      category: data.category, level: data.level,
+      visibility: data.visibility ?? 'student-visible',
+      description: data.description,
     })
   }
 
@@ -1244,7 +1289,9 @@ export const useScheduleStore = defineStore('schedule', () => {
     markAttendance,
     overrideAttendance,
     getMaterialsForLesson,
+    getLibraryMaterials,
     addMaterial,
+    addLibraryMaterial,
     deleteMaterial,
     getHomeworkForLesson,
     addHomework,
