@@ -20,6 +20,7 @@ use App\Models\Subscription;
 use App\Models\TeacherCompensation;
 use App\Models\TeacherEarning;
 use App\Models\TeacherStudentAssignment;
+use App\Models\User;
 use App\Policies\ClassSchedulePolicy;
 use App\Policies\CourseProgramPolicy;
 use App\Policies\CourseTypePolicy;
@@ -73,5 +74,17 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(TeacherEarning::class, TeacherEarningPolicy::class);
         Gate::policy(TeacherStudentAssignment::class, TeacherStudentAssignmentPolicy::class);
         Gate::policy(PayoutPeriod::class, PayoutPeriodPolicy::class);
+
+        Gate::define('viewTeacherWorkloads', function (User $user): bool {
+            return $user->hasRole('admin')
+                || ($user->hasRole('staff') && $user->can('teacher_workloads.view'))
+                || $user->hasRole('teacher');
+        });
+
+        Gate::define('viewTeacherWorkload', function (User $user, User $teacher): bool {
+            return $user->hasRole('admin')
+                || ($user->hasRole('staff') && $user->can('teacher_workloads.view'))
+                || ($user->hasRole('teacher') && (int) $user->id === (int) $teacher->id);
+        });
     }
 }

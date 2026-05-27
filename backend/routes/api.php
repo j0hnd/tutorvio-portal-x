@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\StudentPackageSummaryController;
 use App\Http\Controllers\Api\StudentProgressRecordController;
 use App\Http\Controllers\Api\TeacherEarningController;
 use App\Http\Controllers\Api\TeacherPayoutAdjustmentController;
+use App\Http\Controllers\Api\TeacherWorkloadController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -119,6 +120,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/homeworks/{homework}/progress', [HomeworkController::class, 'updateProgress']);
         Route::patch('/homeworks/{homework}/review', [HomeworkController::class, 'review']);
         Route::get('/teacher-earnings', [TeacherEarningController::class, 'index']);
+        Route::get('/teacher-workloads', [TeacherWorkloadController::class, 'index']);
+        Route::get('/teacher-workloads/{teacher}', [TeacherWorkloadController::class, 'show']);
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
         Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
         Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
