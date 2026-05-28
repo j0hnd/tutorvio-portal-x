@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\Admin\TeacherEarningController as AdminTeacherEarni
 use App\Http\Controllers\Api\Admin\TeacherNoteCompletionReportController as AdminTeacherNoteCompletionReportController;
 use App\Http\Controllers\Api\Admin\TeacherPayoutAdjustmentController as AdminTeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\Admin\TeacherStudentAssignmentController;
+use App\Http\Controllers\Api\Admin\TrialEnrollmentReportController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Announcements\AnnouncementController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
@@ -241,6 +242,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/package-usage', PackageUsageReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/reports/retention-continuation', RetentionContinuationReportController::class)
+                ->middleware('permission:school_reports.view');
+            Route::get('/reports/trial-enrollments', TrialEnrollmentReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/portal-settings', [AdminPortalSettingController::class, 'index'])
                 ->middleware('permission:portal_settings.view');
