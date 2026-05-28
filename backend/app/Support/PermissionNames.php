@@ -20,6 +20,8 @@ final class PermissionNames
 
     public const ACADEMIC_RECORDS_MANAGE = 'academic_records.manage';
 
+    public const SCHOOL_REPORTS_VIEW = 'school_reports.view';
+
     public const ISSUE_REPORTS_VIEW = 'issue_reports.view';
 
     public const ISSUE_REPORTS_CREATE = 'issue_reports.create';
@@ -50,6 +52,7 @@ final class PermissionNames
             self::FORM_TEMPLATES_MANAGE,
             self::ACADEMIC_RECORDS_VIEW,
             self::ACADEMIC_RECORDS_MANAGE,
+            self::SCHOOL_REPORTS_VIEW,
             self::ISSUE_REPORTS_VIEW,
             self::ISSUE_REPORTS_CREATE,
             self::ISSUE_REPORTS_MANAGE,

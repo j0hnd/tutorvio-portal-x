@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
 use App\Http\Controllers\Api\Admin\PortalSettingController as AdminPortalSettingController;
 use App\Http\Controllers\Api\Admin\ScheduleChangeRequestController as AdminScheduleChangeRequestController;
+use App\Http\Controllers\Api\Admin\SchoolReportController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\TeacherChangeRequestController as AdminTeacherChangeRequestController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
@@ -209,6 +210,8 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:homeworks.view');
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
                 ->middleware('permission:audit_logs.view');
+            Route::get('/reports/school', [SchoolReportController::class, 'index'])
+                ->middleware('permission:school_reports.view');
             Route::get('/portal-settings', [AdminPortalSettingController::class, 'index'])
                 ->middleware('permission:portal_settings.view');
             Route::match(['put', 'patch'], '/portal-settings', [AdminPortalSettingController::class, 'update'])

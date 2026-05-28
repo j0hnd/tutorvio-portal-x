@@ -25,6 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'lesson_records.view', 'lesson_records.create', 'lesson_records.update', 'lesson_records.delete',
             'student_progress_records.view', 'student_progress_records.create', 'student_progress_records.update', 'student_progress_records.delete',
             'academic_records.view', 'academic_records.manage',
+            'school_reports.view',
             'lesson_notes.view', 'lesson_notes.create', 'lesson_notes.update',
             'homeworks.view',
             'learning_resources.view', 'learning_resources.create', 'learning_resources.update', 'learning_resources.delete',
