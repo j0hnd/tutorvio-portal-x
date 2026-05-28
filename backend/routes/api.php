@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\FormTemplateController as AdminFormTemplateController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Api\CourseCatalog\CourseProgramController;
 use App\Http\Controllers\Api\CourseCatalog\CourseProgramStudentAssignmentController;
 use App\Http\Controllers\Api\CourseCatalog\CourseTypeController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
+use App\Http\Controllers\Api\FormTemplateController;
 use App\Http\Controllers\Api\HomeworkController;
 use App\Http\Controllers\Api\IssueReportController;
 use App\Http\Controllers\Api\LearningResourceController;
@@ -84,6 +86,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
         Route::get('/portal-settings', [PortalSettingController::class, 'index']);
+        Route::get('/form-templates', [FormTemplateController::class, 'index']);
+        Route::get('/form-templates/{formTemplate}', [FormTemplateController::class, 'show']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::get('/notifications/history', [NotificationController::class, 'history'])
             ->middleware(['role:admin|staff', 'permission:notifications.history.view']);
@@ -197,6 +201,16 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:portal_settings.view');
             Route::match(['put', 'patch'], '/portal-settings', [AdminPortalSettingController::class, 'update'])
                 ->middleware('permission:portal_settings.manage');
+            Route::get('/form-templates', [AdminFormTemplateController::class, 'index'])
+                ->middleware('permission:form_templates.view');
+            Route::post('/form-templates', [AdminFormTemplateController::class, 'store'])
+                ->middleware('permission:form_templates.manage');
+            Route::get('/form-templates/{formTemplate}', [AdminFormTemplateController::class, 'show'])
+                ->middleware('permission:form_templates.view');
+            Route::match(['put', 'patch'], '/form-templates/{formTemplate}', [AdminFormTemplateController::class, 'update'])
+                ->middleware('permission:form_templates.manage');
+            Route::post('/form-templates/{formTemplate}/archive', [AdminFormTemplateController::class, 'archive'])
+                ->middleware('permission:form_templates.manage');
             Route::get('/issue-reports', [AdminIssueReportController::class, 'index'])
                 ->middleware('permission:issue_reports.view');
             Route::get('/issue-reports/{issueReport}', [AdminIssueReportController::class, 'show'])

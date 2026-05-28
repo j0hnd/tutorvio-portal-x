@@ -11,6 +11,30 @@ class FormTemplate extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const TYPE_STUDENT_ABSENCE_FORM = 'student_absence_form';
+
+    public const TYPE_TEACHER_ABSENCE_FORM = 'teacher_absence_form';
+
+    public const TYPE_MATERIAL_REQUEST_FORM = 'material_request_form';
+
+    public const TYPE_CLASS_INCIDENT_FORM = 'class_incident_form';
+
+    public const TYPE_SCHEDULE_CHANGE_REQUEST_FORM = 'schedule_change_request_form';
+
+    public const TYPE_STUDENT_CONCERN_FORM = 'student_concern_form';
+
+    public const TYPE_TEACHER_CONCERN_FORM = 'teacher_concern_form';
+
+    public const TEMPLATE_TYPES = [
+        self::TYPE_STUDENT_ABSENCE_FORM,
+        self::TYPE_TEACHER_ABSENCE_FORM,
+        self::TYPE_MATERIAL_REQUEST_FORM,
+        self::TYPE_CLASS_INCIDENT_FORM,
+        self::TYPE_SCHEDULE_CHANGE_REQUEST_FORM,
+        self::TYPE_STUDENT_CONCERN_FORM,
+        self::TYPE_TEACHER_CONCERN_FORM,
+    ];
+
     public const STATUS_DRAFT = 'draft';
 
     public const STATUS_ACTIVE = 'active';
@@ -52,5 +76,19 @@ class FormTemplate extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function submitterRolesFor(string $templateType): array
+    {
+        return match ($templateType) {
+            self::TYPE_STUDENT_ABSENCE_FORM,
+            self::TYPE_TEACHER_CONCERN_FORM => ['student', 'admin', 'staff'],
+            self::TYPE_TEACHER_ABSENCE_FORM,
+            self::TYPE_STUDENT_CONCERN_FORM => ['teacher', 'admin', 'staff'],
+            default => ['student', 'teacher', 'admin', 'staff'],
+        };
     }
 }
