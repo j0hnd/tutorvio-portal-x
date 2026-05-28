@@ -63,6 +63,14 @@ class IssueReportApiTest extends TestCase
         Sanctum::actingAs($student);
 
         $this->postJson('/api/v1/issue-reports', [
+            'issue_type' => 'parent_billing_complaint',
+            'title' => 'Invalid issue type',
+            'description' => 'This issue type is not supported.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('issue_type');
+
+        $this->postJson('/api/v1/issue-reports', [
             'issue_type' => IssueReport::TYPE_CLASS_INCIDENT,
             'title' => 'Class incident',
             'description' => 'Something happened in class.',
@@ -256,6 +264,42 @@ class IssueReportApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_cancel_issue_report_with_resolution_notes(): void
+    {
+        [$student] = $this->createStudentAndTeacher();
+        $admin = $this->createRoleUser('admin');
+        $issue = $this->createIssueReport($student);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/admin/issue-reports/{$issue->id}/cancel", [
+            'note' => 'Duplicate report.',
+            'resolution_notes' => 'Cancelled after confirming it duplicates another ticket.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', IssueReport::STATUS_CANCELLED)
+            ->assertJsonPath('data.resolved_by', $admin->id)
+            ->assertJsonPath('data.resolution_notes', 'Cancelled after confirming it duplicates another ticket.');
+
+        $this->assertDatabaseHas('issue_reports', [
+            'id' => $issue->id,
+            'status' => IssueReport::STATUS_CANCELLED,
+            'resolved_by' => $admin->id,
+            'resolution_notes' => 'Cancelled after confirming it duplicates another ticket.',
+        ]);
+        $this->assertDatabaseHas('issue_comments', [
+            'issue_report_id' => $issue->id,
+            'body' => 'Duplicate report.',
+            'comment_type' => 'status_change',
+        ]);
+        $this->assertDatabaseHas('issue_comments', [
+            'issue_report_id' => $issue->id,
+            'body' => 'Cancelled after confirming it duplicates another ticket.',
+            'comment_type' => 'resolution_note',
+            'is_internal' => true,
+        ]);
+    }
+
     public function test_staff_permissions_and_reporter_limited_status_access_are_enforced(): void
     {
         [$student] = $this->createStudentAndTeacher();
@@ -282,6 +326,27 @@ class IssueReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', IssueReport::STATUS_OPEN)
             ->assertJsonMissing(['description' => 'Sensitive concern details.']);
+    }
+
+    public function test_related_users_cannot_view_unrelated_complaint_details_unless_they_reported_it(): void
+    {
+        [$student, $teacher] = $this->createStudentAndTeacher();
+        $admin = $this->createRoleUser('admin');
+        $issue = $this->createIssueReport($admin, [
+            'issue_type' => IssueReport::TYPE_TEACHER_CONCERN,
+            'target_user_id' => $student->id,
+            'related_student_id' => $student->id,
+            'related_teacher_id' => $teacher->id,
+            'description' => 'Parent complaint with sensitive operational context.',
+        ]);
+
+        Sanctum::actingAs($student);
+        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+            ->assertForbidden();
+
+        Sanctum::actingAs($teacher);
+        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+            ->assertForbidden();
     }
 
     /**

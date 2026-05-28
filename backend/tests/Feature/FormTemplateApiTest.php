@@ -138,6 +138,74 @@ class FormTemplateApiTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_staff_form_template_crud_depends_on_view_and_manage_permissions(): void
+    {
+        $staff = $this->createRoleUser('staff');
+        $template = FormTemplate::factory()->create([
+            'name' => 'Class Incident',
+            'template_type' => FormTemplate::TYPE_CLASS_INCIDENT_FORM,
+            'status' => FormTemplate::STATUS_ACTIVE,
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/form-templates')->assertForbidden();
+        $this->postJson('/api/v1/admin/form-templates', [
+            'title' => 'Material Request',
+            'category' => FormTemplate::TYPE_MATERIAL_REQUEST_FORM,
+            'fields' => [
+                [
+                    'name' => 'request_details',
+                    'label' => 'Request details',
+                    'type' => 'textarea',
+                    'required' => true,
+                ],
+            ],
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('form_templates.view');
+
+        $this->getJson('/api/v1/admin/form-templates')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $template->id]);
+        $this->getJson("/api/v1/admin/form-templates/{$template->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $template->id);
+        $this->patchJson("/api/v1/admin/form-templates/{$template->id}", [
+            'title' => 'Updated Class Incident',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('form_templates.manage');
+
+        $createResponse = $this->postJson('/api/v1/admin/form-templates', [
+            'title' => 'Material Request',
+            'category' => FormTemplate::TYPE_MATERIAL_REQUEST_FORM,
+            'fields' => [
+                [
+                    'name' => 'request_details',
+                    'label' => 'Request details',
+                    'type' => 'textarea',
+                    'required' => true,
+                ],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.created_by', $staff->id);
+
+        $createdTemplateId = $createResponse->json('data.id');
+
+        $this->patchJson("/api/v1/admin/form-templates/{$createdTemplateId}", [
+            'title' => 'Updated Material Request',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Updated Material Request')
+            ->assertJsonPath('data.updated_by', $staff->id);
+
+        $this->postJson("/api/v1/admin/form-templates/{$createdTemplateId}/archive")
+            ->assertOk()
+            ->assertJsonPath('data.status', FormTemplate::STATUS_ARCHIVED);
+    }
+
     public function test_users_only_retrieve_active_forms_allowed_for_their_role(): void
     {
         $studentForm = FormTemplate::factory()->create([

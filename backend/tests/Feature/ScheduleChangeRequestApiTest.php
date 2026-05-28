@@ -194,6 +194,52 @@ class ScheduleChangeRequestApiTest extends TestCase
             ->assertJsonPath('data.0.class_schedule_id', $schedule->id);
     }
 
+    public function test_staff_schedule_change_approval_flow_depends_on_view_and_manage_permissions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $schedule = $this->createClassSchedule();
+        $changeRequest = $this->createScheduleChangeRequest($schedule);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/schedule-change-requests')
+            ->assertForbidden();
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+            'review_notes' => 'Approved by operations.',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('schedule_change_requests.view');
+
+        $this->getJson('/api/v1/admin/schedule-change-requests/pending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $changeRequest->id);
+        $this->getJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $changeRequest->id);
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+            'review_notes' => 'Approved by operations.',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('schedule_change_requests.manage');
+
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+            'review_notes' => 'Approved by operations.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', ScheduleChangeRequest::STATUS_APPROVED)
+            ->assertJsonPath('data.reviewed_by', $staff->id)
+            ->assertJsonPath('data.review_notes', 'Approved by operations.');
+
+        $this->assertDatabaseHas('class_schedules', [
+            'id' => $schedule->id,
+            'starts_at' => '2026-06-01 03:00:00',
+            'ends_at' => '2026-06-01 04:00:00',
+            'updated_by' => $staff->id,
+        ]);
+    }
+
     private function createClassSchedule(?User $student = null): ClassSchedule
     {
         return ClassSchedule::create([

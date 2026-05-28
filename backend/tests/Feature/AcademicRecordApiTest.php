@@ -237,6 +237,11 @@ class AcademicRecordApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonMissingPath('data.0.internal_notes');
+        $this->getJson("/api/v1/academic-records/{$record->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $record->id)
+            ->assertJsonMissingPath('data.internal_notes')
+            ->assertJsonMissingPath('data.data.internal_notes');
 
         $this->postJson("/api/v1/academic-records/{$record->id}/archive")
             ->assertForbidden();
