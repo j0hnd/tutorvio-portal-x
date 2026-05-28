@@ -25,7 +25,7 @@ class IssueReportController extends Controller
         $user = $request->user();
 
         if (! $user || (int) $issueReport->reporter_id !== (int) $user->id) {
-            abort(403);
+            abort(404);
         }
 
         return response()->json([

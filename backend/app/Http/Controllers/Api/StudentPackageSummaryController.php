@@ -38,11 +38,21 @@ class StudentPackageSummaryController extends Controller
 
     private function canViewPackageSummary(User $user, User $student): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        if ($user->hasRole('staff')) {
+            return $user->can('subscriptions.view');
+        }
+
         if ($user->hasRole('student')) {
             return (int) $user->id === (int) $student->id;
         }
 
         if ($user->hasRole('teacher')) {
+            $student->loadMissing('studentProfile');
+
             return (int) $student->studentProfile?->assigned_teacher_id === (int) $user->id;
         }
 

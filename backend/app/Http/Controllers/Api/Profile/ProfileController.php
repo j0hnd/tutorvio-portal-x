@@ -12,6 +12,7 @@ use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ProfileController extends Controller
 {
@@ -21,17 +22,7 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        $user->loadMissing([
-            'studentProfile',
-            'studentProfile.lessons',
-            'studentProfile.attendances',
-            'studentProfile.materials',
-            'studentProfile.learningResources',
-            'studentProfile.subscriptions',
-            'teacherProfile',
-            'teacherProfile.assignedStudents',
-            'staffProfile',
-        ]);
+        $user->loadMissing($this->profileRelationsFor($user));
 
         return new UserResource($user);
     }
@@ -40,32 +31,13 @@ class ProfileController extends Controller
     {
         $requester = $request->user();
 
-        // 1. Admin/Staff can view anyone (with permissions check, assuming staff has basic view, or needs specific?)
-        $canView = false;
-        if ($requester->hasRole('admin')) {
-            $canView = true;
-        } elseif ($requester->hasRole('staff') && $requester->can('users.view')) {
-            $canView = true;
-        } elseif ($requester->hasRole('teacher') && $user->hasRole('student')) {
-            // Teacher can view assigned student
-            $canView = $user->studentProfile()->where('assigned_teacher_id', $requester->id)->exists();
+        try {
+            $this->authorizeUserProfileAccess($requester, $user, 'view');
+        } catch (NotFoundHttpException) {
+            return response()->json(['message' => 'Profile not found.'], 404);
         }
 
-        if (! $canView) {
-            return response()->json(['message' => 'Unauthorized to view this profile.'], 403);
-        }
-
-        $user->loadMissing([
-            'studentProfile',
-            'studentProfile.lessons',
-            'studentProfile.attendances',
-            'studentProfile.materials',
-            'studentProfile.learningResources',
-            'studentProfile.subscriptions',
-            'teacherProfile',
-            'teacherProfile.assignedStudents',
-            'staffProfile',
-        ]);
+        $user->loadMissing($this->profileRelationsFor($requester));
 
         return new UserResource($user);
     }
@@ -79,7 +51,62 @@ class ProfileController extends Controller
 
     public function updateUser(UpdateProfileRequest $request, User $user): UserResource
     {
+        $this->authorizeUserProfileAccess($request->user(), $user, 'update');
+
         return $this->updateProfileData($user, $request->validated());
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function profileRelationsFor(User $actor): array
+    {
+        $relations = [
+            'studentProfile',
+            'studentProfile.lessons',
+            'studentProfile.attendances',
+            'studentProfile.materials',
+            'studentProfile.learningResources',
+            'teacherProfile',
+            'teacherProfile.assignedStudents',
+            'staffProfile',
+        ];
+
+        if ($actor->hasRole('admin') || ($actor->hasRole('staff') && $actor->can('subscriptions.view'))) {
+            $relations[] = 'studentProfile.subscriptions';
+        }
+
+        return $relations;
+    }
+
+    private function authorizeUserProfileAccess(User $actor, User $target, string $operation): void
+    {
+        if ($actor->hasRole('admin')) {
+            return;
+        }
+
+        if ($actor->hasRole('staff')) {
+            $permission = $operation === 'update' ? 'users.update' : 'users.view';
+            abort_unless($actor->can($permission), 403);
+
+            return;
+        }
+
+        if ($operation === 'update' && (int) $actor->id === (int) $target->id) {
+            return;
+        }
+
+        if (! $actor->hasRole('teacher') || ! $target->hasRole('student')) {
+            abort(403);
+        }
+
+        $assigned = $target->studentProfile()
+            ->where('assigned_teacher_id', $actor->id)
+            ->exists();
+
+        if (! $assigned) {
+            throw new NotFoundHttpException;
+        }
     }
 
     private function updateProfileData(User $user, array $data): UserResource
