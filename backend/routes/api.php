@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
 use App\Http\Controllers\Api\Admin\LessonCompletionReportController;
 use App\Http\Controllers\Api\Admin\MissedClassReportController;
+use App\Http\Controllers\Api\Admin\PackageUsageReportController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
 use App\Http\Controllers\Api\Admin\PortalSettingController as AdminPortalSettingController;
@@ -230,6 +231,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/student-progress', AdminStudentProgressReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/reports/missed-classes', MissedClassReportController::class)
+                ->middleware('permission:school_reports.view');
+            Route::get('/reports/package-usage', PackageUsageReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/portal-settings', [AdminPortalSettingController::class, 'index'])
                 ->middleware('permission:portal_settings.view');
