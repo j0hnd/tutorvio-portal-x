@@ -585,12 +585,39 @@
 
     <!-- ── Homework Modal ── -->
     <TVModal v-model="showHomeworkModal" title="Assign Homework" maxWidth="480px">
+      <!-- Read-only context -->
+      <div class="ld-hw-context">
+        <div class="ld-hw-context__item">
+          <span class="ld-hw-context__label">Student</span>
+          <span class="ld-hw-context__value">{{ lesson.studentName }}</span>
+        </div>
+        <div class="ld-hw-context__item">
+          <span class="ld-hw-context__label">Lesson</span>
+          <span class="ld-hw-context__value">{{ lesson.title }}</span>
+        </div>
+      </div>
       <TVInput v-model="hwTitle" label="Title" placeholder="e.g. Practice modal verbs" required />
       <div class="ld-field">
         <label class="ld-label">Description</label>
         <textarea v-model="hwDescription" class="ld-textarea" rows="3" placeholder="Instructions for the student" />
       </div>
       <TVDatePicker v-model="hwDueDate" label="Due Date" :min="today" required />
+      <!-- Attached files / links -->
+      <div class="ld-field">
+        <label class="ld-label">Attached Files / Links</label>
+        <div v-if="hwAttachedFiles.length" class="ld-hw-files">
+          <div v-for="(file, i) in hwAttachedFiles" :key="i" class="ld-hw-file">
+            <span class="ld-hw-file__url">{{ file }}</span>
+            <button class="ld-hw-file__remove" type="button" @click="hwAttachedFiles.splice(i, 1)" aria-label="Remove">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="ld-hw-add-file">
+          <input v-model="hwFileInput" class="ld-hw-file-input" type="url" placeholder="https://..." @keydown.enter.prevent="addHwFile" />
+          <button class="ld-btn ld-btn--ghost" type="button" @click="addHwFile">Add</button>
+        </div>
+      </div>
       <template #footer>
         <button class="ld-btn ld-btn--ghost" type="button" @click="showHomeworkModal = false">Cancel</button>
         <button class="ld-btn ld-btn--primary" type="button" :disabled="!hwTitle.trim() || !hwDueDate" @click="saveHomework">Assign</button>
@@ -912,17 +939,27 @@ function saveAttendance(): void {
 
 // ── Homework modal ──
 const showHomeworkModal = ref(false)
-const hwTitle       = ref('')
-const hwDescription = ref('')
-const hwDueDate     = ref('')
-const today         = new Date().toLocaleDateString('sv-SE')
+const hwTitle          = ref('')
+const hwDescription    = ref('')
+const hwDueDate        = ref('')
+const hwAttachedFiles  = ref<string[]>([])
+const hwFileInput      = ref('')
+const today            = new Date().toLocaleDateString('sv-SE')
+
+function addHwFile(): void {
+  const url = hwFileInput.value.trim()
+  if (url && !hwAttachedFiles.value.includes(url)) hwAttachedFiles.value.push(url)
+  hwFileInput.value = ''
+}
 
 function saveHomework(): void {
   if (!hwTitle.value.trim() || !hwDueDate.value) return
   const studentId   = lesson.value?.studentId ?? ''
   const studentName = lesson.value?.studentName ?? ''
-  schedule.addHomework(lessonId, hwTitle.value.trim(), hwDescription.value.trim(), hwDueDate.value, studentId, studentName)
-  hwTitle.value = ''; hwDescription.value = ''; hwDueDate.value = ''
+  const teacherId   = auth.user?.id ?? ''
+  const teacherName = auth.user?.name ?? ''
+  schedule.addHomework(lessonId, hwTitle.value.trim(), hwDescription.value.trim(), hwDueDate.value, studentId, studentName, teacherId, teacherName, [...hwAttachedFiles.value])
+  hwTitle.value = ''; hwDescription.value = ''; hwDueDate.value = ''; hwAttachedFiles.value = []; hwFileInput.value = ''
   showHomeworkModal.value = false
 }
 
@@ -1466,6 +1503,40 @@ function formatDateTime(iso: string): string {
   font-family: inherit; line-height: 1.5;
 }
 .ld-textarea:focus { border-color: var(--tv-primary); }
+
+/* Homework modal context */
+.ld-hw-context {
+  display: flex; gap: var(--tv-space-4); flex-wrap: wrap;
+  background: var(--tv-bg-soft); border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius); padding: var(--tv-space-3);
+  margin-bottom: var(--tv-space-1);
+}
+.ld-hw-context__item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ld-hw-context__label { font-size: 10px; font-weight: var(--tv-font-semibold); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.ld-hw-context__value { font-size: var(--tv-text-sm); font-weight: var(--tv-font-medium); color: var(--tv-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Homework file attach */
+.ld-hw-files { display: flex; flex-direction: column; gap: var(--tv-space-1); margin-bottom: var(--tv-space-2); }
+.ld-hw-file {
+  display: flex; align-items: center; gap: var(--tv-space-2);
+  background: var(--tv-primary-soft); border: 1px solid var(--tv-primary-muted);
+  border-radius: var(--tv-radius-sm); padding: 4px var(--tv-space-2);
+}
+.ld-hw-file__url { flex: 1; min-width: 0; font-size: var(--tv-text-xs); color: var(--tv-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ld-hw-file__remove {
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; color: var(--tv-text-muted);
+  padding: 0; flex-shrink: 0;
+}
+.ld-hw-file__remove:hover { color: var(--tv-danger-fg); }
+.ld-hw-add-file { display: flex; gap: var(--tv-space-2); align-items: center; }
+.ld-hw-file-input {
+  flex: 1; padding: var(--tv-space-2) var(--tv-space-3); font-size: var(--tv-text-sm);
+  color: var(--tv-text); background: var(--tv-bg-card);
+  border: 1.5px solid var(--tv-border); border-radius: var(--tv-radius);
+  outline: none; font-family: inherit; transition: border-color 0.15s;
+}
+.ld-hw-file-input:focus { border-color: var(--tv-primary); }
 
 /* Checkbox */
 .ld-checkbox { display: flex; align-items: center; gap: var(--tv-space-2); cursor: pointer; font-size: var(--tv-text-sm); color: var(--tv-text); }

@@ -142,7 +142,7 @@ export interface LessonMaterial {
   description?: string
 }
 
-export type HomeworkStatus = 'PENDING' | 'SUBMITTED' | 'REVIEWED'
+export type HomeworkStatus = 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'REVIEWED' | 'OVERDUE'
 
 export interface LessonHomework {
   id: string
@@ -152,10 +152,15 @@ export interface LessonHomework {
   dueDate: string
   studentId: string
   studentName: string
+  teacherId?: string
+  teacherName?: string
   status: HomeworkStatus
+  attachedFiles?: string[]
   submissionUrl?: string
+  submittedAt?: string
   feedback?: string
   grade?: string
+  reviewedAt?: string
 }
 
 // ---- Helpers ----
@@ -734,20 +739,22 @@ const MOCK_MATERIALS_INITIAL: LessonMaterial[] = [
 ]
 
 const MOCK_HOMEWORK_INITIAL: LessonHomework[] = [
-  { id: 'hw1', lessonId: 'l1', title: 'Write 2 formal business emails', description: 'Write one email requesting a meeting and one email following up after a board presentation. Minimum 150 words each. Use templates from today\'s session.', dueDate: '2026-05-22', studentId: 'u1', studentName: 'Emma Santos', status: 'REVIEWED', feedback: 'Excellent work! Both emails were well-structured and professional. Minor grammar corrections noted inline.', grade: 'A' },
-  { id: 'hw2', lessonId: 'l4', title: 'Shadowing exercise — 3 scenarios', description: 'Record yourself completing the food ordering, shopping, and directions scenarios. Submit audio files via the student portal.', dueDate: '2026-05-23', studentId: 'u12', studentName: 'Marco Tan', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw2' },
-  { id: 'hw3', lessonId: 'l5', title: 'Practice board meeting Q&A responses', description: 'Prepare 5 Q&A response scripts for typical board meeting questions. Use the STAR method for at least 3 responses.', dueDate: '2026-05-25', studentId: 'u1', studentName: 'Emma Santos', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw3' },
-  { id: 'hw4', lessonId: 'ls1', title: 'IELTS Reading — Matching Headings practice', description: 'Complete exercises 1-5 from the Reading Practice Test 4 PDF. Focus on matching headings. Submit answers by next session.', dueDate: '2026-05-23', studentId: 'u14', studentName: 'Sofia Cruz', status: 'REVIEWED', feedback: 'Good improvement! Scored 6/8 on matching headings. Keep practicing paragraph topic identification.', grade: 'B+' },
-  { id: 'hw5', lessonId: 'l8', title: 'Prepare 5-minute presentation outline', description: 'Create an outline for a 5-minute business presentation on any topic of your choice. Include intro, 3 key points, and conclusion.', dueDate: '2026-05-28', studentId: 'u1', studentName: 'Emma Santos', status: 'PENDING' },
-  { id: 'hw6', lessonId: 'lm1', title: 'Write a post-negotiation follow-up email', description: 'Write a professional follow-up email after a supplier negotiation. Include deal summary, agreed terms, and next steps. 200+ words.', dueDate: '2026-05-22', studentId: 'u17', studentName: 'Rico Valdez', status: 'REVIEWED', feedback: 'Well done! Clear structure and professional tone. A few vocabulary suggestions noted.', grade: 'A-' },
-  { id: 'hw7', lessonId: 'ldemo1', title: 'Write 3 polite request phrases using present perfect', description: 'Using today\'s vocabulary, write 3 sentences making polite business requests. E.g. "I was wondering if you could…" Submit via the student portal before the next session.', dueDate: '2026-05-28', studentId: 'u10', studentName: 'Lea Mendoza', status: 'PENDING' },
-  { id: 'hw8', lessonId: 'ldemo2', title: 'IELTS Speaking — 3-minute Part 2 recording', description: 'Choose any topic from the Topic Cards Set B. Record a 3-minute Part 2 response. Focus on topic development and complex vocabulary. Submit audio file via the student portal.', dueDate: '2026-05-29', studentId: 'u14', studentName: 'Sofia Cruz', status: 'PENDING' },
-  { id: 'hw9', lessonId: 'l2', title: 'Phrasal verbs — 10 fill-in-the-blank exercises', description: 'Complete the exercise set from the PDF. Write 5 original sentences using 5 different phrasal verbs from today\'s lesson. Submit via student portal.', dueDate: '2026-05-21', studentId: 'u10', studentName: 'Lea Mendoza', status: 'REVIEWED', feedback: 'Great work! All exercises correct. Original sentences show good understanding of context.', grade: 'A' },
-  { id: 'hw10', lessonId: 'l8', title: 'Write an executive summary (300 words)', description: 'Choose any business scenario (product launch, quarterly review, etc.) and write a 300-word executive summary. Use today\'s guide as your template. Submit before next session.', dueDate: '2026-05-29', studentId: 'u1', studentName: 'Emma Santos', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw10' },
-  { id: 'hw11', lessonId: 'ls2', title: 'IELTS Writing Task 1 — 2 graph descriptions', description: 'Complete exercises 3 and 4 from the Writing Task 1 PDF. Write full responses (minimum 150 words each). Focus on accurate comparative language and proper sequencing.', dueDate: '2026-05-23', studentId: 'u15', studentName: 'Juan Ramos', status: 'REVIEWED', feedback: 'Good improvement on comparative language! Exercise 3 was excellent. Exercise 4 needed more specific data reference.', grade: 'B' },
-  { id: 'hw12', lessonId: 'ls5', title: 'IELTS Listening Section 4 practice x2', description: 'Complete listening exercises for sections 4a and 4b from the Listening Practice PDF. Focus on note completion accuracy. Submit answers via portal.', dueDate: '2026-05-29', studentId: 'u15', studentName: 'Juan Ramos', status: 'PENDING' },
-  { id: 'hw13', lessonId: 'lm3', title: 'Multi-party negotiation summary memo', description: 'Write a 250-word summary memo of the role-play negotiation from today\'s session. Include agreed terms, outstanding issues, and proposed next steps. Professional tone required.', dueDate: '2026-05-23', studentId: 'u17', studentName: 'Rico Valdez', status: 'REVIEWED', feedback: 'Outstanding memo. Professional tone, clear structure, and excellent use of advanced vocabulary. Ready for advanced module.', grade: 'A+' },
-  { id: 'hw14', lessonId: 'lm4', title: 'Record a 2-minute self-introduction', description: 'Record a 2-minute business self-introduction as if meeting a new client for the first time. Include: name, role, company background, and 1 recent achievement. Submit audio file.', dueDate: '2026-05-24', studentId: 'u18', studentName: 'Lia Torres', status: 'SUBMITTED', submissionUrl: 'https://portal.tutorvio.com/submissions/hw14' },
+  { id: 'hw1',  lessonId: 'l1',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Write 2 formal business emails',                    description: "Write one email requesting a meeting and one email following up after a board presentation. Minimum 150 words each. Use templates from today's session.", dueDate: '2026-05-22', studentId: 'u1',  studentName: 'Emma Santos',   status: 'REVIEWED',    feedback: 'Excellent work! Both emails were well-structured and professional. Minor grammar corrections noted inline.', grade: 'A',  reviewedAt: '2026-05-23T10:00:00Z', submittedAt: '2026-05-21T14:00:00Z' },
+  { id: 'hw2',  lessonId: 'l4',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Shadowing exercise — 3 scenarios',                  description: 'Record yourself completing the food ordering, shopping, and directions scenarios. Submit audio files via the student portal.', dueDate: '2026-05-23', studentId: 'u12', studentName: 'Marco Tan',    status: 'SUBMITTED',   submissionUrl: 'https://portal.tutorvio.com/submissions/hw2', submittedAt: '2026-05-22T20:00:00Z' },
+  { id: 'hw3',  lessonId: 'l5',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Practice board meeting Q&A responses',              description: 'Prepare 5 Q&A response scripts for typical board meeting questions. Use the STAR method for at least 3 responses.', dueDate: '2026-05-25', studentId: 'u1',  studentName: 'Emma Santos',   status: 'SUBMITTED',   submissionUrl: 'https://portal.tutorvio.com/submissions/hw3', submittedAt: '2026-05-24T09:00:00Z' },
+  { id: 'hw4',  lessonId: 'ls1',    teacherId: 'u6', teacherName: 'Sarah Lim',    title: 'IELTS Reading — Matching Headings practice',        description: 'Complete exercises 1-5 from the Reading Practice Test 4 PDF. Focus on matching headings. Submit answers by next session.', dueDate: '2026-05-23', studentId: 'u14', studentName: 'Sofia Cruz',    status: 'REVIEWED',    feedback: 'Good improvement! Scored 6/8 on matching headings. Keep practicing paragraph topic identification.', grade: 'B+', reviewedAt: '2026-05-24T08:00:00Z', submittedAt: '2026-05-22T19:00:00Z' },
+  { id: 'hw5',  lessonId: 'l8',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Prepare 5-minute presentation outline',             description: 'Create an outline for a 5-minute business presentation on any topic of your choice. Include intro, 3 key points, and conclusion.', dueDate: '2026-05-28', studentId: 'u1',  studentName: 'Emma Santos',   status: 'IN_PROGRESS', attachedFiles: ['https://materials.tutorvio.com/files/presentation-guide.pdf'] },
+  { id: 'hw6',  lessonId: 'lm1',    teacherId: 'u7', teacherName: 'Miguel Santos', title: 'Write a post-negotiation follow-up email',         description: 'Write a professional follow-up email after a supplier negotiation. Include deal summary, agreed terms, and next steps. 200+ words.', dueDate: '2026-05-22', studentId: 'u17', studentName: 'Rico Valdez',   status: 'REVIEWED',    feedback: 'Well done! Clear structure and professional tone. A few vocabulary suggestions noted.', grade: 'A-', reviewedAt: '2026-05-23T09:00:00Z', submittedAt: '2026-05-21T18:00:00Z' },
+  { id: 'hw7',  lessonId: 'ldemo1', teacherId: 'u2', teacherName: 'James Reyes',  title: 'Write 3 polite request phrases using present perfect', description: "Using today's vocabulary, write 3 sentences making polite business requests. E.g. \"I was wondering if you could…\" Submit via the student portal before the next session.", dueDate: '2026-05-28', studentId: 'u10', studentName: 'Lea Mendoza',   status: 'PENDING', attachedFiles: ['https://materials.tutorvio.com/files/biz-email-phrases.pdf'] },
+  { id: 'hw8',  lessonId: 'ldemo2', teacherId: 'u6', teacherName: 'Sarah Lim',    title: 'IELTS Speaking — 3-minute Part 2 recording',        description: 'Choose any topic from the Topic Cards Set B. Record a 3-minute Part 2 response. Focus on topic development and complex vocabulary. Submit audio file via the student portal.', dueDate: '2026-05-29', studentId: 'u14', studentName: 'Sofia Cruz',    status: 'PENDING' },
+  { id: 'hw9',  lessonId: 'l2',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Phrasal verbs — 10 fill-in-the-blank exercises',    description: 'Complete the exercise set from the PDF. Write 5 original sentences using 5 different phrasal verbs from today\'s lesson. Submit via student portal.', dueDate: '2026-05-21', studentId: 'u10', studentName: 'Lea Mendoza',   status: 'REVIEWED',    feedback: 'Great work! All exercises correct. Original sentences show good understanding of context.', grade: 'A',  reviewedAt: '2026-05-22T10:00:00Z', submittedAt: '2026-05-20T21:00:00Z' },
+  { id: 'hw10', lessonId: 'l8',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Write an executive summary (300 words)',            description: 'Choose any business scenario (product launch, quarterly review, etc.) and write a 300-word executive summary. Use today\'s guide as your template. Submit before next session.', dueDate: '2026-05-29', studentId: 'u1',  studentName: 'Emma Santos',   status: 'SUBMITTED',   submissionUrl: 'https://portal.tutorvio.com/submissions/hw10', submittedAt: '2026-05-27T16:00:00Z' },
+  { id: 'hw11', lessonId: 'ls2',    teacherId: 'u6', teacherName: 'Sarah Lim',    title: 'IELTS Writing Task 1 — 2 graph descriptions',      description: 'Complete exercises 3 and 4 from the Writing Task 1 PDF. Write full responses (minimum 150 words each). Focus on accurate comparative language and proper sequencing.', dueDate: '2026-05-23', studentId: 'u15', studentName: 'Juan Ramos',    status: 'REVIEWED',    feedback: 'Good improvement on comparative language! Exercise 3 was excellent. Exercise 4 needed more specific data reference.', grade: 'B', reviewedAt: '2026-05-24T09:00:00Z', submittedAt: '2026-05-22T20:00:00Z' },
+  { id: 'hw12', lessonId: 'ls5',    teacherId: 'u6', teacherName: 'Sarah Lim',    title: 'IELTS Listening Section 4 practice x2',            description: 'Complete listening exercises for sections 4a and 4b from the Listening Practice PDF. Focus on note completion accuracy. Submit answers via portal.', dueDate: '2026-05-29', studentId: 'u15', studentName: 'Juan Ramos',    status: 'PENDING' },
+  { id: 'hw13', lessonId: 'lm3',    teacherId: 'u7', teacherName: 'Miguel Santos', title: 'Multi-party negotiation summary memo',             description: "Write a 250-word summary memo of the role-play negotiation from today's session. Include agreed terms, outstanding issues, and proposed next steps. Professional tone required.", dueDate: '2026-05-23', studentId: 'u17', studentName: 'Rico Valdez',   status: 'REVIEWED',    feedback: 'Outstanding memo. Professional tone, clear structure, and excellent use of advanced vocabulary. Ready for advanced module.', grade: 'A+', reviewedAt: '2026-05-24T08:00:00Z', submittedAt: '2026-05-22T17:00:00Z' },
+  { id: 'hw14', lessonId: 'lm4',    teacherId: 'u7', teacherName: 'Miguel Santos', title: 'Record a 2-minute self-introduction',              description: 'Record a 2-minute business self-introduction as if meeting a new client for the first time. Include: name, role, company background, and 1 recent achievement. Submit audio file.', dueDate: '2026-05-24', studentId: 'u18', studentName: 'Lia Torres',    status: 'SUBMITTED',   submissionUrl: 'https://portal.tutorvio.com/submissions/hw14', submittedAt: '2026-05-23T20:00:00Z' },
+  { id: 'hw15', lessonId: 'ls3',    teacherId: 'u6', teacherName: 'Sarah Lim',    title: 'IELTS Reading — True/False/Not Given drill',       description: 'Complete 3 True/False/Not Given exercises from the practice booklet. Focus on locating evidence in the passage. Submit screenshot of answers.', dueDate: '2026-05-20', studentId: 'u16', studentName: 'Grace Park',    status: 'OVERDUE' },
+  { id: 'hw16', lessonId: 'l4',     teacherId: 'u2', teacherName: 'James Reyes',  title: 'Travel conversation role-play script',             description: 'Write a dialogue between two people planning a trip abroad. Must include booking, transport, and accommodation conversations. Minimum 20 exchanges.', dueDate: '2026-05-19', studentId: 'u12', studentName: 'Marco Tan',    status: 'OVERDUE' },
 ]
 
 // ---- Store ----
@@ -1172,16 +1179,53 @@ export const useScheduleStore = defineStore('schedule', () => {
     return lessonHomework.value.filter(h => h.lessonId === lessonId)
   }
 
-  function addHomework(lessonId: string, title: string, description: string, dueDate: string, studentId: string, studentName: string): void {
+  function getAllHomework(): LessonHomework[] {
+    return lessonHomework.value
+  }
+
+  function getHomeworkForStudent(studentId: string): LessonHomework[] {
+    return lessonHomework.value.filter(h => h.studentId === studentId)
+  }
+
+  function getHomeworkForTeacher(teacherId: string): LessonHomework[] {
+    return lessonHomework.value.filter(h => h.teacherId === teacherId)
+  }
+
+  function addHomework(lessonId: string, title: string, description: string, dueDate: string, studentId: string, studentName: string, teacherId?: string, teacherName?: string, attachedFiles?: string[]): void {
     lessonHomework.value.push({
       id: `hw${Date.now()}`, lessonId, title, description, dueDate,
-      studentId, studentName, status: 'PENDING',
+      studentId, studentName, teacherId, teacherName,
+      status: 'PENDING', attachedFiles,
     })
   }
 
   function updateHomeworkStatus(hwId: string, status: HomeworkStatus, feedback?: string, grade?: string): void {
     const hw = lessonHomework.value.find(h => h.id === hwId)
     if (hw) { hw.status = status; if (feedback) hw.feedback = feedback; if (grade) hw.grade = grade }
+  }
+
+  function submitHomework(hwId: string, submissionUrl?: string): void {
+    const hw = lessonHomework.value.find(h => h.id === hwId)
+    if (hw) {
+      hw.status = 'SUBMITTED'
+      hw.submittedAt = new Date().toISOString()
+      if (submissionUrl) hw.submissionUrl = submissionUrl
+    }
+  }
+
+  function markHomeworkInProgress(hwId: string): void {
+    const hw = lessonHomework.value.find(h => h.id === hwId)
+    if (hw && hw.status === 'PENDING') hw.status = 'IN_PROGRESS'
+  }
+
+  function addHomeworkFeedback(hwId: string, feedback: string, grade?: string): void {
+    const hw = lessonHomework.value.find(h => h.id === hwId)
+    if (hw) {
+      hw.feedback = feedback
+      if (grade) hw.grade = grade
+      hw.status = 'REVIEWED'
+      hw.reviewedAt = new Date().toISOString()
+    }
   }
 
   function removeAvailabilitySlot(slotId: string): void {
@@ -1294,8 +1338,14 @@ export const useScheduleStore = defineStore('schedule', () => {
     addLibraryMaterial,
     deleteMaterial,
     getHomeworkForLesson,
+    getAllHomework,
+    getHomeworkForStudent,
+    getHomeworkForTeacher,
     addHomework,
     updateHomeworkStatus,
+    submitHomework,
+    markHomeworkInProgress,
+    addHomeworkFeedback,
     addLesson,
   }
 })

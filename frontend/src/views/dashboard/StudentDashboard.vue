@@ -97,7 +97,7 @@
             <span class="sd-panel__badge">{{ pendingCount }} pending</span>
           </div>
           <ul class="sd-list">
-            <li v-for="hw in MOCK_HOMEWORK" :key="hw.id" class="sd-list-item">
+            <li v-for="hw in studentHomework" :key="hw.id" class="sd-list-item">
               <div class="sd-list-item__icon sd-list-item__icon--doc">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <path d="M3 1h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
@@ -106,10 +106,11 @@
               </div>
               <div class="sd-list-item__body">
                 <p class="sd-list-item__title">{{ hw.title }}</p>
-                <p class="sd-list-item__meta">{{ hw.lesson }} · Due {{ hw.due }}</p>
+                <p class="sd-list-item__meta">Due {{ hw.dueDate }}</p>
               </div>
-              <span class="sd-status-chip" :class="`sd-status-chip--${hw.status}`">{{ hw.statusLabel }}</span>
+              <span class="sd-status-chip" :class="`sd-status-chip--${hw.status.toLowerCase().replace('_', '-')}`">{{ hw.status }}</span>
             </li>
+            <li v-if="!studentHomework.length" class="sd-list-item sd-list-item--empty">No homework assigned yet.</li>
           </ul>
         </section>
 
@@ -301,12 +302,9 @@ const stats = computed((): StatItem[] => [
   { label: 'Hours Learned', value: hoursLearned.value, sub: 'Total study time', trendUp: false, icon: icons.clock, iconClass: 'icon-badge--teal' },
 ])
 
-const MOCK_HOMEWORK = [
-  { id: 'h1', title: 'Write a Formal Business Email',  lesson: 'Email Writing',       due: 'Today',  status: 'pending',  statusLabel: 'Pending' },
-  { id: 'h2', title: 'Prepare Presentation Draft',     lesson: 'Presentation Skills', due: 'May 23', status: 'pending',  statusLabel: 'Pending' },
-  { id: 'h3', title: 'Negotiation Vocabulary Quiz',    lesson: 'Negotiation Language', due: 'May 20', status: 'done',    statusLabel: 'Done' },
-  { id: 'h4', title: 'Business Report — Chapter 2',    lesson: 'Business Report',     due: 'May 18', status: 'overdue', statusLabel: 'Overdue' },
-]
+const studentHomework = computed(() =>
+  schedule.getHomeworkForStudent(auth.user?.id ?? '').slice(0, 5)
+)
 
 const MOCK_MATERIALS = [
   { id: 'm1', title: 'Business English Workbook Ch. 6', type: 'PDF',  lesson: 'Business English',    accessed: 'May 15' },
@@ -321,7 +319,7 @@ const MOCK_REMINDERS = [
   { id: 'r3', text: 'Platform maintenance on May 25, 2–4 AM',  time: 'May 25',     type: 'info'    },
 ]
 
-const pendingCount = computed(() => MOCK_HOMEWORK.filter(h => h.status === 'pending').length)
+const pendingCount = computed(() => studentHomework.value.filter(h => ['PENDING', 'IN_PROGRESS', 'OVERDUE'].includes(h.status)).length)
 
 const CEFR_LEVELS = [
   { code: 'A1', label: 'Beginner',          order: 1, key: 'BEGINNER' },

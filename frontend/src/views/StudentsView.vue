@@ -5,7 +5,7 @@
     <div class="sv-page__header">
       <div>
         <h1 class="sv-page__title">Students</h1>
-        <p class="sv-page__subtitle">{{ rows.length }} student{{ rows.length !== 1 ? 's' : '' }}</p>
+        <p class="sv-page__subtitle">{{ pageSubtitle }}</p>
       </div>
       <TVButton v-if="canCreate" variant="primary" @click="router.push('/admin/users/create')">
         <template #icon>
@@ -173,6 +173,11 @@ const teacherFilter = ref('')
 
 const canCreate = computed(() => ['ADMIN', 'STAFF'].includes(effectiveRole.value))
 const showTeacherFilter = computed(() => ['ADMIN', 'STAFF'].includes(effectiveRole.value))
+
+const pageSubtitle = computed(() => {
+  if (effectiveRole.value === 'TEACHER') return 'Your assigned students and their learning progress'
+  return 'Manage and view all enrolled students'
+})
 
 onMounted(() => {
   if (!store.users.length) store.fetchUsers()

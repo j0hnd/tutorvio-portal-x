@@ -32,15 +32,9 @@
       <button v-if="hasActiveFilters" class="ml-clear-btn" type="button" @click="clearFilters">Clear</button>
     </div>
 
-    <!-- Results count -->
-    <div class="ml-meta">
-      <span class="ml-count">{{ filtered.length }} {{ filtered.length === 1 ? 'resource' : 'resources' }}</span>
-      <span v-if="hasActiveFilters" class="ml-filtered-note">· filtered</span>
-    </div>
-
     <!-- Material list -->
     <div v-if="filtered.length" class="ml-list">
-      <div v-for="mat in filtered" :key="mat.id" class="ml-item">
+      <div v-for="mat in paginated" :key="mat.id" class="ml-item">
         <div :class="['ml-type-icon', `ml-type-icon--${mat.type.toLowerCase()}`]">
           {{ typeIcon(mat.type) }}
         </div>
@@ -93,8 +87,16 @@
       </div>
     </div>
 
+    <!-- Pagination -->
+    <TVPagination
+      v-if="filtered.length > ML_PAGE_SIZE"
+      v-model="mlPage"
+      :total="filtered.length"
+      :page-size="ML_PAGE_SIZE"
+    />
+
     <!-- Empty state -->
-    <div v-else class="ml-empty">
+    <div v-else-if="!filtered.length" class="ml-empty">
       <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <rect x="6" y="4" width="24" height="32" rx="3" stroke="currentColor" stroke-width="1.5"/>
         <path d="M12 13h12M12 19h12M12 25h7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
@@ -143,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore } from '@/stores/auth'
 import { useViewAs } from '@/composables/useViewAs'
@@ -152,6 +154,7 @@ import TVModal from '@/components/ui/TVModal.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
 import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVPagination from '@/components/ui/TVPagination.vue'
 import type { LessonMaterial, MaterialType, MaterialCategory, MaterialLevel, MaterialVisibility } from '@/stores/schedule'
 
 const schedule = useScheduleStore()
@@ -236,6 +239,13 @@ const filtered = computed(() => {
     return true
   })
 })
+
+const ML_PAGE_SIZE = 10
+const mlPage = ref(1)
+const paginated = computed(() =>
+  filtered.value.slice((mlPage.value - 1) * ML_PAGE_SIZE, mlPage.value * ML_PAGE_SIZE)
+)
+watch(filtered, () => { mlPage.value = 1 })
 
 // ── Upload ──
 const showUpload = ref(false)

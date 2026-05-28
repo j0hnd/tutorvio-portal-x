@@ -5,7 +5,7 @@
     <div class="lv-page__header">
       <div>
         <h1 class="lv-page__title">{{ pageTitle }}</h1>
-        <p class="lv-page__subtitle">{{ filteredLessons.length }} lesson{{ filteredLessons.length !== 1 ? 's' : '' }}</p>
+        <p class="lv-page__subtitle">{{ pageSubtitle }}</p>
       </div>
       <TVButton v-if="canCreate" variant="primary" @click="openCreateModal">
         <template #icon>
@@ -169,6 +169,12 @@ const pageTitle = computed(() => {
   if (role.value === 'STUDENT') return 'My Lessons'
   if (role.value === 'TEACHER') return 'My Lessons'
   return 'Lessons'
+})
+
+const pageSubtitle = computed(() => {
+  if (role.value === 'STUDENT') return 'Your scheduled lessons and learning sessions'
+  if (role.value === 'TEACHER') return 'Your assigned teaching sessions and class history'
+  return 'All lessons across every student and teacher'
 })
 
 // ── Source data (role-scoped) ──
