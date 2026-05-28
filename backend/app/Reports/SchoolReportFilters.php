@@ -80,7 +80,7 @@ class SchoolReportFilters
      * - teacher_column: model teacher id column, default teacher_id
      * - student_column: model student id column, default student_id
      * - course_column: model course id column, default course_program_id
-     * - status_column: model status column, default status
+     * - status_column: model status column, default status; set null to handle status outside this helper
      * - course_relation: relationship name for course_id filtering when no course_column exists
      * - course_relation_column: related model column, default course_program_id
      *
@@ -94,14 +94,17 @@ class SchoolReportFilters
         $teacherColumn = $mapping['teacher_column'] ?? 'teacher_id';
         $studentColumn = $mapping['student_column'] ?? 'student_id';
         $courseColumn = $mapping['course_column'] ?? 'course_program_id';
-        $statusColumn = $mapping['status_column'] ?? 'status';
+        $statusColumn = array_key_exists('status_column', $mapping) ? $mapping['status_column'] : 'status';
 
         $query
             ->when($this->dateFrom(), fn (Builder $query, string $date) => $query->whereDate($dateColumn, '>=', $date))
             ->when($this->dateTo(), fn (Builder $query, string $date) => $query->whereDate($dateColumn, '<=', $date))
             ->when($this->teacherId(), fn (Builder $query, int $id) => $query->where($teacherColumn, $id))
-            ->when($this->studentId(), fn (Builder $query, int $id) => $query->where($studentColumn, $id))
-            ->when($this->status(), fn (Builder $query, string $status) => $query->where($statusColumn, $status));
+            ->when($this->studentId(), fn (Builder $query, int $id) => $query->where($studentColumn, $id));
+
+        if ($statusColumn !== null) {
+            $query->when($this->status(), fn (Builder $query, string $status) => $query->where($statusColumn, $status));
+        }
 
         if ($this->courseId() !== null && array_key_exists('course_relation', $mapping)) {
             $relation = $mapping['course_relation'];
