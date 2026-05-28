@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AcademicRecordController;
+use App\Http\Controllers\Api\Admin\ActiveStudentsReportController;
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\ClassOversightController;
@@ -211,6 +212,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
                 ->middleware('permission:audit_logs.view');
             Route::get('/reports/school', [SchoolReportController::class, 'index'])
+                ->middleware('permission:school_reports.view');
+            Route::get('/reports/active-students', ActiveStudentsReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/portal-settings', [AdminPortalSettingController::class, 'index'])
                 ->middleware('permission:portal_settings.view');
