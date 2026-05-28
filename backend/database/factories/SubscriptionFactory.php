@@ -67,6 +67,15 @@ class SubscriptionFactory extends Factory
         ]);
     }
 
+    public function expired(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => Subscription::STATUS_EXPIRED,
+            'starts_at' => now()->subMonths(2),
+            'ends_at' => now()->subMonth(),
+        ]);
+    }
+
     public function unpaid(): static
     {
         return $this->state(fn (array $attributes) => [
