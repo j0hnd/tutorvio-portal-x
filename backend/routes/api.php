@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\CourseCatalog\CourseProgramStudentAssignmentControl
 use App\Http\Controllers\Api\CourseCatalog\CourseTypeController;
 use App\Http\Controllers\Api\Dashboard\DashboardController;
 use App\Http\Controllers\Api\HomeworkController;
+use App\Http\Controllers\Api\IssueReportController;
 use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
@@ -94,6 +95,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/message-threads/{messageThread}/read', [MessageThreadController::class, 'markRead']);
         Route::get('/announcements', [AnnouncementController::class, 'index']);
         Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show']);
+        Route::post('/issue-reports', [IssueReportController::class, 'store']);
         Route::get('/lessons/{lesson}/join', LessonJoinController::class);
         Route::get('/lessons/{lesson}/lesson-notes', [LessonNoteController::class, 'byLesson']);
         Route::get('/students/{student}/lesson-notes', [LessonNoteController::class, 'byStudent']);

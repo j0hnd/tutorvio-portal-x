@@ -26,6 +26,10 @@ class IssueReport extends Model
 
     public const TYPE_TEACHER_ABSENT = 'teacher_absent';
 
+    public const TYPE_STUDENT_ABSENT_ISSUE_FORM = 'student_absent_issue_form';
+
+    public const TYPE_TEACHER_ABSENT_ISSUE_FORM = 'teacher_absent_issue_form';
+
     public const TYPE_MATERIAL_REQUEST = 'material_request';
 
     public const TYPE_CHANGE_REQUEST = 'change_request';
@@ -53,8 +57,8 @@ class IssueReport extends Model
         self::TYPE_STUDENT_CONCERN,
         self::TYPE_TEACHER_CONCERN,
         self::TYPE_CLASS_INCIDENT,
-        self::TYPE_STUDENT_ABSENT,
-        self::TYPE_TEACHER_ABSENT,
+        self::TYPE_STUDENT_ABSENT_ISSUE_FORM,
+        self::TYPE_TEACHER_ABSENT_ISSUE_FORM,
         self::TYPE_MATERIAL_REQUEST,
         self::TYPE_CHANGE_REQUEST,
     ];
@@ -84,6 +88,9 @@ class IssueReport extends Model
         'class_schedule_id',
         'related_student_id',
         'related_teacher_id',
+        'course_program_id',
+        'material_id',
+        'learning_resource_id',
         'assigned_to_id',
         'title',
         'description',
@@ -127,6 +134,21 @@ class IssueReport extends Model
     public function relatedTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'related_teacher_id');
+    }
+
+    public function courseProgram(): BelongsTo
+    {
+        return $this->belongsTo(CourseProgram::class);
+    }
+
+    public function material(): BelongsTo
+    {
+        return $this->belongsTo(Material::class);
+    }
+
+    public function learningResource(): BelongsTo
+    {
+        return $this->belongsTo(LearningResource::class);
     }
 
     public function assignedTo(): BelongsTo
