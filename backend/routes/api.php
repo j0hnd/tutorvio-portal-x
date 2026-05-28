@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\ClassOversightController;
 use App\Http\Controllers\Api\Admin\FormTemplateController as AdminFormTemplateController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
+use App\Http\Controllers\Api\Admin\LessonCompletionReportController;
 use App\Http\Controllers\Api\Admin\MissedClassReportController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
@@ -220,6 +221,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/active-students', ActiveStudentsReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/reports/attendance', AttendanceReportController::class)
+                ->middleware('permission:school_reports.view');
+            Route::get('/reports/lesson-completions', LessonCompletionReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/reports/missed-classes', MissedClassReportController::class)
                 ->middleware('permission:school_reports.view');
