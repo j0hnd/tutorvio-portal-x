@@ -62,6 +62,38 @@ class SchoolReportApiTest extends TestCase
             ->assertJsonPath('data.filters', []);
     }
 
+    public function test_report_apis_return_consistent_response_shape(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        foreach ($this->reportEndpoints() as $endpoint) {
+            $this->getJson($endpoint)
+                ->assertOk()
+                ->assertJsonPath('success', true)
+                ->assertJsonStructure([
+                    'success',
+                    'filters',
+                    'summary',
+                    'rows',
+                    'pagination' => [
+                        'current_page',
+                        'per_page',
+                        'total',
+                        'last_page',
+                        'from',
+                        'to',
+                        'has_more_pages',
+                    ],
+                    'export' => [
+                        'supported',
+                        'formats',
+                    ],
+                ])
+                ->assertJsonPath('export.supported', true)
+                ->assertJsonPath('export.formats', ['csv', 'xlsx', 'pdf']);
+        }
+    }
+
     public function test_school_report_filters_reject_invalid_dates_and_ranges(): void
     {
         Sanctum::actingAs($this->admin);
@@ -137,5 +169,25 @@ class SchoolReportApiTest extends TestCase
             'status' => Lesson::STATUS_COMPLETED,
             ...$overrides,
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function reportEndpoints(): array
+    {
+        return [
+            '/api/v1/reports/teacher-load',
+            '/api/v1/admin/reports/school',
+            '/api/v1/admin/reports/active-students',
+            '/api/v1/admin/reports/attendance',
+            '/api/v1/admin/reports/lesson-completions',
+            '/api/v1/admin/reports/teacher-note-completions',
+            '/api/v1/admin/reports/student-progress',
+            '/api/v1/admin/reports/missed-classes',
+            '/api/v1/admin/reports/package-usage',
+            '/api/v1/admin/reports/retention-continuation',
+            '/api/v1/admin/reports/trial-enrollments',
+        ];
     }
 }

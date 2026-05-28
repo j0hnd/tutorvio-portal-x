@@ -7,9 +7,11 @@ use App\Models\LessonRecord;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
 use App\Services\TeacherWorkloadService;
+use App\Support\Reports\ReportResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -22,14 +24,21 @@ class TeacherLoadReportController extends Controller
         Gate::authorize('viewTeacherWorkloads');
 
         $validated = $this->validatedFilters($request);
+        $rows = collect($this->workloads->summaries($request->user(), $validated))
+            ->map(fn (array $summary): array => $this->reportRow($summary))
+            ->values();
+
+        $payload = ReportResponse::payload([
+            'summary' => $this->summary($rows),
+            'rows' => $rows->all(),
+            'filters' => $this->reportFilters($validated),
+        ], $this->pagination($validated));
 
         return response()->json([
+            ...$payload,
             'data' => [
-                'summary' => collect($this->workloads->summaries($request->user(), $validated))
-                    ->map(fn (array $summary): array => $this->reportRow($summary))
-                    ->values()
-                    ->all(),
-                'filters' => $this->reportFilters($validated),
+                ...$payload,
+                'summary' => $rows->all(),
             ],
         ]);
     }
@@ -76,7 +85,26 @@ class TeacherLoadReportController extends Controller
             'capacity_status' => ['sometimes', 'string', Rule::in(TeacherWorkloadService::STATUSES)],
             'lesson_type' => ['sometimes', 'string', Rule::in([...ClassSchedule::CLASS_TYPES, ...LessonRecord::LESSON_TYPES])],
             'slot_minutes' => ['sometimes', 'integer', 'min:15', 'max:240'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ])->validate();
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, int|float>
+     */
+    private function summary(Collection $rows): array
+    {
+        return [
+            'teachers_count' => $rows->count(),
+            'active_assigned_students_count' => $rows->sum('active_assigned_students_count'),
+            'scheduled_lessons_count' => $rows->sum('scheduled_lessons_count'),
+            'completed_lessons_count' => $rows->sum('completed_lessons_count'),
+            'missed_cancelled_rescheduled_lessons_count' => $rows->sum('missed_cancelled_rescheduled_lessons_count'),
+            'available_open_slots' => $rows->sum('available_open_slots'),
+            'average_capacity_value' => $rows->count() === 0 ? 0.0 : round($rows->sum('capacity_value') / $rows->count(), 2),
+        ];
     }
 
     /**
@@ -116,5 +144,17 @@ class TeacherLoadReportController extends Controller
             'lesson_type' => $filters['lesson_type'] ?? null,
             'slot_minutes' => isset($filters['slot_minutes']) ? (int) $filters['slot_minutes'] : null,
         ], fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{page: int, per_page: int}
+     */
+    private function pagination(array $filters): array
+    {
+        return [
+            'page' => (int) ($filters['page'] ?? 1),
+            'per_page' => (int) ($filters['per_page'] ?? 50),
+        ];
     }
 }

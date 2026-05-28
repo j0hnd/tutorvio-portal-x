@@ -158,6 +158,39 @@ class ActiveStudentsReportApiTest extends TestCase
             ->assertJsonCount(0, 'data.rows');
     }
 
+    public function test_active_students_report_paginates_rows_without_changing_summary(): void
+    {
+        $first = $this->createActiveStudent(['name' => 'Ada Student']);
+        $second = $this->createActiveStudent(['name' => 'Bert Student']);
+
+        foreach ([$first, $second] as $student) {
+            CourseProgramStudentAssignment::create([
+                'course_program_id' => $this->courseProgram->id,
+                'student_id' => $student->id,
+                'assigned_by' => $this->admin->id,
+                'assigned_at' => '2026-05-09 09:00:00',
+                'status' => CourseProgramStudentAssignment::STATUS_ACTIVE,
+                'start_date' => '2026-05-10',
+            ]);
+        }
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/admin/reports/active-students?per_page=1&page=2')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('summary.active_students_count', 2)
+            ->assertJsonCount(1, 'rows')
+            ->assertJsonPath('rows.0.student_id', $second->id)
+            ->assertJsonPath('pagination.current_page', 2)
+            ->assertJsonPath('pagination.per_page', 1)
+            ->assertJsonPath('pagination.total', 2)
+            ->assertJsonPath('pagination.last_page', 2)
+            ->assertJsonPath('pagination.from', 2)
+            ->assertJsonPath('pagination.to', 2)
+            ->assertJsonPath('pagination.has_more_pages', false);
+    }
+
     public function test_active_students_report_forbids_unauthorized_users(): void
     {
         $this->getJson('/api/v1/admin/reports/active-students')->assertUnauthorized();

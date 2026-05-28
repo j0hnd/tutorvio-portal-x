@@ -25,12 +25,27 @@ class SchoolReportRequest extends FormRequest
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
             'course_id' => ['sometimes', 'integer', 'exists:course_programs,id'],
             'status' => ['sometimes', 'string', 'max:100', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
     }
 
     public function filters(): SchoolReportFilters
     {
         return SchoolReportFilters::fromArray($this->validated());
+    }
+
+    /**
+     * @return array{page: int, per_page: int}
+     */
+    public function pagination(): array
+    {
+        $validated = $this->validated();
+
+        return [
+            'page' => (int) ($validated['page'] ?? 1),
+            'per_page' => (int) ($validated['per_page'] ?? 50),
+        ];
     }
 
     /**

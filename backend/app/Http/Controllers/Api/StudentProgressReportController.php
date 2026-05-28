@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\StudentProgressReportRequest;
 use App\Models\User;
 use App\Reports\StudentProgressReport;
+use App\Support\Reports\ReportResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -18,9 +19,7 @@ class StudentProgressReportController extends Controller
         $this->authorizeReportAccess($actor);
         $this->authorizeRequestedStudent($actor, $request->validated('student_id'));
 
-        return response()->json([
-            'data' => $report->generate($request->filters(), $actor),
-        ]);
+        return ReportResponse::json($report->generate($request->filters(), $actor), $request->pagination());
     }
 
     private function authorizeReportAccess(User $actor): void
