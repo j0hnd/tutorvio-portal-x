@@ -225,26 +225,20 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:homeworks.view');
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
                 ->middleware('permission:audit_logs.view');
-            Route::get('/reports/school', [SchoolReportController::class, 'index'])
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/active-students', ActiveStudentsReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/attendance', AttendanceReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/lesson-completions', LessonCompletionReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/teacher-note-completions', AdminTeacherNoteCompletionReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/student-progress', AdminStudentProgressReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/missed-classes', MissedClassReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/package-usage', PackageUsageReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/retention-continuation', RetentionContinuationReportController::class)
-                ->middleware('permission:school_reports.view');
-            Route::get('/reports/trial-enrollments', TrialEnrollmentReportController::class)
-                ->middleware('permission:school_reports.view');
+            // Admin-wide school management reports require explicit report access.
+            Route::prefix('reports')->middleware('permission:school_reports.view')->group(function () {
+                Route::get('/teacher-load', TeacherLoadReportController::class);
+                Route::get('/school', [SchoolReportController::class, 'index']);
+                Route::get('/active-students', ActiveStudentsReportController::class);
+                Route::get('/attendance', AttendanceReportController::class);
+                Route::get('/lesson-completions', LessonCompletionReportController::class);
+                Route::get('/teacher-note-completions', AdminTeacherNoteCompletionReportController::class);
+                Route::get('/student-progress', AdminStudentProgressReportController::class);
+                Route::get('/missed-classes', MissedClassReportController::class);
+                Route::get('/package-usage', PackageUsageReportController::class);
+                Route::get('/retention-continuation', RetentionContinuationReportController::class);
+                Route::get('/trial-enrollments', TrialEnrollmentReportController::class);
+            });
             Route::get('/portal-settings', [AdminPortalSettingController::class, 'index'])
                 ->middleware('permission:portal_settings.view');
             Route::match(['put', 'patch'], '/portal-settings', [AdminPortalSettingController::class, 'update'])

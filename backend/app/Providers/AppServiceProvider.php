@@ -89,7 +89,7 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('viewTeacherWorkloads', function (User $user): bool {
             return $user->hasRole('admin')
-                || ($user->hasRole('staff') && $user->can('teacher_workloads.view'))
+                || ($user->hasRole('staff') && ($user->can('teacher_workloads.view') || $user->can('school_reports.view')))
                 || $user->hasRole('teacher');
         });
 

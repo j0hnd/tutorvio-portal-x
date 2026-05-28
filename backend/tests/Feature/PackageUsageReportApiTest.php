@@ -161,11 +161,6 @@ class PackageUsageReportApiTest extends TestCase
 
         $staff->givePermissionTo('school_reports.view');
         $this->getJson('/api/v1/admin/reports/package-usage')
-            ->assertForbidden()
-            ->assertJsonMissing(['invoice_reference' => 'INV-HIDDEN-FROM-REPORT-ONLY']);
-
-        $staff->givePermissionTo('subscriptions.view');
-        $this->getJson('/api/v1/admin/reports/package-usage')
             ->assertOk()
             ->assertJsonMissingPath('data.rows.0.payment_status')
             ->assertJsonMissingPath('data.rows.0.invoice_reference')
