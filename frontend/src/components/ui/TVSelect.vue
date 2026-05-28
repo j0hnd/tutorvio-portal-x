@@ -1,6 +1,6 @@
 <template>
   <div
-    :class="['tv-select-wrapper', { 'tv-select-wrapper--error': !!error, 'tv-select-wrapper--disabled': disabled, 'tv-select-wrapper--open': isOpen }]"
+    :class="['tv-select-wrapper', { 'tv-select-wrapper--error': !!error, 'tv-select-wrapper--disabled': disabled, 'tv-select-wrapper--open': isOpen, 'tv-select-wrapper--dropup': dropUp }]"
     ref="wrapperRef"
   >
     <label v-if="label" :id="`${selectId}-label`" class="tv-select__label">
@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import type { SelectOption } from '@/types'
 
 interface Props {
@@ -116,6 +116,7 @@ const emit = defineEmits<{
 
 const selectId = computed(() => props.id ?? `tv-select-${Math.random().toString(36).slice(2, 9)}`)
 const isOpen = ref(false)
+const dropUp = ref(false)
 const highlightedIndex = ref(-1)
 const wrapperRef = ref<HTMLElement | null>(null)
 
@@ -131,6 +132,12 @@ function toggleDropdown() {
   if (isOpen.value) {
     const idx = props.options.findIndex(o => o.value === props.modelValue)
     highlightedIndex.value = idx >= 0 ? idx : 0
+    nextTick(() => {
+      if (!wrapperRef.value) return
+      const rect = wrapperRef.value.getBoundingClientRect()
+      const dropdownHeight = Math.min(props.options.length * 38 + 8, 240)
+      dropUp.value = rect.bottom + dropdownHeight > window.innerHeight - 8
+    })
   }
 }
 
@@ -251,6 +258,7 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 .tv-select__dropdown {
   position: absolute;
   top: calc(100% + 4px);
+  bottom: auto;
   left: 0;
   right: 0;
   z-index: var(--tv-z-dropdown);
@@ -262,6 +270,11 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
   max-height: 240px;
   overflow-y: auto;
   padding: var(--tv-space-1) 0;
+}
+
+.tv-select-wrapper--dropup .tv-select__dropdown {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 /* Dropdown scroll */
@@ -323,4 +336,7 @@ onUnmounted(() => document.removeEventListener('mousedown', handleClickOutside))
 .dropdown-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
 .dropdown-enter-from { opacity: 0; transform: translateY(-6px); }
 .dropdown-leave-to  { opacity: 0; transform: translateY(-4px); }
+
+.tv-select-wrapper--dropup .dropdown-enter-from { transform: translateY(6px); }
+.tv-select-wrapper--dropup .dropdown-leave-to  { transform: translateY(4px); }
 </style>

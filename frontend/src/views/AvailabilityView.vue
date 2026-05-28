@@ -20,8 +20,11 @@
       </div>
     </div>
 
-    <!-- Weekly Availability Grid -->
-    <section class="av-card">
+  <!-- Two-column layout -->
+  <div class="av-columns">
+
+    <!-- Column 1: Weekly Recurring Availability -->
+    <section class="av-card av-col">
       <div class="av-card__header">
         <h2 class="av-card__title">Weekly Recurring Availability</h2>
         <p class="av-card__desc">Click a cell to toggle availability for that hour on that day of week.</p>
@@ -29,25 +32,15 @@
 
       <div class="av-grid-wrap">
         <div class="av-grid" :style="`grid-template-columns: 56px repeat(${WEEKDAYS.length}, 1fr)`">
-          <!-- Header row -->
           <div class="av-grid__corner" />
-          <div
-            v-for="day in WEEKDAYS"
-            :key="day.key"
-            class="av-grid__day-head"
-          >{{ day.label }}</div>
+          <div v-for="day in WEEKDAYS" :key="day.key" class="av-grid__day-head">{{ day.label }}</div>
 
-          <!-- Hour rows -->
           <template v-for="hour in HOURS" :key="hour">
             <div class="av-grid__hour-label">{{ formatHour(hour) }}</div>
             <button
               v-for="day in WEEKDAYS"
               :key="`${day.key}-${hour}`"
-              :class="[
-                'av-grid__cell',
-                { 'av-grid__cell--active': isActive(day.key, hour) },
-                { 'av-grid__cell--booked': isBooked(day.key, hour) },
-              ]"
+              :class="['av-grid__cell', { 'av-grid__cell--active': isActive(day.key, hour), 'av-grid__cell--booked': isBooked(day.key, hour) }]"
               type="button"
               :aria-label="`${isActive(day.key, hour) ? 'Remove' : 'Add'} availability: ${day.label} at ${formatHour(hour)}`"
               :disabled="isBooked(day.key, hour)"
@@ -65,7 +58,6 @@
         </div>
       </div>
 
-      <!-- Legend -->
       <div class="av-legend">
         <span class="av-legend__item av-legend__item--available">Available</span>
         <span class="av-legend__item av-legend__item--booked">Booked (read-only)</span>
@@ -73,98 +65,83 @@
       </div>
     </section>
 
-    <!-- Unavailable Dates -->
-    <section class="av-card">
-      <div class="av-card__header">
-        <h2 class="av-card__title">Date-Specific Unavailability</h2>
-        <p class="av-card__desc">Mark full days when you are unavailable regardless of weekly schedule.</p>
-      </div>
+    <!-- Column 2: Unavailability + Upcoming Booked -->
+    <div class="av-col av-col--right">
 
-      <!-- Add form -->
-      <form class="av-unavail-form" @submit.prevent="addUnavailable">
-        <div class="av-unavail-fields">
-          <div class="av-field">
-            <TVDatePicker v-model="newUnavailDate" label="Date" :min="minDate" required />
-          </div>
-          <div class="av-field">
-            <TVSelect
-              v-model="newUnavailReason"
-              :options="reasonOptions"
-              label="Reason"
-            />
-          </div>
-          <div class="av-field av-field--grow">
-            <label class="av-label" for="av-label-input">Label</label>
-            <input
-              id="av-label-input"
-              v-model="newUnavailLabel"
-              type="text"
-              class="av-input"
-              placeholder="e.g. Family trip, Independence Day…"
-              required
-            />
-          </div>
-          <button class="av-add-btn" type="submit">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            Add Date
-          </button>
+      <!-- Date-Specific Unavailability -->
+      <section class="av-card">
+        <div class="av-card__header">
+          <h2 class="av-card__title">Date-Specific Unavailability</h2>
+          <p class="av-card__desc">Mark full days when you are unavailable regardless of weekly schedule.</p>
         </div>
-      </form>
 
-      <!-- List -->
-      <div v-if="unavailList.length" class="av-unavail-list">
-        <div
-          v-for="d in unavailList"
-          :key="d.id"
-          class="av-unavail-item"
-        >
-          <span :class="['av-unavail-reason', `av-unavail-reason--${d.reason.toLowerCase()}`]">
-            {{ reasonLabel(d.reason) }}
-          </span>
-          <span class="av-unavail-date">{{ formatUnavailDate(d.date) }}</span>
-          <span class="av-unavail-label">{{ d.label }}</span>
-          <button
-            class="av-unavail-remove"
-            type="button"
-            :aria-label="`Remove ${d.label}`"
-            @click="removeUnavailable(d.id)"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <p v-else class="av-empty">No unavailable dates added yet.</p>
-    </section>
-
-    <!-- Upcoming booked slots summary -->
-    <section class="av-card">
-      <div class="av-card__header">
-        <h2 class="av-card__title">Upcoming Booked Slots</h2>
-        <p class="av-card__desc">All confirmed bookings in your open slots for the next 3 weeks.</p>
-      </div>
-      <div v-if="upcomingBooked.length" class="av-booked-list">
-        <div
-          v-for="slot in upcomingBooked"
-          :key="slot.id"
-          class="av-booked-item"
-        >
-          <div class="av-booked-item__date">
-            <span class="av-booked-item__day">{{ slotDay(slot.date) }}</span>
-            <span class="av-booked-item__dmy">{{ slotDMY(slot.date) }}</span>
+        <form class="av-unavail-form" @submit.prevent="addUnavailable">
+          <div class="av-unavail-fields">
+            <div class="av-field">
+              <TVDatePicker v-model="newUnavailDate" label="Date" :min="minDate" required />
+            </div>
+            <div class="av-field">
+              <TVSelect v-model="newUnavailReason" :options="reasonOptions" label="Reason" />
+            </div>
+            <div class="av-field av-field--grow">
+              <label class="av-label" for="av-label-input">Label</label>
+              <input
+                id="av-label-input"
+                v-model="newUnavailLabel"
+                type="text"
+                class="av-input"
+                placeholder="e.g. Family trip, Independence Day…"
+                required
+              />
+            </div>
+            <button class="av-add-btn" type="submit">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              Add
+            </button>
           </div>
-          <div class="av-booked-item__time">{{ slot.startTime }} – {{ slot.endTime }}</div>
-          <div class="av-booked-item__student">{{ slot.bookedByStudentName ?? 'Student' }}</div>
-          <span v-if="slot.isTrial" class="av-booked-item__trial">TRIAL</span>
-        </div>
-      </div>
-      <p v-else class="av-empty">No upcoming booked slots.</p>
-    </section>
+        </form>
 
+        <div v-if="unavailList.length" class="av-unavail-list">
+          <div v-for="d in unavailList" :key="d.id" class="av-unavail-item">
+            <span :class="['av-unavail-reason', `av-unavail-reason--${d.reason.toLowerCase()}`]">{{ reasonLabel(d.reason) }}</span>
+            <span class="av-unavail-date">{{ formatUnavailDate(d.date) }}</span>
+            <span class="av-unavail-label">{{ d.label }}</span>
+            <button class="av-unavail-remove" type="button" :aria-label="`Remove ${d.label}`" @click="removeUnavailable(d.id)">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p v-else class="av-empty">No unavailable dates added yet.</p>
+      </section>
+
+      <!-- Upcoming Booked Slots — scrollable, fills remaining height -->
+      <section class="av-card av-card--flex">
+        <div class="av-card__header">
+          <h2 class="av-card__title">Upcoming Booked Slots</h2>
+          <p class="av-card__desc">All confirmed bookings in your open slots.</p>
+        </div>
+        <div v-if="upcomingBooked.length" class="av-booked-list av-booked-list--scroll">
+          <div v-for="slot in upcomingBooked" :key="slot.id" class="av-booked-item">
+            <div class="av-booked-item__date">
+              <span class="av-booked-item__day">{{ slotDay(slot.date) }}</span>
+              <span class="av-booked-item__dmy">{{ slotDMY(slot.date) }}</span>
+            </div>
+            <div class="av-booked-item__time">{{ slot.startTime }} – {{ slot.endTime }}</div>
+            <div class="av-booked-item__student">{{ slot.bookedByStudentName ?? 'Student' }}</div>
+            <span v-if="slot.isTrial" class="av-booked-item__trial">TRIAL</span>
+          </div>
+        </div>
+        <p v-else class="av-empty">No upcoming booked slots.</p>
+      </section>
+
+    </div>
   </div>
+
+</div>
 </template>
 
 <script setup lang="ts">
@@ -312,11 +289,44 @@ function slotDMY(dateStr: string): string {
 /* ---- Page ---- */
 .av-page {
   padding: var(--tv-space-6);
-  max-width: 1100px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
+  gap: var(--tv-space-4);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Two-column layout */
+.av-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--tv-space-5);
+  flex: 1;
+  min-height: 0;
+  height: calc(100dvh - 160px);
+}
+
+/* Column base — both fill the column height, scroll internally */
+.av-col {
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Right column stacks unavailability on top, booked fills remainder */
+.av-col--right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-space-4);
+  overflow: visible;
+}
+
+/* Booked card grows to fill remaining space in right column */
+.av-card--flex {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* ---- Header ---- */
@@ -558,6 +568,12 @@ function slotDMY(dateStr: string): string {
   gap: var(--tv-space-2);
 }
 
+.av-booked-list--scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .av-booked-item {
   display: flex;
   align-items: center;
@@ -592,6 +608,16 @@ function slotDMY(dateStr: string): string {
 }
 
 /* ---- Responsive ---- */
+@media (max-width: 1024px) {
+  .av-columns {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .av-col { height: auto; overflow-y: visible; }
+  .av-card--flex { min-height: 300px; }
+  .av-booked-list--scroll { max-height: 300px; }
+}
+
 @media (max-width: 768px) {
   .av-page { padding: var(--tv-space-4); }
   .av-card { padding: var(--tv-space-4); }

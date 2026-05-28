@@ -5,7 +5,7 @@
     <div class="lv-page__header">
       <div>
         <h1 class="lv-page__title">{{ pageTitle }}</h1>
-        <p class="lv-page__subtitle">{{ filteredLessons.length }} lesson{{ filteredLessons.length !== 1 ? 's' : '' }}</p>
+        <p class="lv-page__subtitle">{{ pageSubtitle }}</p>
       </div>
       <TVButton v-if="canCreate" variant="primary" @click="openCreateModal">
         <template #icon>
@@ -133,7 +133,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore } from '@/stores/auth'
 import { useViewAs } from '@/composables/useViewAs'
@@ -147,6 +147,7 @@ import TVTimePicker from '@/components/ui/TVTimePicker.vue'
 import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import type { LessonStatus } from '@/stores/schedule'
 
+const route    = useRoute()
 const router   = useRouter()
 const schedule = useScheduleStore()
 const auth     = useAuthStore()
@@ -155,8 +156,8 @@ const { effectiveRole } = useViewAs()
 
 const search        = ref('')
 const filterStatus  = ref('')
-const filterTeacher = ref('')
-const filterStudent = ref('')
+const filterTeacher = ref((route.query.teacher as string) || '')
+const filterStudent = ref((route.query.student as string) || '')
 
 const role = computed(() => effectiveRole.value)
 
@@ -168,6 +169,12 @@ const pageTitle = computed(() => {
   if (role.value === 'STUDENT') return 'My Lessons'
   if (role.value === 'TEACHER') return 'My Lessons'
   return 'Lessons'
+})
+
+const pageSubtitle = computed(() => {
+  if (role.value === 'STUDENT') return 'Your scheduled lessons and learning sessions'
+  if (role.value === 'TEACHER') return 'Your assigned teaching sessions and class history'
+  return 'All lessons across every student and teacher'
 })
 
 // ── Source data (role-scoped) ──

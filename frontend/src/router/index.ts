@@ -60,6 +60,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/MaterialsView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/homework',
+    name: 'Homework',
+    component: () => import('@/views/HomeworkView.vue'),
+    meta: { requiresAuth: true },
+  },
 
   /* ── Lessons ── */
   {
@@ -79,6 +85,14 @@ const routes: RouteRecordRaw[] = [
     name: 'Billing',
     component: () => import('@/views/BillingView.vue'),
     meta: { requiresAuth: true, roles: ['STUDENT', 'ADMIN'] },
+  },
+
+  /* ── Attendance ── */
+  {
+    path: '/attendance',
+    name: 'Attendance',
+    component: () => import('@/views/AttendanceView.vue'),
+    meta: { requiresAuth: true, roles: ['TEACHER', 'ADMIN', 'STAFF', 'STUDENT'] },
   },
 
   /* ── Teacher / Admin / Staff ── */

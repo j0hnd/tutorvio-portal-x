@@ -10,6 +10,7 @@
     <!-- Table -->
     <template v-else>
       <div v-if="hasRows" class="tv-dt__wrap">
+        <div class="tv-dt__scroll-wrap">
         <div class="tv-dt__scroll">
           <table class="tv-dt__table" :aria-label="ariaLabel">
             <thead>
@@ -90,6 +91,7 @@
             </tbody>
           </table>
         </div>
+        </div><!-- /tv-dt__scroll-wrap -->
 
         <!-- Footer -->
         <div class="tv-dt__footer">
@@ -428,16 +430,22 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-md);
   box-shadow: var(--tv-shadow-sm);
+}
+
+.tv-dt__scroll-wrap {
   overflow: hidden;
+  border-radius: var(--tv-radius-md) var(--tv-radius-md) 0 0;
 }
 
 .tv-dt__scroll {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Table ── */
 .tv-dt__table {
   width: 100%;
+  min-width: 560px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--tv-text-sm);
@@ -665,28 +673,35 @@ function getCellValue(row: Row, col: DataTableColumn): unknown {
 }
 
 /* ── Responsive ── */
-@media (max-width: 1100px) {
-  .tv-dt__th--hide-md,
-  .tv-dt__td--hide-md {
-    display: none;
-  }
+@media (max-width: 767px) {
+  /* Full table with horizontal scroll — no column hiding */
+  .tv-dt__table { table-layout: auto; }
 
   .tv-dt__footer {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    gap: var(--tv-space-3);
+    padding: var(--tv-space-3);
   }
-}
 
-@media (max-width: 767px) {
-  .tv-dt__th--hide-sm,
-  .tv-dt__td--hide-sm {
-    display: none;
-  }
+  .tv-dt__count { text-align: center; }
 
   .tv-dt__pagination {
+    width: 100%;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--tv-space-2);
+  }
+
+  .tv-dt__per-page { justify-content: center; gap: var(--tv-space-2); }
+  .tv-dt__per-page-tvselect { width: 100px; }
+
+  .tv-dt__pages { justify-content: center; flex-wrap: wrap; }
+
+  .tv-dt__page-btn {
+    min-width: 34px;
+    height: 34px;
+    font-size: var(--tv-text-sm);
   }
 }
 </style>

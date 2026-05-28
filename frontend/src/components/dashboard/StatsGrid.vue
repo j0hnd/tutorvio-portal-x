@@ -1,5 +1,5 @@
 <template>
-  <section class="stats-grid" aria-label="Overview statistics">
+  <section class="stats-grid" :style="{ '--sg-cols': cols }" aria-label="Overview statistics">
     <div v-for="stat in stats" :key="stat.label" class="stat-card">
       <div class="stat-card__content">
         <div class="stat-card__text">
@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 export interface StatItem {
   label: string
   value: string
@@ -27,13 +29,14 @@ export interface StatItem {
   iconClass: string
 }
 
-defineProps<{ stats: StatItem[] }>()
+const props = defineProps<{ stats: StatItem[]; columns?: number }>()
+const cols = computed(() => props.columns ?? 4)
 </script>
 
 <style scoped>
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--sg-cols, 4), 1fr);
   gap: var(--tv-space-4);
 }
 
@@ -75,7 +78,7 @@ defineProps<{ stats: StatItem[] }>()
   line-height: 1;
 }
 
-@media (max-width: 1280px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 767px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); gap: var(--tv-space-3); } }
+@media (max-width: 1280px) { .stats-grid { grid-template-columns: repeat(min(var(--sg-cols, 4), 3), 1fr); } }
+@media (max-width: 900px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); gap: var(--tv-space-3); } }
 @media (max-width: 480px)  { .stats-grid { grid-template-columns: 1fr; } }
 </style>

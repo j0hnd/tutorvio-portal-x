@@ -140,18 +140,19 @@
               <path d="M7 1.5l5.5 10H1.5L7 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
               <path d="M7 6v2.5M7 10.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
             </svg>
-            <strong>{{ MOCK_PENDING_DOCS.length }} lessons</strong> need notes
+            <strong>{{ pendingNoteLessons.length }} lessons</strong> need notes
           </p>
           <div class="td-doc-list">
-            <div v-for="doc in MOCK_PENDING_DOCS" :key="doc.id" class="td-doc-item">
+            <div v-for="lesson in pendingNoteLessons.slice(0, 5)" :key="lesson.id" class="td-doc-item">
               <span class="td-doc-dot" />
               <div>
-                <p class="td-doc-student">{{ doc.student }}</p>
-                <p class="td-doc-meta">{{ doc.lesson }} · {{ doc.date }}</p>
+                <p class="td-doc-student">{{ lesson.studentName }}</p>
+                <p class="td-doc-meta">{{ lesson.subject }} · {{ new Date(lesson.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }}</p>
               </div>
             </div>
+            <p v-if="!pendingNoteLessons.length" class="td-doc-meta" style="padding: 4px 0;">No pending notes — all caught up!</p>
           </div>
-          <button class="td-primary-btn" type="button">Log Lesson Notes</button>
+          <button class="td-primary-btn" type="button" @click="router.push({ name: 'Lessons' })">View Lessons</button>
         </div>
 
         <!-- Admin Announcements -->
@@ -301,6 +302,12 @@ const MOCK_ANNOUNCEMENTS = [
   { id: 'a3', text: 'New lesson documentation format is now live',   date: 'May 18', type: 'success' },
 ]
 
+const pendingNoteLessons = computed(() => {
+  const uid = auth.user?.id
+  if (!uid) return []
+  return schedule.getPendingNoteLessons(uid)
+})
+
 const thisMonthLessons = computed(() => {
   const now = new Date()
   return schedule.myLessons.filter(l => {
@@ -316,7 +323,7 @@ const stats = computed((): StatItem[] => [
   { label: 'Classes Today',       value: String(todayClasses.value.length), sub: liveClass.value ? '1 in progress' : 'Scheduled', trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--teal'    },
   { label: 'Students Assigned',   value: String(uniqueStudents.value),      sub: 'Unique students',                               trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--primary'  },
   { label: 'Lessons This Month',  value: String(thisMonthLessons.value),    sub: 'Completed',                                     trendUp: true,  icon: icons.doc,      iconClass: 'icon-badge--success'  },
-  { label: 'Pending Notes',       value: String(MOCK_PENDING_DOCS.length),  sub: 'Needs documentation',                           trendUp: false, icon: icons.alert,    iconClass: 'icon-badge--warning'  },
+  { label: 'Pending Notes',       value: String(pendingNoteLessons.value.length), sub: 'Needs documentation',                      trendUp: false, icon: icons.alert,    iconClass: 'icon-badge--warning'  },
 ])
 </script>
 
