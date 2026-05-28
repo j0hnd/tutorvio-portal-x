@@ -126,7 +126,7 @@ class ProfileApiTest extends TestCase
 
         $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->id.'/profile');
 
-        $response->assertStatus(403);
+        $response->assertStatus(404);
     }
 
     public function test_admin_can_view_all_profiles()

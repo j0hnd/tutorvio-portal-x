@@ -319,7 +319,7 @@ class IssueReportApiTest extends TestCase
             ->assertJsonPath('data.description', 'Sensitive concern details.');
 
         Sanctum::actingAs($otherStudent);
-        $this->getJson("/api/v1/issue-reports/{$issue->id}")->assertForbidden();
+        $this->getJson("/api/v1/issue-reports/{$issue->id}")->assertNotFound();
 
         Sanctum::actingAs($student);
         $this->getJson("/api/v1/issue-reports/{$issue->id}")
@@ -342,11 +342,11 @@ class IssueReportApiTest extends TestCase
 
         Sanctum::actingAs($student);
         $this->getJson("/api/v1/issue-reports/{$issue->id}")
-            ->assertForbidden();
+            ->assertNotFound();
 
         Sanctum::actingAs($teacher);
         $this->getJson("/api/v1/issue-reports/{$issue->id}")
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
     /**
