@@ -12,6 +12,10 @@ class AnnouncementResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $readState = $this->resource->relationLoaded('readStates')
+            ? $this->resource->readStates->first()
+            : null;
+
         return [
             'id' => $this->resource->id,
             'title' => $this->resource->title,
@@ -29,6 +33,9 @@ class AnnouncementResource extends JsonResource
             ]),
             'archived_by' => $this->resource->archived_by,
             'recipient_count' => $this->whenCounted('recipients'),
+            'is_read' => $this->when($this->resource->relationLoaded('readStates'), fn () => $readState?->read_at !== null),
+            'read_status' => $this->when($this->resource->relationLoaded('readStates'), fn () => $readState?->read_at === null ? 'unread' : 'read'),
+            'read_at' => $this->when($this->resource->relationLoaded('readStates'), fn () => $readState?->read_at),
             'targets' => $this->whenLoaded('targets', fn () => $this->resource->targets->map(fn ($target) => [
                 'id' => $target->id,
                 'type' => $target->target_type,

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Announcement;
+use App\Models\AnnouncementReadState;
 use App\Models\AnnouncementTarget;
 use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
@@ -118,6 +119,31 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonPath('data.status', Announcement::STATUS_PUBLISHED)
             ->assertJsonPath('data.scheduled_at', null)
             ->assertJsonPath('data.published_at', '2026-06-15T12:00:00.000000Z');
+    }
+
+    public function test_admin_can_unpublish_announcement(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $announcement = $this->createAnnouncement([
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => now(),
+        ]);
+        $announcement->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ALL,
+        ]);
+        app(AnnouncementRecipientResolver::class)->syncRecipients($announcement);
+
+        $this->postJson("/api/v1/admin/announcements/{$announcement->id}/unpublish")
+            ->assertOk()
+            ->assertJsonPath('data.status', Announcement::STATUS_DRAFT)
+            ->assertJsonPath('data.published_at', null)
+            ->assertJsonPath('data.scheduled_at', null);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/announcements/{$announcement->id}")
+            ->assertNotFound();
     }
 
     public function test_due_scheduled_announcements_are_published_with_notifications_idempotently(): void
@@ -306,6 +332,27 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_admin_can_delete_announcement_as_archive_alias(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $announcement = $this->createAnnouncement([
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => now(),
+        ]);
+
+        $this->deleteJson("/api/v1/admin/announcements/{$announcement->id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', Announcement::STATUS_ARCHIVED)
+            ->assertJsonPath('data.archived_by', $this->admin->id);
+
+        $this->assertDatabaseHas('announcements', [
+            'id' => $announcement->id,
+            'status' => Announcement::STATUS_ARCHIVED,
+            'is_archived' => true,
+        ]);
+    }
+
     public function test_users_can_view_only_active_published_announcements(): void
     {
         $published = $this->createAnnouncement([
@@ -338,6 +385,96 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $published->id)
             ->assertJsonPath('data.0.status', Announcement::STATUS_PUBLISHED);
+    }
+
+    public function test_users_can_track_announcement_read_and_unread_state(): void
+    {
+        $published = $this->createAnnouncement([
+            'title' => 'Published announcement',
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => '2026-06-15 11:00:00',
+        ]);
+        $published->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ALL,
+        ]);
+        app(AnnouncementRecipientResolver::class)->syncRecipients($published);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/announcements/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->getJson('/api/v1/announcements?unread=true&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.read_status', 'unread');
+
+        $this->postJson("/api/v1/announcements/{$published->id}/read")
+            ->assertOk()
+            ->assertJsonPath('data.read_status', 'read')
+            ->assertJsonPath('data.read_at', '2026-06-15T12:00:00.000000Z');
+
+        $this->getJson('/api/v1/announcements/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->getJson('/api/v1/announcements?status=read&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $published->id);
+
+        $this->postJson("/api/v1/announcements/{$published->id}/unread")
+            ->assertOk()
+            ->assertJsonPath('data.read_status', 'unread')
+            ->assertJsonPath('data.read_at', null);
+
+        $this->assertDatabaseHas('announcement_read_states', [
+            'announcement_id' => $published->id,
+            'user_id' => $this->student->id,
+            'read_at' => null,
+        ]);
+    }
+
+    public function test_users_can_mark_all_visible_announcements_as_read(): void
+    {
+        $first = $this->createAnnouncement([
+            'title' => 'First announcement',
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => '2026-06-15 10:00:00',
+        ]);
+        $first->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ALL,
+        ]);
+
+        $second = $this->createAnnouncement([
+            'title' => 'Second announcement',
+            'status' => Announcement::STATUS_PUBLISHED,
+            'published_at' => '2026-06-15 11:00:00',
+        ]);
+        $second->targets()->create([
+            'target_type' => AnnouncementTarget::TARGET_ALL,
+        ]);
+
+        app(AnnouncementRecipientResolver::class)->syncRecipients($first);
+        app(AnnouncementRecipientResolver::class)->syncRecipients($second);
+
+        AnnouncementReadState::create([
+            'announcement_id' => $first->id,
+            'user_id' => $this->student->id,
+            'read_at' => now()->subHour(),
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/announcements/mark-all-read')
+            ->assertOk()
+            ->assertJsonPath('data.marked_read_count', 1)
+            ->assertJsonPath('data.read_at', '2026-06-15T12:00:00.000000Z');
+
+        $this->getJson('/api/v1/announcements/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
     }
 
     public function test_targeted_announcements_are_visible_only_to_resolved_recipients_without_duplicates(): void

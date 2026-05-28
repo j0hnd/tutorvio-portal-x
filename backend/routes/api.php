@@ -94,8 +94,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/message-threads/{messageThread}/messages', [MessageThreadController::class, 'messages']);
         Route::post('/message-threads/{messageThread}/messages', [MessageThreadController::class, 'send']);
         Route::post('/message-threads/{messageThread}/read', [MessageThreadController::class, 'markRead']);
+        Route::get('/announcements/unread-count', [AnnouncementController::class, 'unreadCount']);
+        Route::post('/announcements/mark-all-read', [AnnouncementController::class, 'markAllRead']);
         Route::get('/announcements', [AnnouncementController::class, 'index']);
         Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show']);
+        Route::post('/announcements/{announcement}/read', [AnnouncementController::class, 'markRead']);
+        Route::post('/announcements/{announcement}/unread', [AnnouncementController::class, 'markUnread']);
         Route::post('/issue-reports', [IssueReportController::class, 'store']);
         Route::get('/issue-reports/{issueReport}', [IssueReportController::class, 'show']);
         Route::get('/lessons/{lesson}/join', LessonJoinController::class);
@@ -169,11 +173,12 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('admin')->middleware(['role:admin|staff', 'permission:announcements.manage'])->group(function () {
             Route::post('/announcements/{announcement}/publish', [AdminAnnouncementController::class, 'publish']);
+            Route::post('/announcements/{announcement}/unpublish', [AdminAnnouncementController::class, 'unpublish']);
             Route::post('/announcements/{announcement}/schedule', [AdminAnnouncementController::class, 'schedule']);
             Route::post('/announcements/{announcement}/archive', [AdminAnnouncementController::class, 'archive']);
             Route::get('/announcements/{announcement}/recipient-count', [AdminAnnouncementController::class, 'recipientCount']);
             Route::apiResource('announcements', AdminAnnouncementController::class)
-                ->only(['index', 'store', 'show', 'update']);
+                ->only(['index', 'store', 'show', 'update', 'destroy']);
         });
 
         Route::prefix('admin')->middleware(['role:admin|staff'])->group(function () {

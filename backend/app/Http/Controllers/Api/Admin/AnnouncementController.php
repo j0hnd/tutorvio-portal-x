@@ -179,6 +179,21 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    public function unpublish(Announcement $announcement): JsonResponse
+    {
+        $this->ensureNotArchived($announcement);
+
+        $announcement->update([
+            'status' => Announcement::STATUS_DRAFT,
+            'published_at' => null,
+            'scheduled_at' => null,
+        ]);
+
+        return response()->json([
+            'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
+        ]);
+    }
+
     public function schedule(Request $request, Announcement $announcement): JsonResponse
     {
         $this->ensureNotArchived($announcement);
@@ -214,6 +229,11 @@ class AnnouncementController extends Controller
         return response()->json([
             'data' => new AnnouncementResource($announcement->refresh()->load(['author', 'targets'])->loadCount('recipients')),
         ]);
+    }
+
+    public function destroy(Request $request, Announcement $announcement): JsonResponse
+    {
+        return $this->archive($request, $announcement);
     }
 
     public function recipientCount(Announcement $announcement): JsonResponse
@@ -278,6 +298,12 @@ class AnnouncementController extends Controller
      */
     private function syncTargets(Announcement $announcement, array $targets): void
     {
+        if ($targets === []) {
+            $targets = [
+                ['type' => AnnouncementTarget::TARGET_ALL],
+            ];
+        }
+
         $announcement->targets()->delete();
 
         $announcement->targets()->createMany(array_map(function (array $target) {
