@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\AcademicRecord;
 use App\Models\AuditLog;
 use App\Models\CourseProgram;
 use App\Models\CourseType;
@@ -24,6 +25,7 @@ use App\Models\TeacherCompensation;
 use App\Models\TeacherEarning;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use App\Policies\AcademicRecordPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ClassSchedulePolicy;
 use App\Policies\CourseProgramPolicy;
@@ -64,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(ClassSchedule::class, ClassSchedulePolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
+        Gate::policy(AcademicRecord::class, AcademicRecordPolicy::class);
         Gate::policy(TeacherAvailability::class, TeacherAvailabilityPolicy::class);
         Gate::policy(TeacherUnavailableDate::class, TeacherAvailabilityPolicy::class);
         Gate::policy(Holiday::class, HolidayPolicy::class);

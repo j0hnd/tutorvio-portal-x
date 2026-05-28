@@ -18,15 +18,40 @@ class AcademicRecord extends Model
 
     public const STATUS_VOID = 'void';
 
+    public const TYPE_PROGRESS = 'progress';
+
+    public const TYPE_ATTENDANCE = 'attendance';
+
+    public const TYPE_ASSESSMENT = 'assessment';
+
+    public const TYPE_NOTE = 'note';
+
+    public const TYPE_CERTIFICATE = 'certificate';
+
+    public const TYPE_PLACEMENT = 'placement';
+
+    public const TYPE_HOMEWORK = 'homework';
+
     public const STATUSES = [
         self::STATUS_ACTIVE,
         self::STATUS_ARCHIVED,
         self::STATUS_VOID,
     ];
 
+    public const RECORD_TYPES = [
+        self::TYPE_PROGRESS,
+        self::TYPE_ATTENDANCE,
+        self::TYPE_ASSESSMENT,
+        self::TYPE_NOTE,
+        self::TYPE_CERTIFICATE,
+        self::TYPE_PLACEMENT,
+        self::TYPE_HOMEWORK,
+    ];
+
     protected $fillable = [
         'student_id',
         'teacher_id',
+        'course_program_id',
         'lesson_id',
         'class_schedule_id',
         'record_type',
@@ -38,6 +63,8 @@ class AcademicRecord extends Model
         'recorded_by',
         'approved_by',
         'approved_at',
+        'archived_by',
+        'archived_at',
     ];
 
     protected function casts(): array
@@ -46,6 +73,7 @@ class AcademicRecord extends Model
             'recorded_on' => 'date',
             'data' => 'array',
             'approved_at' => 'immutable_datetime',
+            'archived_at' => 'immutable_datetime',
         ];
     }
 
@@ -57,6 +85,11 @@ class AcademicRecord extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function courseProgram(): BelongsTo
+    {
+        return $this->belongsTo(CourseProgram::class);
     }
 
     public function lesson(): BelongsTo
@@ -77,5 +110,10 @@ class AcademicRecord extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function archivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archived_by');
     }
 }

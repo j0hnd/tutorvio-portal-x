@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AcademicRecordController;
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\ClassOversightController;
@@ -133,6 +134,10 @@ Route::prefix('v1')->group(function () {
             ->parameters(['lesson-records' => 'lessonRecord']);
         Route::apiResource('student-progress-records', StudentProgressRecordController::class)
             ->parameters(['student-progress-records' => 'studentProgressRecord']);
+        Route::post('/academic-records/{academicRecord}/archive', [AcademicRecordController::class, 'archive']);
+        Route::apiResource('academic-records', AcademicRecordController::class)
+            ->only(['index', 'store', 'show', 'update'])
+            ->parameters(['academic-records' => 'academicRecord']);
         Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
         Route::get('/homeworks', [HomeworkController::class, 'index']);
