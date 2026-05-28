@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\PermissionNames;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -46,6 +47,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.tasks.view', 'dashboard.operational_notices.view',
             'admin.access',
         ];
+        $permissions = array_values(array_unique(array_merge(
+            $permissions,
+            PermissionNames::operationalControl(),
+        )));
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate([
