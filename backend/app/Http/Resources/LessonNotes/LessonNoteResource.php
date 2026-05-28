@@ -31,6 +31,10 @@ class LessonNoteResource extends JsonResource
             'recommendation_for_next_lesson' => $this->resource->recommendation_for_next_lesson,
             'internal_note' => $this->when($this->canViewInternalNote($request->user()), $this->resource->internal_note),
             'submitted_at' => $this->resource->submitted_at,
+            'review_status' => $this->when($this->canViewInternalNote($request->user()), $this->resource->review_status),
+            'review_note' => $this->when($this->canViewInternalNote($request->user()), $this->resource->review_note),
+            'reviewed_by' => $this->when($this->canViewInternalNote($request->user()), $this->resource->reviewed_by),
+            'reviewed_at' => $this->when($this->canViewInternalNote($request->user()), $this->resource->reviewed_at),
             'lesson' => $this->whenLoaded('lesson', fn () => [
                 'id' => $this->resource->lesson->id,
                 'status' => $this->resource->lesson->status,

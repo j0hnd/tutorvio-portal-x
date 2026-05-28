@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\ClassOversightController;
 use App\Http\Controllers\Api\Admin\FormTemplateController as AdminFormTemplateController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
@@ -225,6 +226,13 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:issue_reports.manage');
             Route::post('/issue-reports/{issueReport}/cancel', [AdminIssueReportController::class, 'cancel'])
                 ->middleware('permission:issue_reports.manage');
+
+            Route::get('/classes', [ClassOversightController::class, 'index'])
+                ->middleware('permission:classes.view');
+            Route::get('/classes/{lesson}/teacher-notes', [ClassOversightController::class, 'teacherNotes'])
+                ->middleware('permission:lesson_notes.view');
+            Route::patch('/teacher-notes/{lessonNote}/review', [ClassOversightController::class, 'reviewTeacherNote'])
+                ->middleware('permission:lesson_notes.update');
 
             Route::get('/teachers/{teacher}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
                 ->middleware('permission:teacher_compensations.view');

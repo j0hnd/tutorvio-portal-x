@@ -31,6 +31,17 @@ class Lesson extends Model
 
     public const STATUS_MISSED_BY_TEACHER = 'missed_by_teacher';
 
+    public const STATUSES = [
+        self::STATUS_SCHEDULED,
+        self::STATUS_PENDING_CONFIRMATION,
+        self::STATUS_COMPLETED,
+        self::STATUS_EXPIRED,
+        self::STATUS_CANCELLED,
+        self::STATUS_RESCHEDULED,
+        self::STATUS_MISSED_BY_STUDENT,
+        self::STATUS_MISSED_BY_TEACHER,
+    ];
+
     public const PROVIDER_GOOGLE_MEET = 'google_meet';
 
     public const PROVIDER_CUSTOM = 'custom';
@@ -130,6 +141,11 @@ class Lesson extends Model
     public function lessonNote(): HasOne
     {
         return $this->hasOne(LessonNote::class);
+    }
+
+    public function issueReports(): HasMany
+    {
+        return $this->hasMany(IssueReport::class);
     }
 
     public function homeworks(): HasMany

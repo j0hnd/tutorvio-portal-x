@@ -10,6 +10,18 @@ class LessonNote extends Model
 {
     use HasFactory;
 
+    public const REVIEW_STATUS_PENDING = 'pending';
+
+    public const REVIEW_STATUS_REVIEWED = 'reviewed';
+
+    public const REVIEW_STATUS_FLAGGED = 'flagged';
+
+    public const REVIEW_STATUSES = [
+        self::REVIEW_STATUS_PENDING,
+        self::REVIEW_STATUS_REVIEWED,
+        self::REVIEW_STATUS_FLAGGED,
+    ];
+
     protected $fillable = [
         'lesson_id',
         'student_id',
@@ -26,12 +38,17 @@ class LessonNote extends Model
         'recommendation_for_next_lesson',
         'internal_note',
         'submitted_at',
+        'review_status',
+        'review_note',
+        'reviewed_by',
+        'reviewed_at',
     ];
 
     protected function casts(): array
     {
         return [
             'submitted_at' => 'immutable_datetime',
+            'reviewed_at' => 'immutable_datetime',
         ];
     }
 
@@ -58,5 +75,10 @@ class LessonNote extends Model
     public function lessonRecord(): BelongsTo
     {
         return $this->belongsTo(LessonRecord::class);
+    }
+
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 }
