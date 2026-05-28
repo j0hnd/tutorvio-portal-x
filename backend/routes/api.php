@@ -79,16 +79,16 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('auth')->group(function () {
-        Route::post('login', [LoginController::class, 'login']);
-        Route::post('register', [RegisterController::class, 'register']);
-        Route::post('forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
-        Route::post('reset-password', [ResetPasswordController::class, 'resetPassword']);
-        Route::get('accept-invitation/{token}', [InvitationController::class, 'accept']);
+        Route::post('login', [LoginController::class, 'login'])->middleware('throttle:auth-login');
+        Route::post('register', [RegisterController::class, 'register'])->middleware('throttle:auth-register');
+        Route::post('forgot-password', [ForgotPasswordController::class, 'forgotPassword'])->middleware('throttle:auth-password-reset');
+        Route::post('reset-password', [ResetPasswordController::class, 'resetPassword'])->middleware('throttle:auth-password-reset');
+        Route::get('accept-invitation/{token}', [InvitationController::class, 'accept'])->middleware('throttle:auth-invitation-accept');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('logout', [LoginController::class, 'logout']);
             Route::post('invite', [InvitationController::class, 'invite'])
-                ->middleware(['role:admin|staff', 'permission:users.create']);
+                ->middleware(['throttle:auth-invite', 'role:admin|staff', 'permission:users.create']);
         });
     });
 

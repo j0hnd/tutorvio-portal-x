@@ -46,7 +46,10 @@ use App\Policies\TeacherChangeRequestPolicy;
 use App\Policies\TeacherCompensationPolicy;
 use App\Policies\TeacherEarningPolicy;
 use App\Policies\TeacherStudentAssignmentPolicy;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -64,6 +67,36 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('auth-login', function (Request $request): array {
+            return [
+                Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('auth-register', function (Request $request): array {
+            return [
+                Limit::perMinute(3)->by($request->ip()),
+            ];
+        });
+
+        RateLimiter::for('auth-password-reset', function (Request $request): array {
+            return [
+                Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('auth-invite', function (Request $request): array {
+            return [
+                Limit::perMinute(10)->by(((string) $request->user()?->id).'|'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('auth-invitation-accept', function (Request $request): array {
+            return [
+                Limit::perMinute(10)->by(((string) $request->route('token')).'|'.$request->ip()),
+            ];
+        });
+
         Gate::policy(ClassSchedule::class, ClassSchedulePolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(AcademicRecord::class, AcademicRecordPolicy::class);
