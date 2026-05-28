@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportCont
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
 use App\Http\Controllers\Api\Admin\PortalSettingController as AdminPortalSettingController;
+use App\Http\Controllers\Api\Admin\ScheduleChangeRequestController as AdminScheduleChangeRequestController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\TeacherChangeRequestController as AdminTeacherChangeRequestController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\PortalSettingController;
 use App\Http\Controllers\Api\Profile\ProfileController;
+use App\Http\Controllers\Api\ScheduleChangeRequestController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
 use App\Http\Controllers\Api\Scheduling\HolidayController;
@@ -142,6 +144,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/teacher-workloads', [TeacherWorkloadController::class, 'index']);
         Route::get('/teacher-workloads/{teacher}', [TeacherWorkloadController::class, 'show']);
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
+        Route::get('/schedule-change-requests', [ScheduleChangeRequestController::class, 'index']);
+        Route::post('/schedule-change-requests', [ScheduleChangeRequestController::class, 'store']);
+        Route::get('/schedule-change-requests/{scheduleChangeRequest}', [ScheduleChangeRequestController::class, 'show']);
+        Route::post('/schedule-change-requests/{scheduleChangeRequest}/cancel', [ScheduleChangeRequestController::class, 'cancel']);
         Route::get('/teacher-change-requests', [TeacherChangeRequestController::class, 'index'])
             ->middleware('role:student');
         Route::post('/teacher-change-requests', [TeacherChangeRequestController::class, 'store'])
@@ -252,6 +258,16 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:teacher_change_requests.manage');
             Route::post('/teacher-change-requests/{teacherChangeRequest}/reject', [AdminTeacherChangeRequestController::class, 'reject'])
                 ->middleware('permission:teacher_change_requests.manage');
+            Route::get('/schedule-change-requests/pending', [AdminScheduleChangeRequestController::class, 'pending'])
+                ->middleware('permission:schedule_change_requests.view');
+            Route::get('/schedule-change-requests', [AdminScheduleChangeRequestController::class, 'index'])
+                ->middleware('permission:schedule_change_requests.view');
+            Route::get('/schedule-change-requests/{scheduleChangeRequest}', [AdminScheduleChangeRequestController::class, 'show'])
+                ->middleware('permission:schedule_change_requests.view');
+            Route::post('/schedule-change-requests/{scheduleChangeRequest}/approve', [AdminScheduleChangeRequestController::class, 'approve'])
+                ->middleware('permission:schedule_change_requests.manage');
+            Route::post('/schedule-change-requests/{scheduleChangeRequest}/reject', [AdminScheduleChangeRequestController::class, 'reject'])
+                ->middleware('permission:schedule_change_requests.manage');
             Route::post('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'store'])
                 ->middleware('permission:teacher_assignments.manage');
             Route::post('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'assignStudent'])

@@ -69,6 +69,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $studentRole->syncPermissions([
             'classes.view',
             'schedules.view',
+            'schedule_change_requests.create',
             'reminders.view',
             'messages.view',
         ]);
@@ -88,6 +89,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'lesson_notes.update',
             'schedules.view',
             'schedules.update',
+            'schedule_change_requests.create',
             'availability.view',
             'availability.manage',
             'reminders.view',

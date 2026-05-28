@@ -199,6 +199,21 @@ class PortalSettingsService
         return array_keys(self::DEFINITIONS);
     }
 
+    public function value(string $key): mixed
+    {
+        if (! array_key_exists($key, self::DEFINITIONS)) {
+            throw ValidationException::withMessages([
+                'settings' => 'Unsupported portal setting key: '.$key.'.',
+            ]);
+        }
+
+        $setting = PortalSetting::query()
+            ->where('key', $key)
+            ->first();
+
+        return $setting?->value ?? self::DEFINITIONS[$key]['default'];
+    }
+
     private function validateValue(string $key, mixed $value): mixed
     {
         $validator = Validator::make(
