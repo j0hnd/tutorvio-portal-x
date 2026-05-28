@@ -59,6 +59,7 @@ use App\Http\Controllers\Api\StudentPackageSummaryController;
 use App\Http\Controllers\Api\StudentProgressRecordController;
 use App\Http\Controllers\Api\TeacherChangeRequestController;
 use App\Http\Controllers\Api\TeacherEarningController;
+use App\Http\Controllers\Api\TeacherLoadReportController;
 use App\Http\Controllers\Api\TeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\TeacherWorkloadController;
 use Illuminate\Http\Request;
@@ -152,6 +153,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/teacher-earnings', [TeacherEarningController::class, 'index']);
         Route::get('/teacher-workloads', [TeacherWorkloadController::class, 'index']);
         Route::get('/teacher-workloads/{teacher}', [TeacherWorkloadController::class, 'show']);
+        Route::get('/reports/teacher-load', TeacherLoadReportController::class);
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
         Route::get('/schedule-change-requests', [ScheduleChangeRequestController::class, 'index']);
         Route::post('/schedule-change-requests', [ScheduleChangeRequestController::class, 'store']);

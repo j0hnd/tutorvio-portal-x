@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CourseProgramStudentAssignment;
 use App\Models\LessonRecord;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\TeacherAvailability;
@@ -45,6 +46,7 @@ class TeacherWorkloadService
             ->role('teacher')
             ->with('teacherProfile')
             ->when($viewer->hasRole('teacher') && ! $viewer->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->whereKey($viewer->id))
+            ->when($filters['teacher_id'] ?? null, fn (Builder $query, int $teacherId) => $query->whereKey($teacherId))
             ->when($filters['teacher_status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->orderBy('name')
             ->get();
@@ -69,6 +71,9 @@ class TeacherWorkloadService
         $activeStudentCount = TeacherStudentAssignment::query()
             ->where('teacher_id', $teacher->id)
             ->active()
+            ->when($filters['course_id'] ?? null, fn (Builder $query, int $courseId) => $query->whereHas('student.courseProgramAssignments', fn (Builder $query) => $query
+                ->active()
+                ->where('course_program_id', $courseId)))
             ->count();
 
         $maximumStudentCapacity = $teacher->teacherProfile?->class_load;
@@ -88,8 +93,11 @@ class TeacherWorkloadService
             ->sum(fn (array $interval): int => $this->minutesBetween($interval['starts_at'], $interval['ends_at']));
         $availableSlotsCount = intdiv(max(0, $openMinutes), max(1, $slotMinutes));
 
-        $lessonRecordCount = $this->lessonRecordCount($teacher, $startsAt, $endsAt, $lessonType);
-        $assignedLessonCount = $this->assignedLessonCount($teacher, $startsAt, $endsAt, $lessonType, $lessonRecordCount);
+        $lessonRecordCount = $this->lessonRecordCount($teacher, $startsAt, $endsAt, $filters, $lessonType);
+        $assignedLessonCount = $this->assignedLessonCount($teacher, $startsAt, $endsAt, $filters, $lessonType, $lessonRecordCount);
+        $scheduledClassCount = $this->scheduledClassCount($teacher, $startsAt, $endsAt, $filters, $lessonType, $lessonRecordCount);
+        $completedLessonCount = $this->completedLessonCount($teacher, $startsAt, $endsAt, $filters, $lessonType);
+        $missedCancelledRescheduledLessonCount = $this->missedCancelledRescheduledLessonCount($teacher, $startsAt, $endsAt, $filters, $lessonType);
 
         $scheduleLoadPercent = $availableMinutes > 0
             ? min(100, round(($bookedMinutes / $availableMinutes) * 100, 2))
@@ -122,7 +130,10 @@ class TeacherWorkloadService
                 'utilization_percent' => $scheduleLoadPercent,
             ],
             'assigned_lesson_count' => $assignedLessonCount,
+            'scheduled_class_count' => $scheduledClassCount,
             'lesson_record_count' => $lessonRecordCount,
+            'completed_lesson_count' => $completedLessonCount,
+            'missed_cancelled_rescheduled_lesson_count' => $missedCancelledRescheduledLessonCount,
             'available_slots_count' => $availableSlotsCount,
             'slot_minutes' => $slotMinutes,
             'unavailable_periods' => collect($unavailableBlocks)
@@ -303,6 +314,7 @@ class TeacherWorkloadService
         User $teacher,
         CarbonImmutable $startsAt,
         CarbonImmutable $endsAt,
+        array $filters,
         ?string $lessonType,
         int $lessonRecordCount
     ): int {
@@ -316,16 +328,117 @@ class TeacherWorkloadService
             ->where('starts_at', '<', $endsAt)
             ->whereRaw('COALESCE(teacher_blocked_until, ends_at) > ?', [$startsAt])
             ->when($lessonType && in_array($lessonType, ClassSchedule::CLASS_TYPES, true), fn (Builder $query) => $query->where('class_type', $lessonType))
+            ->when($filters['course_id'] ?? null, fn (Builder $query, int $courseId) => $this->applyCourseFilter($query, $courseId))
+            ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->count();
     }
 
-    private function lessonRecordCount(User $teacher, CarbonImmutable $startsAt, CarbonImmutable $endsAt, ?string $lessonType): int
+    private function scheduledClassCount(
+        User $teacher,
+        CarbonImmutable $startsAt,
+        CarbonImmutable $endsAt,
+        array $filters,
+        ?string $lessonType,
+        int $lessonRecordCount
+    ): int {
+        if ($lessonType && in_array($lessonType, LessonRecord::LESSON_TYPES, true) && ! in_array($lessonType, ClassSchedule::CLASS_TYPES, true)) {
+            return $lessonRecordCount;
+        }
+
+        return ClassSchedule::query()
+            ->where('teacher_id', $teacher->id)
+            ->where('starts_at', '<', $endsAt)
+            ->whereRaw('COALESCE(teacher_blocked_until, ends_at) > ?', [$startsAt])
+            ->when(
+                $filters['status'] ?? null,
+                fn (Builder $query, string $status) => $query->where('status', $status),
+                fn (Builder $query) => $query->whereIn('status', ClassSchedule::BOOKED_STATUSES)
+            )
+            ->when($lessonType && in_array($lessonType, ClassSchedule::CLASS_TYPES, true), fn (Builder $query) => $query->where('class_type', $lessonType))
+            ->when($filters['course_id'] ?? null, fn (Builder $query, int $courseId) => $this->applyCourseFilter($query, $courseId))
+            ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function lessonRecordCount(User $teacher, CarbonImmutable $startsAt, CarbonImmutable $endsAt, array $filters, ?string $lessonType): int
+    {
+        return $this->lessonRecordQuery($teacher, $startsAt, $endsAt, $filters, $lessonType)
+            ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function completedLessonCount(User $teacher, CarbonImmutable $startsAt, CarbonImmutable $endsAt, array $filters, ?string $lessonType): int
+    {
+        return $this->lessonRecordQuery($teacher, $startsAt, $endsAt, $filters, $lessonType)
+            ->where(function (Builder $query) {
+                $query->where('lesson_status', LessonRecord::STATUS_COMPLETED)
+                    ->orWhere('is_completed', true);
+            })
+            ->whereNotIn('lesson_status', [
+                LessonRecord::STATUS_CANCELLED,
+                LessonRecord::STATUS_RESCHEDULED,
+                LessonRecord::STATUS_MISSED_BY_STUDENT,
+                LessonRecord::STATUS_MISSED_BY_TEACHER,
+            ])
+            ->where(function (Builder $query) {
+                $query->whereNull('attendance_status')
+                    ->orWhereNotIn('attendance_status', [
+                        LessonRecord::ATTENDANCE_ABSENT,
+                        LessonRecord::ATTENDANCE_NO_SHOW,
+                    ]);
+            })
+            ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function missedCancelledRescheduledLessonCount(User $teacher, CarbonImmutable $startsAt, CarbonImmutable $endsAt, array $filters, ?string $lessonType): int
+    {
+        return $this->lessonRecordQuery($teacher, $startsAt, $endsAt, $filters, $lessonType)
+            ->where(function (Builder $query) {
+                $query
+                    ->whereIn('lesson_status', [
+                        LessonRecord::STATUS_CANCELLED,
+                        LessonRecord::STATUS_RESCHEDULED,
+                        LessonRecord::STATUS_MISSED_BY_STUDENT,
+                        LessonRecord::STATUS_MISSED_BY_TEACHER,
+                    ])
+                    ->orWhereIn('attendance_status', [
+                        LessonRecord::ATTENDANCE_ABSENT,
+                        LessonRecord::ATTENDANCE_NO_SHOW,
+                    ]);
+            })
+            ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Builder<LessonRecord>
+     */
+    private function lessonRecordQuery(User $teacher, CarbonImmutable $startsAt, CarbonImmutable $endsAt, array $filters, ?string $lessonType): Builder
     {
         return LessonRecord::query()
             ->where('teacher_id', $teacher->id)
-            ->whereBetween('scheduled_date', [$startsAt->toDateString(), $endsAt->toDateString()])
+            ->whereDate('scheduled_date', '>=', $startsAt->toDateString())
+            ->whereDate('scheduled_date', '<=', $endsAt->toDateString())
             ->when($lessonType && in_array($lessonType, LessonRecord::LESSON_TYPES, true), fn (Builder $query) => $query->where('lesson_type', $lessonType))
-            ->count();
+            ->when($filters['course_id'] ?? null, fn (Builder $query, int $courseId) => $this->applyCourseFilter($query, $courseId))
+            ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where(function (Builder $query) use ($status) {
+                $query->where('lesson_status', $status)
+                    ->orWhere('attendance_status', $status);
+            }));
+    }
+
+    private function applyCourseFilter(Builder $query, int $courseId): void
+    {
+        $query->whereHas('student.courseProgramAssignments', fn (Builder $query) => $query
+            ->where('status', CourseProgramStudentAssignment::STATUS_ACTIVE)
+            ->where('course_program_id', $courseId));
     }
 
     private function workloadStatus(
