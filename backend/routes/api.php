@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Admin\TeacherChangeRequestController as AdminTeache
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationRateRuleController;
 use App\Http\Controllers\Api\Admin\TeacherEarningController as AdminTeacherEarningController;
+use App\Http\Controllers\Api\Admin\TeacherNoteCompletionReportController as AdminTeacherNoteCompletionReportController;
 use App\Http\Controllers\Api\Admin\TeacherPayoutAdjustmentController as AdminTeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\Admin\TeacherStudentAssignmentController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
@@ -65,6 +66,7 @@ use App\Http\Controllers\Api\StudentProgressReportController;
 use App\Http\Controllers\Api\TeacherChangeRequestController;
 use App\Http\Controllers\Api\TeacherEarningController;
 use App\Http\Controllers\Api\TeacherLoadReportController;
+use App\Http\Controllers\Api\TeacherNoteCompletionReportController;
 use App\Http\Controllers\Api\TeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\TeacherWorkloadController;
 use Illuminate\Http\Request;
@@ -160,6 +162,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/teacher-workloads/{teacher}', [TeacherWorkloadController::class, 'show']);
         Route::get('/reports/teacher-load', TeacherLoadReportController::class);
         Route::get('/reports/student-progress', StudentProgressReportController::class);
+        Route::get('/reports/teacher-note-completions', TeacherNoteCompletionReportController::class);
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
         Route::get('/schedule-change-requests', [ScheduleChangeRequestController::class, 'index']);
         Route::post('/schedule-change-requests', [ScheduleChangeRequestController::class, 'store']);
@@ -228,6 +231,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/attendance', AttendanceReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/reports/lesson-completions', LessonCompletionReportController::class)
+                ->middleware('permission:school_reports.view');
+            Route::get('/reports/teacher-note-completions', AdminTeacherNoteCompletionReportController::class)
                 ->middleware('permission:school_reports.view');
             Route::get('/reports/student-progress', AdminStudentProgressReportController::class)
                 ->middleware('permission:school_reports.view');
