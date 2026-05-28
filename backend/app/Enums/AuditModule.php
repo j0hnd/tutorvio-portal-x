@@ -12,6 +12,7 @@ enum AuditModule: string
     case PACKAGES = 'packages';
     case PERMISSIONS = 'permissions';
     case USERS = 'users';
+    case PORTAL_SETTINGS = 'portal_settings';
 
     /**
      * @return array<int, string>

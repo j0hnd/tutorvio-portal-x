@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
+use App\Http\Controllers\Api\Admin\PortalSettingController as AdminPortalSettingController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
 use App\Http\Controllers\Api\Admin\TeacherChangeRequestController as AdminTeacherChangeRequestController;
 use App\Http\Controllers\Api\Admin\TeacherCompensationController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
+use App\Http\Controllers\Api\PortalSettingController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
@@ -81,6 +83,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}/profile', [ProfileController::class, 'showUser']);
         Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
+        Route::get('/portal-settings', [PortalSettingController::class, 'index']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::get('/notifications/history', [NotificationController::class, 'history'])
             ->middleware(['role:admin|staff', 'permission:notifications.history.view']);
@@ -190,6 +193,10 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:homeworks.view');
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
                 ->middleware('permission:audit_logs.view');
+            Route::get('/portal-settings', [AdminPortalSettingController::class, 'index'])
+                ->middleware('permission:portal_settings.view');
+            Route::match(['put', 'patch'], '/portal-settings', [AdminPortalSettingController::class, 'update'])
+                ->middleware('permission:portal_settings.manage');
             Route::get('/issue-reports', [AdminIssueReportController::class, 'index'])
                 ->middleware('permission:issue_reports.view');
             Route::get('/issue-reports/{issueReport}', [AdminIssueReportController::class, 'show'])
