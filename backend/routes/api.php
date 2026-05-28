@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
+use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
 use App\Http\Controllers\Api\Admin\PayoutReportController;
 use App\Http\Controllers\Api\Admin\SubscriptionManagementController;
@@ -96,6 +97,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/announcements', [AnnouncementController::class, 'index']);
         Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show']);
         Route::post('/issue-reports', [IssueReportController::class, 'store']);
+        Route::get('/issue-reports/{issueReport}', [IssueReportController::class, 'show']);
         Route::get('/lessons/{lesson}/join', LessonJoinController::class);
         Route::get('/lessons/{lesson}/lesson-notes', [LessonNoteController::class, 'byLesson']);
         Route::get('/students/{student}/lesson-notes', [LessonNoteController::class, 'byStudent']);
@@ -183,6 +185,20 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:homeworks.view');
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
                 ->middleware('permission:audit_logs.view');
+            Route::get('/issue-reports', [AdminIssueReportController::class, 'index'])
+                ->middleware('permission:issue_reports.view');
+            Route::get('/issue-reports/{issueReport}', [AdminIssueReportController::class, 'show'])
+                ->middleware('permission:issue_reports.view');
+            Route::patch('/issue-reports/{issueReport}/status', [AdminIssueReportController::class, 'updateStatus'])
+                ->middleware('permission:issue_reports.manage');
+            Route::patch('/issue-reports/{issueReport}/assignment', [AdminIssueReportController::class, 'assign'])
+                ->middleware('permission:issue_reports.assign');
+            Route::post('/issue-reports/{issueReport}/resolution-notes', [AdminIssueReportController::class, 'addResolutionNote'])
+                ->middleware('permission:issue_reports.resolve');
+            Route::post('/issue-reports/{issueReport}/close', [AdminIssueReportController::class, 'close'])
+                ->middleware('permission:issue_reports.manage');
+            Route::post('/issue-reports/{issueReport}/cancel', [AdminIssueReportController::class, 'cancel'])
+                ->middleware('permission:issue_reports.manage');
 
             Route::get('/teachers/{teacher}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
                 ->middleware('permission:teacher_compensations.view');

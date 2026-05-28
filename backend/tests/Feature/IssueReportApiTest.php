@@ -6,6 +6,7 @@ use App\Models\IssueReport;
 use App\Models\Lesson;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -166,6 +167,123 @@ class IssueReportApiTest extends TestCase
             ->assertJsonPath('data.target_user_id', $student->id);
     }
 
+    public function test_admin_can_list_and_filter_issue_reports(): void
+    {
+        [$student, $teacher] = $this->createStudentAndTeacher();
+        $admin = $this->createRoleUser('admin');
+        $staff = $this->createRoleUser('staff');
+        $lesson = $this->createLesson($student, $teacher);
+        $matchingIssue = $this->createIssueReport($student, [
+            'issue_type' => IssueReport::TYPE_CLASS_INCIDENT,
+            'status' => IssueReport::STATUS_IN_PROGRESS,
+            'priority' => IssueReport::PRIORITY_HIGH,
+            'assigned_to_id' => $staff->id,
+            'related_student_id' => $student->id,
+            'related_teacher_id' => $teacher->id,
+            'lesson_id' => $lesson->id,
+            'created_at' => CarbonImmutable::parse('2026-06-10 10:00:00'),
+        ]);
+        $this->createIssueReport($teacher, [
+            'issue_type' => IssueReport::TYPE_TECHNICAL_ISSUE,
+            'status' => IssueReport::STATUS_OPEN,
+            'priority' => IssueReport::PRIORITY_NORMAL,
+            'created_at' => CarbonImmutable::parse('2026-05-01 10:00:00'),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/admin/issue-reports?status=in_progress&issue_type=class_incident&priority=high&reporter_id='.$student->id.'&assigned_to_id='.$staff->id.'&related_student_id='.$student->id.'&related_teacher_id='.$teacher->id.'&lesson_id='.$lesson->id.'&date_from=2026-06-01&date_to=2026-06-30')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matchingIssue->id)
+            ->assertJsonPath('data.0.description', 'Issue details.');
+    }
+
+    public function test_admin_can_assign_resolve_close_and_audit_issue_report(): void
+    {
+        [$student] = $this->createStudentAndTeacher();
+        $admin = $this->createRoleUser('admin');
+        $staff = $this->createRoleUser('staff');
+        $issue = $this->createIssueReport($student);
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/v1/admin/issue-reports/{$issue->id}/assignment", [
+            'assigned_to_id' => $staff->id,
+            'note' => 'Assigned to operations.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.assigned_to_id', $staff->id)
+            ->assertJsonPath('data.status', IssueReport::STATUS_IN_PROGRESS);
+
+        $this->patchJson("/api/v1/admin/issue-reports/{$issue->id}/status", [
+            'status' => IssueReport::STATUS_RESOLVED,
+            'note' => 'Resolved after follow-up.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', IssueReport::STATUS_RESOLVED)
+            ->assertJsonPath('data.resolved_by', $admin->id);
+
+        $this->postJson("/api/v1/admin/issue-reports/{$issue->id}/resolution-notes", [
+            'resolution_notes' => 'Parent and teacher were notified.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.resolution_notes', 'Parent and teacher were notified.');
+
+        $this->postJson("/api/v1/admin/issue-reports/{$issue->id}/close", [
+            'note' => 'Closed by admin.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', IssueReport::STATUS_CLOSED);
+
+        $this->assertDatabaseHas('issue_reports', [
+            'id' => $issue->id,
+            'assigned_to_id' => $staff->id,
+            'status' => IssueReport::STATUS_CLOSED,
+            'resolution_notes' => 'Parent and teacher were notified.',
+            'resolved_by' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('issue_comments', [
+            'issue_report_id' => $issue->id,
+            'body' => 'Assigned to operations.',
+            'comment_type' => 'status_change',
+        ]);
+        $this->assertDatabaseHas('issue_comments', [
+            'issue_report_id' => $issue->id,
+            'body' => 'Parent and teacher were notified.',
+            'comment_type' => 'resolution_note',
+            'is_internal' => true,
+        ]);
+    }
+
+    public function test_staff_permissions_and_reporter_limited_status_access_are_enforced(): void
+    {
+        [$student] = $this->createStudentAndTeacher();
+        $otherStudent = $this->createRoleUser('student');
+        $staff = $this->createRoleUser('staff');
+        $issue = $this->createIssueReport($student, [
+            'issue_type' => IssueReport::TYPE_STUDENT_CONCERN,
+            'description' => 'Sensitive concern details.',
+        ]);
+
+        Sanctum::actingAs($staff);
+        $this->getJson("/api/v1/admin/issue-reports/{$issue->id}")->assertForbidden();
+
+        $staff->givePermissionTo('issue_reports.view');
+        $this->getJson("/api/v1/admin/issue-reports/{$issue->id}")
+            ->assertOk()
+            ->assertJsonPath('data.description', 'Sensitive concern details.');
+
+        Sanctum::actingAs($otherStudent);
+        $this->getJson("/api/v1/issue-reports/{$issue->id}")->assertForbidden();
+
+        Sanctum::actingAs($student);
+        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', IssueReport::STATUS_OPEN)
+            ->assertJsonMissing(['description' => 'Sensitive concern details.']);
+    }
+
     /**
      * @return array{0: User, 1: User}
      */
@@ -205,5 +323,30 @@ class IssueReportApiTest extends TestCase
             'status' => TeacherStudentAssignment::STATUS_ACTIVE,
             'active_student_id' => $student->id,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function createIssueReport(User $reporter, array $attributes = []): IssueReport
+    {
+        $timestamps = array_intersect_key($attributes, array_flip(['created_at', 'updated_at']));
+        $attributes = array_diff_key($attributes, $timestamps);
+
+        $issueReport = IssueReport::create([
+            'issue_type' => IssueReport::TYPE_TECHNICAL_ISSUE,
+            'status' => IssueReport::STATUS_OPEN,
+            'priority' => IssueReport::PRIORITY_NORMAL,
+            'reporter_id' => $reporter->id,
+            'title' => 'Issue title',
+            'description' => 'Issue details.',
+            ...$attributes,
+        ]);
+
+        if ($timestamps !== []) {
+            $issueReport->forceFill($timestamps)->save();
+        }
+
+        return $issueReport;
     }
 }

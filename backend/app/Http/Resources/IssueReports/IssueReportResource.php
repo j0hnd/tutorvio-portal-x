@@ -12,6 +12,14 @@ class IssueReportResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $user = $request->user();
+        $canViewSensitiveDetails = $user?->hasRole('admin')
+            || ($user?->hasRole('staff') && (
+                $user->can('issue_reports.view')
+                || $user->can('issue_reports.manage')
+                || $user->can('issue_reports.resolve')
+            ));
+
         return [
             'id' => $this->resource->id,
             'type' => $this->resource->issue_type,
@@ -29,10 +37,24 @@ class IssueReportResource extends JsonResource
             'learning_resource_id' => $this->resource->learning_resource_id,
             'assigned_to_id' => $this->resource->assigned_to_id,
             'title' => $this->resource->title,
-            'description' => $this->resource->description,
-            'resolution_notes' => $this->resource->resolution_notes,
+            'description' => $this->when($canViewSensitiveDetails, $this->resource->description),
+            'resolution_notes' => $this->when($canViewSensitiveDetails, $this->resource->resolution_notes),
             'resolved_at' => $this->resource->resolved_at,
             'resolved_by' => $this->resource->resolved_by,
+            'reporter' => $this->whenLoaded('reporter', fn () => $this->resource->reporter ? [
+                'id' => $this->resource->reporter->id,
+                'name' => $this->resource->reporter->name,
+                'email' => $this->resource->reporter->email,
+            ] : null),
+            'assigned_to' => $this->whenLoaded('assignedTo', fn () => $this->resource->assignedTo ? [
+                'id' => $this->resource->assignedTo->id,
+                'name' => $this->resource->assignedTo->name,
+                'email' => $this->resource->assignedTo->email,
+            ] : null),
+            'comments' => $this->when(
+                $canViewSensitiveDetails && $this->resource->relationLoaded('comments'),
+                fn () => IssueCommentResource::collection($this->resource->comments)
+            ),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];
