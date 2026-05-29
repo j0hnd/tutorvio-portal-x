@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\ScheduleChangeRequests;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ScheduleChangeRequestResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -17,7 +20,7 @@ class ScheduleChangeRequestResource extends JsonResource
             || ($user?->hasRole('staff') && $user->can('schedule_change_requests.view'))
             || ($user?->hasRole('staff') && $user->can('schedule_change_requests.manage'));
 
-        return [
+        $data = [
             'id' => $this->resource->id,
             'requester_id' => $this->resource->requester_id,
             'student_id' => $this->resource->student_id,
@@ -32,12 +35,9 @@ class ScheduleChangeRequestResource extends JsonResource
             'reason' => $this->resource->reason,
             'status' => $this->resource->status,
             'reviewed_at' => $this->resource->reviewed_at,
-            'review_notes' => $this->resource->review_notes,
-            'reviewed_by' => $this->resource->reviewed_by,
-            'requester' => $this->whenLoaded('requester', fn () => $this->userSummary($this->resource->requester)),
-            'student' => $this->whenLoaded('student', fn () => $this->userSummary($this->resource->student)),
-            'teacher' => $this->whenLoaded('teacher', fn () => $this->userSummary($this->resource->teacher)),
-            'reviewer' => $this->when($canViewAdminFields && $this->resource->relationLoaded('reviewer'), fn () => $this->userSummary($this->resource->reviewer)),
+            'requester' => $this->whenLoaded('requester', fn () => $this->userSummary($this->resource->requester, $request)),
+            'student' => $this->whenLoaded('student', fn () => $this->userSummary($this->resource->student, $request)),
+            'teacher' => $this->whenLoaded('teacher', fn () => $this->userSummary($this->resource->teacher, $request)),
             'lesson' => $this->whenLoaded('lesson', fn () => $this->resource->lesson ? [
                 'id' => $this->resource->lesson->id,
                 'student_id' => $this->resource->lesson->student_id,
@@ -55,26 +55,18 @@ class ScheduleChangeRequestResource extends JsonResource
                 'timezone' => $this->resource->classSchedule->timezone,
                 'status' => $this->resource->classSchedule->status,
             ] : null),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
         ];
-    }
 
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function userSummary(mixed $user): ?array
-    {
-        if (! $user) {
-            return null;
+        if ($canViewAdminFields) {
+            $data += [
+                'review_notes' => $this->resource->review_notes,
+                'reviewed_by' => $this->resource->reviewed_by,
+                'reviewer' => $this->when($this->resource->relationLoaded('reviewer'), fn () => $this->userSummary($this->resource->reviewer, $request)),
+                'created_at' => $this->resource->created_at,
+                'updated_at' => $this->resource->updated_at,
+            ];
         }
 
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'status' => $user->status,
-            'timezone' => $user->timezone,
-        ];
+        return $data;
     }
 }

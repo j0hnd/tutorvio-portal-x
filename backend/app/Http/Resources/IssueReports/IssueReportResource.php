@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\IssueReports;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class IssueReportResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -20,7 +23,7 @@ class IssueReportResource extends JsonResource
                 || $user->can('issue_reports.resolve')
             ));
 
-        return [
+        $data = [
             'id' => $this->resource->id,
             'type' => $this->resource->issue_type,
             'issue_type' => $this->resource->issue_type,
@@ -35,28 +38,27 @@ class IssueReportResource extends JsonResource
             'course_program_id' => $this->resource->course_program_id,
             'material_id' => $this->resource->material_id,
             'learning_resource_id' => $this->resource->learning_resource_id,
-            'assigned_to_id' => $this->resource->assigned_to_id,
             'title' => $this->resource->title,
             'description' => $this->when($canViewSensitiveDetails, $this->resource->description),
-            'resolution_notes' => $this->when($canViewSensitiveDetails, $this->resource->resolution_notes),
-            'resolved_at' => $this->resource->resolved_at,
-            'resolved_by' => $this->resource->resolved_by,
-            'reporter' => $this->whenLoaded('reporter', fn () => $this->resource->reporter ? [
-                'id' => $this->resource->reporter->id,
-                'name' => $this->resource->reporter->name,
-                'email' => $this->resource->reporter->email,
-            ] : null),
-            'assigned_to' => $this->whenLoaded('assignedTo', fn () => $this->resource->assignedTo ? [
-                'id' => $this->resource->assignedTo->id,
-                'name' => $this->resource->assignedTo->name,
-                'email' => $this->resource->assignedTo->email,
-            ] : null),
-            'comments' => $this->when(
-                $canViewSensitiveDetails && $this->resource->relationLoaded('comments'),
-                fn () => IssueCommentResource::collection($this->resource->comments)
-            ),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
+            'reporter' => $this->whenLoaded('reporter', fn () => $this->userSummary($this->resource->reporter, $request)),
         ];
+
+        if ($canViewSensitiveDetails) {
+            $data += [
+                'assigned_to_id' => $this->resource->assigned_to_id,
+                'resolution_notes' => $this->resource->resolution_notes,
+                'resolved_at' => $this->resource->resolved_at,
+                'resolved_by' => $this->resource->resolved_by,
+                'assigned_to' => $this->whenLoaded('assignedTo', fn () => $this->userSummary($this->resource->assignedTo, $request)),
+                'comments' => $this->when(
+                    $this->resource->relationLoaded('comments'),
+                    fn () => IssueCommentResource::collection($this->resource->comments)
+                ),
+                'created_at' => $this->resource->created_at,
+                'updated_at' => $this->resource->updated_at,
+            ];
+        }
+
+        return $data;
     }
 }

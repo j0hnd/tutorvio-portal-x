@@ -2,12 +2,15 @@
 
 namespace App\Http\Resources\Messages;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class MessageThreadResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -15,14 +18,13 @@ class MessageThreadResource extends JsonResource
     {
         $user = $request->user();
 
-        return [
+        $data = [
             'id' => $this->resource->id,
             'title' => $this->resource->title,
             'thread_type' => $this->resource->thread_type,
             'status' => $this->resource->status,
             'student_id' => $this->resource->student_id,
             'teacher_id' => $this->resource->teacher_id,
-            'created_by' => $this->resource->created_by,
             'last_message_at' => $this->resource->last_message_at,
             'is_archived' => $this->resource->is_archived,
             'archived_at' => $this->resource->archived_at,
@@ -41,10 +43,16 @@ class MessageThreadResource extends JsonResource
             'latest_message' => $this->whenLoaded('latestMessage', fn () => $this->resource->latestMessage
                 ? new MessageResource($this->resource->latestMessage)
                 : null),
-            'metadata' => $this->resource->metadata ?? [],
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
         ];
+
+        if ($this->canViewAdminFields($request)) {
+            $data['created_by'] = $this->resource->created_by;
+            $data['metadata'] = $this->resource->metadata ?? [];
+            $data['created_at'] = $this->resource->created_at;
+            $data['updated_at'] = $this->resource->updated_at;
+        }
+
+        return $data;
     }
 
     private function unreadCountFor(User $user): int

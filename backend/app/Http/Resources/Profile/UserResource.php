@@ -2,32 +2,36 @@
 
 namespace App\Http\Resources\Profile;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     public function toArray(Request $request): array
     {
         $user = $request->user();
-        $isAdminOrStaff = $user->hasRole(['admin', 'staff']);
+        $isAdminOrStaff = $this->canViewAdminFields($request);
+        $isOwnProfile = (int) $user->id === (int) $this->resource->id;
 
         $data = [
             'id' => $this->resource->id,
             'name' => $this->resource->name,
-            'email' => $this->resource->email,
             'phone' => $this->resource->phone,
             'timezone' => $this->resource->timezone,
-            'profile_photo_path' => $this->resource->profile_photo_path,
-            'roles' => $this->resource->roles->pluck('name'),
         ];
 
-        if ($isAdminOrStaff || $user->id === $this->resource->id) {
-            $data['status'] = $this->resource->status;
-            $data['created_at'] = $this->resource->created_at;
+        if ($isAdminOrStaff || $isOwnProfile) {
+            $data['email'] = $this->resource->email;
         }
 
         if ($isAdminOrStaff) {
+            $data['roles'] = $this->resource->roles->pluck('name');
+            $data['status'] = $this->resource->status;
+            $data['created_at'] = $this->resource->created_at;
+            $data['profile_photo_path'] = $this->resource->profile_photo_path;
             $data['signed_document_path'] = $this->resource->signed_document_path;
             $data['email_verified_at'] = $this->resource->email_verified_at;
             $data['invited_at'] = $this->resource->invited_at;

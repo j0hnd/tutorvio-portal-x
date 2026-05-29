@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\LessonRecords;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class LessonRecordResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -33,10 +36,6 @@ class LessonRecordResource extends JsonResource
             'is_completed' => $this->resource->is_completed,
             'completed_at' => $this->resource->completed_at,
             'completed_by' => $this->resource->completed_by,
-            'lesson_balance_consumed_subscription_id' => $this->resource->lesson_balance_consumed_subscription_id,
-            'lesson_balance_consumed_at' => $this->resource->lesson_balance_consumed_at,
-            'created_by' => $this->resource->created_by,
-            'updated_by' => $this->resource->updated_by,
             'student' => $this->whenLoaded('student', fn () => [
                 'id' => $this->resource->student->id,
                 'name' => $this->resource->student->name,
@@ -49,21 +48,6 @@ class LessonRecordResource extends JsonResource
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,
             ]),
-            'completed_by_user' => $this->whenLoaded('completedBy', fn () => [
-                'id' => $this->resource->completedBy?->id,
-                'name' => $this->resource->completedBy?->name,
-                'email' => $this->resource->completedBy?->email,
-            ]),
-            'created_by_user' => $this->whenLoaded('createdBy', fn () => [
-                'id' => $this->resource->createdBy?->id,
-                'name' => $this->resource->createdBy?->name,
-                'email' => $this->resource->createdBy?->email,
-            ]),
-            'updated_by_user' => $this->whenLoaded('updatedBy', fn () => [
-                'id' => $this->resource->updatedBy?->id,
-                'name' => $this->resource->updatedBy?->name,
-                'email' => $this->resource->updatedBy?->email,
-            ]),
             'materials' => $this->whenLoaded('materials', fn () => $this->resource->materials->map(fn ($material) => [
                 'id' => $material->id,
                 'title' => $material->title,
@@ -71,17 +55,26 @@ class LessonRecordResource extends JsonResource
                 'url' => $material->url,
             ])->values()),
             'lesson_note' => $this->whenLoaded('lessonNote', fn () => $this->lessonNoteSummary($request)),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
         ];
 
-        if ($request->user()?->hasAnyRole(['admin', 'staff'])) {
-            $data['internal_remarks'] = $this->resource->internal_remarks;
+        if ($this->canViewAdminFields($request)) {
+            $data += [
+                'lesson_balance_consumed_subscription_id' => $this->resource->lesson_balance_consumed_subscription_id,
+                'lesson_balance_consumed_at' => $this->resource->lesson_balance_consumed_at,
+                'created_by' => $this->resource->created_by,
+                'updated_by' => $this->resource->updated_by,
+                'internal_remarks' => $this->resource->internal_remarks,
+                'completed_by_user' => $this->whenLoaded('completedBy', fn () => $this->userSummary($this->resource->completedBy, $request)),
+                'created_by_user' => $this->whenLoaded('createdBy', fn () => $this->userSummary($this->resource->createdBy, $request)),
+                'updated_by_user' => $this->whenLoaded('updatedBy', fn () => $this->userSummary($this->resource->updatedBy, $request)),
+                'created_at' => $this->resource->created_at,
+                'updated_at' => $this->resource->updated_at,
+            ];
         }
 
         if ($this->resource->userCanJoinMeeting($request->user())) {
             $data['meeting_link'] = $this->resource->meeting_link;
-            $data['meeting_metadata'] = $this->resource->meeting_metadata;
+            $data['meeting_metadata'] = $this->when($this->canViewAdminFields($request), $this->resource->meeting_metadata);
         }
 
         return $data;

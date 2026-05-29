@@ -2,18 +2,21 @@
 
 namespace App\Http\Resources\FormTemplates;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Models\FormTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FormTemplateResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        return [
+        $data = [
             'id' => $this->resource->id,
             'key' => $this->resource->key,
             'title' => $this->resource->name,
@@ -29,20 +32,19 @@ class FormTemplateResource extends JsonResource
             'schema' => $this->resource->schema,
             'fields' => $this->resource->schema['fields'] ?? [],
             'instructions' => $this->resource->instructions,
-            'created_by' => $this->resource->created_by,
-            'updated_by' => $this->resource->updated_by,
-            'created_by_user' => $this->whenLoaded('createdBy', fn () => $this->resource->createdBy ? [
-                'id' => $this->resource->createdBy->id,
-                'name' => $this->resource->createdBy->name,
-                'email' => $this->resource->createdBy->email,
-            ] : null),
-            'updated_by_user' => $this->whenLoaded('updatedBy', fn () => $this->resource->updatedBy ? [
-                'id' => $this->resource->updatedBy->id,
-                'name' => $this->resource->updatedBy->name,
-                'email' => $this->resource->updatedBy->email,
-            ] : null),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
         ];
+
+        if ($this->canViewAdminFields($request, 'form_templates.view')) {
+            $data += [
+                'created_by' => $this->resource->created_by,
+                'updated_by' => $this->resource->updated_by,
+                'created_by_user' => $this->whenLoaded('createdBy', fn () => $this->userSummary($this->resource->createdBy, $request)),
+                'updated_by_user' => $this->whenLoaded('updatedBy', fn () => $this->userSummary($this->resource->updatedBy, $request)),
+                'created_at' => $this->resource->created_at,
+                'updated_at' => $this->resource->updated_at,
+            ];
+        }
+
+        return $data;
     }
 }

@@ -70,6 +70,7 @@ use App\Http\Controllers\Api\TeacherLoadReportController;
 use App\Http\Controllers\Api\TeacherNoteCompletionReportController;
 use App\Http\Controllers\Api\TeacherPayoutAdjustmentController;
 use App\Http\Controllers\Api\TeacherWorkloadController;
+use App\Http\Resources\Profile\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -94,7 +95,7 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', function (Request $request) {
-            return $request->user();
+            return new UserResource($request->user()->loadMissing(['studentProfile', 'teacherProfile', 'staffProfile']));
         });
 
         Route::get('/profile', [ProfileController::class, 'show']);

@@ -29,18 +29,7 @@ class IssueReportController extends Controller
         }
 
         return response()->json([
-            'data' => [
-                'id' => $issueReport->id,
-                'type' => $issueReport->issue_type,
-                'issue_type' => $issueReport->issue_type,
-                'status' => $issueReport->status,
-                'priority' => $issueReport->priority,
-                'title' => $issueReport->title,
-                'assigned_to_id' => $issueReport->assigned_to_id,
-                'resolved_at' => $issueReport->resolved_at,
-                'created_at' => $issueReport->created_at,
-                'updated_at' => $issueReport->updated_at,
-            ],
+            'data' => new IssueReportResource($issueReport),
         ]);
     }
 }

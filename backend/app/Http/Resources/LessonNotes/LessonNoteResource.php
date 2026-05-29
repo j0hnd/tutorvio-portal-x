@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\LessonNotes;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Http\Resources\LearningResources\LearningResourceResource;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -9,6 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class LessonNoteResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -61,8 +64,8 @@ class LessonNoteResource extends JsonResource
                 'name' => $this->resource->author?->name,
                 'email' => $this->resource->author?->email,
             ]),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
+            'created_at' => $this->when($this->canViewAdminFields($request), $this->resource->created_at),
+            'updated_at' => $this->when($this->canViewAdminFields($request), $this->resource->updated_at),
         ];
     }
 

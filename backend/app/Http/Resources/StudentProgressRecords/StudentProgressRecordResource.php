@@ -2,17 +2,20 @@
 
 namespace App\Http\Resources\StudentProgressRecords;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class StudentProgressRecordResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        return [
+        $data = [
             'id' => $this->resource->id,
             'student_id' => $this->resource->student_id,
             'teacher_id' => $this->resource->teacher_id,
@@ -31,8 +34,6 @@ class StudentProgressRecordResource extends JsonResource
             'progress_status' => $this->resource->progress_status,
             'goal_status' => $this->resource->progress_status,
             'recorded_at' => $this->resource->recorded_at,
-            'created_by' => $this->resource->created_by,
-            'updated_by' => $this->resource->updated_by,
             'student' => $this->whenLoaded('student', fn () => [
                 'id' => $this->resource->student->id,
                 'name' => $this->resource->student->name,
@@ -45,18 +46,19 @@ class StudentProgressRecordResource extends JsonResource
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,
             ]),
-            'created_by_user' => $this->whenLoaded('createdBy', fn () => [
-                'id' => $this->resource->createdBy?->id,
-                'name' => $this->resource->createdBy?->name,
-                'email' => $this->resource->createdBy?->email,
-            ]),
-            'updated_by_user' => $this->whenLoaded('updatedBy', fn () => [
-                'id' => $this->resource->updatedBy?->id,
-                'name' => $this->resource->updatedBy?->name,
-                'email' => $this->resource->updatedBy?->email,
-            ]),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
         ];
+
+        if ($this->canViewAdminFields($request)) {
+            $data += [
+                'created_by' => $this->resource->created_by,
+                'updated_by' => $this->resource->updated_by,
+                'created_by_user' => $this->whenLoaded('createdBy', fn () => $this->userSummary($this->resource->createdBy, $request)),
+                'updated_by_user' => $this->whenLoaded('updatedBy', fn () => $this->userSummary($this->resource->updatedBy, $request)),
+                'created_at' => $this->resource->created_at,
+                'updated_at' => $this->resource->updated_at,
+            ];
+        }
+
+        return $data;
     }
 }

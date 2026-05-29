@@ -2,15 +2,17 @@
 
 namespace App\Http\Resources\Profile;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TeacherProfileResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     public function toArray(Request $request): array
     {
-        $user = $request->user();
-        $isAdminOrStaff = $user->hasRole(['admin', 'staff']);
+        $isAdminOrStaff = $this->canViewAdminFields($request);
 
         $data = [
             'id' => $this->resource->id,
@@ -29,7 +31,7 @@ class TeacherProfileResource extends JsonResource
             $data['document_contract_status'] = $this->resource->document_contract_status;
         }
 
-        if ($this->relationLoaded('assignedStudents')) {
+        if ($isAdminOrStaff && $this->relationLoaded('assignedStudents')) {
             $data['assigned_students'] = StudentProfileResource::collection($this->resource->assignedStudents);
         }
 

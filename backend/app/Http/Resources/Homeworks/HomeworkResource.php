@@ -2,12 +2,15 @@
 
 namespace App\Http\Resources\Homeworks;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Http\Resources\LearningResources\LearningResourceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class HomeworkResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -51,8 +54,8 @@ class HomeworkResource extends JsonResource
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,
             ]),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
+            'created_at' => $this->when($this->canViewAdminFields($request), $this->resource->created_at),
+            'updated_at' => $this->when($this->canViewAdminFields($request), $this->resource->updated_at),
         ];
     }
 }

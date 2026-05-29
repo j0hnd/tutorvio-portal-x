@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\IssueReports;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class IssueCommentResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
@@ -19,11 +22,7 @@ class IssueCommentResource extends JsonResource
             'comment_type' => $this->resource->comment_type,
             'body' => $this->resource->body,
             'is_internal' => $this->resource->is_internal,
-            'author' => $this->whenLoaded('author', fn () => $this->resource->author ? [
-                'id' => $this->resource->author->id,
-                'name' => $this->resource->author->name,
-                'email' => $this->resource->author->email,
-            ] : null),
+            'author' => $this->whenLoaded('author', fn () => $this->userSummary($this->resource->author, $request)),
             'created_at' => $this->resource->created_at,
             'updated_at' => $this->resource->updated_at,
         ];

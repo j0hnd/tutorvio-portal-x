@@ -2,24 +2,30 @@
 
 namespace App\Http\Resources\AcademicRecords;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 
 class AcademicRecordResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        $data = $this->resource->data ?? [];
+        $recordData = $this->resource->data ?? [];
 
         if (! Gate::allows('viewInternalNotes', $this->resource)) {
-            unset($data['internal_notes']);
+            unset($recordData['internal_notes']);
         }
 
-        return [
+        $canViewInternalNotes = Gate::allows('viewInternalNotes', $this->resource);
+        $canViewAdminFields = $this->canViewAdminFields($request);
+
+        $data = [
             'id' => $this->resource->id,
             'student_id' => $this->resource->student_id,
             'teacher_id' => $this->resource->teacher_id,
@@ -31,21 +37,16 @@ class AcademicRecordResource extends JsonResource
             'description' => $this->resource->description,
             'status' => $this->resource->status,
             'recorded_on' => $this->resource->recorded_on?->toDateString(),
-            'student_level' => $data['student_level'] ?? null,
-            'placement_result' => $data['placement_result'] ?? null,
-            'course_program_history' => $data['course_program_history'] ?? [],
-            'attendance_summary' => $data['attendance_summary'] ?? [],
-            'progress_summary' => $data['progress_summary'] ?? null,
-            'teacher_remarks' => $data['teacher_remarks'] ?? null,
-            'certificates' => $data['certificates'] ?? [],
-            'completion_notes' => $data['completion_notes'] ?? null,
-            'internal_notes' => $this->when(array_key_exists('internal_notes', $data), $data['internal_notes'] ?? null),
-            'data' => $data,
-            'recorded_by' => $this->resource->recorded_by,
-            'approved_by' => $this->resource->approved_by,
-            'approved_at' => $this->resource->approved_at,
-            'archived_by' => $this->resource->archived_by,
-            'archived_at' => $this->resource->archived_at,
+            'student_level' => $recordData['student_level'] ?? null,
+            'placement_result' => $recordData['placement_result'] ?? null,
+            'course_program_history' => $recordData['course_program_history'] ?? [],
+            'attendance_summary' => $recordData['attendance_summary'] ?? [],
+            'progress_summary' => $recordData['progress_summary'] ?? null,
+            'teacher_remarks' => $this->when($canViewInternalNotes, $recordData['teacher_remarks'] ?? null),
+            'certificates' => $recordData['certificates'] ?? [],
+            'completion_notes' => $recordData['completion_notes'] ?? null,
+            'internal_notes' => $this->when(array_key_exists('internal_notes', $recordData), $recordData['internal_notes'] ?? null),
+            'data' => $recordData,
             'student' => $this->whenLoaded('student', fn () => [
                 'id' => $this->resource->student->id,
                 'name' => $this->resource->student->name,
@@ -64,23 +65,23 @@ class AcademicRecordResource extends JsonResource
                 'slug' => $this->resource->courseProgram->slug,
                 'placement_level' => $this->resource->courseProgram->placement_level,
             ]),
-            'recorded_by_user' => $this->whenLoaded('recordedBy', fn () => $this->resource->recordedBy === null ? null : [
-                'id' => $this->resource->recordedBy->id,
-                'name' => $this->resource->recordedBy->name,
-                'email' => $this->resource->recordedBy->email,
-            ]),
-            'approved_by_user' => $this->whenLoaded('approvedBy', fn () => $this->resource->approvedBy === null ? null : [
-                'id' => $this->resource->approvedBy->id,
-                'name' => $this->resource->approvedBy->name,
-                'email' => $this->resource->approvedBy->email,
-            ]),
-            'archived_by_user' => $this->whenLoaded('archivedBy', fn () => $this->resource->archivedBy === null ? null : [
-                'id' => $this->resource->archivedBy->id,
-                'name' => $this->resource->archivedBy->name,
-                'email' => $this->resource->archivedBy->email,
-            ]),
-            'created_at' => $this->resource->created_at,
-            'updated_at' => $this->resource->updated_at,
         ];
+
+        if ($canViewAdminFields) {
+            $data += [
+                'recorded_by' => $this->resource->recorded_by,
+                'approved_by' => $this->resource->approved_by,
+                'approved_at' => $this->resource->approved_at,
+                'archived_by' => $this->resource->archived_by,
+                'archived_at' => $this->resource->archived_at,
+                'recorded_by_user' => $this->whenLoaded('recordedBy', fn () => $this->userSummary($this->resource->recordedBy, $request)),
+                'approved_by_user' => $this->whenLoaded('approvedBy', fn () => $this->userSummary($this->resource->approvedBy, $request)),
+                'archived_by_user' => $this->whenLoaded('archivedBy', fn () => $this->userSummary($this->resource->archivedBy, $request)),
+                'created_at' => $this->resource->created_at,
+                'updated_at' => $this->resource->updated_at,
+            ];
+        }
+
+        return $data;
     }
 }
