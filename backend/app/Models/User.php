@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Concerns\HasPublicId;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\ScheduleReminder;
 use App\Models\Scheduling\TeacherAvailability;
@@ -23,7 +24,7 @@ use Spatie\Permission\Traits\HasRoles;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, HasRoles, Notifiable;
+    use HasApiTokens, HasFactory, HasPublicId, HasRoles, Notifiable;
 
     public const STATUS_ACTIVE = 'active';
 

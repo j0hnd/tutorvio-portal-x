@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 class LearningResource extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     public const TYPE_FILE = 'file';
 

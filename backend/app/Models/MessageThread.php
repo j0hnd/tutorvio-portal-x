@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MessageThread extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasPublicId, SoftDeletes;
 
     public const TYPE_STUDENT_TEACHER = 'student_teacher';
 
