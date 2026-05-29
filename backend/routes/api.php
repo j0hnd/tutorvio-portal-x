@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\PortalSettingController;
 use App\Http\Controllers\Api\Profile\ProfileController;
+use App\Http\Controllers\Api\PublicPortalSettingController;
 use App\Http\Controllers\Api\ScheduleChangeRequestController;
 use App\Http\Controllers\Api\Scheduling\CalendarController;
 use App\Http\Controllers\Api\Scheduling\ClassScheduleController;
@@ -439,6 +440,8 @@ Route::prefix('v1')->group(function () {
         });
     });
 });
+
+Route::get('/settings/public', PublicPortalSettingController::class);
 
 Route::middleware('auth:sanctum')
     ->prefix('admin')
