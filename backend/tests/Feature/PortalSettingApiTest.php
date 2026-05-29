@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
+use App\Models\AuditLog;
 use App\Models\PortalSetting;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -105,12 +106,25 @@ class PortalSettingApiTest extends TestCase
             'key' => 'portal.default_timezone',
             'updated_by' => $admin->id,
         ]);
-        $this->assertDatabaseHas('audit_logs', [
-            'actor_user_id' => $admin->id,
-            'action_type' => AuditActionType::PORTAL_SETTING_UPDATED->value,
-            'module' => AuditModule::PORTAL_SETTINGS->value,
-            'target_entity_type' => 'portal_setting',
-        ]);
+        $audit = AuditLog::query()
+            ->where('actor_user_id', $admin->id)
+            ->where('action_type', AuditActionType::PORTAL_SETTING_UPDATED->value)
+            ->where('module', AuditModule::PORTAL_SETTINGS->value)
+            ->where('target_entity_type', 'portal_settings')
+            ->first();
+
+        $this->assertNotNull($audit);
+        $this->assertNotNull($audit->created_at);
+        $this->assertSame([
+            'portal.default_timezone',
+            'scheduling.schedule_change_requires_approval',
+            'scheduling.class_cancellation_rules',
+            'school.branding',
+        ], array_keys($audit->metadata['changed_settings'] ?? []));
+        $this->assertSame(4, $audit->metadata['setting_count'] ?? null);
+        $this->assertArrayNotHasKey('settings', $audit->metadata);
+        $this->assertArrayNotHasKey('changed_setting_keys', $audit->metadata);
+        $this->assertArrayNotHasKey('value', $audit->metadata);
     }
 
     public function test_unknown_setting_keys_are_rejected(): void

@@ -21,7 +21,7 @@ enum AuditActionType: string
     case PERMISSION_UPDATED = 'permission.updated';
     case ROLE_UPDATED = 'role.updated';
     case STAFF_ACCESS_LEVEL_CHANGED = 'staff_access_level.changed';
-    case PORTAL_SETTING_UPDATED = 'portal_setting.updated';
+    case PORTAL_SETTING_UPDATED = 'portal_settings.updated';
     case FILE_UPLOADED = 'file.uploaded';
     case FILE_DOWNLOADED = 'file.downloaded';
     case ISSUE_STATUS_CHANGED = 'issue.status_changed';

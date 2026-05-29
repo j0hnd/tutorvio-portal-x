@@ -294,20 +294,25 @@ class PortalSettingsService
                     ]
                 );
 
-                $this->auditLogService->record(
-                    actorUserId: $actor->id,
-                    actionType: AuditActionType::PORTAL_SETTING_UPDATED,
-                    module: AuditModule::PORTAL_SETTINGS,
-                    targetEntityType: 'portal_setting',
-                    targetEntityId: $setting->id,
-                    metadata: [
-                        'key' => $key,
-                        'category' => $definition['category'],
-                    ]
-                );
-
                 $updated[] = $this->formatSetting($key, $definition, $setting->refresh()->load('updatedBy'));
             }
+
+            $changedSettingKeys = array_keys($settings);
+
+            $this->auditLogService->record(
+                actorUserId: $actor->id,
+                actionType: AuditActionType::PORTAL_SETTING_UPDATED,
+                module: AuditModule::PORTAL_SETTINGS,
+                targetEntityType: 'portal_settings',
+                metadata: [
+                    'changed_settings' => array_fill_keys($changedSettingKeys, true),
+                    'changed_categories' => array_fill_keys(array_values(array_unique(array_map(
+                        fn (string $key): string => self::DEFINITIONS[$key]['category'],
+                        $changedSettingKeys
+                    ))), true),
+                    'setting_count' => count($changedSettingKeys),
+                ]
+            );
 
             return $updated;
         });
