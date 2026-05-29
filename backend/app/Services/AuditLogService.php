@@ -5,27 +5,13 @@ namespace App\Services;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Models\AuditLog;
+use App\Support\LogSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class AuditLogService
 {
-    private const REDACTED_VALUE = '[REDACTED]';
-
-    private const SENSITIVE_METADATA_KEY_PARTS = [
-        'password',
-        'passcode',
-        'token',
-        'secret',
-        'private_key',
-        'api_key',
-        'card_number',
-        'credit_card',
-        'cvv',
-        'cvc',
-    ];
-
     /**
      * @param  array<string, mixed>|null  $metadata
      * @param  array{ip_address?: string|null, user_agent?: string|null}|null  $requestContext
@@ -61,7 +47,7 @@ class AuditLogService
                 'target_entity_type' => $targetEntityType,
                 'target_entity_id' => $targetEntityId,
                 'error_type' => $exception::class,
-                'error_message' => $exception->getMessage(),
+                'error_message' => LogSanitizer::sanitizeString($exception->getMessage()),
             ]);
 
             if ($throwOnFailure) {
@@ -124,74 +110,7 @@ class AuditLogService
      */
     private function sanitizeMetadataArray(array $metadata): array
     {
-        $sanitized = [];
-
-        foreach ($metadata as $key => $value) {
-            if (! is_string($key) || ! $this->isValidMetadataKey($key) || $this->containsSensitiveKeyPart($key)) {
-                continue;
-            }
-
-            $normalizedKey = trim($key);
-            $sanitized[$normalizedKey] = $this->sanitizeMetadataValue($value);
-        }
-
-        return $sanitized;
-    }
-
-    private function sanitizeMetadataValue(mixed $value): mixed
-    {
-        if (is_array($value)) {
-            return $this->sanitizeMetadataArray($value);
-        }
-
-        if (is_string($value) && $this->isSensitiveStringValue($value)) {
-            return self::REDACTED_VALUE;
-        }
-
-        return $value;
-    }
-
-    private function isValidMetadataKey(string $key): bool
-    {
-        $trimmed = trim($key);
-
-        if ($trimmed === '') {
-            return false;
-        }
-
-        return preg_match('/^[A-Za-z0-9._:-]+$/', $trimmed) === 1;
-    }
-
-    private function containsSensitiveKeyPart(string $key): bool
-    {
-        $normalizedKey = strtolower($key);
-
-        foreach (self::SENSITIVE_METADATA_KEY_PARTS as $sensitivePart) {
-            if (str_contains($normalizedKey, $sensitivePart)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isSensitiveStringValue(string $value): bool
-    {
-        $trimmed = trim($value);
-
-        if ($trimmed === '') {
-            return false;
-        }
-
-        if (preg_match('/^Bearer\s+[A-Za-z0-9\-._~+\/]+=*$/i', $trimmed) === 1) {
-            return true;
-        }
-
-        if (preg_match('/^eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$/', $trimmed) === 1) {
-            return true;
-        }
-
-        return preg_match('/\b(?:\d[ -]*?){13,19}\b/', $trimmed) === 1;
+        return LogSanitizer::sanitizeArray($metadata, dropSensitiveKeys: true);
     }
 
     private function normalizeActionType(AuditActionType|string $actionType): string

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LogSanitizer;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,18 +12,6 @@ use InvalidArgumentException;
 class AuditLog extends Model
 {
     use HasFactory;
-
-    private const SENSITIVE_METADATA_KEY_PARTS = [
-        'password',
-        'token',
-        'secret',
-        'private_key',
-        'api_key',
-        'card_number',
-        'credit_card',
-        'cvv',
-        'cvc',
-    ];
 
     protected $fillable = [
         'actor_user_id',
@@ -79,12 +68,10 @@ class AuditLog extends Model
         foreach ($metadata as $key => $value) {
             $normalizedKey = strtolower((string) $key);
 
-            foreach (self::SENSITIVE_METADATA_KEY_PARTS as $sensitivePart) {
-                if (str_contains($normalizedKey, $sensitivePart)) {
-                    throw new InvalidArgumentException(
-                        sprintf('Audit log metadata key "%s.%s" is not allowed.', $path, $key)
-                    );
-                }
+            if (LogSanitizer::containsSensitiveKeyPart($normalizedKey)) {
+                throw new InvalidArgumentException(
+                    sprintf('Audit log metadata key "%s.%s" is not allowed.', $path, $key)
+                );
             }
 
             if (is_array($value)) {

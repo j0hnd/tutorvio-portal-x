@@ -117,7 +117,6 @@ class AuditLogServiceTest extends TestCase
 
         $this->assertNotNull($log);
         $this->assertSame([
-            'card_note' => 'keep',
             'reference_value' => '[REDACTED]',
         ], $log->metadata);
     }
@@ -141,7 +140,7 @@ class AuditLogServiceTest extends TestCase
         );
 
         $this->assertNotNull($log);
-        $this->assertSame('[REDACTED]', $log->metadata['authorization_header'] ?? null);
+        $this->assertArrayNotHasKey('authorization_header', $log->metadata);
         $this->assertSame('[REDACTED]', $log->metadata['gateway_reference'] ?? null);
         $this->assertSame('payment confirmed', $log->metadata['safe_note'] ?? null);
 

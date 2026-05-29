@@ -28,6 +28,19 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash([
+            'current_password',
+            'password',
+            'password_confirmation',
+            'token',
+            'access_token',
+            'refresh_token',
+            'remember_token',
+            'api_key',
+            'authorization',
+            'session_id',
+        ]);
+
         $isApiRequest = fn (Request $request): bool => $request->is('api/*') || $request->expectsJson();
 
         $exceptions->render(function (ValidationException $exception, Request $request) use ($isApiRequest) {
