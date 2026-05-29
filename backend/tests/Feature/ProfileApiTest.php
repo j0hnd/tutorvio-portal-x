@@ -161,7 +161,7 @@ class ProfileApiTest extends TestCase
         $response2->assertStatus(200);
     }
 
-    public function test_restricted_fields_cannot_be_updated_by_unauthorized_users()
+    public function test_restricted_fields_are_rejected_for_unauthorized_users()
     {
         $student = User::factory()->create();
         $student->assignRole('student');
@@ -178,11 +178,12 @@ class ProfileApiTest extends TestCase
             ],
         ]);
 
-        $response->assertStatus(200);
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('student_profile.internal_notes');
 
-        // Ensure preferences changed but internal notes didn't
         $student->refresh();
-        $this->assertEquals('New prefs', $student->studentProfile->preferences);
+        $this->assertEquals('Old prefs', $student->studentProfile->preferences);
         $this->assertNull($student->studentProfile->internal_notes);
 
         $auditLog = AuditLog::query()
@@ -192,9 +193,6 @@ class ProfileApiTest extends TestCase
             ->latest('id')
             ->first();
 
-        $this->assertNotNull($auditLog);
-        $this->assertSame($student->id, $auditLog->actor_user_id);
-        $this->assertSame($student->id, $auditLog->metadata['student_id'] ?? null);
-        $this->assertArrayHasKey('student_profile.preferences', $auditLog->metadata['changed_fields'] ?? []);
+        $this->assertNull($auditLog);
     }
 }

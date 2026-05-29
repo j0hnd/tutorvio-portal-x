@@ -4,7 +4,6 @@ namespace App\Http\Requests\Profile;
 
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateProfileRequest extends FormRequest
 {
@@ -14,7 +13,7 @@ class UpdateProfileRequest extends FormRequest
         $targetUser = $this->route('user') ?: $user;
 
         // If target user is passed as an ID
-        if (!$targetUser instanceof User) {
+        if (! $targetUser instanceof User) {
             $targetUser = User::findOrFail($targetUser);
         }
 
@@ -49,14 +48,14 @@ class UpdateProfileRequest extends FormRequest
         $user = $this->user();
         $targetUser = $this->route('user') ?: $user;
 
-        if (!$targetUser instanceof User) {
+        if (! $targetUser instanceof User) {
             $targetUser = User::findOrFail($targetUser);
         }
 
-        $rules = [];
+        $rules = $this->protectedFieldRules();
         $isAdminOrStaff = $user->hasRole(['admin', 'staff']);
         $isTeacherAssigned = false;
-        
+
         if ($user->hasRole('teacher') && $targetUser->hasRole('student')) {
             $isTeacherAssigned = $targetUser->studentProfile()->where('assigned_teacher_id', $user->id)->exists();
         }
@@ -77,6 +76,7 @@ class UpdateProfileRequest extends FormRequest
                 $rules['student_profile.preferences'] = ['sometimes', 'string', 'nullable'];
                 $rules['student_profile.goals'] = ['sometimes', 'string', 'nullable'];
                 $rules['student_profile.learning_concerns'] = ['sometimes', 'string', 'nullable'];
+                $rules += $this->protectedStudentProfileRules();
             } elseif ($isAdminOrStaff) {
                 // Admin/Staff updating student profile
                 $rules['student_profile'] = ['sometimes', 'array'];
@@ -93,6 +93,8 @@ class UpdateProfileRequest extends FormRequest
                 // Teacher updating assigned student profile
                 $rules['student_profile'] = ['sometimes', 'array'];
                 $rules['student_profile.teacher_notes'] = ['sometimes', 'string', 'nullable'];
+                $rules['student_profile.assigned_teacher_id'] = ['prohibited'];
+                $rules['student_profile.internal_notes'] = ['prohibited'];
             }
         } elseif ($targetUser->hasRole('teacher')) {
             if ($user->id === $targetUser->id) {
@@ -102,6 +104,7 @@ class UpdateProfileRequest extends FormRequest
                 $rules['teacher_profile.specialization'] = ['sometimes', 'string', 'nullable'];
                 $rules['teacher_profile.expertise'] = ['sometimes', 'string', 'nullable'];
                 $rules['teacher_profile.teaching_availability'] = ['sometimes', 'array', 'nullable'];
+                $rules += $this->protectedTeacherProfileRules();
             } elseif ($isAdminOrStaff) {
                 // Admin/Staff updating teacher profile
                 $rules['teacher_profile'] = ['sometimes', 'array'];
@@ -125,5 +128,51 @@ class UpdateProfileRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function protectedFieldRules(): array
+    {
+        return [
+            'role' => ['prohibited'],
+            'roles' => ['prohibited'],
+            'permissions' => ['prohibited'],
+            'status' => ['prohibited'],
+            'created_by' => ['prohibited'],
+            'updated_by' => ['prohibited'],
+            'email_verified_at' => ['prohibited'],
+            'invited_at' => ['prohibited'],
+            'activated_at' => ['prohibited'],
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function protectedStudentProfileRules(): array
+    {
+        return [
+            'student_profile.assigned_teacher_id' => ['prohibited'],
+            'student_profile.notes' => ['prohibited'],
+            'student_profile.internal_notes' => ['prohibited'],
+            'student_profile.teacher_notes' => ['prohibited'],
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function protectedTeacherProfileRules(): array
+    {
+        return [
+            'teacher_profile.class_load' => ['prohibited'],
+            'teacher_profile.performance_summary' => ['prohibited'],
+            'teacher_profile.internal_status' => ['prohibited'],
+            'teacher_profile.teaching_notes' => ['prohibited'],
+            'teacher_profile.internal_remarks' => ['prohibited'],
+            'teacher_profile.document_contract_status' => ['prohibited'],
+        ];
     }
 }
