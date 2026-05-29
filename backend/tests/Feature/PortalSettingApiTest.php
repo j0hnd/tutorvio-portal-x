@@ -28,7 +28,7 @@ class PortalSettingApiTest extends TestCase
     {
         Sanctum::actingAs($this->createRoleUser('admin'));
 
-        $this->getJson('/api/v1/admin/portal-settings')
+        $this->getJson('/api/admin/settings')
             ->assertOk()
             ->assertJsonPath('data.0.key', 'school.profile')
             ->assertJsonPath('data.1.key', 'portal.default_timezone')
@@ -48,20 +48,20 @@ class PortalSettingApiTest extends TestCase
         $staff = $this->createRoleUser('staff');
         Sanctum::actingAs($staff);
 
-        $this->getJson('/api/v1/admin/portal-settings')->assertForbidden();
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->getJson('/api/admin/settings')->assertForbidden();
+        $this->patchJson('/api/admin/settings', [
             'settings' => ['portal.default_timezone' => 'UTC'],
         ])->assertForbidden();
 
         $staff->givePermissionTo('portal_settings.view');
-        $this->getJson('/api/v1/admin/portal-settings')->assertOk();
+        $this->getJson('/api/admin/settings')->assertOk();
 
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->patchJson('/api/admin/settings', [
             'settings' => ['portal.default_timezone' => 'UTC'],
         ])->assertForbidden();
 
         $staff->givePermissionTo('portal_settings.manage');
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->patchJson('/api/admin/settings', [
             'settings' => ['portal.default_timezone' => 'UTC'],
         ])->assertOk();
     }
@@ -71,9 +71,9 @@ class PortalSettingApiTest extends TestCase
         $admin = $this->createRoleUser('admin');
         Sanctum::actingAs($admin);
 
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->putJson('/api/admin/settings', [
             'settings' => [
-                'portal.default_timezone' => 'UTC',
+                'portal.default_timezone' => ' utc ',
                 'scheduling.schedule_change_requires_approval' => false,
                 'scheduling.class_cancellation_rules' => [
                     'minimum_notice_hours' => 6,
@@ -82,9 +82,9 @@ class PortalSettingApiTest extends TestCase
                     'allowed_requester_roles' => ['student', 'staff'],
                 ],
                 'school.branding' => [
-                    'primary_color' => '#111827',
-                    'secondary_color' => '#0f766e',
-                    'accent_color' => '#f59e0b',
+                    'primary_color' => '#AABBCC',
+                    'secondary_color' => '#0F766E',
+                    'accent_color' => '#F59E0B',
                     'logo_url' => 'https://example.com/logo.png',
                     'favicon_url' => null,
                     'support_email' => 'support@example.com',
@@ -97,7 +97,9 @@ class PortalSettingApiTest extends TestCase
             ->assertJsonPath('data.0.value', 'UTC')
             ->assertJsonPath('data.0.updated_by', $admin->id)
             ->assertJsonPath('data.1.value', false)
-            ->assertJsonPath('data.3.value.primary_color', '#111827');
+            ->assertJsonPath('data.3.value.primary_color', '#aabbcc')
+            ->assertJsonPath('data.3.value.secondary_color', '#0f766e')
+            ->assertJsonPath('data.3.value.accent_color', '#f59e0b');
 
         $this->assertDatabaseHas('portal_settings', [
             'key' => 'portal.default_timezone',
@@ -115,7 +117,7 @@ class PortalSettingApiTest extends TestCase
     {
         Sanctum::actingAs($this->createRoleUser('admin'));
 
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->patchJson('/api/admin/settings', [
             'settings' => [
                 'app.debug' => true,
             ],
@@ -132,7 +134,7 @@ class PortalSettingApiTest extends TestCase
     {
         Sanctum::actingAs($this->createRoleUser('admin'));
 
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->patchJson('/api/admin/settings', [
             'settings' => [
                 'scheduling.class_cancellation_rules' => [
                     'minimum_notice_hours' => -1,
@@ -148,7 +150,7 @@ class PortalSettingApiTest extends TestCase
                 'value.allowed_requester_roles.0',
             ]);
 
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->patchJson('/api/admin/settings', [
             'settings' => [
                 'school.branding' => [
                     'primary_color' => 'blue',
@@ -162,6 +164,87 @@ class PortalSettingApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('value.primary_color');
+    }
+
+    public function test_admin_settings_update_normalizes_supported_setting_values(): void
+    {
+        Sanctum::actingAs($this->createRoleUser('admin'));
+
+        $this->patchJson('/api/admin/settings', [
+            'lessons.defaults' => [
+                'duration_minutes' => '45',
+                'buffer_minutes' => '5',
+                'allow_back_to_back' => '0',
+                'default_delivery_mode' => 'online',
+            ],
+            'attendance.status_options' => [
+                'default_status' => ' Present ',
+                'statuses' => [
+                    ['key' => ' Present ', 'label' => ' Present ', 'counts_as_attended' => '1'],
+                    ['key' => 'no show', 'label' => ' No Show ', 'counts_as_attended' => false],
+                ],
+            ],
+            'localization.options' => [
+                'default_locale' => 'EN_us',
+                'supported_locales' => ['EN_us', 'fil'],
+                'date_format' => 'Y-m-d',
+                'time_format' => 'H:i',
+                'first_day_of_week' => '1',
+            ],
+            'calendar.color_coding' => [
+                'scheduled' => '#ABCDEF',
+                'completed' => '#16A34A',
+                'cancelled' => '#DC2626',
+                'pending' => '#D97706',
+                'unavailable' => '#6B7280',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.0.value.duration_minutes', 45)
+            ->assertJsonPath('data.0.value.buffer_minutes', 5)
+            ->assertJsonPath('data.0.value.allow_back_to_back', false)
+            ->assertJsonPath('data.1.value.default_status', 'present')
+            ->assertJsonPath('data.1.value.statuses.0.key', 'present')
+            ->assertJsonPath('data.1.value.statuses.0.label', 'Present')
+            ->assertJsonPath('data.1.value.statuses.1.key', 'no_show')
+            ->assertJsonPath('data.2.value.default_locale', 'en-US')
+            ->assertJsonPath('data.2.value.supported_locales.0', 'en-US')
+            ->assertJsonPath('data.2.value.supported_locales.1', 'fil')
+            ->assertJsonPath('data.2.value.first_day_of_week', 1)
+            ->assertJsonPath('data.3.value.scheduled', '#abcdef')
+            ->assertJsonPath('data.3.value.unavailable', '#6b7280');
+    }
+
+    public function test_admin_settings_rejects_invalid_normalized_option_relationships(): void
+    {
+        Sanctum::actingAs($this->createRoleUser('admin'));
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'attendance.status_options' => [
+                    'default_status' => 'absent',
+                    'statuses' => [
+                        ['key' => 'present', 'label' => 'Present', 'counts_as_attended' => true],
+                    ],
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value.default_status');
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'localization.options' => [
+                    'default_locale' => 'en',
+                    'supported_locales' => ['fil'],
+                    'date_format' => 'Y-m-d',
+                    'time_format' => 'H:i',
+                    'first_day_of_week' => 1,
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value.default_locale');
     }
 
     public function test_authenticated_users_only_read_public_safe_settings(): void
@@ -212,7 +295,7 @@ class PortalSettingApiTest extends TestCase
     {
         Sanctum::actingAs($this->createRoleUser('teacher'));
 
-        $this->patchJson('/api/v1/admin/portal-settings', [
+        $this->patchJson('/api/admin/settings', [
             'settings' => ['portal.default_timezone' => 'UTC'],
         ])->assertForbidden();
     }

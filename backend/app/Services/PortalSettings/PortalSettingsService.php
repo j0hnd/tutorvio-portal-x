@@ -340,6 +340,8 @@ class PortalSettingsService
 
     private function validateValue(string $key, mixed $value): mixed
     {
+        $value = $this->prepareValueForValidation($key, $value);
+
         $validator = Validator::make(
             ['value' => $value],
             $this->rulesFor($key),
@@ -347,7 +349,39 @@ class PortalSettingsService
             ['value' => $key]
         );
 
-        return $validator->validate()['value'];
+        $validator->after(function ($validator) use ($key, $value) {
+            if ($key === 'attendance.status_options' && is_array($value)) {
+                $statusKeys = collect($value['statuses'] ?? [])
+                    ->pluck('key')
+                    ->filter()
+                    ->map(fn (mixed $statusKey) => $this->normalizeSlug((string) $statusKey))
+                    ->all();
+
+                if (count($statusKeys) !== count(array_unique($statusKeys))) {
+                    $validator->errors()->add('value.statuses', 'Attendance status keys must be unique.');
+                }
+
+                if (($value['default_status'] ?? null) && ! in_array($this->normalizeSlug((string) $value['default_status']), $statusKeys, true)) {
+                    $validator->errors()->add('value.default_status', 'The default attendance status must exist in the statuses list.');
+                }
+            }
+
+            if ($key === 'localization.options' && is_array($value)) {
+                $supportedLocales = collect($value['supported_locales'] ?? [])
+                    ->map(fn (mixed $locale) => $this->normalizeLocale((string) $locale))
+                    ->all();
+
+                if (count($supportedLocales) !== count(array_unique($supportedLocales))) {
+                    $validator->errors()->add('value.supported_locales', 'Supported locales must be unique.');
+                }
+
+                if (($value['default_locale'] ?? null) && ! in_array($this->normalizeLocale((string) $value['default_locale']), $supportedLocales, true)) {
+                    $validator->errors()->add('value.default_locale', 'The default locale must be included in supported locales.');
+                }
+            }
+        });
+
+        return $this->normalizeValidatedValue($key, $validator->validate()['value']);
     }
 
     /**
@@ -437,6 +471,7 @@ class PortalSettingsService
                 'value' => ['required', 'array:default_status,statuses'],
                 'value.default_status' => ['required', 'string', 'max:40'],
                 'value.statuses' => ['required', 'array', 'min:1', 'max:12'],
+                'value.statuses.*' => ['required', 'array:key,label,counts_as_attended'],
                 'value.statuses.*.key' => ['required', 'string', 'alpha_dash:ascii', 'max:40'],
                 'value.statuses.*.label' => ['required', 'string', 'max:80'],
                 'value.statuses.*.counts_as_attended' => ['required', 'boolean'],
@@ -459,9 +494,9 @@ class PortalSettingsService
             ],
             'localization.options' => [
                 'value' => ['required', 'array:default_locale,supported_locales,date_format,time_format,first_day_of_week'],
-                'value.default_locale' => ['required', 'string', 'max:12'],
+                'value.default_locale' => ['required', 'string', 'regex:/^[a-z]{2,3}(-[A-Z]{2})?$/', 'max:12'],
                 'value.supported_locales' => ['required', 'array', 'min:1', 'max:10'],
-                'value.supported_locales.*' => ['required', 'string', 'max:12'],
+                'value.supported_locales.*' => ['required', 'string', 'regex:/^[a-z]{2,3}(-[A-Z]{2})?$/', 'max:12'],
                 'value.date_format' => ['required', 'string', Rule::in(['Y-m-d', 'm/d/Y', 'd/m/Y', 'M j, Y'])],
                 'value.time_format' => ['required', 'string', Rule::in(['H:i', 'g:i A'])],
                 'value.first_day_of_week' => ['required', 'integer', 'min:0', 'max:6'],
@@ -491,6 +526,126 @@ class PortalSettingsService
                 'value.allowed_record_types.*' => ['string', Rule::in(['progress', 'attendance', 'assessment', 'note', 'certificate', 'placement', 'homework'])],
             ],
         };
+    }
+
+    private function prepareValueForValidation(string $key, mixed $value): mixed
+    {
+        if ($key === 'portal.default_timezone' && is_string($value)) {
+            return $this->normalizeTimezone($value);
+        }
+
+        if ($key === 'attendance.status_options' && is_array($value)) {
+            $value['default_status'] = isset($value['default_status'])
+                ? $this->normalizeSlug((string) $value['default_status'])
+                : $value['default_status'] ?? null;
+            $value['statuses'] = array_map(function (mixed $status): mixed {
+                if (! is_array($status)) {
+                    return $status;
+                }
+
+                if (isset($status['key'])) {
+                    $status['key'] = $this->normalizeSlug((string) $status['key']);
+                }
+
+                if (isset($status['label'])) {
+                    $status['label'] = trim((string) $status['label']);
+                }
+
+                return $status;
+            }, $value['statuses'] ?? []);
+        }
+
+        if ($key === 'localization.options' && is_array($value)) {
+            if (isset($value['default_locale'])) {
+                $value['default_locale'] = $this->normalizeLocale((string) $value['default_locale']);
+            }
+
+            $value['supported_locales'] = array_map(
+                fn (mixed $locale): string => $this->normalizeLocale((string) $locale),
+                $value['supported_locales'] ?? []
+            );
+        }
+
+        return $value;
+    }
+
+    private function normalizeValidatedValue(string $key, mixed $value): mixed
+    {
+        return match ($key) {
+            'portal.default_timezone' => $this->normalizeTimezone((string) $value),
+            'lessons.defaults' => [
+                'duration_minutes' => (int) $value['duration_minutes'],
+                'buffer_minutes' => (int) $value['buffer_minutes'],
+                'allow_back_to_back' => $this->normalizeBoolean($value['allow_back_to_back']),
+                'default_delivery_mode' => $value['default_delivery_mode'],
+            ],
+            'attendance.status_options' => [
+                'default_status' => $this->normalizeSlug((string) $value['default_status']),
+                'statuses' => array_values(array_map(fn (array $status): array => [
+                    'key' => $this->normalizeSlug((string) $status['key']),
+                    'label' => trim((string) $status['label']),
+                    'counts_as_attended' => $this->normalizeBoolean($status['counts_as_attended']),
+                ], $value['statuses'])),
+            ],
+            'localization.options' => [
+                'default_locale' => $this->normalizeLocale((string) $value['default_locale']),
+                'supported_locales' => array_values(array_unique(array_map(
+                    fn (mixed $locale): string => $this->normalizeLocale((string) $locale),
+                    $value['supported_locales']
+                ))),
+                'date_format' => $value['date_format'],
+                'time_format' => $value['time_format'],
+                'first_day_of_week' => (int) $value['first_day_of_week'],
+            ],
+            'calendar.color_coding' => array_map(
+                fn (mixed $color): string => strtolower((string) $color),
+                $value
+            ),
+            'school.branding' => [
+                ...$value,
+                'primary_color' => strtolower((string) $value['primary_color']),
+                'secondary_color' => strtolower((string) $value['secondary_color']),
+                'accent_color' => strtolower((string) $value['accent_color']),
+            ],
+            default => $value,
+        };
+    }
+
+    private function normalizeTimezone(string $timezone): string
+    {
+        $timezone = trim($timezone);
+
+        foreach (timezone_identifiers_list() as $identifier) {
+            if (strcasecmp($identifier, $timezone) === 0) {
+                return $identifier;
+            }
+        }
+
+        return $timezone;
+    }
+
+    private function normalizeLocale(string $locale): string
+    {
+        $parts = preg_split('/[-_]/', trim($locale));
+
+        if (! is_array($parts) || $parts === []) {
+            return trim($locale);
+        }
+
+        $language = strtolower((string) $parts[0]);
+        $region = isset($parts[1]) ? strtoupper((string) $parts[1]) : null;
+
+        return $region ? "{$language}-{$region}" : $language;
+    }
+
+    private function normalizeSlug(string $value): string
+    {
+        return str_replace(' ', '_', strtolower(trim($value)));
+    }
+
+    private function normalizeBoolean(mixed $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

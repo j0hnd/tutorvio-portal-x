@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\PortalSettings\PortalSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class PortalSettingController extends Controller
 {
@@ -21,12 +22,20 @@ class PortalSettingController extends Controller
 
     public function update(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'settings' => ['required', 'array', 'min:1'],
-        ]);
+        $settings = $request->has('settings')
+            ? $request->validate([
+                'settings' => ['required', 'array', 'min:1'],
+            ])['settings']
+            : $request->all();
+
+        if ($settings === []) {
+            throw ValidationException::withMessages([
+                'settings' => 'At least one portal setting is required.',
+            ]);
+        }
 
         return response()->json([
-            'data' => $this->portalSettingsService->update($validated['settings'], $request->user()),
+            'data' => $this->portalSettingsService->update($settings, $request->user()),
         ]);
     }
 }
