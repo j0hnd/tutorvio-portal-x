@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -46,5 +47,23 @@ class PortalSetting extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * @param  Builder<PortalSetting>  $query
+     * @return Builder<PortalSetting>
+     */
+    public function scopePublic(Builder $query): Builder
+    {
+        return $query->where('is_public', true);
+    }
+
+    /**
+     * @param  Builder<PortalSetting>  $query
+     * @return Builder<PortalSetting>
+     */
+    public function scopeInternal(Builder $query): Builder
+    {
+        return $query->where('is_public', false);
     }
 }

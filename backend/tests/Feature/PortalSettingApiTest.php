@@ -34,7 +34,13 @@ class PortalSettingApiTest extends TestCase
             ->assertJsonPath('data.1.key', 'portal.default_timezone')
             ->assertJsonPath('data.1.value', 'Asia/Manila')
             ->assertJsonPath('data.1.is_public', true)
-            ->assertJsonPath('allowed_keys.0', 'school.profile');
+            ->assertJsonPath('data.2.key', 'school.branding')
+            ->assertJsonPath('data.3.key', 'lessons.defaults')
+            ->assertJsonPath('data.3.value.duration_minutes', 50)
+            ->assertJsonPath('data.3.is_public', false)
+            ->assertJsonPath('allowed_keys.0', 'school.profile')
+            ->assertJsonPath('allowed_keys.10', 'attendance.status_options')
+            ->assertJsonPath('allowed_keys.13', 'localization.options');
     }
 
     public function test_staff_requires_view_or_manage_permission_for_admin_portal_settings(): void
@@ -75,14 +81,23 @@ class PortalSettingApiTest extends TestCase
                     'charge_late_cancellation' => true,
                     'allowed_requester_roles' => ['student', 'staff'],
                 ],
+                'school.branding' => [
+                    'primary_color' => '#111827',
+                    'secondary_color' => '#0f766e',
+                    'accent_color' => '#f59e0b',
+                    'logo_url' => 'https://example.com/logo.png',
+                    'favicon_url' => null,
+                    'support_email' => 'support@example.com',
+                ],
             ],
         ])
             ->assertOk()
-            ->assertJsonCount(3, 'data')
+            ->assertJsonCount(4, 'data')
             ->assertJsonPath('data.0.key', 'portal.default_timezone')
             ->assertJsonPath('data.0.value', 'UTC')
             ->assertJsonPath('data.0.updated_by', $admin->id)
-            ->assertJsonPath('data.1.value', false);
+            ->assertJsonPath('data.1.value', false)
+            ->assertJsonPath('data.3.value.primary_color', '#111827');
 
         $this->assertDatabaseHas('portal_settings', [
             'key' => 'portal.default_timezone',
@@ -132,6 +147,21 @@ class PortalSettingApiTest extends TestCase
                 'value.minimum_notice_hours',
                 'value.allowed_requester_roles.0',
             ]);
+
+        $this->patchJson('/api/v1/admin/portal-settings', [
+            'settings' => [
+                'school.branding' => [
+                    'primary_color' => 'blue',
+                    'secondary_color' => '#0f766e',
+                    'accent_color' => '#f59e0b',
+                    'logo_url' => null,
+                    'favicon_url' => null,
+                    'support_email' => 'support@example.com',
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value.primary_color');
     }
 
     public function test_authenticated_users_only_read_public_safe_settings(): void
@@ -165,11 +195,15 @@ class PortalSettingApiTest extends TestCase
 
         $this->getJson('/api/v1/portal-settings')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.key', 'school.profile')
             ->assertJsonPath('data.0.value.name', 'Tutorvio School')
             ->assertJsonPath('data.1.key', 'portal.default_timezone')
+            ->assertJsonPath('data.2.key', 'school.branding')
+            ->assertJsonPath('data.4.key', 'localization.options')
             ->assertJsonMissing(['key' => 'notifications.preferences'])
+            ->assertJsonMissing(['key' => 'lessons.defaults'])
+            ->assertJsonMissing(['key' => 'email.templates'])
+            ->assertJsonMissing(['key' => 'user_roles.defaults'])
             ->assertJsonMissingPath('data.0.updated_by')
             ->assertJsonMissingPath('data.0.updated_by_user');
     }
