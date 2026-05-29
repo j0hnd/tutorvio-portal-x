@@ -31,6 +31,7 @@ class UpdateLearningResourceRequest extends FormRequest
                 'sometimes',
                 $resource instanceof LearningResource && $resource->isExternalLink() ? 'prohibited' : 'file',
                 'mimetypes:'.implode(',', config('learning_resources.allowed_mime_types', [])),
+                'extensions:'.implode(',', config('learning_resources.allowed_extensions', [])),
                 'max:'.config('learning_resources.max_upload_kilobytes', 10240),
             ],
             'url' => [

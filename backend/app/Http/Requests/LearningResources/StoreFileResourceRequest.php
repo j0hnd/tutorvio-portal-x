@@ -31,6 +31,7 @@ class StoreFileResourceRequest extends FormRequest
                 'required',
                 'file',
                 'mimetypes:'.implode(',', config('learning_resources.allowed_mime_types', [])),
+                'extensions:'.implode(',', config('learning_resources.allowed_extensions', [])),
                 'max:'.config('learning_resources.max_upload_kilobytes', 10240),
             ],
             'course' => ['sometimes', 'nullable', 'string', 'max:255'],

@@ -21,6 +21,24 @@ return [
         'application/vnd.oasis.opendocument.presentation',
     ],
 
+    'allowed_extensions' => [
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'csv',
+        'ppt',
+        'pptx',
+        'odt',
+        'ods',
+        'odp',
+    ],
+
+    'disallowed_storage_disks' => [
+        'public',
+    ],
+
     'download' => [
         // auto: use temporary URLs for non-local disks that support them, stream otherwise
         // stream: always stream through the API response

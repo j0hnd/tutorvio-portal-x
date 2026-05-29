@@ -187,12 +187,15 @@ class LearningResourceController extends Controller
                     'expires_at' => $expiresAt->toIso8601String(),
                     'preview_metadata' => $learningResource->preview_metadata,
                 ],
-            ]);
+            ])->header('Cache-Control', 'private, no-store, max-age=0');
         }
 
         return Storage::disk($learningResource->storageDisk())->download(
             $learningResource->file_path,
-            $learningResource->original_filename
+            $learningResource->original_filename,
+            [
+                'Cache-Control' => 'private, no-store, max-age=0',
+            ]
         );
     }
 
@@ -519,6 +522,8 @@ class LearningResourceController extends Controller
         }
 
         $asciiFilename = Str::ascii($originalFilename);
+        $asciiFilename = preg_replace('/[\x00-\x1F\x7F"\\\\\/]+/', '_', $asciiFilename) ?: 'download';
+        $asciiFilename = trim($asciiFilename, " .\t\n\r\0\x0B") ?: 'download';
 
         return [
             'ResponseContentDisposition' => "attachment; filename=\"{$asciiFilename}\"",
