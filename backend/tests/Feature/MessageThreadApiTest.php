@@ -64,12 +64,16 @@ class MessageThreadApiTest extends TestCase
             'body' => 'Can you clarify exercise two?',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.unread_count', 0)
             ->assertJsonPath('data.latest_message.body', 'Can you clarify exercise two?');
 
-        $threadId = $response->json('data.id');
+        $threadPublicId = $response->json('data.id');
+        $threadId = MessageThread::query()
+            ->where('public_id', $threadPublicId)
+            ->firstOrFail()
+            ->id;
 
         $this->assertDatabaseHas('message_thread_participants', [
             'message_thread_id' => $threadId,
@@ -91,7 +95,7 @@ class MessageThreadApiTest extends TestCase
             'body' => 'I can send more context if helpful.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.sender_id', $this->student->id);
+            ->assertJsonPath('data.sender_id', $this->student->public_id);
     }
 
     public function test_student_cannot_create_thread_with_unassigned_teacher(): void
@@ -115,8 +119,8 @@ class MessageThreadApiTest extends TestCase
             'body' => 'Please review your homework feedback.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id);
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id);
 
         $this->postJson('/api/v1/message-threads', [
             'recipient_id' => $this->otherStudent->id,
@@ -142,18 +146,18 @@ class MessageThreadApiTest extends TestCase
 
         $this->getJson('/api/v1/message-threads')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $thread->id)
+            ->assertJsonPath('data.0.id', $thread->public_id)
             ->assertJsonPath('data.0.unread_count', 1);
 
         $this->getJson('/api/v1/message-threads/unread-count')
             ->assertOk()
             ->assertJsonPath('data.unread_count', 1);
 
-        $this->getJson("/api/v1/message-threads/{$thread->id}/messages")
+        $this->getJson("/api/v1/message-threads/{$thread->public_id}/messages")
             ->assertOk()
             ->assertJsonPath('data.0.body', 'Can you check this?');
 
-        $this->postJson("/api/v1/message-threads/{$thread->id}/read")
+        $this->postJson("/api/v1/message-threads/{$thread->public_id}/read")
             ->assertOk()
             ->assertJsonPath('data.unread_count', 0);
 
@@ -168,10 +172,10 @@ class MessageThreadApiTest extends TestCase
 
         Sanctum::actingAs($this->otherStudent);
 
-        $this->getJson("/api/v1/message-threads/{$thread->id}/messages")
+        $this->getJson("/api/v1/message-threads/{$thread->public_id}/messages")
             ->assertNotFound();
 
-        $this->postJson("/api/v1/message-threads/{$thread->id}/messages", [
+        $this->postJson("/api/v1/message-threads/{$thread->public_id}/messages", [
             'body' => 'Trying to join.',
         ])
             ->assertNotFound();
@@ -183,7 +187,7 @@ class MessageThreadApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson("/api/v1/message-threads/{$thread->id}/messages")
+        $this->getJson("/api/v1/message-threads/{$thread->public_id}/messages")
             ->assertOk();
 
         $this->postJson('/api/v1/message-threads', [
@@ -206,14 +210,14 @@ class MessageThreadApiTest extends TestCase
         $this->getJson('/api/v1/message-threads')
             ->assertForbidden();
 
-        $this->getJson("/api/v1/message-threads/{$thread->id}/messages")
+        $this->getJson("/api/v1/message-threads/{$thread->public_id}/messages")
             ->assertForbidden();
 
         $staff->givePermissionTo('messages.view');
 
         $this->getJson('/api/v1/message-threads')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $thread->id);
+            ->assertJsonPath('data.0.id', $thread->public_id);
 
         $this->postJson('/api/v1/message-threads', [
             'student_id' => $this->student->id,

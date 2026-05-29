@@ -24,10 +24,10 @@ class ScheduleChangeRequestResource extends JsonResource
 
         $data = [
             'id' => $this->resource->id,
-            'requester_id' => $this->resource->requester_id,
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
-            'lesson_id' => $this->resource->lesson_id,
+            'requester_id' => $this->whenLoaded('requester', fn () => $this->publicId($this->resource->requester)),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
+            'lesson_id' => $this->whenLoaded('lesson', fn () => $this->publicId($this->resource->lesson)),
             'class_schedule_id' => $this->resource->class_schedule_id,
             'current_starts_at' => $this->resource->current_starts_at,
             'current_ends_at' => $this->resource->current_ends_at,
@@ -42,9 +42,9 @@ class ScheduleChangeRequestResource extends JsonResource
             'student' => $this->whenLoaded('student', fn () => $this->userSummary($this->resource->student, $request)),
             'teacher' => $this->whenLoaded('teacher', fn () => $this->userSummary($this->resource->teacher, $request)),
             'lesson' => $this->whenLoaded('lesson', fn () => $this->resource->lesson ? [
-                'id' => $this->resource->lesson->id,
-                'student_id' => $this->resource->lesson->student_id,
-                'teacher_id' => $this->resource->lesson->teacher_id,
+                'id' => $this->publicId($this->resource->lesson),
+                'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+                'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
                 'start_time' => $this->resource->lesson->start_time,
                 'end_time' => $this->resource->lesson->end_time,
                 'status' => $this->resource->lesson->status,

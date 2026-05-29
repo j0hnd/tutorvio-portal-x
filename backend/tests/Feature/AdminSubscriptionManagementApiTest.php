@@ -64,11 +64,15 @@ class AdminSubscriptionManagementApiTest extends TestCase
 
         $createResponse
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $student->id)
+            ->assertJsonPath('data.student_id', $student->public_id)
             ->assertJsonPath('data.internal_notes', 'Admin only note.')
             ->assertJsonPath('data.created_by', $this->admin->id);
 
-        $subscriptionId = $createResponse->json('data.id');
+        $subscriptionPublicId = $createResponse->json('data.id');
+        $subscriptionId = Subscription::query()
+            ->where('public_id', $subscriptionPublicId)
+            ->firstOrFail()
+            ->id;
 
         $this->assertDatabaseHas('subscription_histories', [
             'subscription_id' => $subscriptionId,
@@ -91,14 +95,14 @@ class AdminSubscriptionManagementApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/subscriptions?package_type=package&payment_status=partial&search=Intensive')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $subscriptionId);
+            ->assertJsonPath('data.0.id', $subscriptionPublicId);
 
-        $this->getJson("/api/v1/admin/subscriptions/{$subscriptionId}")
+        $this->getJson("/api/v1/admin/subscriptions/{$subscriptionPublicId}")
             ->assertOk()
             ->assertJsonPath('data.invoice_reference', 'INV-2026-0001')
             ->assertJsonPath('data.internal_notes', 'Admin only note.');
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscriptionId}", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscriptionPublicId}", [
             'total_lesson_count' => 24,
             'consumed_lesson_count' => 4,
             'remaining_lesson_count' => 20,
@@ -108,7 +112,7 @@ class AdminSubscriptionManagementApiTest extends TestCase
             ->assertJsonPath('data.total_lesson_count', 24)
             ->assertJsonPath('data.remaining_lesson_count', 20);
 
-        $this->postJson("/api/v1/admin/subscriptions/{$subscriptionId}/cancel")
+        $this->postJson("/api/v1/admin/subscriptions/{$subscriptionPublicId}/cancel")
             ->assertOk()
             ->assertJsonPath('data.status', Subscription::STATUS_CANCELLED);
 
@@ -199,9 +203,9 @@ class AdminSubscriptionManagementApiTest extends TestCase
 
         $renewalResponse
             ->assertCreated()
-            ->assertJsonPath('data.renewed_from_subscription_id', $subscription->id);
+            ->assertJsonPath('data.renewed_from_subscription_id', $subscription->public_id);
 
-        $this->getJson("/api/v1/admin/students/{$student->id}/subscriptions/history")
+        $this->getJson("/api/v1/admin/students/{$student->public_id}/subscriptions/history")
             ->assertOk()
             ->assertJsonFragment(['event_type' => SubscriptionHistory::EVENT_RENEWED])
             ->assertJsonFragment(['event_type' => SubscriptionHistory::EVENT_FROZEN])

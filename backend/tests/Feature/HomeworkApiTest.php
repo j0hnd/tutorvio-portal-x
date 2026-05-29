@@ -86,12 +86,12 @@ class HomeworkApiTest extends TestCase
             'links' => ['https://example.com/worksheet-guide'],
         ])
             ->assertCreated()
-            ->assertJsonPath('data.lesson_id', $lesson->id)
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.lesson_id', $lesson->public_id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.status', Homework::STATUS_ASSIGNED)
             ->assertJsonPath('data.due_date', '2026-06-12')
-            ->assertJsonPath('data.documents.0.id', $document->id)
+            ->assertJsonPath('data.documents.0.id', $document->public_id)
             ->assertJsonPath('data.links.0', 'https://example.com/worksheet-guide');
 
         $this->assertDatabaseHas('homeworks', [
@@ -155,9 +155,9 @@ class HomeworkApiTest extends TestCase
             'instructions' => 'Summarize the article in 120 words.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.lesson_id', $lesson->id)
-            ->assertJsonPath('data.student_id', $this->otherStudent->id)
-            ->assertJsonPath('data.teacher_id', $this->otherTeacher->id)
+            ->assertJsonPath('data.lesson_id', $lesson->public_id)
+            ->assertJsonPath('data.student_id', $this->otherStudent->public_id)
+            ->assertJsonPath('data.teacher_id', $this->otherTeacher->public_id)
             ->assertJsonPath('data.status', Homework::STATUS_ASSIGNED);
     }
 
@@ -203,21 +203,21 @@ class HomeworkApiTest extends TestCase
         $this->getJson('/api/v1/homeworks?per_page=10')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.id', $homework->id)
-            ->assertJsonPath('data.1.id', $otherHomework->id);
+            ->assertJsonPath('data.0.id', $homework->public_id)
+            ->assertJsonPath('data.1.id', $otherHomework->public_id);
 
-        $this->patchJson("/api/v1/homeworks/{$otherHomework->id}/progress", [
+        $this->patchJson("/api/v1/homeworks/{$otherHomework->public_id}/progress", [
             'status' => Homework::STATUS_COMPLETED,
         ])
             ->assertOk()
-            ->assertJsonPath('data.id', $otherHomework->id)
+            ->assertJsonPath('data.id', $otherHomework->public_id)
             ->assertJsonPath('data.status', Homework::STATUS_COMPLETED);
 
-        $this->patchJson("/api/v1/homeworks/{$otherHomework->id}/review", [
+        $this->patchJson("/api/v1/homeworks/{$otherHomework->public_id}/review", [
             'teacher_feedback' => 'Strong summary and clear examples.',
         ])
             ->assertOk()
-            ->assertJsonPath('data.id', $otherHomework->id)
+            ->assertJsonPath('data.id', $otherHomework->public_id)
             ->assertJsonPath('data.status', Homework::STATUS_REVIEWED)
             ->assertJsonPath('data.teacher_feedback', 'Strong summary and clear examples.');
     }
@@ -232,14 +232,14 @@ class HomeworkApiTest extends TestCase
         $this->getJson('/api/v1/homeworks?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $homework->id)
-            ->assertJsonPath('data.0.student_id', $this->student->id);
+            ->assertJsonPath('data.0.id', $homework->public_id)
+            ->assertJsonPath('data.0.student_id', $this->student->public_id);
 
-        $this->getJson("/api/v1/homeworks/{$homework->id}")
+        $this->getJson("/api/v1/homeworks/{$homework->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $homework->id);
+            ->assertJsonPath('data.id', $homework->public_id);
 
-        $this->getJson("/api/v1/homeworks/{$otherHomework->id}")
+        $this->getJson("/api/v1/homeworks/{$otherHomework->public_id}")
             ->assertForbidden();
     }
 
@@ -250,14 +250,14 @@ class HomeworkApiTest extends TestCase
 
         $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_ASSIGNED, '2026-06-20', '2026-06-01 09:00:00');
 
-        $this->patchJson("/api/v1/homeworks/{$homework->id}/progress", [
+        $this->patchJson("/api/v1/homeworks/{$homework->public_id}/progress", [
             'status' => Homework::STATUS_IN_PROGRESS,
         ])
             ->assertOk()
             ->assertJsonPath('data.status', Homework::STATUS_IN_PROGRESS)
             ->assertJsonPath('data.completed_at', null);
 
-        $this->patchJson("/api/v1/homeworks/{$homework->id}/progress", [
+        $this->patchJson("/api/v1/homeworks/{$homework->public_id}/progress", [
             'status' => Homework::STATUS_COMPLETED,
         ])
             ->assertOk()
@@ -276,7 +276,7 @@ class HomeworkApiTest extends TestCase
 
         $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
 
-        $this->patchJson("/api/v1/homeworks/{$homework->id}/review", [
+        $this->patchJson("/api/v1/homeworks/{$homework->public_id}/review", [
             'teacher_feedback' => 'Reviewed.',
         ])
             ->assertForbidden();
@@ -289,7 +289,7 @@ class HomeworkApiTest extends TestCase
 
         $homework = $this->createHomework($this->student, $this->teacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
 
-        $this->patchJson("/api/v1/homeworks/{$homework->id}/review", [
+        $this->patchJson("/api/v1/homeworks/{$homework->public_id}/review", [
             'teacher_feedback' => 'Good work. Review the last two examples.',
         ])
             ->assertOk()
@@ -310,7 +310,7 @@ class HomeworkApiTest extends TestCase
 
         $homework = $this->createHomework($this->otherStudent, $this->otherTeacher, Homework::STATUS_COMPLETED, '2026-06-20', '2026-06-01 09:00:00');
 
-        $this->patchJson("/api/v1/homeworks/{$homework->id}/review", [
+        $this->patchJson("/api/v1/homeworks/{$homework->public_id}/review", [
             'teacher_feedback' => 'Reviewed.',
         ])
             ->assertForbidden();
@@ -354,11 +354,11 @@ class HomeworkApiTest extends TestCase
         $this->getJson('/api/v1/homeworks?lesson_id='.$lesson->id.'&student_id='.$this->student->id.'&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $matchingHomework->id)
-            ->assertJsonPath('data.0.lesson.id', $lesson->id)
-            ->assertJsonPath('data.0.lesson.student_id', $this->student->id)
-            ->assertJsonPath('data.0.student.id', $this->student->id)
-            ->assertJsonPath('data.0.teacher.id', $this->teacher->id);
+            ->assertJsonPath('data.0.id', $matchingHomework->public_id)
+            ->assertJsonPath('data.0.lesson.id', $lesson->public_id)
+            ->assertJsonPath('data.0.lesson.student_id', $this->student->public_id)
+            ->assertJsonPath('data.0.student.id', $this->student->public_id)
+            ->assertJsonPath('data.0.teacher.id', $this->teacher->public_id);
     }
 
     public function test_admin_can_view_homework_summary_trends_with_filters(): void

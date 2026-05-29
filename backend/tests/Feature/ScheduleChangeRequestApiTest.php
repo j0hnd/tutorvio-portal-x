@@ -63,7 +63,7 @@ class ScheduleChangeRequestApiTest extends TestCase
         ])
             ->assertCreated()
             ->assertJsonPath('data.status', ScheduleChangeRequest::STATUS_PENDING)
-            ->assertJsonPath('data.requester_id', $this->student->id)
+            ->assertJsonPath('data.requester_id', $this->student->public_id)
             ->assertJsonPath('data.class_schedule_id', $schedule->id);
 
         $this->assertDatabaseHas('schedule_change_requests', [

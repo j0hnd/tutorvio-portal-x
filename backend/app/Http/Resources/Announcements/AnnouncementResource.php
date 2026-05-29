@@ -22,7 +22,7 @@ class AnnouncementResource extends JsonResource
         $canViewAdminFields = $this->canViewAdminFields($request, 'announcements.manage');
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'title' => $this->resource->title,
             'content' => $this->resource->body,
             'body' => $this->resource->body,

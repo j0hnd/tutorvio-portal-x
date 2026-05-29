@@ -17,7 +17,7 @@ class UserResource extends JsonResource
         $isOwnProfile = (int) $user->id === (int) $this->resource->id;
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'name' => $this->resource->name,
             'phone' => $this->resource->phone,
             'timezone' => $this->resource->timezone,

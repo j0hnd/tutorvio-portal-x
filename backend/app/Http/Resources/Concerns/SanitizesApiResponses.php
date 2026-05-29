@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Concerns;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
 trait SanitizesApiResponses
@@ -22,6 +23,13 @@ trait SanitizesApiResponses
         return $permission === null || $user->can($permission);
     }
 
+    protected function publicId(?Model $model): ?string
+    {
+        $publicId = $model?->getAttribute('public_id');
+
+        return $publicId === null ? null : (string) $publicId;
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -32,7 +40,7 @@ trait SanitizesApiResponses
         }
 
         $data = [
-            'id' => $user->id,
+            'id' => $this->publicId($user),
             'name' => $user->name,
         ];
 

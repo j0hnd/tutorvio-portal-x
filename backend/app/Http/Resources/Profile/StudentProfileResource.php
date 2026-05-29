@@ -4,6 +4,7 @@ namespace App\Http\Resources\Profile;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Http\Resources\LearningResources\LearningResourceResource;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,7 +20,7 @@ class StudentProfileResource extends JsonResource
         $isAdminOrStaff = $this->canViewAdminFields($request);
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->studentPublicId(),
             'english_level' => $this->resource->english_level,
             'current_level' => $this->resource->current_level,
             'course' => $this->resource->course,
@@ -60,5 +61,16 @@ class StudentProfileResource extends JsonResource
         }
 
         return $data;
+    }
+
+    private function studentPublicId(): ?string
+    {
+        if ($this->relationLoaded('user')) {
+            return $this->publicId($this->resource->user);
+        }
+
+        return User::query()
+            ->whereKey($this->resource->user_id)
+            ->value('public_id');
     }
 }

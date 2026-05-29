@@ -20,13 +20,13 @@ class LearningResourceResource extends JsonResource
         $canViewAdminFields = $this->canViewAdminFields($request, 'learning_resources.view');
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'title' => $this->resource->title,
             'description' => $this->resource->description,
             'resource_type' => $this->resource->resource_type,
             'url' => $this->resource->isExternalLink() ? $this->resource->url : null,
             'download' => $this->resource->isExternalLink() || $this->resource->hasStoredFile() ? [
-                'endpoint' => url('/api/v1/learning-resources/'.$this->resource->id.'/download'),
+                'endpoint' => url('/api/v1/learning-resources/'.$this->publicId($this->resource).'/download'),
                 'type' => $this->resource->isExternalLink() ? 'link' : 'file',
             ] : null,
             'original_filename' => $this->resource->original_filename,
@@ -47,7 +47,7 @@ class LearningResourceResource extends JsonResource
             'version' => [
                 'number' => $this->resource->currentVersionNumber(),
                 'history_endpoint' => $canViewAdminFields
-                    ? url('/api/v1/learning-resources/'.$this->resource->id.'/versions')
+                    ? url('/api/v1/learning-resources/'.$this->publicId($this->resource).'/versions')
                     : null,
             ],
         ];

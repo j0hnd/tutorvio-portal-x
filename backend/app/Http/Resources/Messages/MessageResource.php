@@ -17,8 +17,8 @@ class MessageResource extends JsonResource
     {
         $data = [
             'id' => $this->resource->id,
-            'thread_id' => $this->resource->message_thread_id,
-            'sender_id' => $this->resource->sender_id,
+            'thread_id' => $this->whenLoaded('thread', fn () => $this->publicId($this->resource->thread)),
+            'sender_id' => $this->whenLoaded('sender', fn () => $this->publicId($this->resource->sender)),
             'sender' => $this->whenLoaded('sender', fn () => $this->userSummary($this->resource->sender, $request)),
             'body' => $this->resource->body,
             'message_type' => $this->resource->message_type,

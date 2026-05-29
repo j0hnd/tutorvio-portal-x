@@ -85,13 +85,13 @@ class AdminAnnouncementApiTest extends TestCase
         $this->getJson('/api/v1/admin/announcements?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $announcement->id);
+            ->assertJsonPath('data.0.id', $announcement->public_id);
 
-        $this->getJson("/api/v1/admin/announcements/{$announcement->id}")
+        $this->getJson("/api/v1/admin/announcements/{$announcement->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $announcement->id);
+            ->assertJsonPath('data.id', $announcement->public_id);
 
-        $this->patchJson("/api/v1/admin/announcements/{$announcement->id}", [
+        $this->patchJson("/api/v1/admin/announcements/{$announcement->public_id}", [
             'title' => 'Updated holiday schedule',
             'body' => 'Classes resume on Monday.',
         ])
@@ -106,7 +106,7 @@ class AdminAnnouncementApiTest extends TestCase
 
         $announcement = $this->createAnnouncement();
 
-        $this->postJson("/api/v1/admin/announcements/{$announcement->id}/schedule", [
+        $this->postJson("/api/v1/admin/announcements/{$announcement->public_id}/schedule", [
             'scheduled_at' => '2026-06-16 09:00:00',
         ])
             ->assertOk()
@@ -114,7 +114,7 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonPath('data.scheduled_at', '2026-06-16T09:00:00.000000Z')
             ->assertJsonPath('data.published_at', null);
 
-        $this->postJson("/api/v1/admin/announcements/{$announcement->id}/publish")
+        $this->postJson("/api/v1/admin/announcements/{$announcement->public_id}/publish")
             ->assertOk()
             ->assertJsonPath('data.status', Announcement::STATUS_PUBLISHED)
             ->assertJsonPath('data.scheduled_at', null)
@@ -134,7 +134,7 @@ class AdminAnnouncementApiTest extends TestCase
         ]);
         app(AnnouncementRecipientResolver::class)->syncRecipients($announcement);
 
-        $this->postJson("/api/v1/admin/announcements/{$announcement->id}/unpublish")
+        $this->postJson("/api/v1/admin/announcements/{$announcement->public_id}/unpublish")
             ->assertOk()
             ->assertJsonPath('data.status', Announcement::STATUS_DRAFT)
             ->assertJsonPath('data.published_at', null)
@@ -142,7 +142,7 @@ class AdminAnnouncementApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson("/api/v1/announcements/{$announcement->id}")
+        $this->getJson("/api/v1/announcements/{$announcement->public_id}")
             ->assertNotFound();
     }
 
@@ -290,7 +290,7 @@ class AdminAnnouncementApiTest extends TestCase
 
         $announcement = $this->createAnnouncement();
 
-        $this->postJson("/api/v1/admin/announcements/{$announcement->id}/schedule", [
+        $this->postJson("/api/v1/admin/announcements/{$announcement->public_id}/schedule", [
             'scheduled_at' => '2026-06-15 11:00:00',
         ])
             ->assertUnprocessable()
@@ -306,7 +306,7 @@ class AdminAnnouncementApiTest extends TestCase
             'published_at' => now(),
         ]);
 
-        $this->postJson("/api/v1/admin/announcements/{$announcement->id}/archive")
+        $this->postJson("/api/v1/admin/announcements/{$announcement->public_id}/archive")
             ->assertOk()
             ->assertJsonPath('data.status', Announcement::STATUS_ARCHIVED)
             ->assertJsonPath('data.archived_by', $this->admin->id)
@@ -319,7 +319,7 @@ class AdminAnnouncementApiTest extends TestCase
         $this->getJson('/api/v1/admin/announcements?include_archived=true&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $announcement->id)
+            ->assertJsonPath('data.0.id', $announcement->public_id)
             ->assertJsonPath('data.0.status', Announcement::STATUS_ARCHIVED);
 
         Sanctum::actingAs($this->student);
@@ -328,7 +328,7 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        $this->getJson("/api/v1/announcements/{$announcement->id}")
+        $this->getJson("/api/v1/announcements/{$announcement->public_id}")
             ->assertNotFound();
     }
 
@@ -341,7 +341,7 @@ class AdminAnnouncementApiTest extends TestCase
             'published_at' => now(),
         ]);
 
-        $this->deleteJson("/api/v1/admin/announcements/{$announcement->id}")
+        $this->deleteJson("/api/v1/admin/announcements/{$announcement->public_id}")
             ->assertOk()
             ->assertJsonPath('data.status', Announcement::STATUS_ARCHIVED)
             ->assertJsonPath('data.archived_by', $this->admin->id);
@@ -383,7 +383,7 @@ class AdminAnnouncementApiTest extends TestCase
         $this->getJson('/api/v1/announcements?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $published->id)
+            ->assertJsonPath('data.0.id', $published->public_id)
             ->assertJsonPath('data.0.status', Announcement::STATUS_PUBLISHED);
     }
 
@@ -410,7 +410,7 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.read_status', 'unread');
 
-        $this->postJson("/api/v1/announcements/{$published->id}/read")
+        $this->postJson("/api/v1/announcements/{$published->public_id}/read")
             ->assertOk()
             ->assertJsonPath('data.read_status', 'read')
             ->assertJsonPath('data.read_at', '2026-06-15T12:00:00.000000Z');
@@ -422,9 +422,9 @@ class AdminAnnouncementApiTest extends TestCase
         $this->getJson('/api/v1/announcements?status=read&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $published->id);
+            ->assertJsonPath('data.0.id', $published->public_id);
 
-        $this->postJson("/api/v1/announcements/{$published->id}/unread")
+        $this->postJson("/api/v1/announcements/{$published->public_id}/unread")
             ->assertOk()
             ->assertJsonPath('data.read_status', 'unread')
             ->assertJsonPath('data.read_at', null);
@@ -510,17 +510,17 @@ class AdminAnnouncementApiTest extends TestCase
         $this->getJson('/api/v1/announcements?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $announcement->id);
+            ->assertJsonPath('data.0.id', $announcement->public_id);
 
         $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $teacher->assignRole('teacher');
 
         Sanctum::actingAs($teacher);
-        $this->getJson("/api/v1/announcements/{$announcement->id}")
+        $this->getJson("/api/v1/announcements/{$announcement->public_id}")
             ->assertNotFound();
 
         Sanctum::actingAs($otherStudent);
-        $this->getJson("/api/v1/announcements/{$announcement->id}")
+        $this->getJson("/api/v1/announcements/{$announcement->public_id}")
             ->assertOk();
     }
 

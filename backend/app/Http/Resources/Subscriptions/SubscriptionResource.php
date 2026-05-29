@@ -2,19 +2,22 @@
 
 namespace App\Http\Resources\Subscriptions;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SubscriptionResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
-            'student_id' => $this->resource->user_id,
+            'id' => $this->publicId($this->resource),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
             'plan_name' => $this->resource->plan_name,
             'package_type' => $this->resource->package_type,
             'total_lesson_count' => $this->resource->total_lesson_count,
@@ -24,9 +27,9 @@ class SubscriptionResource extends JsonResource
             'is_frozen' => $this->resource->is_frozen,
             'frozen_at' => $this->resource->frozen_at,
             'payment_status' => $this->resource->payment_status,
-            'invoice_id' => $this->resource->invoice_id,
+            'invoice_id' => $this->invoicePublicId(),
             'invoice_reference' => $this->resource->invoice_reference,
-            'renewed_from_subscription_id' => $this->resource->renewed_from_subscription_id,
+            'renewed_from_subscription_id' => $this->renewedFromPublicId(),
             'renewal_reminder_due_at' => $this->resource->renewal_reminder_due_at,
             'renewal_reminder_last_sent_at' => $this->resource->renewal_reminder_last_sent_at,
             'renewal_reminder_status' => $this->resource->renewal_reminder_status,
@@ -39,7 +42,7 @@ class SubscriptionResource extends JsonResource
             'created_by' => $this->when($this->canViewAdminFields($request), $this->resource->created_by),
             'updated_by' => $this->when($this->canViewAdminFields($request), $this->resource->updated_by),
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
                 'status' => $this->resource->student->status,
@@ -55,5 +58,31 @@ class SubscriptionResource extends JsonResource
 
         return $user?->hasRole('admin') === true
             || ($user?->hasRole('staff') === true && $user?->can('subscriptions.view') === true);
+    }
+
+    private function invoicePublicId(): ?string
+    {
+        if ($this->resource->invoice_id === null) {
+            return null;
+        }
+
+        if ($this->resource->relationLoaded('invoice')) {
+            return $this->publicId($this->resource->invoice);
+        }
+
+        return $this->resource->invoice()->value('public_id');
+    }
+
+    private function renewedFromPublicId(): ?string
+    {
+        if ($this->resource->renewed_from_subscription_id === null) {
+            return null;
+        }
+
+        if ($this->resource->relationLoaded('renewedFrom')) {
+            return $this->publicId($this->resource->renewedFrom);
+        }
+
+        return $this->resource->renewedFrom()->value('public_id');
     }
 }

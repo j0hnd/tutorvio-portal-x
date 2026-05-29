@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Profile;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,7 +16,7 @@ class TeacherProfileResource extends JsonResource
         $isAdminOrStaff = $this->canViewAdminFields($request);
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->teacherPublicId(),
             'specialization' => $this->resource->specialization,
             'bio' => $this->resource->bio,
             'expertise' => $this->resource->expertise,
@@ -36,5 +37,16 @@ class TeacherProfileResource extends JsonResource
         }
 
         return $data;
+    }
+
+    private function teacherPublicId(): ?string
+    {
+        if ($this->relationLoaded('user')) {
+            return $this->publicId($this->resource->user);
+        }
+
+        return User::query()
+            ->whereKey($this->resource->user_id)
+            ->value('public_id');
     }
 }

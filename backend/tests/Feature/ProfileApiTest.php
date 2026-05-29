@@ -9,6 +9,7 @@ use App\Models\StudentProfile;
 use App\Models\TeacherProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -44,8 +45,10 @@ class ProfileApiTest extends TestCase
         $response = $this->actingAs($student)->getJson('/api/v1/profile');
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.id', $student->id)
+            ->assertJsonPath('data.id', $student->public_id)
             ->assertJsonPath('data.student_profile.preferences', 'Morning classes');
+        $this->assertIsString($response->json('data.id'));
+        $this->assertTrue(Str::isUlid($response->json('data.id')));
     }
 
     public function test_student_cannot_view_another_student_profile()
@@ -88,7 +91,7 @@ class ProfileApiTest extends TestCase
         $response = $this->actingAs($teacher)->getJson('/api/v1/profile');
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.id', $teacher->id)
+            ->assertJsonPath('data.id', $teacher->public_id)
             ->assertJsonPath('data.teacher_profile.bio', 'Great teacher');
     }
 
@@ -104,10 +107,10 @@ class ProfileApiTest extends TestCase
             'assigned_teacher_id' => $teacher->id,
         ]);
 
-        $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->id.'/profile');
+        $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->public_id.'/profile');
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.id', $student->id);
+            ->assertJsonPath('data.id', $student->public_id);
     }
 
     public function test_teacher_cannot_view_unassigned_student_profile()
@@ -124,7 +127,7 @@ class ProfileApiTest extends TestCase
             'assigned_teacher_id' => $teacher2->id, // Assigned to another
         ]);
 
-        $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->id.'/profile');
+        $response = $this->actingAs($teacher)->getJson('/api/v1/users/'.$student->public_id.'/profile');
 
         $response->assertStatus(404);
     }
@@ -137,7 +140,7 @@ class ProfileApiTest extends TestCase
         $student = User::factory()->create();
         $student->assignRole('student');
 
-        $response = $this->actingAs($admin)->getJson('/api/v1/users/'.$student->id.'/profile');
+        $response = $this->actingAs($admin)->getJson('/api/v1/users/'.$student->public_id.'/profile');
 
         $response->assertStatus(200);
     }
@@ -151,13 +154,13 @@ class ProfileApiTest extends TestCase
         $student->assignRole('student');
 
         // Without permission
-        $response = $this->actingAs($staff)->getJson('/api/v1/users/'.$student->id.'/profile');
+        $response = $this->actingAs($staff)->getJson('/api/v1/users/'.$student->public_id.'/profile');
         $response->assertStatus(403);
 
         // With permission
         $staff->givePermissionTo('users.view');
 
-        $response2 = $this->actingAs($staff)->getJson('/api/v1/users/'.$student->id.'/profile');
+        $response2 = $this->actingAs($staff)->getJson('/api/v1/users/'.$student->public_id.'/profile');
         $response2->assertStatus(200);
     }
 

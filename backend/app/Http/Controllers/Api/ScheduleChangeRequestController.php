@@ -26,7 +26,7 @@ class ScheduleChangeRequestController extends Controller
         $user = $request->user();
 
         $requests = ScheduleChangeRequest::query()
-            ->with(['lesson', 'classSchedule'])
+            ->with(['requester', 'student', 'teacher', 'lesson', 'classSchedule'])
             ->where(function (Builder $query) use ($user): void {
                 $query->where('requester_id', $user->id)
                     ->orWhere('student_id', $user->id)
@@ -56,7 +56,7 @@ class ScheduleChangeRequestController extends Controller
 
         return response()->json([
             'data' => new ScheduleChangeRequestResource(
-                $scheduleChangeRequest->load(['lesson', 'classSchedule'])
+                $scheduleChangeRequest->load(['requester', 'student', 'teacher', 'lesson', 'classSchedule'])
             ),
         ], 201);
     }
@@ -67,7 +67,7 @@ class ScheduleChangeRequestController extends Controller
 
         return response()->json([
             'data' => new ScheduleChangeRequestResource(
-                $scheduleChangeRequest->load(['lesson', 'classSchedule'])
+                $scheduleChangeRequest->load(['requester', 'student', 'teacher', 'lesson', 'classSchedule'])
             ),
         ]);
     }
@@ -84,7 +84,7 @@ class ScheduleChangeRequestController extends Controller
             'data' => new ScheduleChangeRequestResource(
                 $this->scheduleChangeRequests
                     ->cancel($scheduleChangeRequest, $validated['review_notes'] ?? null)
-                    ->load(['lesson', 'classSchedule'])
+                    ->load(['requester', 'student', 'teacher', 'lesson', 'classSchedule'])
             ),
         ]);
     }

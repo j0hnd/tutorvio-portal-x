@@ -18,8 +18,7 @@ class NotificationResource extends JsonResource
         $notification = $this->resource->notification;
 
         $data = [
-            'id' => $notification->id,
-            'recipient_id' => $this->resource->id,
+            'id' => $this->publicId($notification),
             'title' => $notification->title,
             'body' => $notification->body,
             'message' => $notification->body,
@@ -34,6 +33,7 @@ class NotificationResource extends JsonResource
 
         if ($this->canViewAdminFields($request, 'notifications.history.view')) {
             $data['recipient_user_id'] = $this->resource->user_id;
+            $data['recipient_id'] = $this->resource->id;
             $data['channel'] = $this->resource->channel;
             $data['delivery_status'] = $this->resource->delivery_status;
             $data['metadata'] = $notification->metadata ?? [];

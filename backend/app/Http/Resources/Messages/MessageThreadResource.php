@@ -19,23 +19,23 @@ class MessageThreadResource extends JsonResource
         $user = $request->user();
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'title' => $this->resource->title,
             'thread_type' => $this->resource->thread_type,
             'status' => $this->resource->status,
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
             'last_message_at' => $this->resource->last_message_at,
             'is_archived' => $this->resource->is_archived,
             'archived_at' => $this->resource->archived_at,
             'unread_count' => $user instanceof User ? $this->unreadCountFor($user) : 0,
             'participants' => $this->whenLoaded('participants', fn () => $this->resource->participants->map(fn ($participant) => [
-                'user_id' => $participant->user_id,
+                'user_id' => $participant->relationLoaded('user') ? $this->publicId($participant->user) : null,
                 'participant_role' => $participant->participant_role,
                 'last_read_at' => $participant->last_read_at,
                 'archived_at' => $participant->archived_at,
                 'user' => $participant->relationLoaded('user') ? [
-                    'id' => $participant->user?->id,
+                    'id' => $this->publicId($participant->user),
                     'name' => $participant->user?->name,
                     'email' => $participant->user?->email,
                 ] : null,

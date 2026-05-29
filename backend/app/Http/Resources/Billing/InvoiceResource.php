@@ -19,10 +19,10 @@ class InvoiceResource extends JsonResource
         $canViewAdminFields = $this->canViewPaymentDetails($request);
 
         $data = [
-            'id' => $this->resource->id,
-            'student_id' => $this->resource->student_id,
-            'subscription_id' => $this->resource->subscription_id,
-            'course_program_id' => $this->resource->course_program_id,
+            'id' => $this->publicId($this->resource),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'subscription_id' => $this->whenLoaded('subscription', fn () => $this->publicId($this->resource->subscription)),
+            'course_program_id' => $this->whenLoaded('courseProgram', fn () => $this->publicId($this->resource->courseProgram)),
             'invoice_number' => $this->resource->invoice_number,
             'reference' => $this->resource->invoice_number,
             'subtotal' => $this->resource->amount,
@@ -35,12 +35,12 @@ class InvoiceResource extends JsonResource
             'paid_date' => $this->resource->paid_date,
             'status' => $this->resource->status,
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
             ]),
             'subscription' => $this->whenLoaded('subscription', fn () => [
-                'id' => $this->resource->subscription->id,
+                'id' => $this->publicId($this->resource->subscription),
                 'plan_name' => $this->resource->subscription->plan_name,
                 'status' => $this->resource->subscription->status,
                 'starts_at' => $this->resource->subscription->starts_at,

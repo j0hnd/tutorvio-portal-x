@@ -59,7 +59,7 @@ class NotificationApiTest extends TestCase
         $this->getJson('/api/v1/notifications?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $notification->id)
+            ->assertJsonPath('data.0.id', $notification->public_id)
             ->assertJsonPath('data.0.title', 'Class starts soon')
             ->assertJsonPath('data.0.body', 'Your lesson starts in 30 minutes.')
             ->assertJsonPath('data.0.message', 'Your lesson starts in 30 minutes.')
@@ -97,13 +97,13 @@ class NotificationApiTest extends TestCase
         $this->getJson('/api/v1/notifications?status=read&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $readClassReminder->id)
+            ->assertJsonPath('data.0.id', $readClassReminder->public_id)
             ->assertJsonPath('data.0.read_status', 'read');
 
         $this->getJson('/api/v1/notifications?unread=true&type='.Notification::TYPE_CLASS_REMINDER.'&date_from=2026-06-11&date_to=2026-06-14&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $unreadClassReminder->id);
+            ->assertJsonPath('data.0.id', $unreadClassReminder->public_id);
     }
 
     public function test_user_can_view_and_mark_only_their_own_notification_as_read(): void
@@ -113,9 +113,9 @@ class NotificationApiTest extends TestCase
         $notification = $this->createNotificationFor($this->user);
         $otherNotification = $this->createNotificationFor($this->otherUser);
 
-        $this->getJson("/api/v1/notifications/{$notification->id}")
+        $this->getJson("/api/v1/notifications/{$notification->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $notification->id)
+            ->assertJsonPath('data.id', $notification->public_id)
             ->assertJsonPath('data.read_status', 'unread');
 
         $this->getJson("/api/v1/notifications/{$otherNotification->id}")
@@ -124,9 +124,9 @@ class NotificationApiTest extends TestCase
         $this->postJson("/api/v1/notifications/{$otherNotification->id}/read")
             ->assertNotFound();
 
-        $this->postJson("/api/v1/notifications/{$notification->id}/read")
+        $this->postJson("/api/v1/notifications/{$notification->public_id}/read")
             ->assertOk()
-            ->assertJsonPath('data.id', $notification->id)
+            ->assertJsonPath('data.id', $notification->public_id)
             ->assertJsonPath('data.is_read', true)
             ->assertJsonPath('data.read_status', 'read');
 
@@ -196,7 +196,7 @@ class NotificationApiTest extends TestCase
         $this->getJson('/api/v1/notifications/history?per_page=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $other->id)
+            ->assertJsonPath('data.0.id', $other->public_id)
             ->assertJsonPath('data.0.recipient_user_id', $this->otherUser->id)
             ->assertJsonPath('per_page', 1)
             ->assertJsonPath('total', 3);
@@ -214,7 +214,7 @@ class NotificationApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(3, 'data');
 
-        $this->assertNotSame($first->id, $second->id);
+        $this->assertNotSame($first->public_id, $second->id);
     }
 
     /**

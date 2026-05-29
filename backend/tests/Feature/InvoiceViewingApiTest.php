@@ -47,16 +47,16 @@ class InvoiceViewingApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/invoices/{$invoice->id}")
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $invoice->id)
-            ->assertJsonPath('data.student_id', $student->id)
+            ->assertJsonPath('data.id', $invoice->public_id)
+            ->assertJsonPath('data.student_id', $student->public_id)
             ->assertJsonMissingPath('data.payment_reference')
             ->assertJsonMissingPath('data.metadata');
 
         $this->getJson('/api/v1/invoices?per_page=10')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $invoice->id);
+            ->assertJsonPath('data.0.id', $invoice->public_id);
     }
 
     public function test_student_invoice_access_can_be_disabled(): void
@@ -69,7 +69,7 @@ class InvoiceViewingApiTest extends TestCase
         Sanctum::actingAs($student);
 
         $this->getJson('/api/v1/invoices')->assertForbidden();
-        $this->getJson("/api/v1/invoices/{$invoice->id}")->assertForbidden();
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")->assertForbidden();
     }
 
     public function test_student_is_blocked_from_other_students_invoice_and_history(): void
@@ -80,7 +80,7 @@ class InvoiceViewingApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/invoices/{$invoice->id}")->assertForbidden();
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")->assertForbidden();
         $this->getJson("/api/v1/students/{$otherStudent->id}/invoices")->assertForbidden();
     }
 
@@ -96,15 +96,15 @@ class InvoiceViewingApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->getJson("/api/v1/invoices/{$invoice->id}")
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $invoice->id)
+            ->assertJsonPath('data.id', $invoice->public_id)
             ->assertJsonPath('data.payment_reference', 'manual-reference')
             ->assertJsonPath('data.metadata.source', 'manual');
 
-        $this->getJson("/api/v1/students/{$student->id}/invoices")
+        $this->getJson("/api/v1/students/{$student->public_id}/invoices")
             ->assertOk()
-            ->assertJsonPath('data.0.id', $invoice->id);
+            ->assertJsonPath('data.0.id', $invoice->public_id);
     }
 
     public function test_staff_with_billing_permission_can_view_invoices(): void
@@ -120,9 +120,9 @@ class InvoiceViewingApiTest extends TestCase
 
         $this->getJson('/api/v1/invoices')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $invoice->id);
+            ->assertJsonPath('data.0.id', $invoice->public_id);
 
-        $this->getJson("/api/v1/invoices/{$invoice->id}")
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")
             ->assertOk()
             ->assertJsonPath('data.payment_reference', 'staff-visible-reference');
     }
@@ -135,7 +135,7 @@ class InvoiceViewingApiTest extends TestCase
         Sanctum::actingAs($staff);
 
         $this->getJson('/api/v1/invoices')->assertForbidden();
-        $this->getJson("/api/v1/invoices/{$invoice->id}")->assertForbidden();
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")->assertForbidden();
     }
 
     public function test_teacher_is_blocked_by_default(): void
@@ -146,7 +146,7 @@ class InvoiceViewingApiTest extends TestCase
         Sanctum::actingAs($teacher);
 
         $this->getJson('/api/v1/invoices')->assertForbidden();
-        $this->getJson("/api/v1/invoices/{$invoice->id}")->assertForbidden();
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")->assertForbidden();
     }
 
     public function test_teacher_with_invoice_permission_is_still_blocked_from_invoice_details(): void
@@ -161,7 +161,7 @@ class InvoiceViewingApiTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/invoices/{$invoice->id}")
+        $this->getJson("/api/v1/invoices/{$invoice->public_id}")
             ->assertForbidden()
             ->assertJsonMissing(['payment_reference' => 'teacher-must-not-see-payment-reference'])
             ->assertJsonMissing(['internal_note' => 'teacher-hidden']);
@@ -205,7 +205,7 @@ class InvoiceViewingApiTest extends TestCase
         $this->getJson('/api/v1/invoices?student_id='.$student->id.'&status=overdue&subscription_id='.$subscription->id.'&course_program_id='.$courseProgram->id.'&package=Conversation&reference=MATCH&date_from=2026-05-01&date_to=2026-05-31&overdue=true&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $matching->id);
+            ->assertJsonPath('data.0.id', $matching->public_id);
     }
 
     private function userWithRole(string $role): User

@@ -15,4 +15,19 @@ trait HasPublicId
             }
         });
     }
+
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        $query = $this->newQuery();
+
+        if ($field !== null) {
+            return $query->where($field, $value)->first();
+        }
+
+        if (Str::isUlid((string) $value)) {
+            return $query->where('public_id', $value)->first();
+        }
+
+        return $query->where($this->getRouteKeyName(), $value)->first();
+    }
 }

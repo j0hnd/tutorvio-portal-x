@@ -30,7 +30,13 @@ class MessageThreadController extends Controller
 
         return response()->json(
             $this->visibleThreadsFor($request->user())
-                ->with(['participants.user:id,name,email', 'latestMessage.sender:id,name,email'])
+                ->with([
+                    'student:id,public_id,name,email',
+                    'teacher:id,public_id,name,email',
+                    'participants.user:id,public_id,name,email',
+                    'latestMessage.sender:id,public_id,name,email',
+                    'latestMessage.thread:id,public_id',
+                ])
                 ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
                 ->when($validated['student_id'] ?? null, fn (Builder $query, int $studentId) => $query->where('student_id', $studentId))
                 ->when($validated['teacher_id'] ?? null, fn (Builder $query, int $teacherId) => $query->where('teacher_id', $teacherId))
@@ -89,7 +95,13 @@ class MessageThreadController extends Controller
         });
 
         return response()->json([
-            'data' => new MessageThreadResource($thread->load(['participants.user:id,name,email', 'latestMessage.sender:id,name,email'])),
+            'data' => new MessageThreadResource($thread->load([
+                'student:id,public_id,name,email',
+                'teacher:id,public_id,name,email',
+                'participants.user:id,public_id,name,email',
+                'latestMessage.sender:id,public_id,name,email',
+                'latestMessage.thread:id,public_id',
+            ])),
         ], 201);
     }
 
@@ -105,7 +117,7 @@ class MessageThreadController extends Controller
 
         return response()->json(
             $messageThread->messages()
-                ->with('sender:id,name,email')
+                ->with(['sender:id,public_id,name,email', 'thread:id,public_id'])
                 ->whereNull('archived_at')
                 ->orderBy('sent_at')
                 ->orderBy('id')
@@ -149,7 +161,7 @@ class MessageThreadController extends Controller
         });
 
         return response()->json([
-            'data' => new MessageResource($message->load('sender:id,name,email')),
+            'data' => new MessageResource($message->load(['sender:id,public_id,name,email', 'thread:id,public_id'])),
         ], 201);
     }
 
@@ -165,7 +177,7 @@ class MessageThreadController extends Controller
 
         return response()->json([
             'data' => [
-                'thread_id' => $thread->id,
+                'thread_id' => $thread->public_id,
                 'read_at' => $readAt,
                 'unread_count' => 0,
             ],

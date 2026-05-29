@@ -19,9 +19,9 @@ class CourseProgramStudentAssignmentResource extends JsonResource
 
         $data = [
             'id' => $this->resource->id,
-            'course_program_id' => $this->resource->course_program_id,
+            'course_program_id' => $this->whenLoaded('courseProgram', fn () => $this->publicId($this->resource->courseProgram)),
             'course_program' => $this->whenLoaded('courseProgram', fn () => new CourseProgramResource($this->resource->courseProgram)),
-            'student_id' => $this->resource->student_id,
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
             'student' => $this->whenLoaded('student', fn () => $this->userSummary($this->resource->student, $request)),
             'assigned_at' => $this->resource->assigned_at,
             'status' => $this->resource->status,

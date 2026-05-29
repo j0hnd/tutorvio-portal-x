@@ -280,11 +280,11 @@ class HomeworkController extends Controller
     private function relations(): array
     {
         return [
-            'lesson:id,student_id,teacher_id,status,start_time,end_time',
-            'student:id,name,email,timezone',
-            'teacher:id,name,email,timezone',
+            'lesson:id,public_id,student_id,teacher_id,status,start_time,end_time',
+            'student:id,public_id,name,email,timezone',
+            'teacher:id,public_id,name,email,timezone',
             'learningResources',
-            'learningResources.createdBy:id,name,email',
+            'learningResources.createdBy:id,public_id,name,email',
         ];
     }
 }

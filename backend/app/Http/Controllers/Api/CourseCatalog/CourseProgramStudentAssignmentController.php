@@ -27,7 +27,7 @@ class CourseProgramStudentAssignmentController extends Controller
 
         $assignments = $courseProgram->studentAssignments()
             ->active()
-            ->with(['student:id,name,email,status', 'assignedBy:id,name,email'])
+            ->with(['courseProgram', 'student:id,public_id,name,email,status', 'assignedBy:id,public_id,name,email'])
             ->orderByDesc('assigned_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 25);
@@ -74,7 +74,7 @@ class CourseProgramStudentAssignmentController extends Controller
             return $courseProgram->studentAssignments()
                 ->whereIn('student_id', $studentIds)
                 ->active()
-                ->with(['student:id,name,email,status', 'assignedBy:id,name,email'])
+                ->with(['courseProgram', 'student:id,public_id,name,email,status', 'assignedBy:id,public_id,name,email'])
                 ->orderBy('student_id')
                 ->get();
         });
@@ -125,7 +125,7 @@ class CourseProgramStudentAssignmentController extends Controller
                     ->visibleTo($request->user())
                     ->orderBy('learning_resources.id')
                     ->with('createdBy'),
-                'assignedBy:id,name,email',
+                'assignedBy:id,public_id,name,email',
             ])
             ->whereHas('courseProgram')
             ->orderByDesc('assigned_at')

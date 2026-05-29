@@ -17,10 +17,10 @@ class HomeworkResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
-            'lesson_id' => $this->resource->lesson_id,
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
+            'id' => $this->publicId($this->resource),
+            'lesson_id' => $this->whenLoaded('lesson', fn () => $this->publicId($this->resource->lesson)),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
             'title' => $this->resource->title,
             'instructions' => $this->resource->instructions,
             'due_date' => $this->resource->due_date?->toDateString(),
@@ -35,21 +35,21 @@ class HomeworkResource extends JsonResource
                 fn () => LearningResourceResource::collection($this->resource->learningResources)
             ),
             'lesson' => $this->whenLoaded('lesson', fn () => [
-                'id' => $this->resource->lesson->id,
-                'student_id' => $this->resource->lesson->student_id,
-                'teacher_id' => $this->resource->lesson->teacher_id,
+                'id' => $this->publicId($this->resource->lesson),
+                'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+                'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
                 'status' => $this->resource->lesson->status,
                 'start_time' => $this->resource->lesson->start_time,
                 'end_time' => $this->resource->lesson->end_time,
             ]),
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
                 'timezone' => $this->resource->student->timezone,
             ]),
             'teacher' => $this->whenLoaded('teacher', fn () => [
-                'id' => $this->resource->teacher->id,
+                'id' => $this->publicId($this->resource->teacher),
                 'name' => $this->resource->teacher->name,
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,
