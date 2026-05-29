@@ -166,6 +166,111 @@ class PortalSettingApiTest extends TestCase
             ->assertJsonValidationErrors('value.primary_color');
     }
 
+    public function test_admin_settings_reject_unsafe_content_and_invalid_asset_references(): void
+    {
+        Sanctum::actingAs($this->createRoleUser('admin'));
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'school.branding' => [
+                    'primary_color' => '#1d4ed8',
+                    'secondary_color' => '#0f766e',
+                    'accent_color' => '#f59e0b',
+                    'logo_url' => 'javascript:alert(1)',
+                    'favicon_url' => '/assets/icons/favicon.ico',
+                    'support_email' => 'support@example.com',
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value.logo_url')
+            ->assertJsonMissing(['exception'])
+            ->assertJsonMissing(['trace']);
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'email.templates' => [
+                    'sender_name' => 'Tutorvio',
+                    'reply_to' => null,
+                    'templates' => [
+                        'welcome' => '<script>alert(1)</script>',
+                        'lesson_reminder' => 'mail.lesson_reminder',
+                        'invoice' => 'mail.invoice',
+                        'password_reset' => 'mail.password_reset',
+                    ],
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value.templates.welcome')
+            ->assertJsonMissing(['exception'])
+            ->assertJsonMissing(['trace']);
+
+        $this->assertDatabaseMissing('portal_settings', [
+            'key' => 'school.branding',
+        ]);
+        $this->assertDatabaseMissing('portal_settings', [
+            'key' => 'email.templates',
+        ]);
+    }
+
+    public function test_admin_settings_allow_safe_portal_asset_paths(): void
+    {
+        Sanctum::actingAs($this->createRoleUser('admin'));
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'school.branding' => [
+                    'primary_color' => '#1d4ed8',
+                    'secondary_color' => '#0f766e',
+                    'accent_color' => '#f59e0b',
+                    'logo_url' => '/assets/branding/logo.svg',
+                    'favicon_url' => '/assets/branding/favicon.ico',
+                    'support_email' => 'support@example.com',
+                ],
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.0.value.logo_url', '/assets/branding/logo.svg')
+            ->assertJsonPath('data.0.value.favicon_url', '/assets/branding/favicon.ico');
+    }
+
+    public function test_admin_settings_reject_unknown_nested_fields_and_duplicate_options(): void
+    {
+        Sanctum::actingAs($this->createRoleUser('admin'));
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'courses.settings' => [
+                    'default_session_count' => 8,
+                    'allow_self_enrollment' => false,
+                    'require_staff_assignment' => true,
+                    'default_visibility' => 'published',
+                    'archive_completed_after_days' => 365,
+                    'metadata' => ['unsafe' => true],
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value');
+
+        $this->patchJson('/api/admin/settings', [
+            'settings' => [
+                'notifications.preferences' => [
+                    'channels' => ['database', 'email', 'email'],
+                    'reminder_minutes' => [1440, 60, 60],
+                    'billing_notifications_enabled' => true,
+                    'schedule_notifications_enabled' => true,
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'value.channels',
+                'value.reminder_minutes',
+            ]);
+    }
+
     public function test_admin_settings_update_normalizes_supported_setting_values(): void
     {
         Sanctum::actingAs($this->createRoleUser('admin'));

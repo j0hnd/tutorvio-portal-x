@@ -350,6 +350,18 @@ class PortalSettingsService
         );
 
         $validator->after(function ($validator) use ($key, $value) {
+            foreach ($this->unsafeStringPaths($value) as $path) {
+                $validator->errors()->add($path, 'This setting contains unsupported content.');
+            }
+
+            foreach ($this->invalidAssetReferencePaths($key, $value) as $path) {
+                $validator->errors()->add($path, 'This setting must be a valid URL or portal asset path.');
+            }
+
+            foreach ($this->duplicateValueErrors($key, $value) as $path => $message) {
+                $validator->errors()->add($path, $message);
+            }
+
             if ($key === 'attendance.status_options' && is_array($value)) {
                 $statusKeys = collect($value['statuses'] ?? [])
                     ->pluck('key')
@@ -398,7 +410,7 @@ class PortalSettingsService
                 'value.phone' => ['nullable', 'string', 'max:40'],
                 'value.website' => ['nullable', 'url', 'max:255'],
                 'value.address' => ['nullable', 'string', 'max:500'],
-                'value.logo_url' => ['nullable', 'url', 'max:255'],
+                'value.logo_url' => ['nullable', 'string', 'max:255'],
             ],
             'portal.default_timezone' => [
                 'value' => ['required', 'string', 'timezone'],
@@ -408,8 +420,8 @@ class PortalSettingsService
                 'value.primary_color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
                 'value.secondary_color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
                 'value.accent_color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-                'value.logo_url' => ['nullable', 'url', 'max:255'],
-                'value.favicon_url' => ['nullable', 'url', 'max:255'],
+                'value.logo_url' => ['nullable', 'string', 'max:255'],
+                'value.favicon_url' => ['nullable', 'string', 'max:255'],
                 'value.support_email' => ['nullable', 'email', 'max:255'],
             ],
             'lessons.defaults' => [
@@ -462,10 +474,10 @@ class PortalSettingsService
                 'value.sender_name' => ['required', 'string', 'max:120'],
                 'value.reply_to' => ['nullable', 'email', 'max:255'],
                 'value.templates' => ['required', 'array:welcome,lesson_reminder,invoice,password_reset'],
-                'value.templates.welcome' => ['nullable', 'string', 'max:120'],
-                'value.templates.lesson_reminder' => ['nullable', 'string', 'max:120'],
-                'value.templates.invoice' => ['nullable', 'string', 'max:120'],
-                'value.templates.password_reset' => ['nullable', 'string', 'max:120'],
+                'value.templates.welcome' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z0-9_.:-]+$/'],
+                'value.templates.lesson_reminder' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z0-9_.:-]+$/'],
+                'value.templates.invoice' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z0-9_.:-]+$/'],
+                'value.templates.password_reset' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z0-9_.:-]+$/'],
             ],
             'attendance.status_options' => [
                 'value' => ['required', 'array:default_status,statuses'],
@@ -646,6 +658,128 @@ class PortalSettingsService
     private function normalizeBoolean(mixed $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function unsafeStringPaths(mixed $value, string $path = 'value'): array
+    {
+        if (is_string($value)) {
+            return $this->containsUnsafeContent($value) ? [$path] : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $paths = [];
+
+        foreach ($value as $key => $childValue) {
+            $paths = [
+                ...$paths,
+                ...$this->unsafeStringPaths($childValue, $path.'.'.$key),
+            ];
+        }
+
+        return $paths;
+    }
+
+    private function containsUnsafeContent(string $value): bool
+    {
+        return preg_match('/(?:<\s*\/?\s*[a-z][^>]*>|javascript\s*:|data\s*:\s*text\/html|on[a-z]+\s*=)/i', $value) === 1;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function invalidAssetReferencePaths(string $key, mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $assetPaths = match ($key) {
+            'school.profile' => ['logo_url'],
+            'school.branding' => ['logo_url', 'favicon_url'],
+            default => [],
+        };
+
+        return collect($assetPaths)
+            ->filter(fn (string $assetKey): bool => array_key_exists($assetKey, $value)
+                && $value[$assetKey] !== null
+                && ! $this->isValidAssetReference($value[$assetKey]))
+            ->map(fn (string $assetKey): string => 'value.'.$assetKey)
+            ->values()
+            ->all();
+    }
+
+    private function isValidAssetReference(mixed $value): bool
+    {
+        if (! is_string($value) || trim($value) !== $value || $value === '') {
+            return false;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return in_array(parse_url($value, PHP_URL_SCHEME), ['http', 'https'], true);
+        }
+
+        return preg_match('/^\/[A-Za-z0-9\/._-]+\.(?:png|jpe?g|gif|webp|svg|ico)$/i', $value) === 1
+            && ! str_contains($value, '..')
+            && ! str_contains($value, '//');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function duplicateValueErrors(string $key, mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $errors = [];
+
+        $duplicateChecks = match ($key) {
+            'scheduling.class_cancellation_rules' => [
+                'allowed_requester_roles' => 'Allowed requester roles must be unique.',
+            ],
+            'attendance.absence_reporting_rules' => [
+                'required_fields' => 'Required attendance fields must be unique.',
+            ],
+            'notifications.preferences' => [
+                'channels' => 'Notification channels must be unique.',
+                'reminder_minutes' => 'Notification reminder timings must be unique.',
+            ],
+            'issues.tracking_configuration' => [
+                'categories' => 'Issue categories must be unique.',
+            ],
+            'academic_records.settings' => [
+                'allowed_record_types' => 'Allowed record types must be unique.',
+            ],
+            default => [],
+        };
+
+        foreach ($duplicateChecks as $field => $message) {
+            if (isset($value[$field]) && is_array($value[$field]) && $this->hasDuplicateScalars($value[$field])) {
+                $errors['value.'.$field] = $message;
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     */
+    private function hasDuplicateScalars(array $values): bool
+    {
+        $normalized = collect($values)
+            ->filter(fn (mixed $value): bool => is_scalar($value))
+            ->map(fn (mixed $value): string => strtolower(trim((string) $value)))
+            ->all();
+
+        return count($normalized) !== count(array_unique($normalized));
     }
 
     /**
