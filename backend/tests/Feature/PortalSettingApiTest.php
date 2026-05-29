@@ -44,6 +44,23 @@ class PortalSettingApiTest extends TestCase
             ->assertJsonPath('allowed_keys.13', 'localization.options');
     }
 
+    public function test_non_admin_users_cannot_view_or_update_admin_settings(): void
+    {
+        foreach (['student', 'teacher'] as $role) {
+            Sanctum::actingAs($this->createRoleUser($role));
+
+            $this->getJson('/api/admin/settings')->assertForbidden();
+            $this->getJson('/api/v1/admin/portal-settings')->assertForbidden();
+
+            $this->patchJson('/api/admin/settings', [
+                'settings' => ['portal.default_timezone' => 'UTC'],
+            ])->assertForbidden();
+            $this->patchJson('/api/v1/admin/portal-settings', [
+                'settings' => ['portal.default_timezone' => 'UTC'],
+            ])->assertForbidden();
+        }
+    }
+
     public function test_staff_requires_view_or_manage_permission_for_admin_portal_settings(): void
     {
         $staff = $this->createRoleUser('staff');
@@ -65,6 +82,19 @@ class PortalSettingApiTest extends TestCase
         $this->patchJson('/api/admin/settings', [
             'settings' => ['portal.default_timezone' => 'UTC'],
         ])->assertOk();
+    }
+
+    public function test_teacher_with_settings_permissions_is_still_blocked_from_admin_settings(): void
+    {
+        $teacher = $this->createRoleUser('teacher');
+        $teacher->givePermissionTo('portal_settings.view', 'portal_settings.manage');
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson('/api/admin/settings')->assertForbidden();
+        $this->patchJson('/api/admin/settings', [
+            'settings' => ['portal.default_timezone' => 'UTC'],
+        ])->assertForbidden();
     }
 
     public function test_admin_can_update_allowed_settings_and_actor_is_stored_and_audited(): void
@@ -408,6 +438,38 @@ class PortalSettingApiTest extends TestCase
             ->assertJsonMissing(['key' => 'user_roles.defaults'])
             ->assertJsonMissingPath('data.0.updated_by')
             ->assertJsonMissingPath('data.0.updated_by_user');
+    }
+
+    public function test_student_cannot_access_restricted_settings(): void
+    {
+        $admin = $this->createRoleUser('admin');
+        PortalSetting::query()->create([
+            'key' => 'email.templates',
+            'category' => 'email',
+            'value' => [
+                'sender_name' => 'Tutorvio',
+                'reply_to' => 'ops@example.com',
+                'templates' => [
+                    'welcome' => 'mail.welcome',
+                    'lesson_reminder' => 'mail.lesson_reminder',
+                    'invoice' => 'mail.invoice',
+                    'password_reset' => 'mail.password_reset',
+                ],
+            ],
+            'value_type' => PortalSetting::TYPE_JSON,
+            'description' => 'Email templates',
+            'is_public' => false,
+            'updated_by' => $admin->id,
+        ]);
+
+        Sanctum::actingAs($this->createRoleUser('student'));
+
+        $this->getJson('/api/admin/settings')->assertForbidden();
+        $this->getJson('/api/v1/portal-settings')
+            ->assertOk()
+            ->assertJsonMissing(['key' => 'email.templates'])
+            ->assertJsonMissing(['reply_to' => 'ops@example.com'])
+            ->assertJsonMissing(['welcome' => 'mail.welcome']);
     }
 
     public function test_non_admin_roles_cannot_modify_portal_settings(): void
