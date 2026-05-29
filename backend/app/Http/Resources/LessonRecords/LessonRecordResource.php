@@ -74,7 +74,7 @@ class LessonRecordResource extends JsonResource
 
         if ($this->resource->userCanJoinMeeting($request->user())) {
             $data['meeting_link'] = $this->resource->meeting_link;
-            $data['meeting_metadata'] = $this->when($this->canViewAdminFields($request), $this->resource->meeting_metadata);
+            $data['meeting_metadata'] = $this->resource->meeting_metadata;
         }
 
         return $data;

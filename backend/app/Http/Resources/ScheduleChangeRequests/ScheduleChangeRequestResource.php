@@ -19,6 +19,8 @@ class ScheduleChangeRequestResource extends JsonResource
         $canViewAdminFields = $user?->hasRole('admin')
             || ($user?->hasRole('staff') && $user->can('schedule_change_requests.view'))
             || ($user?->hasRole('staff') && $user->can('schedule_change_requests.manage'));
+        $canViewReviewer = $canViewAdminFields
+            || ($user !== null && (int) $this->resource->requester_id === (int) $user->id);
 
         $data = [
             'id' => $this->resource->id,
@@ -35,6 +37,7 @@ class ScheduleChangeRequestResource extends JsonResource
             'reason' => $this->resource->reason,
             'status' => $this->resource->status,
             'reviewed_at' => $this->resource->reviewed_at,
+            'reviewed_by' => $this->when($canViewReviewer, $this->resource->reviewed_by),
             'requester' => $this->whenLoaded('requester', fn () => $this->userSummary($this->resource->requester, $request)),
             'student' => $this->whenLoaded('student', fn () => $this->userSummary($this->resource->student, $request)),
             'teacher' => $this->whenLoaded('teacher', fn () => $this->userSummary($this->resource->teacher, $request)),
@@ -60,7 +63,6 @@ class ScheduleChangeRequestResource extends JsonResource
         if ($canViewAdminFields) {
             $data += [
                 'review_notes' => $this->resource->review_notes,
-                'reviewed_by' => $this->resource->reviewed_by,
                 'reviewer' => $this->when($this->resource->relationLoaded('reviewer'), fn () => $this->userSummary($this->resource->reviewer, $request)),
                 'created_at' => $this->resource->created_at,
                 'updated_at' => $this->resource->updated_at,
