@@ -40,6 +40,32 @@ class PermissionAccessTest extends TestCase
             ->assertOk();
     }
 
+    public function test_admin_only_endpoints_reject_non_admin_users_even_with_permissions(): void
+    {
+        $staff = $this->userWithRole('staff');
+        $staff->givePermissionTo('admin.access');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/access')
+            ->assertForbidden();
+    }
+
+    public function test_permission_gated_staff_routes_require_correct_permissions(): void
+    {
+        $staff = $this->userWithRole('staff');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/reports/school')
+            ->assertForbidden();
+
+        $staff->givePermissionTo('school_reports.view');
+
+        $this->getJson('/api/v1/admin/reports/school')
+            ->assertOk();
+    }
+
     public function test_issue_report_show_returns_not_found_for_non_reporter(): void
     {
         $reporter = $this->userWithRole('student');

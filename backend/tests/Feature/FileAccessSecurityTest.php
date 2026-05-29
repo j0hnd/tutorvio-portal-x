@@ -149,6 +149,45 @@ class FileAccessSecurityTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_unauthorized_users_cannot_access_protected_file_downloads(): void
+    {
+        Storage::fake('local');
+
+        $resource = $this->storedResource('protected.pdf');
+
+        $this->getJson("/api/v1/learning-resources/{$resource->id}/download")
+            ->assertUnauthorized()
+            ->assertJsonMissing(['protected.pdf'])
+            ->assertJsonMissing(['private document']);
+    }
+
+    public function test_private_file_storage_paths_and_signed_urls_are_not_exposed_in_resource_payloads(): void
+    {
+        $student = $this->userWithRole('student');
+        $resource = $this->storedResource('assigned.pdf', [
+            'storage_disk' => 's3',
+            'file_path' => 'learning-resources/private/assigned.pdf?signature=storage-secret',
+            'preview_metadata' => [
+                'private_url' => 'https://cdn.example.test/private/assigned.pdf?signature=preview-secret',
+            ],
+        ]);
+        $resource->assignedStudents()->attach($student->id, [
+            'assigned_by' => $this->admin->id,
+            'assigned_at' => now(),
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson("/api/v1/learning-resources/{$resource->id}")
+            ->assertOk()
+            ->assertJsonPath('data.title', 'assigned.pdf')
+            ->assertJsonMissingPath('data.file_path')
+            ->assertJsonMissingPath('data.storage_disk')
+            ->assertJsonMissingPath('data.preview_metadata')
+            ->assertJsonMissing(['storage-secret'])
+            ->assertJsonMissing(['preview-secret']);
+    }
+
     public function test_admin_and_staff_download_access_follows_permission_rules(): void
     {
         Storage::fake('local');

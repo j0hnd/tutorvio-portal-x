@@ -23,6 +23,9 @@ class LogSanitizationTest extends TestCase
             'authorization' => 'Bearer full-token-value',
             'session_id' => 'session-value',
             'private_file_url' => 'https://portal.test/storage/private/report.pdf?signature=secret',
+            'signed_document_path' => 'contracts/private/student-agreement.pdf',
+            'internal_remarks' => 'Sensitive staff-only remark',
+            'teacher_notes' => 'Teacher-only note',
             'payment_metadata' => ['gateway_payment_method_id' => 'pm_secret'],
             'nested' => [
                 'safe_value' => 'kept',
@@ -40,6 +43,9 @@ class LogSanitizationTest extends TestCase
         $this->assertSame('[REDACTED]', $sanitized['authorization']);
         $this->assertSame('[REDACTED]', $sanitized['session_id']);
         $this->assertSame('[REDACTED]', $sanitized['private_file_url']);
+        $this->assertSame('[REDACTED]', $sanitized['signed_document_path']);
+        $this->assertSame('[REDACTED]', $sanitized['internal_remarks']);
+        $this->assertSame('[REDACTED]', $sanitized['teacher_notes']);
         $this->assertSame('[REDACTED]', $sanitized['payment_metadata']);
         $this->assertSame('kept', $sanitized['nested']['safe_value']);
         $this->assertSame('[REDACTED]', $sanitized['nested']['remember_token']);

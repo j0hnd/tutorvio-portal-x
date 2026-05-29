@@ -86,4 +86,18 @@ class SecurityValidationTest extends TestCase
         $this->assertNull($student->studentProfile->internal_notes);
         $this->assertNull($student->studentProfile->teacher_notes);
     }
+
+    public function test_protected_index_filters_reject_invalid_input(): void
+    {
+        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)->getJson('/api/v1/learning-resources?visibility=private-url&direction=sideways&per_page=1000')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'visibility',
+                'direction',
+                'per_page',
+            ]);
+    }
 }
