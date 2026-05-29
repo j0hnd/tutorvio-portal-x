@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\IssueReports\IssueReportResource;
 use App\Models\IssueComment;
 use App\Models\IssueReport;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +19,8 @@ use Illuminate\Validation\ValidationException;
 
 class IssueReportController extends Controller
 {
+    public function __construct(private readonly AuditLogService $auditLogService) {}
+
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -94,6 +99,8 @@ class IssueReportController extends Controller
                 IssueComment::TYPE_STATUS_CHANGE,
                 ($validated['note'] ?? null) ?: "Status changed from {$oldStatus} to {$validated['status']}."
             );
+
+            $this->logIssueStatusChanged($issueReport, $request->user(), $oldStatus, $validated['status'], notePresent: filled($validated['note'] ?? null));
         });
 
         return $this->issueResponse($issueReport);
@@ -115,8 +122,9 @@ class IssueReportController extends Controller
         }
 
         $oldAssigneeId = $issueReport->assigned_to_id;
+        $oldStatus = $issueReport->status;
 
-        DB::transaction(function () use ($request, $issueReport, $validated, $oldAssigneeId) {
+        DB::transaction(function () use ($request, $issueReport, $validated, $oldAssigneeId, $oldStatus) {
             $issueReport->update([
                 'assigned_to_id' => $validated['assigned_to_id'],
                 'status' => $issueReport->status === IssueReport::STATUS_OPEN
@@ -130,6 +138,28 @@ class IssueReportController extends Controller
                 IssueComment::TYPE_STATUS_CHANGE,
                 ($validated['note'] ?? null) ?: "Assignment changed from {$oldAssigneeId} to {$validated['assigned_to_id']}."
             );
+
+            if ($oldAssigneeId !== (int) $validated['assigned_to_id'] || $oldStatus !== $issueReport->status) {
+                $this->auditLogService->record(
+                    actorUserId: $request->user()?->id,
+                    actionType: AuditActionType::ISSUE_STATUS_CHANGED,
+                    module: AuditModule::ISSUE_REPORTS,
+                    targetEntityType: 'issue_report',
+                    targetEntityId: $issueReport->id,
+                    metadata: [
+                        'issue_type' => $issueReport->issue_type,
+                        'previous_assigned_to_id' => $oldAssigneeId,
+                        'new_assigned_to_id' => (int) $validated['assigned_to_id'],
+                        'previous_status' => $oldStatus,
+                        'new_status' => $issueReport->status,
+                        'changed_fields' => [
+                            'assigned_to_id' => $oldAssigneeId !== (int) $validated['assigned_to_id'],
+                            'status' => $oldStatus !== $issueReport->status,
+                        ],
+                        'note_present' => filled($validated['note'] ?? null),
+                    ],
+                );
+            }
         });
 
         return $this->issueResponse($issueReport);
@@ -157,6 +187,8 @@ class IssueReportController extends Controller
                 $note,
                 $validated['is_internal'] ?? true
             );
+
+            $this->logIssueResolutionUpdated($issueReport, $request->user(), notePresent: true);
         });
 
         return $this->issueResponse($issueReport);
@@ -196,6 +228,8 @@ class IssueReportController extends Controller
                 ($validated['note'] ?? null) ?: "Status changed from {$oldStatus} to {$status}."
             );
 
+            $this->logIssueStatusChanged($issueReport, $request->user(), $oldStatus, $status, notePresent: filled($validated['note'] ?? null));
+
             if (! empty($validated['resolution_notes'])) {
                 $this->recordHistory(
                     $issueReport,
@@ -204,6 +238,7 @@ class IssueReportController extends Controller
                     $validated['resolution_notes'],
                     true
                 );
+                $this->logIssueResolutionUpdated($issueReport, $request->user(), notePresent: true);
             }
         });
 
@@ -227,5 +262,53 @@ class IssueReportController extends Controller
             'body' => $body,
             'is_internal' => $isInternal,
         ]);
+    }
+
+    private function logIssueStatusChanged(IssueReport $issueReport, ?User $actor, string $previousStatus, string $newStatus, bool $notePresent): void
+    {
+        if ($previousStatus === $newStatus) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor?->id,
+            actionType: AuditActionType::ISSUE_STATUS_CHANGED,
+            module: AuditModule::ISSUE_REPORTS,
+            targetEntityType: 'issue_report',
+            targetEntityId: $issueReport->id,
+            metadata: [
+                'issue_type' => $issueReport->issue_type,
+                'reporter_id' => $issueReport->reporter_id,
+                'assigned_to_id' => $issueReport->assigned_to_id,
+                'related_student_id' => $issueReport->related_student_id,
+                'related_teacher_id' => $issueReport->related_teacher_id,
+                'lesson_id' => $issueReport->lesson_id,
+                'class_schedule_id' => $issueReport->class_schedule_id,
+                'previous_status' => $previousStatus,
+                'new_status' => $newStatus,
+                'note_present' => $notePresent,
+            ],
+        );
+    }
+
+    private function logIssueResolutionUpdated(IssueReport $issueReport, ?User $actor, bool $notePresent): void
+    {
+        $this->auditLogService->record(
+            actorUserId: $actor?->id,
+            actionType: AuditActionType::ISSUE_RESOLUTION_UPDATED,
+            module: AuditModule::ISSUE_REPORTS,
+            targetEntityType: 'issue_report',
+            targetEntityId: $issueReport->id,
+            metadata: [
+                'issue_type' => $issueReport->issue_type,
+                'reporter_id' => $issueReport->reporter_id,
+                'assigned_to_id' => $issueReport->assigned_to_id,
+                'related_student_id' => $issueReport->related_student_id,
+                'related_teacher_id' => $issueReport->related_teacher_id,
+                'lesson_id' => $issueReport->lesson_id,
+                'class_schedule_id' => $issueReport->class_schedule_id,
+                'note_present' => $notePresent,
+            ],
+        );
     }
 }

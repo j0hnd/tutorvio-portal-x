@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LearningResources\StoreFileResourceRequest;
 use App\Http\Requests\LearningResources\StoreLinkResourceRequest;
@@ -11,6 +13,7 @@ use App\Models\LearningResource;
 use App\Models\LearningResourceVersion;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\LearningResourceStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +41,7 @@ class LearningResourceController extends Controller
 
     public function __construct(
         private readonly LearningResourceStorage $storage,
+        private readonly AuditLogService $auditLogService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -107,6 +111,7 @@ class LearningResourceController extends Controller
             previousFilePath: null,
             changeNotes: null
         );
+        $this->logFileUploaded($resource, $request->user()->id, isReplacement: false);
 
         return response()->json([
             'data' => new LearningResourceResource($resource->load('createdBy')),
@@ -151,6 +156,8 @@ class LearningResourceController extends Controller
         Gate::authorize('view', $learningResource);
 
         if ($learningResource->isExternalLink()) {
+            $this->logFileDownloaded($learningResource, request()->user()?->id, 'external_link');
+
             return response()->json([
                 'data' => [
                     'type' => LearningResource::TYPE_LINK,
@@ -179,6 +186,7 @@ class LearningResourceController extends Controller
                 $expiresAt,
                 $this->temporaryDownloadOptions($learningResource->original_filename)
             );
+            $this->logFileDownloaded($learningResource, request()->user()?->id, 'temporary_url');
 
             return response()->json([
                 'data' => [
@@ -189,6 +197,8 @@ class LearningResourceController extends Controller
                 ],
             ])->header('Cache-Control', 'private, no-store, max-age=0');
         }
+
+        $this->logFileDownloaded($learningResource, request()->user()?->id, 'stream');
 
         return Storage::disk($learningResource->storageDisk())->download(
             $learningResource->file_path,
@@ -232,6 +242,7 @@ class LearningResourceController extends Controller
                     previousFilePath: $previousFilePath,
                     changeNotes: $changeNotes
                 );
+                $this->logFileUploaded($learningResource->refresh(), $request->user()->id, isReplacement: true);
             });
         } else {
             $learningResource->update($validated);
@@ -533,5 +544,42 @@ class LearningResourceController extends Controller
     private function temporaryUrlTtlMinutes(): int
     {
         return max(1, (int) config('learning_resources.download.temporary_url_ttl_minutes', 10));
+    }
+
+    private function logFileUploaded(LearningResource $learningResource, int $actorUserId, bool $isReplacement): void
+    {
+        $this->auditLogService->record(
+            actorUserId: $actorUserId,
+            actionType: AuditActionType::FILE_UPLOADED,
+            module: AuditModule::LEARNING_RESOURCES,
+            targetEntityType: 'learning_resource',
+            targetEntityId: $learningResource->id,
+            metadata: [
+                'resource_type' => $learningResource->resource_type,
+                'visibility' => $learningResource->visibility,
+                'mime_type' => $learningResource->mime_type,
+                'file_size' => $learningResource->file_size,
+                'version_number' => $learningResource->currentVersionNumber(),
+                'is_replacement' => $isReplacement,
+            ],
+        );
+    }
+
+    private function logFileDownloaded(LearningResource $learningResource, ?int $actorUserId, string $deliveryType): void
+    {
+        $this->auditLogService->record(
+            actorUserId: $actorUserId,
+            actionType: AuditActionType::FILE_DOWNLOADED,
+            module: AuditModule::LEARNING_RESOURCES,
+            targetEntityType: 'learning_resource',
+            targetEntityId: $learningResource->id,
+            metadata: [
+                'resource_type' => $learningResource->resource_type,
+                'visibility' => $learningResource->visibility,
+                'mime_type' => $learningResource->mime_type,
+                'file_size' => $learningResource->file_size,
+                'delivery_type' => $deliveryType,
+            ],
+        );
     }
 }

@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum AuditModule: string
 {
+    case AUTH = 'auth';
     case LESSONS = 'lessons';
     case SCHEDULING = 'scheduling';
     case STUDENTS = 'students';
@@ -13,6 +14,8 @@ enum AuditModule: string
     case PERMISSIONS = 'permissions';
     case USERS = 'users';
     case PORTAL_SETTINGS = 'portal_settings';
+    case LEARNING_RESOURCES = 'learning_resources';
+    case ISSUE_REPORTS = 'issue_reports';
 
     /**
      * @return array<int, string>
