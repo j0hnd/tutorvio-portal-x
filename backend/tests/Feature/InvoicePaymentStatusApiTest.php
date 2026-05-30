@@ -47,7 +47,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
             'paid_date' => '2026-05-20',
         ])
@@ -88,7 +88,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
         ])
             ->assertOk()
@@ -103,7 +103,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
         ])->assertForbidden();
 
@@ -117,7 +117,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
         ])->assertForbidden();
 
@@ -131,7 +131,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
         ])->assertForbidden();
 
@@ -149,7 +149,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
         ])
             ->assertOk()
@@ -158,7 +158,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         $this->assertSame('2026-05-26', $invoice->refresh()->paid_date->toDateString());
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_UNPAID,
             'paid_date' => '2026-05-01',
         ])
@@ -185,7 +185,7 @@ class InvoicePaymentStatusApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->patchJson("/api/v1/invoices/{$invoice->id}/payment-status", [
+        $this->patchJson("/api/v1/invoices/{$invoice->public_id}/payment-status", [
             'status' => Invoice::STATUS_PAID,
         ])
             ->assertUnprocessable()

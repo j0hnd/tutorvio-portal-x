@@ -7,6 +7,7 @@ use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Billing\InvoiceResource;
 use App\Models\Invoice;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Billing\InvoiceEmailService;
@@ -178,8 +179,8 @@ class InvoiceController extends Controller
             'student' => ['sometimes', 'integer', 'exists:users,id'],
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
             'status' => ['sometimes', 'string', Rule::in(Invoice::STATUSES)],
-            'subscription' => ['sometimes', 'integer', 'exists:subscriptions,id'],
-            'subscription_id' => ['sometimes', 'integer', 'exists:subscriptions,id'],
+            'subscription' => ['sometimes', 'string', 'exists:subscriptions,public_id'],
+            'subscription_id' => ['sometimes', 'string', 'exists:subscriptions,public_id'],
             'package' => ['sometimes', 'nullable', 'string', 'max:255'],
             'package_id' => ['sometimes', 'integer', 'exists:course_programs,id'],
             'course_program_id' => ['sometimes', 'integer', 'exists:course_programs,id'],
@@ -196,6 +197,12 @@ class InvoiceController extends Controller
 
         $validated['student_id'] ??= $validated['student'] ?? null;
         $validated['subscription_id'] ??= $validated['subscription'] ?? null;
+        if ($validated['subscription_id'] ?? null) {
+            $validated['subscription_id'] = Subscription::query()
+                ->where('public_id', $validated['subscription_id'])
+                ->firstOrFail()
+                ->getKey();
+        }
         $validated['course_program_id'] ??= $validated['package_id'] ?? null;
         $validated['reference'] ??= $validated['invoice_number'] ?? null;
         $validated['overdue'] = array_key_exists('overdue', $validated)

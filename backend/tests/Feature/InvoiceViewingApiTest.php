@@ -81,7 +81,7 @@ class InvoiceViewingApiTest extends TestCase
         Sanctum::actingAs($student);
 
         $this->getJson("/api/v1/invoices/{$invoice->public_id}")->assertForbidden();
-        $this->getJson("/api/v1/students/{$otherStudent->id}/invoices")->assertForbidden();
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/invoices")->assertForbidden();
     }
 
     public function test_admin_can_view_all_invoice_details(): void
@@ -202,7 +202,7 @@ class InvoiceViewingApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->getJson('/api/v1/invoices?student_id='.$student->id.'&status=overdue&subscription_id='.$subscription->id.'&course_program_id='.$courseProgram->id.'&package=Conversation&reference=MATCH&date_from=2026-05-01&date_to=2026-05-31&overdue=true&per_page=10')
+        $this->getJson('/api/v1/invoices?student_id='.$student->id.'&status=overdue&subscription_id='.$subscription->public_id.'&course_program_id='.$courseProgram->id.'&package=Conversation&reference=MATCH&date_from=2026-05-01&date_to=2026-05-31&overdue=true&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $matching->public_id);

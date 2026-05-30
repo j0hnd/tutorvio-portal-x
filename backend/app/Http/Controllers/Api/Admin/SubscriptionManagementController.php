@@ -14,6 +14,7 @@ use App\Http\Requests\Subscriptions\UpdateSubscriptionRequest;
 use App\Http\Requests\Subscriptions\UpdateSubscriptionStatusRequest;
 use App\Http\Resources\Subscriptions\SubscriptionHistoryResource;
 use App\Http\Resources\Subscriptions\SubscriptionResource;
+use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
 use App\Models\User;
@@ -255,7 +256,7 @@ class SubscriptionManagementController extends Controller
         ];
 
         if ($request->has('invoice_id')) {
-            $payload['invoice_id'] = $request->input('invoice_id');
+            $payload['invoice_id'] = $this->invoiceKey($request->input('invoice_id'));
         }
 
         return $this->applyUpdate(
@@ -354,6 +355,7 @@ class SubscriptionManagementController extends Controller
         ]);
 
         $history = SubscriptionHistory::query()
+            ->with(['subscription', 'student'])
             ->where('student_id', $student->id)
             ->orderByDesc('effective_at')
             ->orderByDesc('id')
@@ -373,7 +375,17 @@ class SubscriptionManagementController extends Controller
         return collect($validated)
             ->except('student_id')
             ->only($this->trackedFields())
+            ->map(fn (mixed $value, string $field) => $field === 'invoice_id' ? $this->invoiceKey($value) : $value)
             ->all();
+    }
+
+    private function invoiceKey(mixed $publicId): ?int
+    {
+        if ($publicId === null || $publicId === '') {
+            return null;
+        }
+
+        return Invoice::query()->where('public_id', $publicId)->firstOrFail()->getKey();
     }
 
     /**

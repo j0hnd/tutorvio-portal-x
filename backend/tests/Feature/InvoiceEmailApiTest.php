@@ -61,13 +61,13 @@ class InvoiceEmailApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->postJson("/api/v1/invoices/{$invoice->id}/send-email")
+        $this->postJson("/api/v1/invoices/{$invoice->public_id}/send-email")
             ->assertOk()
             ->assertJsonPath('email_sent', true)
             ->assertJsonPath('data.metadata.email.last_status', NotificationRecipient::STATUS_SENT)
             ->assertJsonPath('data.metadata.email.last_mode', InvoiceEmailService::MODE_MANUAL);
 
-        $this->postJson("/api/v1/invoices/{$invoice->id}/send-email")
+        $this->postJson("/api/v1/invoices/{$invoice->public_id}/send-email")
             ->assertOk()
             ->assertJsonPath('email_sent', true)
             ->assertJsonPath('data.metadata.email.last_mode', InvoiceEmailService::MODE_MANUAL);
@@ -115,11 +115,11 @@ class InvoiceEmailApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => 100,
         ])->assertCreated();
 
-        $invoice = Invoice::findOrFail($response->json('data.id'));
+        $invoice = Invoice::query()->where('public_id', $response->json('data.id'))->firstOrFail();
 
         Notification::assertSentTo($student, InvoiceEmailNotification::class);
         $this->assertSame(NotificationRecipient::STATUS_SENT, data_get($invoice->metadata, 'email.last_status'));
@@ -144,7 +144,7 @@ class InvoiceEmailApiTest extends TestCase
 
         $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => 100,
         ])->assertCreated();
 

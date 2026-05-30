@@ -13,7 +13,7 @@ class GenerateInvoiceRequest extends FormRequest
     {
         return [
             'student_id' => ['required', 'integer', 'exists:users,id'],
-            'subscription_id' => ['required_without:course_program_id', 'integer', 'exists:subscriptions,id'],
+            'subscription_id' => ['required_without:course_program_id', 'string', 'exists:subscriptions,public_id'],
             'course_program_id' => ['required_without:subscription_id', 'integer', 'exists:course_programs,id'],
             'subtotal' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'currency' => ['sometimes', 'string', 'size:3'],

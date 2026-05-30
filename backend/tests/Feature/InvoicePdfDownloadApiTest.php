@@ -62,7 +62,7 @@ class InvoicePdfDownloadApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $response = $this->get("/api/v1/invoices/{$invoice->id}/download");
+        $response = $this->get("/api/v1/invoices/{$invoice->public_id}/download");
 
         $response
             ->assertOk()
@@ -90,7 +90,7 @@ class InvoicePdfDownloadApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->get("/api/v1/invoices/{$invoice->id}/download")
+        $this->get("/api/v1/invoices/{$invoice->public_id}/download")
             ->assertOk()
             ->assertHeader('Content-Type', 'application/pdf');
     }
@@ -103,13 +103,13 @@ class InvoicePdfDownloadApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->get("/api/v1/invoices/{$invoice->id}/download")->assertForbidden();
+        $this->get("/api/v1/invoices/{$invoice->public_id}/download")->assertForbidden();
 
         config(['billing.invoice.student_visibility_enabled' => false]);
 
         $ownInvoice = Invoice::factory()->create(['student_id' => $student->id]);
 
-        $this->get("/api/v1/invoices/{$ownInvoice->id}/download")->assertForbidden();
+        $this->get("/api/v1/invoices/{$ownInvoice->public_id}/download")->assertForbidden();
     }
 
     public function test_staff_needs_billing_permission_to_download_invoice_pdf(): void
@@ -119,11 +119,11 @@ class InvoicePdfDownloadApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->get("/api/v1/invoices/{$invoice->id}/download")->assertForbidden();
+        $this->get("/api/v1/invoices/{$invoice->public_id}/download")->assertForbidden();
 
         $staff->givePermissionTo('invoices.view');
 
-        $this->get("/api/v1/invoices/{$invoice->id}/download")->assertOk();
+        $this->get("/api/v1/invoices/{$invoice->public_id}/download")->assertOk();
     }
 
     public function test_teacher_is_blocked_from_invoice_pdf_download_by_default(): void
@@ -133,7 +133,7 @@ class InvoicePdfDownloadApiTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->get("/api/v1/invoices/{$invoice->id}/download")->assertForbidden();
+        $this->get("/api/v1/invoices/{$invoice->public_id}/download")->assertForbidden();
     }
 
     /**

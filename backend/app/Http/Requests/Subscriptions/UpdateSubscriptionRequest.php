@@ -25,7 +25,7 @@ class UpdateSubscriptionRequest extends FormRequest
             'remaining_lesson_count' => ['sometimes', 'integer', 'min:0'],
             'status' => ['sometimes', 'string', Rule::in(Subscription::STATUSES)],
             'payment_status' => ['sometimes', 'string', Rule::in(Subscription::PAYMENT_STATUSES)],
-            'invoice_id' => ['sometimes', 'nullable', 'integer', 'exists:invoices,id'],
+            'invoice_id' => ['sometimes', 'nullable', 'string', 'exists:invoices,public_id'],
             'invoice_reference' => ['sometimes', 'nullable', 'string', 'max:255'],
             'internal_notes' => ['sometimes', 'nullable', 'string'],
             'renewal_reminder_due_at' => ['sometimes', 'nullable', 'date'],

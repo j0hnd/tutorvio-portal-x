@@ -143,7 +143,7 @@ class AdminSubscriptionManagementApiTest extends TestCase
             'payment_status' => Subscription::PAYMENT_STATUS_UNPAID,
         ]);
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/payment-status", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/payment-status", [
             'payment_status' => Subscription::PAYMENT_STATUS_PAID,
         ])
             ->assertOk()
@@ -160,35 +160,35 @@ class AdminSubscriptionManagementApiTest extends TestCase
         $this->assertSame(Subscription::PAYMENT_STATUS_UNPAID, $paymentAudit->metadata['old_payment_status'] ?? null);
         $this->assertSame(Subscription::PAYMENT_STATUS_PAID, $paymentAudit->metadata['new_payment_status'] ?? null);
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/status", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/status", [
             'status' => Subscription::STATUS_INACTIVE,
         ])
             ->assertOk()
             ->assertJsonPath('data.status', Subscription::STATUS_INACTIVE);
 
-        $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/freeze")
+        $this->postJson("/api/v1/admin/subscriptions/{$subscription->public_id}/freeze")
             ->assertOk()
             ->assertJsonPath('data.is_frozen', true)
             ->assertJsonPath('data.status', Subscription::STATUS_INACTIVE);
 
-        $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/unfreeze")
+        $this->postJson("/api/v1/admin/subscriptions/{$subscription->public_id}/unfreeze")
             ->assertOk()
             ->assertJsonPath('data.is_frozen', false)
             ->assertJsonPath('data.status', Subscription::STATUS_ACTIVE);
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/notes", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/notes", [
             'notes' => 'Renewal discussed by phone.',
         ])
             ->assertOk()
             ->assertJsonPath('data.internal_notes', 'Renewal discussed by phone.');
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/invoice-reference", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/invoice-reference", [
             'reference' => 'INV-RENEW-0001',
         ])
             ->assertOk()
             ->assertJsonPath('data.invoice_reference', 'INV-RENEW-0001');
 
-        $renewalResponse = $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/renew", [
+        $renewalResponse = $this->postJson("/api/v1/admin/subscriptions/{$subscription->public_id}/renew", [
             'student_id' => $student->id,
             'plan_name' => 'Renewed Standard',
             'package_type' => Subscription::TYPE_SUBSCRIPTION,
@@ -205,11 +205,17 @@ class AdminSubscriptionManagementApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.renewed_from_subscription_id', $subscription->public_id);
 
-        $this->getJson("/api/v1/admin/students/{$student->public_id}/subscriptions/history")
+        $historyResponse = $this->getJson("/api/v1/admin/students/{$student->public_id}/subscriptions/history");
+
+        $historyResponse
             ->assertOk()
             ->assertJsonFragment(['event_type' => SubscriptionHistory::EVENT_RENEWED])
             ->assertJsonFragment(['event_type' => SubscriptionHistory::EVENT_FROZEN])
             ->assertJsonFragment(['event_type' => SubscriptionHistory::EVENT_UNFROZEN]);
+
+        $historyResponse
+            ->assertJsonFragment(['subscription_id' => $subscription->public_id])
+            ->assertJsonMissing(['subscription_id' => $subscription->id]);
     }
 
     public function test_admin_can_manually_adjust_lesson_balance_with_required_notes(): void
@@ -222,13 +228,13 @@ class AdminSubscriptionManagementApiTest extends TestCase
             'remaining_lesson_count' => 8,
         ]);
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/lesson-balance", [
             'consumed_lesson_count' => 5,
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('notes');
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/lesson-balance", [
             'total_lesson_count' => 12,
             'consumed_lesson_count' => 5,
             'remaining_lesson_count' => 8,
@@ -237,7 +243,7 @@ class AdminSubscriptionManagementApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('remaining_lesson_count');
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/lesson-balance", [
             'consumed_lesson_count' => 5,
             'notes' => 'Corrected one missed completion entry.',
         ])
@@ -274,14 +280,14 @@ class AdminSubscriptionManagementApiTest extends TestCase
             'remaining_lesson_count' => 3,
         ]);
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/lesson-balance", [
             'consumed_lesson_count' => 6,
             'notes' => 'Invalid correction that over-consumes lessons.',
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('consumed_lesson_count');
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/lesson-balance", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/lesson-balance", [
             'remaining_lesson_count' => -1,
             'notes' => 'Invalid correction with negative remaining lessons.',
         ])
@@ -340,13 +346,13 @@ class AdminSubscriptionManagementApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/admin/subscriptions/{$subscription->id}")
+        $this->getJson("/api/v1/admin/subscriptions/{$subscription->public_id}")
             ->assertForbidden()
             ->assertJsonMissing(['internal_notes' => 'Private admin note.']);
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/admin/subscriptions/{$subscription->id}")
+        $this->getJson("/api/v1/admin/subscriptions/{$subscription->public_id}")
             ->assertForbidden()
             ->assertJsonMissing(['internal_notes' => 'Private admin note.']);
     }
@@ -370,12 +376,12 @@ class AdminSubscriptionManagementApiTest extends TestCase
             ->assertJsonMissing(['invoice_reference' => 'INV-STAFF-HIDDEN'])
             ->assertJsonMissing(['internal_notes' => 'Staff without billing permission must not see this.']);
 
-        $this->getJson("/api/v1/admin/subscriptions/{$subscription->id}")
+        $this->getJson("/api/v1/admin/subscriptions/{$subscription->public_id}")
             ->assertForbidden()
             ->assertJsonMissing(['invoice_reference' => 'INV-STAFF-HIDDEN'])
             ->assertJsonMissing(['internal_notes' => 'Staff without billing permission must not see this.']);
 
-        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->id}/payment-status", [
+        $this->patchJson("/api/v1/admin/subscriptions/{$subscription->public_id}/payment-status", [
             'payment_status' => Subscription::PAYMENT_STATUS_PAID,
         ])->assertForbidden();
 
@@ -400,7 +406,7 @@ class AdminSubscriptionManagementApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->getJson("/api/v1/admin/subscriptions/{$subscription->id}")
+        $this->getJson("/api/v1/admin/subscriptions/{$subscription->public_id}")
             ->assertOk()
             ->assertJsonPath('data.payment_status', Subscription::PAYMENT_STATUS_PARTIAL)
             ->assertJsonPath('data.invoice_reference', 'INV-STAFF-VISIBLE')

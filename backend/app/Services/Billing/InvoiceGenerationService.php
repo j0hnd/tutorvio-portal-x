@@ -70,12 +70,12 @@ class InvoiceGenerationService
                 ],
             ]);
 
-            return $invoice->load(['student:id,name,email,status', 'subscription', 'courseProgram']);
+            return $invoice->load(['student:id,public_id,name,email,status', 'subscription', 'courseProgram']);
         });
 
         $this->invoiceEmails->sendAutomatically($invoice);
 
-        return $invoice->refresh()->load(['student:id,name,email,status', 'subscription', 'courseProgram']);
+        return $invoice->refresh()->load(['student:id,public_id,name,email,status', 'subscription', 'courseProgram']);
     }
 
     public function generateForSubscriptionPurchase(
@@ -86,7 +86,7 @@ class InvoiceGenerationService
     ): Invoice {
         return $this->generate([
             'student_id' => $subscription->user_id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => $subtotal,
             'currency' => $currency ?? $this->pricing->currency(),
             'allow_duplicate' => $allowDuplicate,
@@ -100,7 +100,7 @@ class InvoiceGenerationService
     private function subscription(array $payload): ?Subscription
     {
         return isset($payload['subscription_id'])
-            ? Subscription::findOrFail((int) $payload['subscription_id'])
+            ? Subscription::query()->where('public_id', $payload['subscription_id'])->firstOrFail()
             : null;
     }
 

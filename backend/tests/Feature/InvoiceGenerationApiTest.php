@@ -67,7 +67,7 @@ class InvoiceGenerationApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => 1000,
             'currency' => 'php',
             'issued_date' => '2026-05-26',
@@ -76,8 +76,8 @@ class InvoiceGenerationApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $student->id)
-            ->assertJsonPath('data.subscription_id', $subscription->id)
+            ->assertJsonPath('data.student_id', $student->public_id)
+            ->assertJsonPath('data.subscription_id', $subscription->public_id)
             ->assertJsonPath('data.course_program_id', null)
             ->assertJsonPath('data.subtotal', '1000.00')
             ->assertJsonPath('data.tax_amount', '120.00')
@@ -113,11 +113,12 @@ class InvoiceGenerationApiTest extends TestCase
             'currency' => 'PHP',
             'status' => Invoice::STATUS_UNPAID,
         ]);
+        $invoice = Invoice::query()->where('public_id', $response->json('data.id'))->firstOrFail();
         $audit = AuditLog::query()
             ->where('action_type', AuditActionType::PAYMENT_CREATED->value)
             ->where('module', AuditModule::BILLING->value)
             ->where('target_entity_type', 'invoice')
-            ->where('target_entity_id', $response->json('data.id'))
+            ->where('target_entity_id', $invoice->id)
             ->latest('id')
             ->first();
 
@@ -142,9 +143,9 @@ class InvoiceGenerationApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $student->id)
+            ->assertJsonPath('data.student_id', $student->public_id)
             ->assertJsonPath('data.subscription_id', null)
-            ->assertJsonPath('data.course_program_id', $courseProgram->id)
+            ->assertJsonPath('data.course_program_id', $courseProgram->public_id)
             ->assertJsonPath('data.subtotal', '250.00')
             ->assertJsonPath('data.tax_amount', '30.00')
             ->assertJsonPath('data.total_amount', '280.00')
@@ -214,7 +215,7 @@ class InvoiceGenerationApiTest extends TestCase
         ]);
 
         $firstResponse->assertCreated();
-        $firstInvoice = Invoice::findOrFail($firstResponse->json('data.id'));
+        $firstInvoice = Invoice::query()->where('public_id', $firstResponse->json('data.id'))->firstOrFail();
 
         config([
             'billing.default_currency' => 'EUR',
@@ -256,13 +257,13 @@ class InvoiceGenerationApiTest extends TestCase
 
         $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => 100,
         ])->assertCreated();
 
         $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => 100,
         ])
             ->assertUnprocessable()
@@ -304,7 +305,7 @@ class InvoiceGenerationApiTest extends TestCase
 
         $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'subtotal' => 100,
         ])
             ->assertUnprocessable()
@@ -329,7 +330,7 @@ class InvoiceGenerationApiTest extends TestCase
 
         $this->postJson('/api/v1/invoices/generate', [
             'student_id' => $student->id,
-            'subscription_id' => $subscription->id,
+            'subscription_id' => $subscription->public_id,
             'course_program_id' => $courseProgram->id,
             'subtotal' => 100,
         ])

@@ -364,45 +364,45 @@ Route::prefix('v1')->group(function () {
             Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation}', [TeacherCompensationController::class, 'update'])
                 ->middleware('permission:teacher_compensations.manage');
 
-            Route::get('/students/{student}/subscriptions/history', [SubscriptionManagementController::class, 'studentHistory'])
+            Route::get('/students/{student:public_id}/subscriptions/history', [SubscriptionManagementController::class, 'studentHistory'])
                 ->middleware('permission:subscriptions.view');
-            Route::post('/subscriptions/{subscription}/freeze', [SubscriptionManagementController::class, 'freeze'])
+            Route::post('/subscriptions/{subscription:public_id}/freeze', [SubscriptionManagementController::class, 'freeze'])
                 ->middleware('permission:subscriptions.update');
-            Route::post('/subscriptions/{subscription}/unfreeze', [SubscriptionManagementController::class, 'unfreeze'])
+            Route::post('/subscriptions/{subscription:public_id}/unfreeze', [SubscriptionManagementController::class, 'unfreeze'])
                 ->middleware('permission:subscriptions.update');
-            Route::patch('/subscriptions/{subscription}/payment-status', [SubscriptionManagementController::class, 'updatePaymentStatus'])
+            Route::patch('/subscriptions/{subscription:public_id}/payment-status', [SubscriptionManagementController::class, 'updatePaymentStatus'])
                 ->middleware('permission:subscriptions.update');
-            Route::patch('/subscriptions/{subscription}/status', [SubscriptionManagementController::class, 'updateStatus'])
+            Route::patch('/subscriptions/{subscription:public_id}/status', [SubscriptionManagementController::class, 'updateStatus'])
                 ->middleware('permission:subscriptions.update');
-            Route::patch('/subscriptions/{subscription}/notes', [SubscriptionManagementController::class, 'updateNotes'])
+            Route::patch('/subscriptions/{subscription:public_id}/notes', [SubscriptionManagementController::class, 'updateNotes'])
                 ->middleware('permission:subscriptions.update');
-            Route::patch('/subscriptions/{subscription}/invoice-reference', [SubscriptionManagementController::class, 'updateInvoiceReference'])
+            Route::patch('/subscriptions/{subscription:public_id}/invoice-reference', [SubscriptionManagementController::class, 'updateInvoiceReference'])
                 ->middleware('permission:subscriptions.update');
-            Route::patch('/subscriptions/{subscription}/lesson-balance', [SubscriptionManagementController::class, 'adjustLessonBalance'])
+            Route::patch('/subscriptions/{subscription:public_id}/lesson-balance', [SubscriptionManagementController::class, 'adjustLessonBalance'])
                 ->middleware('permission:subscriptions.update');
-            Route::post('/subscriptions/{subscription}/renew', [SubscriptionManagementController::class, 'renew'])
+            Route::post('/subscriptions/{subscription:public_id}/renew', [SubscriptionManagementController::class, 'renew'])
                 ->middleware('permission:subscriptions.create');
-            Route::post('/subscriptions/{subscription}/cancel', [SubscriptionManagementController::class, 'cancel'])
+            Route::post('/subscriptions/{subscription:public_id}/cancel', [SubscriptionManagementController::class, 'cancel'])
                 ->middleware('permission:subscriptions.delete');
-            Route::post('/subscriptions/{subscription}/archive', [SubscriptionManagementController::class, 'archive'])
+            Route::post('/subscriptions/{subscription:public_id}/archive', [SubscriptionManagementController::class, 'archive'])
                 ->middleware('permission:subscriptions.delete');
             Route::get('/subscriptions', [SubscriptionManagementController::class, 'index'])
                 ->middleware('permission:subscriptions.view');
             Route::post('/subscriptions', [SubscriptionManagementController::class, 'store'])
                 ->middleware('permission:subscriptions.create');
-            Route::get('/subscriptions/{subscription}', [SubscriptionManagementController::class, 'show'])
+            Route::get('/subscriptions/{subscription:public_id}', [SubscriptionManagementController::class, 'show'])
                 ->middleware('permission:subscriptions.view');
-            Route::match(['put', 'patch'], '/subscriptions/{subscription}', [SubscriptionManagementController::class, 'update'])
+            Route::match(['put', 'patch'], '/subscriptions/{subscription:public_id}', [SubscriptionManagementController::class, 'update'])
                 ->middleware('permission:subscriptions.update');
         });
 
         Route::prefix('invoices')->group(function () {
             Route::get('/', [InvoiceController::class, 'index']);
-            Route::get('/{invoice}/download', [InvoiceController::class, 'download']);
-            Route::get('/{invoice}', [InvoiceController::class, 'show']);
-            Route::patch('/{invoice}/payment-status', [InvoiceController::class, 'updatePaymentStatus'])
+            Route::get('/{invoice:public_id}/download', [InvoiceController::class, 'download']);
+            Route::get('/{invoice:public_id}', [InvoiceController::class, 'show']);
+            Route::patch('/{invoice:public_id}/payment-status', [InvoiceController::class, 'updatePaymentStatus'])
                 ->middleware(['role:admin|staff', 'permission:invoices.update']);
-            Route::post('/{invoice}/send-email', [InvoiceController::class, 'sendEmail'])
+            Route::post('/{invoice:public_id}/send-email', [InvoiceController::class, 'sendEmail'])
                 ->middleware(['role:admin|staff', 'permission:invoices.create']);
             Route::post('/generate', [InvoiceGenerationController::class, 'store'])
                 ->middleware(['role:admin|staff', 'permission:invoices.create']);
