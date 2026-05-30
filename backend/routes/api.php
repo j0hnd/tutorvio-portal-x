@@ -101,8 +101,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::patch('/profile', [ProfileController::class, 'update']);
-        Route::get('/users/{user}/profile', [ProfileController::class, 'showUser']);
-        Route::patch('/users/{user}/profile', [ProfileController::class, 'updateUser']);
+        Route::get('/users/{user:public_id}/profile', [ProfileController::class, 'showUser']);
+        Route::patch('/users/{user:public_id}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
         Route::get('/portal-settings', [PortalSettingController::class, 'index']);
         Route::get('/form-templates', [FormTemplateController::class, 'index']);
@@ -128,25 +128,27 @@ Route::prefix('v1')->group(function () {
         Route::post('/announcements/{announcement}/unread', [AnnouncementController::class, 'markUnread']);
         Route::post('/issue-reports', [IssueReportController::class, 'store']);
         Route::get('/issue-reports/{issueReport}', [IssueReportController::class, 'show']);
-        Route::get('/lessons/{lesson}/join', LessonJoinController::class);
-        Route::get('/lessons/{lesson}/lesson-notes', [LessonNoteController::class, 'byLesson']);
-        Route::get('/students/{student}/lesson-notes', [LessonNoteController::class, 'byStudent']);
-        Route::get('/students/{student}/progress-summary', [StudentProgressRecordController::class, 'summary']);
-        Route::get('/students/{student}/progress-timeline', [StudentProgressRecordController::class, 'timeline']);
-        Route::get('/students/{student}/invoices', [InvoiceController::class, 'history']);
-        Route::get('/students/{student}/package-history', StudentPackageHistoryController::class);
-        Route::get('/students/{student}/package-summary', StudentPackageSummaryController::class);
-        Route::get('/students/{student}/assigned-teacher', [TeacherStudentAssignmentController::class, 'currentTeacher']);
-        Route::get('/students/{student}/teacher-assignment-history', [TeacherStudentAssignmentController::class, 'studentHistory']);
-        Route::get('/teachers/{teacher}/assigned-students', [TeacherStudentAssignmentController::class, 'teacherStudents']);
-        Route::get('/teachers/{teacher}/student-assignment-history', [TeacherStudentAssignmentController::class, 'teacherHistory']);
+        Route::get('/lessons/{lesson:public_id}/join', LessonJoinController::class);
+        Route::get('/lessons/{lesson:public_id}/lesson-notes', [LessonNoteController::class, 'byLesson']);
+        Route::get('/students/{student:public_id}/lesson-notes', [LessonNoteController::class, 'byStudent']);
+        Route::get('/students/{student:public_id}/progress-summary', [StudentProgressRecordController::class, 'summary']);
+        Route::get('/students/{student:public_id}/progress-timeline', [StudentProgressRecordController::class, 'timeline']);
+        Route::get('/students/{student:public_id}/invoices', [InvoiceController::class, 'history']);
+        Route::get('/students/{student:public_id}/package-history', StudentPackageHistoryController::class);
+        Route::get('/students/{student:public_id}/package-summary', StudentPackageSummaryController::class);
+        Route::get('/students/{student:public_id}/assigned-teacher', [TeacherStudentAssignmentController::class, 'currentTeacher']);
+        Route::get('/students/{student:public_id}/teacher-assignment-history', [TeacherStudentAssignmentController::class, 'studentHistory']);
+        Route::get('/teachers/{teacher:public_id}/assigned-students', [TeacherStudentAssignmentController::class, 'teacherStudents']);
+        Route::get('/teachers/{teacher:public_id}/student-assignment-history', [TeacherStudentAssignmentController::class, 'teacherHistory']);
         Route::get('/lesson-notes/pending', [LessonNoteController::class, 'pending']);
         Route::apiResource('lesson-notes', LessonNoteController::class)
             ->only(['index', 'store', 'show', 'update'])
-            ->parameters(['lesson-notes' => 'lessonNote']);
-        Route::post('/lesson-records/{lessonRecord}/cancel', [LessonRecordController::class, 'cancel']);
+            ->parameters(['lesson-notes' => 'lessonNote'])
+            ->scoped(['lessonNote' => 'public_id']);
+        Route::post('/lesson-records/{lessonRecord:public_id}/cancel', [LessonRecordController::class, 'cancel']);
         Route::apiResource('lesson-records', LessonRecordController::class)
-            ->parameters(['lesson-records' => 'lessonRecord']);
+            ->parameters(['lesson-records' => 'lessonRecord'])
+            ->scoped(['lessonRecord' => 'public_id']);
         Route::apiResource('student-progress-records', StudentProgressRecordController::class)
             ->parameters(['student-progress-records' => 'studentProgressRecord']);
         Route::post('/academic-records/{academicRecord}/archive', [AcademicRecordController::class, 'archive']);
@@ -157,12 +159,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
         Route::get('/homeworks', [HomeworkController::class, 'index']);
         Route::post('/homeworks', [HomeworkController::class, 'store']);
-        Route::get('/homeworks/{homework}', [HomeworkController::class, 'show']);
-        Route::patch('/homeworks/{homework}/progress', [HomeworkController::class, 'updateProgress']);
-        Route::patch('/homeworks/{homework}/review', [HomeworkController::class, 'review']);
+        Route::get('/homeworks/{homework:public_id}', [HomeworkController::class, 'show']);
+        Route::patch('/homeworks/{homework:public_id}/progress', [HomeworkController::class, 'updateProgress']);
+        Route::patch('/homeworks/{homework:public_id}/review', [HomeworkController::class, 'review']);
         Route::get('/teacher-earnings', [TeacherEarningController::class, 'index']);
         Route::get('/teacher-workloads', [TeacherWorkloadController::class, 'index']);
-        Route::get('/teacher-workloads/{teacher}', [TeacherWorkloadController::class, 'show']);
+        Route::get('/teacher-workloads/{teacher:public_id}', [TeacherWorkloadController::class, 'show']);
         Route::get('/reports/teacher-load', TeacherLoadReportController::class);
         Route::get('/reports/student-progress', StudentProgressReportController::class);
         Route::get('/reports/teacher-note-completions', TeacherNoteCompletionReportController::class);
@@ -175,32 +177,38 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:student');
         Route::post('/teacher-change-requests', [TeacherChangeRequestController::class, 'store'])
             ->middleware('role:student');
-        Route::get('/teacher-change-requests/{teacherChangeRequest}', [TeacherChangeRequestController::class, 'show'])
+        Route::get('/teacher-change-requests/{teacherChangeRequest:public_id}', [TeacherChangeRequestController::class, 'show'])
             ->middleware('role:student');
-        Route::post('/teacher-change-requests/{teacherChangeRequest}/cancel', [TeacherChangeRequestController::class, 'cancel'])
+        Route::post('/teacher-change-requests/{teacherChangeRequest:public_id}/cancel', [TeacherChangeRequestController::class, 'cancel'])
             ->middleware('role:student');
-        Route::post('/learning-resources/{learningResource}/students', [LearningResourceController::class, 'assignStudent']);
-        Route::delete('/learning-resources/{learningResource}/students/{student}', [LearningResourceController::class, 'unassignStudent']);
-        Route::post('/learning-resources/{learningResource}/lessons', [LearningResourceController::class, 'assignLesson']);
-        Route::delete('/learning-resources/{learningResource}/lessons/{lesson}', [LearningResourceController::class, 'unassignLesson']);
-        Route::get('/learning-resources/{learningResource}/download', [LearningResourceController::class, 'download']);
-        Route::get('/learning-resources/{learningResource}/versions', [LearningResourceController::class, 'versions']);
+        Route::post('/learning-resources/{learningResource:public_id}/students', [LearningResourceController::class, 'assignStudent']);
+        Route::delete('/learning-resources/{learningResource:public_id}/students/{student:public_id}', [LearningResourceController::class, 'unassignStudent'])
+            ->withoutScopedBindings();
+        Route::post('/learning-resources/{learningResource:public_id}/lessons', [LearningResourceController::class, 'assignLesson']);
+        Route::delete('/learning-resources/{learningResource:public_id}/lessons/{lesson:public_id}', [LearningResourceController::class, 'unassignLesson'])
+            ->withoutScopedBindings();
+        Route::get('/learning-resources/{learningResource:public_id}/download', [LearningResourceController::class, 'download']);
+        Route::get('/learning-resources/{learningResource:public_id}/versions', [LearningResourceController::class, 'versions']);
         Route::apiResource('learning-resources', LearningResourceController::class)
             ->only(['index', 'show', 'update', 'destroy'])
-            ->parameters(['learning-resources' => 'learningResource']);
+            ->parameters(['learning-resources' => 'learningResource'])
+            ->scoped(['learningResource' => 'public_id']);
 
         Route::post('/course-types/{courseType}/archive', [CourseTypeController::class, 'archive']);
         Route::apiResource('course-types', CourseTypeController::class)
             ->parameters(['course-types' => 'courseType']);
-        Route::post('/course-programs/{courseProgram}/archive', [CourseProgramController::class, 'archive']);
-        Route::post('/course-programs/{courseProgram}/learning-resources', [CourseProgramController::class, 'attachLearningResources']);
-        Route::delete('/course-programs/{courseProgram}/learning-resources/{learningResource}', [CourseProgramController::class, 'detachLearningResource']);
-        Route::get('/course-programs/{courseProgram}/students', [CourseProgramStudentAssignmentController::class, 'courseStudents']);
-        Route::post('/course-programs/{courseProgram}/students', [CourseProgramStudentAssignmentController::class, 'assignStudents']);
-        Route::delete('/course-programs/{courseProgram}/students/{student}', [CourseProgramStudentAssignmentController::class, 'removeStudent']);
+        Route::post('/course-programs/{courseProgram:public_id}/archive', [CourseProgramController::class, 'archive']);
+        Route::post('/course-programs/{courseProgram:public_id}/learning-resources', [CourseProgramController::class, 'attachLearningResources']);
+        Route::delete('/course-programs/{courseProgram:public_id}/learning-resources/{learningResource:public_id}', [CourseProgramController::class, 'detachLearningResource'])
+            ->withoutScopedBindings();
+        Route::get('/course-programs/{courseProgram:public_id}/students', [CourseProgramStudentAssignmentController::class, 'courseStudents']);
+        Route::post('/course-programs/{courseProgram:public_id}/students', [CourseProgramStudentAssignmentController::class, 'assignStudents']);
+        Route::delete('/course-programs/{courseProgram:public_id}/students/{student:public_id}', [CourseProgramStudentAssignmentController::class, 'removeStudent'])
+            ->withoutScopedBindings();
         Route::apiResource('course-programs', CourseProgramController::class)
-            ->parameters(['course-programs' => 'courseProgram']);
-        Route::get('/students/{student}/course-programs', [CourseProgramStudentAssignmentController::class, 'studentCourses']);
+            ->parameters(['course-programs' => 'courseProgram'])
+            ->scoped(['courseProgram' => 'public_id']);
+        Route::get('/students/{student:public_id}/course-programs', [CourseProgramStudentAssignmentController::class, 'studentCourses']);
 
         Route::prefix('admin')->middleware(['role:admin', 'permission:admin.access'])->group(function () {
             Route::get('/access', function () {

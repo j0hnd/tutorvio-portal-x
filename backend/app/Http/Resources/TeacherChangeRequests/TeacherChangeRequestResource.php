@@ -21,27 +21,27 @@ class TeacherChangeRequestResource extends JsonResource
             || ($user?->hasRole('staff') && $user->can('teacher_change_requests.manage'));
 
         $data = [
-            'id' => $this->resource->id,
-            'student_id' => $this->resource->student_id,
-            'current_teacher_id' => $this->resource->current_teacher_id,
-            'approved_teacher_id' => $this->resource->approved_teacher_id,
+            'id' => $this->publicId($this->resource),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'current_teacher_id' => $this->whenLoaded('currentTeacher', fn () => $this->publicId($this->resource->currentTeacher)),
+            'approved_teacher_id' => $this->whenLoaded('approvedTeacher', fn () => $this->publicId($this->resource->approvedTeacher)),
             'requested_reason' => $this->resource->requested_reason,
             'preferred_schedule_notes' => $this->resource->preferred_schedule_notes,
             'status' => $this->resource->status,
             'reviewed_at' => $this->resource->reviewed_at,
             'review_reason' => $this->when($canViewAdminFields, $this->resource->review_reason),
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
             ]),
             'current_teacher' => $this->whenLoaded('currentTeacher', fn () => $this->resource->currentTeacher ? [
-                'id' => $this->resource->currentTeacher->id,
+                'id' => $this->publicId($this->resource->currentTeacher),
                 'name' => $this->resource->currentTeacher->name,
                 'email' => $this->resource->currentTeacher->email,
             ] : null),
             'approved_teacher' => $this->whenLoaded('approvedTeacher', fn () => $this->resource->approvedTeacher ? [
-                'id' => $this->resource->approvedTeacher->id,
+                'id' => $this->publicId($this->resource->approvedTeacher),
                 'name' => $this->resource->approvedTeacher->name,
                 'email' => $this->resource->approvedTeacher->email,
             ] : null),

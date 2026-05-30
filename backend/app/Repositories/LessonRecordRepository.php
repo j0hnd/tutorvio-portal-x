@@ -67,13 +67,14 @@ class LessonRecordRepository
     private function relations(): array
     {
         return [
-            'student:id,name,email,timezone',
-            'teacher:id,name,email,timezone',
-            'completedBy:id,name,email',
-            'createdBy:id,name,email',
-            'updatedBy:id,name,email',
+            'student:id,public_id,name,email,timezone',
+            'teacher:id,public_id,name,email,timezone',
+            'completedBy:id,public_id,name,email',
+            'createdBy:id,public_id,name,email',
+            'updatedBy:id,public_id,name,email',
             'materials:id,title,description,url',
-            'lessonNote:id,lesson_id,lesson_record_id,lesson_objective,topics_covered,vocabulary_learned,grammar_focus,pronunciation_issues,student_speaking_confidence_observation,homework_assignment,recommendation_for_next_lesson,internal_note,submitted_at',
+            'lessonNote:id,public_id,lesson_id,lesson_record_id,lesson_objective,topics_covered,vocabulary_learned,grammar_focus,pronunciation_issues,student_speaking_confidence_observation,homework_assignment,recommendation_for_next_lesson,internal_note,submitted_at',
+            'lessonNote.lesson:id,public_id',
         ];
     }
 }

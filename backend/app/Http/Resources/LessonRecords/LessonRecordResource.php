@@ -16,9 +16,9 @@ class LessonRecordResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = [
-            'id' => $this->resource->id,
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
+            'id' => $this->publicId($this->resource),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
             'scheduled_date' => $this->resource->scheduled_date?->toDateString(),
             'start_time' => $this->resource->start_time,
             'end_time' => $this->resource->end_time,
@@ -37,13 +37,13 @@ class LessonRecordResource extends JsonResource
             'completed_at' => $this->resource->completed_at,
             'completed_by' => $this->resource->completed_by,
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
                 'timezone' => $this->resource->student->timezone,
             ]),
             'teacher' => $this->whenLoaded('teacher', fn () => [
-                'id' => $this->resource->teacher->id,
+                'id' => $this->publicId($this->resource->teacher),
                 'name' => $this->resource->teacher->name,
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,
@@ -92,9 +92,9 @@ class LessonRecordResource extends JsonResource
         }
 
         $data = [
-            'id' => $lessonNote->id,
-            'lesson_id' => $lessonNote->lesson_id,
-            'lesson_record_id' => $lessonNote->lesson_record_id,
+            'id' => $this->publicId($lessonNote),
+            'lesson_id' => $this->publicId($lessonNote->lesson),
+            'lesson_record_id' => $this->publicId($this->resource),
             'lesson_objective' => $lessonNote->lesson_objective,
             'topics_covered' => $lessonNote->topics_covered,
             'vocabulary_learned' => $lessonNote->vocabulary_learned,

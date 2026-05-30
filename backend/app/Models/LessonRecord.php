@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LessonRecord extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     public const TYPE_TRIAL_CLASS = 'trial_class';
 

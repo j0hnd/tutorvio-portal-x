@@ -314,11 +314,12 @@ class LessonNoteController extends Controller
     private function relations(): array
     {
         return [
-            'lesson:id,status,start_time,end_time',
+            'lesson:id,public_id,status,start_time,end_time',
             'lesson.learningResources',
-            'student:id,name,email,timezone',
-            'teacher:id,name,email,timezone',
-            'author:id,name,email',
+            'student:id,public_id,name,email,timezone',
+            'teacher:id,public_id,name,email,timezone',
+            'author:id,public_id,name,email',
+            'lessonRecord:id,public_id',
         ];
     }
 }

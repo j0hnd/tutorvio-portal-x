@@ -24,7 +24,7 @@ class TeacherChangeRequestController extends Controller
         ]);
 
         $requests = TeacherChangeRequest::query()
-            ->with(['currentTeacher', 'approvedTeacher'])
+            ->with(['student', 'currentTeacher', 'approvedTeacher'])
             ->where('student_id', $user->id)
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
             ->latest()
@@ -70,7 +70,7 @@ class TeacherChangeRequestController extends Controller
             'requested_reason' => $validated['requested_reason'],
             'preferred_schedule_notes' => $validated['preferred_schedule_notes'] ?? null,
             'status' => TeacherChangeRequest::STATUS_PENDING,
-        ])->load(['currentTeacher', 'approvedTeacher']);
+        ])->load(['student', 'currentTeacher', 'approvedTeacher']);
 
         return response()->json([
             'data' => new TeacherChangeRequestResource($teacherChangeRequest),
@@ -84,7 +84,7 @@ class TeacherChangeRequestController extends Controller
 
         return response()->json([
             'data' => new TeacherChangeRequestResource(
-                $teacherChangeRequest->load(['currentTeacher', 'approvedTeacher'])
+                $teacherChangeRequest->load(['student', 'currentTeacher', 'approvedTeacher'])
             ),
         ]);
     }
@@ -105,7 +105,7 @@ class TeacherChangeRequestController extends Controller
 
         return response()->json([
             'data' => new TeacherChangeRequestResource(
-                $teacherChangeRequest->refresh()->load(['currentTeacher', 'approvedTeacher'])
+                $teacherChangeRequest->refresh()->load(['student', 'currentTeacher', 'approvedTeacher'])
             ),
         ]);
     }
