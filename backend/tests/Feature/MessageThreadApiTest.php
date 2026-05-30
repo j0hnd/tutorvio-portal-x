@@ -92,6 +92,11 @@ class MessageThreadApiTest extends TestCase
         ]);
 
         $this->postJson("/api/v1/message-threads/{$threadId}/messages", [
+            'body' => 'Numeric thread IDs are no longer accepted.',
+        ])
+            ->assertNotFound();
+
+        $this->postJson("/api/v1/message-threads/{$threadPublicId}/messages", [
             'body' => 'I can send more context if helpful.',
         ])
             ->assertCreated()

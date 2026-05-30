@@ -118,6 +118,9 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('data.id', $notification->public_id)
             ->assertJsonPath('data.read_status', 'unread');
 
+        $this->getJson("/api/v1/notifications/{$notification->id}")
+            ->assertNotFound();
+
         $this->getJson("/api/v1/notifications/{$otherNotification->id}")
             ->assertNotFound();
 

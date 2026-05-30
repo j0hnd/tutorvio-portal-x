@@ -385,6 +385,9 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $published->public_id)
             ->assertJsonPath('data.0.status', Announcement::STATUS_PUBLISHED);
+
+        $this->getJson("/api/v1/announcements/{$published->id}")
+            ->assertNotFound();
     }
 
     public function test_users_can_track_announcement_read_and_unread_state(): void
