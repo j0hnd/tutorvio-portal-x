@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\PayoutPeriods;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Http\Resources\TeacherEarnings\TeacherEarningResource;
 use App\Models\PayoutPeriod;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class PayoutPeriodResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * Transform the resource into an array.
      *
@@ -20,7 +23,7 @@ class PayoutPeriodResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'name' => $this->resource->name,
             'start_date' => $this->resource->start_date?->toDateString(),
             'end_date' => $this->resource->end_date?->toDateString(),

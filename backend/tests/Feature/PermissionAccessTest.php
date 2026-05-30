@@ -31,12 +31,12 @@ class PermissionAccessTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertForbidden();
 
         $staff->givePermissionTo('subscriptions.view');
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk();
     }
 
@@ -82,7 +82,7 @@ class PermissionAccessTest extends TestCase
 
         Sanctum::actingAs($otherStudent);
 
-        $this->getJson("/api/v1/issue-reports/{$issueReport->id}")
+        $this->getJson("/api/v1/issue-reports/{$issueReport->public_id}")
             ->assertNotFound();
     }
 

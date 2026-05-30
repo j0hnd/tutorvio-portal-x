@@ -90,7 +90,7 @@ class ScheduleChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->public_id}/approve", [
             'review_notes' => 'Approved.',
         ])
             ->assertOk()
@@ -113,7 +113,7 @@ class ScheduleChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/reject", [
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->public_id}/reject", [
             'review_notes' => 'Teacher unavailable.',
         ])
             ->assertOk()
@@ -205,7 +205,7 @@ class ScheduleChangeRequestApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/schedule-change-requests')
             ->assertForbidden();
-        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->public_id}/approve", [
             'review_notes' => 'Approved by operations.',
         ])->assertForbidden();
 
@@ -214,17 +214,17 @@ class ScheduleChangeRequestApiTest extends TestCase
         $this->getJson('/api/v1/admin/schedule-change-requests/pending')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $changeRequest->id);
-        $this->getJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}")
+            ->assertJsonPath('data.0.id', $changeRequest->public_id);
+        $this->getJson("/api/v1/admin/schedule-change-requests/{$changeRequest->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $changeRequest->id);
-        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+            ->assertJsonPath('data.id', $changeRequest->public_id);
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->public_id}/approve", [
             'review_notes' => 'Approved by operations.',
         ])->assertForbidden();
 
         $staff->givePermissionTo('schedule_change_requests.manage');
 
-        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->id}/approve", [
+        $this->postJson("/api/v1/admin/schedule-change-requests/{$changeRequest->public_id}/approve", [
             'review_notes' => 'Approved by operations.',
         ])
             ->assertOk()

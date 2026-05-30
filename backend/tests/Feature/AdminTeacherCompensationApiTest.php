@@ -61,7 +61,7 @@ class AdminTeacherCompensationApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $compensationId);
 
-        $this->getJson("/api/v1/admin/teachers/{$this->teacher->id}/teacher-compensations")
+        $this->getJson("/api/v1/admin/teachers/{$this->teacher->public_id}/teacher-compensations")
             ->assertOk()
             ->assertJsonPath('data.0.id', $compensationId);
 
@@ -79,7 +79,7 @@ class AdminTeacherCompensationApiTest extends TestCase
             ->assertJsonPath('data.archived_by', $this->admin->id);
 
         $this->assertDatabaseHas('teacher_compensations', [
-            'id' => $compensationId,
+            'id' => TeacherCompensation::where('public_id', $compensationId)->value('id'),
             'archived_by' => $this->admin->id,
         ]);
     }
@@ -153,7 +153,7 @@ class AdminTeacherCompensationApiTest extends TestCase
             'teacher_id' => $this->teacher->id,
         ]);
 
-        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->id}/rate-rules", [
+        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}/rate-rules", [
             'pay_rate' => -5,
         ])
             ->assertUnprocessable()
@@ -169,7 +169,7 @@ class AdminTeacherCompensationApiTest extends TestCase
             'default_pay_rate' => 25,
         ]);
 
-        $createResponse = $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->id}/rate-rules", [
+        $createResponse = $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}/rate-rules", [
             'lesson_type' => 'business_english',
             'experience_level' => 'senior',
             'contract_agreement' => 'premium',
@@ -191,11 +191,11 @@ class AdminTeacherCompensationApiTest extends TestCase
 
         $ruleId = $createResponse->json('data.id');
 
-        $this->getJson("/api/v1/admin/teacher-compensations/{$compensation->id}/rate-rules")
+        $this->getJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}/rate-rules")
             ->assertOk()
             ->assertJsonPath('data.0.id', $ruleId);
 
-        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->id}/rate-rules/{$ruleId}", [
+        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}/rate-rules/{$ruleId}", [
             'pay_rate' => 60,
             'priority' => 30,
         ])
@@ -203,7 +203,7 @@ class AdminTeacherCompensationApiTest extends TestCase
             ->assertJsonPath('data.pay_rate', '60.00')
             ->assertJsonPath('data.priority', 30);
 
-        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->id}/rate-rules/{$ruleId}/archive")
+        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}/rate-rules/{$ruleId}/archive")
             ->assertOk()
             ->assertJsonPath('data.is_active', false);
     }
@@ -216,7 +216,7 @@ class AdminTeacherCompensationApiTest extends TestCase
         ]);
 
         Sanctum::actingAs($this->teacher);
-        $this->getJson("/api/v1/admin/teacher-compensations/{$compensation->id}")
+        $this->getJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}")
             ->assertForbidden()
             ->assertJsonMissing(['internal_admin_notes' => 'Private payroll note.']);
 
@@ -264,11 +264,11 @@ class AdminTeacherCompensationApiTest extends TestCase
 
         Sanctum::actingAs($this->teacher);
 
-        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->id}", [
+        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}", [
             'default_pay_rate' => 99,
         ])->assertForbidden();
 
-        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->id}/archive")
+        $this->postJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}/archive")
             ->assertForbidden();
 
         $this->assertDatabaseHas('teacher_compensations', [
@@ -309,10 +309,10 @@ class AdminTeacherCompensationApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->getJson("/api/v1/admin/teacher-compensations/{$compensation->id}")
+        $this->getJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}")
             ->assertOk();
 
-        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->id}", [
+        $this->patchJson("/api/v1/admin/teacher-compensations/{$compensation->public_id}", [
             'base_rate' => 20,
         ])->assertForbidden();
     }

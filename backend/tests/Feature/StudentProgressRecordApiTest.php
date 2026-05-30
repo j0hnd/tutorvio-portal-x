@@ -78,8 +78,8 @@ class StudentProgressRecordApiTest extends TestCase
             'recorded_at' => '2026-06-15 14:30:00',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.skill_area', StudentProgressRecord::SKILL_SPEAKING)
             ->assertJsonPath('data.progress_status', StudentProgressRecord::STATUS_IN_PROGRESS)
             ->assertJsonPath('data.goal_status', StudentProgressRecord::STATUS_IN_PROGRESS)
@@ -90,8 +90,8 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson("/api/v1/student-progress-records/{$recordId}")
             ->assertOk()
             ->assertJsonPath('data.id', $recordId)
-            ->assertJsonPath('data.student.id', $this->student->id)
-            ->assertJsonPath('data.teacher.id', $this->teacher->id);
+            ->assertJsonPath('data.student.id', $this->student->public_id)
+            ->assertJsonPath('data.teacher.id', $this->teacher->public_id);
 
         $this->patchJson("/api/v1/student-progress-records/{$recordId}", [
             'skill_area' => StudentProgressRecord::SKILL_FLUENCY,
@@ -108,7 +108,7 @@ class StudentProgressRecordApiTest extends TestCase
             ->where('action_type', AuditActionType::STUDENT_UPDATED->value)
             ->where('module', AuditModule::STUDENTS->value)
             ->where('target_entity_type', 'student_progress_record')
-            ->where('target_entity_id', $recordId)
+            ->where('target_entity_id', StudentProgressRecord::where('public_id', $recordId)->value('id'))
             ->latest('id')
             ->first();
 
@@ -122,7 +122,7 @@ class StudentProgressRecordApiTest extends TestCase
             ->assertNoContent();
 
         $this->assertDatabaseMissing('student_progress_records', [
-            'id' => $recordId,
+            'public_id' => $recordId,
         ]);
     }
 
@@ -166,7 +166,7 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson('/api/v1/student-progress-records?student_id='.$this->student->id.'&teacher_id='.$this->teacher->id.'&skill_area='.StudentProgressRecord::SKILL_GRAMMAR.'&date_from=2026-06-01&date_to=2026-06-30&level_movement='.StudentProgressRecord::LEVEL_MOVEMENT_UP.'&goal_status='.StudentProgressRecord::STATUS_COMPLETED.'&per_page=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $latestMatching->id)
+            ->assertJsonPath('data.0.id', $latestMatching->public_id)
             ->assertJsonPath('current_page', 1)
             ->assertJsonPath('per_page', 1)
             ->assertJsonPath('last_page', 2)
@@ -175,7 +175,7 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson('/api/v1/student-progress-records?student_id='.$this->student->id.'&teacher_id='.$this->teacher->id.'&skill_area='.StudentProgressRecord::SKILL_GRAMMAR.'&date_from=2026-06-01&date_to=2026-06-30&level_movement='.StudentProgressRecord::LEVEL_MOVEMENT_UP.'&progress_status='.StudentProgressRecord::STATUS_COMPLETED.'&per_page=1&page=2')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $olderMatching->id)
+            ->assertJsonPath('data.0.id', $olderMatching->public_id)
             ->assertJsonPath('current_page', 2)
             ->assertJsonPath('total', 2);
     }
@@ -198,18 +198,18 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson('/api/v1/student-progress-records?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $record->id);
+            ->assertJsonPath('data.0.id', $record->public_id);
 
-        $this->patchJson("/api/v1/student-progress-records/{$record->id}", [
+        $this->patchJson("/api/v1/student-progress-records/{$record->public_id}", [
             'teacher_comments' => 'Good recovery after correction.',
         ])
             ->assertOk()
             ->assertJsonPath('data.teacher_comments', 'Good recovery after correction.');
 
-        $this->deleteJson("/api/v1/student-progress-records/{$record->id}")
+        $this->deleteJson("/api/v1/student-progress-records/{$record->public_id}")
             ->assertForbidden();
 
-        $this->getJson("/api/v1/student-progress-records/{$otherRecord->id}")
+        $this->getJson("/api/v1/student-progress-records/{$otherRecord->public_id}")
             ->assertForbidden();
 
         $this->postJson('/api/v1/student-progress-records', [
@@ -236,16 +236,16 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson('/api/v1/student-progress-records?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $record->id);
+            ->assertJsonPath('data.0.id', $record->public_id);
 
         $this->getJson('/api/v1/student-progress-records?student_id='.$this->otherStudent->id)
             ->assertForbidden();
 
-        $this->getJson("/api/v1/student-progress-records/{$record->id}")
+        $this->getJson("/api/v1/student-progress-records/{$record->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $record->id);
+            ->assertJsonPath('data.id', $record->public_id);
 
-        $this->getJson("/api/v1/student-progress-records/{$otherRecord->id}")
+        $this->getJson("/api/v1/student-progress-records/{$otherRecord->public_id}")
             ->assertForbidden();
 
         $this->postJson('/api/v1/student-progress-records', [
@@ -255,12 +255,12 @@ class StudentProgressRecordApiTest extends TestCase
         ])
             ->assertForbidden();
 
-        $this->patchJson("/api/v1/student-progress-records/{$record->id}", [
+        $this->patchJson("/api/v1/student-progress-records/{$record->public_id}", [
             'teacher_comments' => 'Student should not be able to edit this.',
         ])
             ->assertForbidden();
 
-        $this->deleteJson("/api/v1/student-progress-records/{$record->id}")
+        $this->deleteJson("/api/v1/student-progress-records/{$record->public_id}")
             ->assertForbidden();
     }
 
@@ -280,12 +280,12 @@ class StudentProgressRecordApiTest extends TestCase
         $this->getJson('/api/v1/student-progress-records?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $assignedStudentRecordFromOtherTeacher->id);
+            ->assertJsonPath('data.0.id', $assignedStudentRecordFromOtherTeacher->public_id);
 
-        $this->getJson("/api/v1/student-progress-records/{$assignedStudentRecordFromOtherTeacher->id}")
+        $this->getJson("/api/v1/student-progress-records/{$assignedStudentRecordFromOtherTeacher->public_id}")
             ->assertOk();
 
-        $this->getJson("/api/v1/student-progress-records/{$unassignedStudentRecordForTeacher->id}")
+        $this->getJson("/api/v1/student-progress-records/{$unassignedStudentRecordForTeacher->public_id}")
             ->assertForbidden();
 
         $this->getJson('/api/v1/student-progress-records?student_id='.$this->otherStudent->id)
@@ -308,11 +308,11 @@ class StudentProgressRecordApiTest extends TestCase
 
         $this->getJson('/api/v1/student-progress-records')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $record->id);
+            ->assertJsonPath('data.0.id', $record->public_id);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/progress-summary")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/progress-summary")
             ->assertOk()
-            ->assertJsonPath('data.student.id', $this->student->id);
+            ->assertJsonPath('data.student.id', $this->student->public_id);
 
         $this->postJson('/api/v1/student-progress-records', [
             'student_id' => $this->student->id,
@@ -321,12 +321,12 @@ class StudentProgressRecordApiTest extends TestCase
         ])
             ->assertForbidden();
 
-        $this->patchJson("/api/v1/student-progress-records/{$record->id}", [
+        $this->patchJson("/api/v1/student-progress-records/{$record->public_id}", [
             'teacher_comments' => 'View permission should not allow updates.',
         ])
             ->assertForbidden();
 
-        $this->deleteJson("/api/v1/student-progress-records/{$record->id}")
+        $this->deleteJson("/api/v1/student-progress-records/{$record->public_id}")
             ->assertForbidden();
 
         $staff->givePermissionTo([
@@ -401,12 +401,12 @@ class StudentProgressRecordApiTest extends TestCase
             'recorded_at' => '2026-06-15 10:00:00',
         ]);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/progress-summary")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/progress-summary")
             ->assertOk()
-            ->assertJsonPath('data.student.id', $this->student->id)
+            ->assertJsonPath('data.student.id', $this->student->public_id)
             ->assertJsonPath('data.current_level', 'A2.2')
             ->assertJsonPath('data.previous_level', 'A2.1')
-            ->assertJsonPath('data.latest_progress_summary_per_skill_area.speaking.record_id', $latestSpeaking->id)
+            ->assertJsonPath('data.latest_progress_summary_per_skill_area.speaking.record_id', $latestSpeaking->public_id)
             ->assertJsonPath('data.latest_progress_summary_per_skill_area.speaking.summary', 'Can sustain a two-minute guided conversation.')
             ->assertJsonPath('data.speaking_confidence_rating', StudentProgressRecord::RATING_CONFIDENT)
             ->assertJsonPath('data.vocabulary_progress', 'Uses travel vocabulary without prompts.')
@@ -447,13 +447,13 @@ class StudentProgressRecordApiTest extends TestCase
             'recorded_at' => '2026-06-03 10:00:00',
         ]);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/progress-timeline?skill_area=".StudentProgressRecord::SKILL_SPEAKING)
+        $this->getJson("/api/v1/students/{$this->student->public_id}/progress-timeline?skill_area=".StudentProgressRecord::SKILL_SPEAKING)
             ->assertOk()
             ->assertJsonCount(2, 'data.records')
-            ->assertJsonPath('data.records.0.id', $older->id)
+            ->assertJsonPath('data.records.0.id', $older->public_id)
             ->assertJsonPath('data.records.0.teacher_comment.comment', 'Needs prompts to expand answers.')
             ->assertJsonPath('data.records.0.metrics.lesson_completion_count', 3)
-            ->assertJsonPath('data.records.1.id', $newer->id)
+            ->assertJsonPath('data.records.1.id', $newer->public_id)
             ->assertJsonPath('data.records.1.teacher_comment.comment', 'Expanded answers with fewer prompts.')
             ->assertJsonPath('meta.count', 2)
             ->assertJsonPath('meta.filters.skill_area', StudentProgressRecord::SKILL_SPEAKING);
@@ -463,10 +463,10 @@ class StudentProgressRecordApiTest extends TestCase
     {
         Sanctum::actingAs($this->teacher);
 
-        $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-summary")
+        $this->getJson("/api/v1/students/{$this->otherStudent->public_id}/progress-summary")
             ->assertForbidden();
 
-        $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-timeline")
+        $this->getJson("/api/v1/students/{$this->otherStudent->public_id}/progress-timeline")
             ->assertForbidden();
     }
 
@@ -481,21 +481,21 @@ class StudentProgressRecordApiTest extends TestCase
             'recorded_at' => '2026-06-01 10:00:00',
         ]);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/progress-timeline")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/progress-timeline")
             ->assertOk()
-            ->assertJsonPath('data.student.id', $this->student->id)
-            ->assertJsonPath('data.records.0.id', $record->id)
+            ->assertJsonPath('data.student.id', $this->student->public_id)
+            ->assertJsonPath('data.records.0.id', $record->public_id)
             ->assertJsonPath('data.records.0.teacher_comment.comment', 'Student-visible growth note.');
 
-        $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-timeline")
+        $this->getJson("/api/v1/students/{$this->otherStudent->public_id}/progress-timeline")
             ->assertForbidden();
 
-        $this->getJson("/api/v1/students/{$this->student->id}/progress-summary")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/progress-summary")
             ->assertOk()
-            ->assertJsonPath('data.student.id', $this->student->id)
-            ->assertJsonPath('data.latest_progress_summary_per_skill_area.'.$record->skill_area.'.record_id', $record->id);
+            ->assertJsonPath('data.student.id', $this->student->public_id)
+            ->assertJsonPath('data.latest_progress_summary_per_skill_area.'.$record->skill_area.'.record_id', $record->public_id);
 
-        $this->getJson("/api/v1/students/{$this->otherStudent->id}/progress-summary")
+        $this->getJson("/api/v1/students/{$this->otherStudent->public_id}/progress-summary")
             ->assertForbidden();
     }
 
@@ -530,7 +530,7 @@ class StudentProgressRecordApiTest extends TestCase
                 'per_page',
             ]);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/progress-timeline?skill_area=invalid_skill&date_to=not-a-date")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/progress-timeline?skill_area=invalid_skill&date_to=not-a-date")
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'skill_area',

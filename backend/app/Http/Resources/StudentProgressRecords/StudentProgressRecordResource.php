@@ -16,9 +16,9 @@ class StudentProgressRecordResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = [
-            'id' => $this->resource->id,
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
+            'id' => $this->publicId($this->resource),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
             'skill_area' => $this->resource->skill_area,
             'progress_summary_by_skill' => $this->resource->progress_summary_by_skill ?? [],
             'speaking_confidence_rating' => $this->resource->speaking_confidence_rating,
@@ -35,13 +35,13 @@ class StudentProgressRecordResource extends JsonResource
             'goal_status' => $this->resource->progress_status,
             'recorded_at' => $this->resource->recorded_at,
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
                 'timezone' => $this->resource->student->timezone,
             ]),
             'teacher' => $this->whenLoaded('teacher', fn () => [
-                'id' => $this->resource->teacher->id,
+                'id' => $this->publicId($this->resource->teacher),
                 'name' => $this->resource->teacher->name,
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,

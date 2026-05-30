@@ -97,20 +97,20 @@ class AdminClassOversightApiTest extends TestCase
         $this->getJson('/api/v1/admin/classes?teacher_id='.$this->teacher->id.'&student_id='.$this->student->id.'&course_program_id='.$courseProgram->id.'&status='.Lesson::STATUS_COMPLETED.'&from=2026-06-01&to=2026-06-01')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lesson->id)
+            ->assertJsonPath('data.0.id', $lesson->public_id)
             ->assertJsonPath('data.0.class_date_time.starts_at', '2026-06-01T09:00:00.000000Z')
-            ->assertJsonPath('data.0.teacher.id', $this->teacher->id)
-            ->assertJsonPath('data.0.student.id', $this->student->id)
+            ->assertJsonPath('data.0.teacher.id', $this->teacher->public_id)
+            ->assertJsonPath('data.0.student.id', $this->student->public_id)
             ->assertJsonPath('data.0.lesson_status', Lesson::STATUS_COMPLETED)
             ->assertJsonPath('data.0.attendance_status', LessonRecord::ATTENDANCE_PRESENT)
             ->assertJsonPath('data.0.teacher_note_available', true)
-            ->assertJsonPath('data.0.teacher_note_id', $lessonNote->id)
+            ->assertJsonPath('data.0.teacher_note_id', $lessonNote->public_id)
             ->assertJsonPath('data.0.issue_count', 1);
 
         $this->getJson('/api/v1/admin/classes?teacher_id='.$this->otherTeacher->id)
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $otherLesson->id)
+            ->assertJsonPath('data.0.id', $otherLesson->public_id)
             ->assertJsonPath('data.0.teacher_note_available', false)
             ->assertJsonPath('data.0.issue_count', 0);
     }
@@ -126,18 +126,18 @@ class AdminClassOversightApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson('/api/v1/admin/classes/'.$lesson->id.'/teacher-notes')
+        $this->getJson('/api/v1/admin/classes/'.$lesson->public_id.'/teacher-notes')
             ->assertOk()
-            ->assertJsonPath('data.id', $lessonNote->id)
+            ->assertJsonPath('data.id', $lessonNote->public_id)
             ->assertJsonPath('data.internal_note', 'Needs more pronunciation drilling.')
             ->assertJsonPath('data.review_status', LessonNote::REVIEW_STATUS_PENDING);
 
-        $this->patchJson('/api/v1/admin/teacher-notes/'.$lessonNote->id.'/review', [
+        $this->patchJson('/api/v1/admin/teacher-notes/'.$lessonNote->public_id.'/review', [
             'review_status' => LessonNote::REVIEW_STATUS_FLAGGED,
             'review_note' => 'Follow up with the teacher before sharing feedback.',
         ])
             ->assertOk()
-            ->assertJsonPath('data.id', $lessonNote->id)
+            ->assertJsonPath('data.id', $lessonNote->public_id)
             ->assertJsonPath('data.review_status', LessonNote::REVIEW_STATUS_FLAGGED)
             ->assertJsonPath('data.review_note', 'Follow up with the teacher before sharing feedback.')
             ->assertJsonPath('data.reviewed_by', $this->admin->id)
@@ -164,9 +164,9 @@ class AdminClassOversightApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/classes')
             ->assertForbidden();
-        $this->getJson('/api/v1/admin/classes/'.$lesson->id.'/teacher-notes')
+        $this->getJson('/api/v1/admin/classes/'.$lesson->public_id.'/teacher-notes')
             ->assertForbidden();
-        $this->patchJson('/api/v1/admin/teacher-notes/'.$lessonNote->id.'/review', [
+        $this->patchJson('/api/v1/admin/teacher-notes/'.$lessonNote->public_id.'/review', [
             'review_status' => LessonNote::REVIEW_STATUS_REVIEWED,
         ])->assertForbidden();
 
@@ -175,10 +175,10 @@ class AdminClassOversightApiTest extends TestCase
         $this->getJson('/api/v1/admin/classes')
             ->assertOk()
             ->assertJsonCount(1, 'data');
-        $this->getJson('/api/v1/admin/classes/'.$lesson->id.'/teacher-notes')
+        $this->getJson('/api/v1/admin/classes/'.$lesson->public_id.'/teacher-notes')
             ->assertOk()
-            ->assertJsonPath('data.id', $lessonNote->id);
-        $this->patchJson('/api/v1/admin/teacher-notes/'.$lessonNote->id.'/review', [
+            ->assertJsonPath('data.id', $lessonNote->public_id);
+        $this->patchJson('/api/v1/admin/teacher-notes/'.$lessonNote->public_id.'/review', [
             'review_status' => LessonNote::REVIEW_STATUS_REVIEWED,
         ])->assertForbidden();
 
@@ -186,7 +186,7 @@ class AdminClassOversightApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/classes')
             ->assertForbidden();
-        $this->getJson('/api/v1/admin/classes/'.$lesson->id.'/teacher-notes')
+        $this->getJson('/api/v1/admin/classes/'.$lesson->public_id.'/teacher-notes')
             ->assertForbidden();
     }
 

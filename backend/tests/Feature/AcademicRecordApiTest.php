@@ -86,9 +86,9 @@ class AcademicRecordApiTest extends TestCase
             'internal_notes' => 'Discuss scholarship eligibility internally.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.course_program_id', $courseProgram->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.course_program_id', $courseProgram->public_id)
             ->assertJsonPath('data.record_type', AcademicRecord::TYPE_PLACEMENT)
             ->assertJsonPath('data.student_level', 'B1')
             ->assertJsonPath('data.internal_notes', 'Discuss scholarship eligibility internally.')
@@ -107,8 +107,8 @@ class AcademicRecordApiTest extends TestCase
         $this->getJson("/api/v1/academic-records/{$recordId}")
             ->assertOk()
             ->assertJsonPath('data.id', $recordId)
-            ->assertJsonPath('data.student.id', $this->student->id)
-            ->assertJsonPath('data.course_program.id', $courseProgram->id)
+            ->assertJsonPath('data.student.id', $this->student->public_id)
+            ->assertJsonPath('data.course_program.id', $courseProgram->public_id)
             ->assertJsonPath('data.internal_notes', 'Discuss scholarship eligibility internally.');
 
         $this->postJson("/api/v1/academic-records/{$recordId}/archive")
@@ -117,7 +117,7 @@ class AcademicRecordApiTest extends TestCase
             ->assertJsonPath('data.archived_by', $this->admin->id);
 
         $this->assertDatabaseHas('academic_records', [
-            'id' => $recordId,
+            'public_id' => $recordId,
             'status' => AcademicRecord::STATUS_ARCHIVED,
             'archived_by' => $this->admin->id,
         ]);
@@ -139,17 +139,17 @@ class AcademicRecordApiTest extends TestCase
         $this->getJson('/api/v1/academic-records?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $assignedRecord->id)
+            ->assertJsonPath('data.0.id', $assignedRecord->public_id)
             ->assertJsonMissingPath('data.0.internal_notes')
             ->assertJsonMissingPath('data.0.data.internal_notes');
 
-        $this->getJson("/api/v1/academic-records/{$assignedRecord->id}")
+        $this->getJson("/api/v1/academic-records/{$assignedRecord->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $assignedRecord->id)
+            ->assertJsonPath('data.id', $assignedRecord->public_id)
             ->assertJsonMissingPath('data.internal_notes')
             ->assertJsonMissingPath('data.data.internal_notes');
 
-        $this->getJson("/api/v1/academic-records/{$otherRecord->id}")
+        $this->getJson("/api/v1/academic-records/{$otherRecord->public_id}")
             ->assertForbidden();
 
         $this->postJson('/api/v1/academic-records', [
@@ -176,18 +176,18 @@ class AcademicRecordApiTest extends TestCase
         $this->getJson('/api/v1/academic-records?per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $record->id)
+            ->assertJsonPath('data.0.id', $record->public_id)
             ->assertJsonMissingPath('data.0.internal_notes');
 
-        $this->getJson("/api/v1/academic-records/{$record->id}")
+        $this->getJson("/api/v1/academic-records/{$record->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $record->id)
+            ->assertJsonPath('data.id', $record->public_id)
             ->assertJsonMissingPath('data.internal_notes');
 
         $this->getJson('/api/v1/academic-records?student_id='.$this->otherStudent->id)
             ->assertForbidden();
 
-        $this->getJson("/api/v1/academic-records/{$otherRecord->id}")
+        $this->getJson("/api/v1/academic-records/{$otherRecord->public_id}")
             ->assertForbidden();
     }
 
@@ -215,7 +215,7 @@ class AcademicRecordApiTest extends TestCase
 
         $this->getJson('/api/v1/academic-records')
             ->assertForbidden();
-        $this->getJson("/api/v1/academic-records/{$record->id}")
+        $this->getJson("/api/v1/academic-records/{$record->public_id}")
             ->assertForbidden();
     }
 
@@ -237,18 +237,18 @@ class AcademicRecordApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonMissingPath('data.0.internal_notes');
-        $this->getJson("/api/v1/academic-records/{$record->id}")
+        $this->getJson("/api/v1/academic-records/{$record->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $record->id)
+            ->assertJsonPath('data.id', $record->public_id)
             ->assertJsonMissingPath('data.internal_notes')
             ->assertJsonMissingPath('data.data.internal_notes');
 
-        $this->postJson("/api/v1/academic-records/{$record->id}/archive")
+        $this->postJson("/api/v1/academic-records/{$record->public_id}/archive")
             ->assertForbidden();
 
         $this->staff->givePermissionTo('academic_records.manage');
 
-        $this->postJson("/api/v1/academic-records/{$record->id}/archive")
+        $this->postJson("/api/v1/academic-records/{$record->public_id}/archive")
             ->assertOk()
             ->assertJsonPath('data.status', AcademicRecord::STATUS_ARCHIVED)
             ->assertJsonPath('data.archived_by', $this->staff->id);

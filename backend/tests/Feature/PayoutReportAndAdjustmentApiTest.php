@@ -101,7 +101,7 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")
+        $this->getJson("/api/v1/admin/payout-periods/{$this->period->public_id}/report")
             ->assertOk()
             ->assertJsonPath('data.scope', 'period')
             ->assertJsonPath('data.payout_period.id', $this->period->id)
@@ -129,7 +129,7 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson("/api/v1/admin/teachers/{$this->teacher->id}/payout-report?payout_period_id={$this->period->id}")
+        $this->getJson("/api/v1/admin/teachers/{$this->teacher->public_id}/payout-report?payout_period_id={$this->period->id}")
             ->assertOk()
             ->assertJsonPath('data.scope', 'teacher')
             ->assertJsonPath('data.teacher.id', $this->teacher->id)
@@ -144,12 +144,12 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
         $staff->assignRole('staff');
 
         Sanctum::actingAs($staff);
-        $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")->assertForbidden();
+        $this->getJson("/api/v1/admin/payout-periods/{$this->period->public_id}/report")->assertForbidden();
         $this->getJson('/api/v1/admin/payout-adjustments')->assertForbidden();
 
         $staff->givePermissionTo('payroll.view');
 
-        $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")->assertOk();
+        $this->getJson("/api/v1/admin/payout-periods/{$this->period->public_id}/report")->assertOk();
         $this->getJson('/api/v1/admin/payout-adjustments')->assertOk();
         $this->postJson('/api/v1/admin/payout-adjustments', [
             'teacher_id' => $this->teacher->id,
@@ -173,8 +173,8 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
         $student->assignRole('student');
 
         Sanctum::actingAs($student);
-        $this->getJson("/api/v1/admin/payout-periods/{$this->period->id}/report")->assertForbidden();
-        $this->getJson("/api/v1/admin/teachers/{$this->teacher->id}/payout-report")->assertForbidden();
+        $this->getJson("/api/v1/admin/payout-periods/{$this->period->public_id}/report")->assertForbidden();
+        $this->getJson("/api/v1/admin/teachers/{$this->teacher->public_id}/payout-report")->assertForbidden();
         $this->getJson('/api/v1/admin/payout-adjustments')->assertForbidden();
         $this->postJson('/api/v1/admin/payout-adjustments', [
             'teacher_id' => $this->teacher->id,

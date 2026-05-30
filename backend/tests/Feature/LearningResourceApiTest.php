@@ -519,11 +519,11 @@ class LearningResourceApiTest extends TestCase
             'visibility' => LearningResource::VISIBILITY_ADMIN_ONLY,
         ]);
 
-        $this->getJson('/api/v1/learning-resources/'.$visible->id)
+        $this->getJson('/api/v1/learning-resources/'.$visible->public_id)
             ->assertOk()
             ->assertJsonPath('data.title', 'Student handout');
 
-        $this->getJson('/api/v1/learning-resources/'.$hidden->id)
+        $this->getJson('/api/v1/learning-resources/'.$hidden->public_id)
             ->assertForbidden();
     }
 
@@ -823,11 +823,11 @@ class LearningResourceApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson('/api/v1/learning-resources/'.$ownResource->id.'/download')
+        $this->getJson('/api/v1/learning-resources/'.$ownResource->public_id.'/download')
             ->assertOk()
             ->assertDownload('downloadable.pdf');
 
-        $this->getJson('/api/v1/learning-resources/'.$otherResource->id.'/download')
+        $this->getJson('/api/v1/learning-resources/'.$otherResource->public_id.'/download')
             ->assertForbidden();
     }
 
@@ -849,7 +849,7 @@ class LearningResourceApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson('/api/v1/learning-resources/'.$teacherOnlyResource->id.'/download')
+        $this->getJson('/api/v1/learning-resources/'.$teacherOnlyResource->public_id.'/download')
             ->assertForbidden();
     }
 
@@ -884,13 +884,13 @@ class LearningResourceApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson('/api/v1/learning-resources/'.$visibleLink->id.'/download')
+        $this->getJson('/api/v1/learning-resources/'.$visibleLink->public_id.'/download')
             ->assertOk()
             ->assertJsonPath('data.type', LearningResource::TYPE_LINK)
             ->assertJsonPath('data.url', 'https://example.com/speaking')
             ->assertJsonPath('data.preview_metadata.provider', 'external');
 
-        $this->getJson('/api/v1/learning-resources/'.$teacherOnlyLink->id.'/download')
+        $this->getJson('/api/v1/learning-resources/'.$teacherOnlyLink->public_id.'/download')
             ->assertForbidden();
     }
 
@@ -1034,13 +1034,13 @@ class LearningResourceApiTest extends TestCase
             ->assertJsonValidationErrors('lesson_id');
         $this->assertSame(1, $resource->assignedLessons()->whereKey($lesson->id)->count());
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/lesson-notes')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/lesson-notes')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonPath('data.0.id', $lessonNote->public_id)
             ->assertJsonPath('data.0.lesson.learning_resources.0.id', $resource->public_id)
             ->assertJsonPath('data.0.lesson.learning_resources.0.assignment.assigned_by', $this->admin->id);
 
-        $this->deleteJson('/api/v1/learning-resources/'.$resource->public_id.'/lessons/'.$lesson->id)
+        $this->deleteJson('/api/v1/learning-resources/'.$resource->public_id.'/lessons/'.$lesson->public_id)
             ->assertNoContent();
 
         $this->assertDatabaseMissing('learning_resource_lesson', [

@@ -51,8 +51,8 @@ class TeacherChangeRequestApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.current_teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.current_teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.status', TeacherChangeRequest::STATUS_PENDING)
             ->assertJsonMissingPath('data.admin_notes')
             ->assertJsonMissingPath('data.reviewed_by');
@@ -98,9 +98,9 @@ class TeacherChangeRequestApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-change-requests/pending')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $request->id);
+            ->assertJsonPath('data.0.id', $request->public_id);
 
-        $response = $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/reject", [
+        $response = $this->postJson("/api/v1/admin/teacher-change-requests/{$request->public_id}/reject", [
             'review_reason' => 'Please try the new class schedule first.',
             'admin_notes' => 'Reviewed with student support.',
         ]);
@@ -122,7 +122,7 @@ class TeacherChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson("/api/v1/teacher-change-requests/{$request->id}")
+        $this->getJson("/api/v1/teacher-change-requests/{$request->public_id}")
             ->assertOk()
             ->assertJsonMissingPath('data.admin_notes')
             ->assertJsonMissingPath('data.reviewed_by');
@@ -141,7 +141,7 @@ class TeacherChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
+        $response = $this->postJson("/api/v1/admin/teacher-change-requests/{$request->public_id}/approve", [
             'new_teacher_id' => $newTeacher->id,
             'reassign' => true,
             'review_reason' => 'Approved for evening availability.',
@@ -151,7 +151,7 @@ class TeacherChangeRequestApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.status', TeacherChangeRequest::STATUS_APPROVED)
-            ->assertJsonPath('data.approved_teacher_id', $newTeacher->id);
+            ->assertJsonPath('data.approved_teacher_id', $newTeacher->public_id);
         $this->assertResponseDoesNotExposeTeacherPayroll($response->json());
 
         $this->assertDatabaseHas('teacher_student_assignments', [
@@ -188,7 +188,7 @@ class TeacherChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
+        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->public_id}/approve", [
             'new_teacher_id' => $unavailableTeacher->id,
             'reassign' => false,
         ])
@@ -207,7 +207,7 @@ class TeacherChangeRequestApiTest extends TestCase
         $assignedStudent->assignRole('student');
         $this->createActiveAssignment($assignedStudent, $fullTeacher);
 
-        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/approve", [
+        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->public_id}/approve", [
             'new_teacher_id' => $fullTeacher->id,
             'reassign' => false,
         ])
@@ -236,14 +236,14 @@ class TeacherChangeRequestApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-change-requests/pending')
             ->assertOk();
 
-        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/reject", [
+        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->public_id}/reject", [
             'review_reason' => 'Not approved.',
         ])
             ->assertForbidden();
 
         $staff->givePermissionTo('teacher_change_requests.manage');
 
-        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->id}/reject", [
+        $this->postJson("/api/v1/admin/teacher-change-requests/{$request->public_id}/reject", [
             'review_reason' => 'Not approved.',
         ])
             ->assertOk();
@@ -253,7 +253,7 @@ class TeacherChangeRequestApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-change-requests/pending')
             ->assertForbidden();
 
-        $this->getJson("/api/v1/teacher-change-requests/{$request->id}")
+        $this->getJson("/api/v1/teacher-change-requests/{$request->public_id}")
             ->assertForbidden();
     }
 
@@ -266,7 +266,7 @@ class TeacherChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $this->postJson("/api/v1/teacher-change-requests/{$request->id}/cancel", [
+        $this->postJson("/api/v1/teacher-change-requests/{$request->public_id}/cancel", [
             'review_reason' => 'I no longer need a different teacher.',
         ])
             ->assertOk()
@@ -277,7 +277,7 @@ class TeacherChangeRequestApiTest extends TestCase
 
         Sanctum::actingAs($otherStudent);
 
-        $this->getJson("/api/v1/teacher-change-requests/{$request->id}")
+        $this->getJson("/api/v1/teacher-change-requests/{$request->public_id}")
             ->assertForbidden();
     }
 

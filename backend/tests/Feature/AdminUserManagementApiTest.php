@@ -124,7 +124,7 @@ class AdminUserManagementApiTest extends TestCase
         $student->assignRole('student');
         $student->studentProfile()->create(['english_level' => 'A2']);
 
-        $response = $this->patchJson("/api/v1/users/{$student->id}", [
+        $response = $this->patchJson("/api/v1/users/{$student->public_id}", [
             'name' => 'Updated Student',
             'phone' => '+15551239999',
             'timezone' => 'Asia/Manila',
@@ -151,15 +151,15 @@ class AdminUserManagementApiTest extends TestCase
         $student = User::factory()->create(['status' => User::STATUS_INVITED]);
         $student->assignRole('student');
 
-        $this->postJson("/api/v1/users/{$student->id}/activate", [
+        $this->postJson("/api/v1/users/{$student->public_id}/activate", [
             'reason' => 'Ready for lessons',
         ])->assertOk()->assertJsonPath('data.status', User::STATUS_ACTIVE);
 
-        $this->postJson("/api/v1/users/{$student->id}/deactivate", [
+        $this->postJson("/api/v1/users/{$student->public_id}/deactivate", [
             'reason' => 'Paused subscription',
         ])->assertOk()->assertJsonPath('data.status', User::STATUS_INACTIVE);
 
-        $history = $this->getJson("/api/v1/users/{$student->id}/status-history");
+        $history = $this->getJson("/api/v1/users/{$student->public_id}/status-history");
 
         $history
             ->assertOk()
@@ -180,7 +180,7 @@ class AdminUserManagementApiTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('student');
 
-        $response = $this->postJson("/api/v1/users/{$user->id}/roles", [
+        $response = $this->postJson("/api/v1/users/{$user->public_id}/roles", [
             'role' => 'staff',
             'permissions' => ['users.view', 'users.create'],
         ]);
@@ -222,7 +222,7 @@ class AdminUserManagementApiTest extends TestCase
             'access_limitations' => 'Scheduling only',
         ]);
 
-        $this->patchJson("/api/v1/users/{$staff->id}", [
+        $this->patchJson("/api/v1/users/{$staff->public_id}", [
             'staff_profile' => [
                 'access_limitations' => 'Scheduling and billing',
             ],
@@ -247,7 +247,7 @@ class AdminUserManagementApiTest extends TestCase
         $staff->assignRole('staff');
         $staff->staffProfile()->create();
 
-        $this->patchJson("/api/v1/users/{$staff->id}", [
+        $this->patchJson("/api/v1/users/{$staff->public_id}", [
             'permissions' => ['invoices.update'],
         ])->assertOk();
 
@@ -260,7 +260,7 @@ class AdminUserManagementApiTest extends TestCase
         $this->assertNotNull($addedAudit);
         $this->assertTrue(($addedAudit->metadata['changed_fields']['permissions'] ?? false) === true);
 
-        $this->patchJson("/api/v1/users/{$staff->id}", [
+        $this->patchJson("/api/v1/users/{$staff->public_id}", [
             'permissions' => [],
         ])->assertOk();
 

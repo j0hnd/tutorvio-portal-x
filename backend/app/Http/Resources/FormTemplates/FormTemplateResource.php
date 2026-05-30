@@ -17,7 +17,7 @@ class FormTemplateResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'key' => $this->resource->key,
             'title' => $this->resource->name,
             'name' => $this->resource->name,

@@ -41,14 +41,14 @@ class ClassOversightController extends Controller
         return response()->json(
             Lesson::query()
                 ->with([
-                    'student:id,name,email,timezone',
-                    'teacher:id,name,email,timezone',
+                    'student:id,public_id,name,email,timezone',
+                    'teacher:id,public_id,name,email,timezone',
                     'lessonNote.lesson:id,status,start_time,end_time',
                     'lessonNote.lesson.learningResources',
                     'lessonNote.lessonRecord:id,attendance_status,lesson_status',
-                    'lessonNote.student:id,name,email,timezone',
-                    'lessonNote.teacher:id,name,email,timezone',
-                    'lessonNote.author:id,name,email',
+                    'lessonNote.student:id,public_id,name,email,timezone',
+                    'lessonNote.teacher:id,public_id,name,email,timezone',
+                    'lessonNote.author:id,public_id,name,email',
                 ])
                 ->withCount('issueReports')
                 ->when($teacherId, fn (Builder $query, int $id) => $query->where('teacher_id', $id))
@@ -72,9 +72,9 @@ class ClassOversightController extends Controller
         $lesson->load([
             'lessonNote.lesson:id,status,start_time,end_time',
             'lessonNote.lesson.learningResources',
-            'lessonNote.student:id,name,email,timezone',
-            'lessonNote.teacher:id,name,email,timezone',
-            'lessonNote.author:id,name,email',
+            'lessonNote.student:id,public_id,name,email,timezone',
+            'lessonNote.teacher:id,public_id,name,email,timezone',
+            'lessonNote.author:id,public_id,name,email',
         ]);
 
         abort_if($lesson->lessonNote === null, 404, 'Teacher notes were not found for this class.');

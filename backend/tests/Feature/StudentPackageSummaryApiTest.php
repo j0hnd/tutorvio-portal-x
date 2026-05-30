@@ -59,7 +59,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk()
             ->assertJsonPath('data.name', 'Intensive 20 Lessons')
             ->assertJsonPath('data.plan_name', 'Intensive 20 Lessons')
@@ -94,7 +94,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$otherStudent->id}/package-summary")
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/package-summary")
             ->assertForbidden()
             ->assertJsonMissing(['internal_notes' => 'Other student private note.']);
     }
@@ -112,7 +112,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk()
             ->assertJsonMissingPath('data.payment_status')
             ->assertJsonMissingPath('data.invoice_reference');
@@ -137,7 +137,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk()
             ->assertJsonPath('data.plan_name', 'Assigned Student Package')
             ->assertJsonPath('data.total_lessons', 12)
@@ -166,7 +166,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertForbidden()
             ->assertJsonMissing(['invoice_reference' => 'INV-UNASSIGNED-HIDDEN'])
             ->assertJsonMissing(['internal_notes' => 'Unassigned teacher must not see this.']);
@@ -179,7 +179,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk()
             ->assertJsonPath('data.status', 'frozen');
     }
@@ -190,7 +190,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-summary")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk()
             ->assertJsonPath('data', null);
     }
@@ -228,7 +228,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-history")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-history")
             ->assertOk()
             ->assertJsonPath('data.0.event_type', SubscriptionHistory::EVENT_ASSIGNED)
             ->assertJsonMissingPath('data.0.payment_status')
@@ -252,7 +252,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-history")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-history")
             ->assertForbidden();
     }
 
@@ -267,7 +267,7 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$otherStudent->id}/package-history")
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/package-history")
             ->assertForbidden()
             ->assertJsonMissing(['notes' => 'Other private note.']);
     }
@@ -289,13 +289,13 @@ class StudentPackageSummaryApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->getJson("/api/v1/students/{$student->id}/package-history")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-history")
             ->assertForbidden()
             ->assertJsonMissing(['notes' => 'Staff billing note.']);
 
         $staff->givePermissionTo('subscriptions.view');
 
-        $this->getJson("/api/v1/students/{$student->id}/package-history")
+        $this->getJson("/api/v1/students/{$student->public_id}/package-history")
             ->assertOk()
             ->assertJsonPath('data.0.event_type', SubscriptionHistory::EVENT_PAYMENT_CHANGED)
             ->assertJsonPath('data.0.payment_status', Subscription::PAYMENT_STATUS_PAID)

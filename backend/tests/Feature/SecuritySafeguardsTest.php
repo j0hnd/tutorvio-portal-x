@@ -44,13 +44,13 @@ class SecuritySafeguardsTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/student-progress-records/{$ownRecord->id}")
+        $this->getJson("/api/v1/student-progress-records/{$ownRecord->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $ownRecord->id);
+            ->assertJsonPath('data.id', $ownRecord->public_id);
 
-        $this->getJson("/api/v1/student-progress-records/{$otherRecord->id}")
+        $this->getJson("/api/v1/student-progress-records/{$otherRecord->public_id}")
             ->assertForbidden()
-            ->assertJsonMissing(['id' => $otherRecord->id]);
+            ->assertJsonMissing(['id' => $otherRecord->public_id]);
     }
 
     public function test_teacher_cannot_access_unassigned_student_progress_records(): void
@@ -74,13 +74,13 @@ class SecuritySafeguardsTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/student-progress-records/{$assignedRecord->id}")
+        $this->getJson("/api/v1/student-progress-records/{$assignedRecord->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $assignedRecord->id);
+            ->assertJsonPath('data.id', $assignedRecord->public_id);
 
-        $this->getJson("/api/v1/student-progress-records/{$unassignedRecord->id}")
+        $this->getJson("/api/v1/student-progress-records/{$unassignedRecord->public_id}")
             ->assertForbidden()
-            ->assertJsonMissing(['id' => $unassignedRecord->id]);
+            ->assertJsonMissing(['id' => $unassignedRecord->public_id]);
     }
 
     public function test_student_cannot_see_lesson_note_internal_remarks_or_review_fields(): void
@@ -113,7 +113,7 @@ class SecuritySafeguardsTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/lesson-notes/{$lessonNote->id}")
+        $this->getJson("/api/v1/lesson-notes/{$lessonNote->public_id}")
             ->assertOk()
             ->assertJsonPath('data.lesson_objective', 'Practice introductions.')
             ->assertJsonMissingPath('data.internal_note')

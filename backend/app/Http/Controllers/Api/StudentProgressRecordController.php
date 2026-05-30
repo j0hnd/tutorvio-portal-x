@@ -373,7 +373,7 @@ class StudentProgressRecordController extends Controller
     private function studentPayload(User $student): array
     {
         return [
-            'id' => $student->id,
+            'id' => $student->public_id,
             'name' => $student->name,
             'email' => $student->email,
             'timezone' => $student->timezone,
@@ -427,7 +427,7 @@ class StudentProgressRecordController extends Controller
         return [
             'skill_area' => $skillArea,
             'summary' => $summary,
-            'record_id' => $record->id,
+            'record_id' => $record->public_id,
             'recorded_at' => $record->recorded_at,
             'progress_status' => $record->progress_status,
             'teacher_comments' => $record->teacher_comments,
@@ -510,7 +510,7 @@ class StudentProgressRecordController extends Controller
                 ->filter(fn (mixed $achievement) => is_string($achievement) && ! blank($achievement))
                 ->map(fn (string $achievement) => [
                     'achievement' => $achievement,
-                    'record_id' => $record->id,
+                    'record_id' => $record->public_id,
                     'recorded_at' => $record->recorded_at,
                 ]))
             ->unique('achievement')
@@ -526,7 +526,7 @@ class StudentProgressRecordController extends Controller
         return $records
             ->filter(fn (StudentProgressRecord $record) => ! blank($record->level_movement))
             ->map(fn (StudentProgressRecord $record) => [
-                'record_id' => $record->id,
+                'record_id' => $record->public_id,
                 'recorded_at' => $record->recorded_at,
                 'level_movement' => $record->level_movement,
                 'teacher_comments' => $record->teacher_comments,
@@ -540,7 +540,7 @@ class StudentProgressRecordController extends Controller
     private function timelineRecord(StudentProgressRecord $record): array
     {
         return [
-            'id' => $record->id,
+            'id' => $record->public_id,
             'recorded_at' => $record->recorded_at,
             'date' => $record->recorded_at?->toDateString(),
             'skill_area' => $record->skill_area,
@@ -566,7 +566,7 @@ class StudentProgressRecordController extends Controller
             'teacher_comment' => [
                 'comment' => $record->teacher_comments,
                 'teacher' => $record->relationLoaded('teacher') && $record->teacher !== null ? [
-                    'id' => $record->teacher->id,
+                    'id' => $record->teacher->public_id,
                     'name' => $record->teacher->name,
                     'email' => $record->teacher->email,
                 ] : null,
@@ -580,8 +580,8 @@ class StudentProgressRecordController extends Controller
     private function relations(): array
     {
         return [
-            'student:id,name,email,timezone',
-            'teacher:id,name,email,timezone',
+            'student:id,public_id,name,email,timezone',
+            'teacher:id,public_id,name,email,timezone',
             'createdBy:id,name,email',
             'updatedBy:id,name,email',
         ];

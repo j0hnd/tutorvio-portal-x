@@ -24,7 +24,7 @@ class IssueReportResource extends JsonResource
             ));
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'type' => $this->resource->issue_type,
             'issue_type' => $this->resource->issue_type,
             'status' => $this->resource->status,

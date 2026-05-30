@@ -93,7 +93,7 @@ class TeacherEarningApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson("/api/v1/admin/teachers/{$this->teacher->id}/teacher-earnings")
+        $this->getJson("/api/v1/admin/teachers/{$this->teacher->public_id}/teacher-earnings")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $earning->id)
@@ -185,7 +185,7 @@ class TeacherEarningApiTest extends TestCase
             ->assertJsonPath('data.0.id', $ownEarning->id)
             ->assertJsonMissing(['id' => $otherEarning->id]);
 
-        $this->getJson("/api/v1/admin/teachers/{$this->otherTeacher->id}/teacher-earnings")
+        $this->getJson("/api/v1/admin/teachers/{$this->otherTeacher->public_id}/teacher-earnings")
             ->assertForbidden();
     }
 

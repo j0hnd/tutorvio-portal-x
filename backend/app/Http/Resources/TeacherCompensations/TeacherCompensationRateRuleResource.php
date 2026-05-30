@@ -2,19 +2,22 @@
 
 namespace App\Http\Resources\TeacherCompensations;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TeacherCompensationRateRuleResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
-            'teacher_compensation_id' => $this->resource->teacher_compensation_id,
+            'id' => $this->publicId($this->resource),
+            'teacher_compensation_id' => $this->whenLoaded('teacherCompensation', fn () => $this->publicId($this->resource->teacherCompensation)),
             'lesson_type' => $this->resource->lesson_type,
             'lesson_type_override_rate' => $this->when($this->resource->lesson_type !== null, $this->resource->pay_rate),
             'experience_level' => $this->resource->experience_level,

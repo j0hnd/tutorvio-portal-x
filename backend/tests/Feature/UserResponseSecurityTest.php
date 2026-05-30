@@ -97,7 +97,7 @@ class UserResponseSecurityTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$student->id}/invoices")
+        $this->getJson("/api/v1/students/{$student->public_id}/invoices")
             ->assertOk()
             ->assertJsonMissingPath('data.0.payment_reference')
             ->assertJsonMissingPath('data.0.metadata')
@@ -127,7 +127,7 @@ class UserResponseSecurityTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+        $this->getJson("/api/v1/issue-reports/{$issue->public_id}")
             ->assertOk()
             ->assertJsonPath('data.title', 'Cannot join class')
             ->assertJsonMissingPath('data.assigned_to_id')

@@ -2,18 +2,21 @@
 
 namespace App\Http\Resources\TeacherCompensations;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TeacherCompensationResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'teacher_id' => $this->resource->teacher_id,
             'pay_model' => $this->resource->pay_model,
             'base_rate' => $this->resource->default_pay_rate,

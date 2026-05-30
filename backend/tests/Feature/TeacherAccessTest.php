@@ -43,11 +43,11 @@ class TeacherAccessTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/students/{$assignedStudent->id}/package-summary")
+        $this->getJson("/api/v1/students/{$assignedStudent->public_id}/package-summary")
             ->assertOk()
             ->assertJsonMissingPath('data.internal_notes');
 
-        $this->getJson("/api/v1/students/{$unassignedStudent->id}/package-summary")
+        $this->getJson("/api/v1/students/{$unassignedStudent->public_id}/package-summary")
             ->assertForbidden()
             ->assertJsonMissing(['internal_notes' => 'Unassigned private note']);
     }
@@ -61,7 +61,7 @@ class TeacherAccessTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/users/{$student->id}/profile")
+        $this->getJson("/api/v1/users/{$student->public_id}/profile")
             ->assertNotFound();
     }
 

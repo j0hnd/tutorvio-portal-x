@@ -59,7 +59,7 @@ class ProfileApiTest extends TestCase
         $student2 = User::factory()->create();
         $student2->assignRole('student');
 
-        $response = $this->actingAs($student1)->getJson('/api/v1/users/'.$student2->id.'/profile');
+        $response = $this->actingAs($student1)->getJson('/api/v1/users/'.$student2->public_id.'/profile');
 
         $response->assertStatus(403);
     }

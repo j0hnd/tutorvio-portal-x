@@ -79,7 +79,7 @@ class CourseCatalogApiTest extends TestCase
             'title' => 'Legacy Foundation',
         ]);
 
-        $this->postJson("/api/v1/course-types/{$courseType->id}/archive")
+        $this->postJson("/api/v1/course-types/{$courseType->public_id}/archive")
             ->assertOk()
             ->assertJsonPath('data.is_archived', true)
             ->assertJsonPath('data.archived_by', $this->admin->id);
@@ -217,7 +217,7 @@ class CourseCatalogApiTest extends TestCase
             'attached_by' => $this->admin->id,
         ]);
 
-        $this->deleteJson("/api/v1/course-programs/{$program->public_id}/learning-resources/{$worksheet->id}")
+        $this->deleteJson("/api/v1/course-programs/{$program->public_id}/learning-resources/{$worksheet->public_id}")
             ->assertOk()
             ->assertJsonCount(1, 'data.learning_resources')
             ->assertJsonPath('data.learning_resources.0.id', $document->public_id);
@@ -264,13 +264,13 @@ class CourseCatalogApiTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.student.status', User::STATUS_ACTIVE);
 
-        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+        $this->getJson("/api/v1/students/{$student->public_id}/course-programs")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.course_program.id', $program->public_id)
-            ->assertJsonPath('data.0.course_program.course_type.id', $courseType->id);
+            ->assertJsonPath('data.0.course_program.course_type.id', $courseType->public_id);
 
-        $this->deleteJson("/api/v1/course-programs/{$program->public_id}/students/{$student->id}")
+        $this->deleteJson("/api/v1/course-programs/{$program->public_id}/students/{$student->public_id}")
             ->assertNoContent();
 
         $this->assertDatabaseHas('course_program_student_assignments', [
@@ -292,21 +292,21 @@ class CourseCatalogApiTest extends TestCase
         $firstProgram = CourseProgram::factory()->create();
         $secondProgram = CourseProgram::factory()->create();
 
-        $this->postJson("/api/v1/course-programs/{$firstProgram->id}/students", [
+        $this->postJson("/api/v1/course-programs/{$firstProgram->public_id}/students", [
             'student_ids' => [$student->id],
         ])->assertCreated();
 
-        $this->postJson("/api/v1/course-programs/{$firstProgram->id}/students", [
+        $this->postJson("/api/v1/course-programs/{$firstProgram->public_id}/students", [
             'student_ids' => [$student->id],
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('student_ids');
 
-        $this->postJson("/api/v1/course-programs/{$secondProgram->id}/students", [
+        $this->postJson("/api/v1/course-programs/{$secondProgram->public_id}/students", [
             'student_ids' => [$student->id],
         ])->assertCreated();
 
-        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+        $this->getJson("/api/v1/students/{$student->public_id}/course-programs")
             ->assertOk()
             ->assertJsonCount(2, 'data');
     }
@@ -365,10 +365,10 @@ class CourseCatalogApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $visibleProgram->public_id);
 
-        $this->getJson("/api/v1/course-programs/{$hiddenProgram->id}")
+        $this->getJson("/api/v1/course-programs/{$hiddenProgram->public_id}")
             ->assertForbidden();
 
-        $this->getJson("/api/v1/course-programs/{$archivedProgram->id}")
+        $this->getJson("/api/v1/course-programs/{$archivedProgram->public_id}")
             ->assertNotFound();
     }
 
@@ -402,15 +402,15 @@ class CourseCatalogApiTest extends TestCase
             ->assertJsonPath('data.id', $visibleProgram->public_id)
             ->assertJsonMissingPath('data.created_by');
 
-        $this->getJson("/api/v1/course-programs/{$hiddenProgram->id}")
+        $this->getJson("/api/v1/course-programs/{$hiddenProgram->public_id}")
             ->assertForbidden();
 
-        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+        $this->getJson("/api/v1/students/{$student->public_id}/course-programs")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.course_program.id', $visibleProgram->public_id);
 
-        $this->getJson("/api/v1/students/{$otherStudent->id}/course-programs")
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/course-programs")
             ->assertForbidden();
     }
 
@@ -429,12 +429,12 @@ class CourseCatalogApiTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/students/{$student->id}/course-programs")
+        $this->getJson("/api/v1/students/{$student->public_id}/course-programs")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.course_program.id', $program->public_id);
 
-        $this->getJson("/api/v1/students/{$otherStudent->id}/course-programs")
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/course-programs")
             ->assertForbidden();
     }
 

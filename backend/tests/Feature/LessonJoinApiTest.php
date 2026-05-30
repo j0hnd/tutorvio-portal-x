@@ -53,9 +53,9 @@ class LessonJoinApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
-            ->assertJsonPath('data.lesson_id', $lesson->id)
+            ->assertJsonPath('data.lesson_id', $lesson->public_id)
             ->assertJsonPath('data.meeting_provider', Lesson::PROVIDER_GOOGLE_MEET)
             ->assertJsonPath('data.can_join', true)
             ->assertJsonPath('data.is_join_available', true)
@@ -65,7 +65,7 @@ class LessonJoinApiTest extends TestCase
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
 
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'user_id' => $this->student->id,
             'user_role' => 'student',
             'access_result' => LessonJoinAccessLog::RESULT_ALLOWED,
@@ -81,7 +81,7 @@ class LessonJoinApiTest extends TestCase
 
         Sanctum::actingAs($this->teacher);
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.is_join_available', true)
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
@@ -94,13 +94,13 @@ class LessonJoinApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.is_join_available', true)
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
 
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'user_id' => $this->admin->id,
             'user_role' => 'admin',
             'access_result' => LessonJoinAccessLog::RESULT_ALLOWED,
@@ -115,7 +115,7 @@ class LessonJoinApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.can_join', false)
             ->assertJsonPath('data.is_join_available', false)
@@ -132,14 +132,14 @@ class LessonJoinApiTest extends TestCase
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', json_encode($response->json('data')));
         $this->assertStringNotContainsString('meeting_metadata', json_encode($response->json('data')));
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'user_id' => $this->student->id,
             'user_role' => 'student',
             'access_result' => LessonJoinAccessLog::RESULT_NOT_YET_AVAILABLE,
             'reason' => 'not_yet_available',
         ]);
         $this->assertDatabaseMissing('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'reason' => 'https://meet.example.com/secure-lesson',
         ]);
     }
@@ -154,14 +154,14 @@ class LessonJoinApiTest extends TestCase
 
         Sanctum::actingAs($otherStudent);
 
-        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertForbidden()
             ->assertJsonPath('reason', 'unauthorized')
             ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'user_id' => $otherStudent->id,
             'access_result' => LessonJoinAccessLog::RESULT_DENIED,
             'reason' => 'unauthorized',
@@ -178,14 +178,14 @@ class LessonJoinApiTest extends TestCase
 
         Sanctum::actingAs($otherTeacher);
 
-        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertForbidden()
             ->assertJsonPath('reason', 'unauthorized')
             ->assertJsonMissing(['meeting_link' => 'https://meet.example.com/secure-lesson']);
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'user_id' => $otherTeacher->id,
             'access_result' => LessonJoinAccessLog::RESULT_DENIED,
             'reason' => 'unauthorized',
@@ -196,12 +196,12 @@ class LessonJoinApiTest extends TestCase
     {
         $lesson = $this->createJoinableLesson();
 
-        $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $response = $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertUnauthorized();
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         $this->assertDatabaseMissing('lesson_join_access_logs', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
         ]);
     }
 
@@ -215,7 +215,7 @@ class LessonJoinApiTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-06-01 08:44:59'));
         Sanctum::actingAs($this->student);
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.can_join', false)
             ->assertJsonPath('data.available_from', '2026-06-01T08:45:00Z')
@@ -226,7 +226,7 @@ class LessonJoinApiTest extends TestCase
 
         Carbon::setTestNow(Carbon::parse('2026-06-01 08:45:00'));
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.can_join', true)
             ->assertJsonPath('data.seconds_until_available', 0)
@@ -234,7 +234,7 @@ class LessonJoinApiTest extends TestCase
 
         Carbon::setTestNow(Carbon::parse('2026-06-01 10:15:01'));
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.can_join', false)
             ->assertJsonPath('data.reason', 'lesson_expired')
@@ -259,7 +259,7 @@ class LessonJoinApiTest extends TestCase
                 'meeting_link' => 'https://meet.example.com/'.$status,
             ]);
 
-            $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            $response = $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
                 ->assertOk()
                 ->assertJsonPath('data.can_join', false)
                 ->assertJsonPath('data.is_join_available', false)
@@ -268,7 +268,7 @@ class LessonJoinApiTest extends TestCase
 
             $this->assertStringNotContainsString('https://meet.example.com/'.$status, $response->getContent());
             $this->assertDatabaseHas('lesson_join_access_logs', [
-                'lesson_id' => $lesson->id,
+                'lesson_id' => $lesson->public_id,
                 'user_id' => $this->student->id,
                 'access_result' => match ($status) {
                     Lesson::STATUS_CANCELLED => LessonJoinAccessLog::RESULT_CANCELLED,
@@ -291,7 +291,7 @@ class LessonJoinApiTest extends TestCase
                 'meeting_link' => 'https://meet.example.com/'.$status,
             ]);
 
-            $response = $this->getJson('/api/v1/lessons/'.$lesson->id.'/join')
+            $response = $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
                 ->assertOk()
                 ->assertJsonPath('data.can_join', false)
                 ->assertJsonPath('data.reason', 'lesson_expired')
@@ -312,12 +312,12 @@ class LessonJoinApiTest extends TestCase
             'start_time' => Carbon::parse('2026-06-02 09:00:00'),
             'end_time' => Carbon::parse('2026-06-02 10:00:00'),
             'meeting_link' => 'https://meet.example.com/new-lesson',
-            'rescheduled_from_id' => $oldLesson->id,
+            'rescheduled_from_id' => $oldLesson->public_id,
         ]);
 
         Sanctum::actingAs($this->student);
 
-        $response = $this->getJson('/api/v1/lessons/'.$oldLesson->id.'/join')
+        $response = $this->getJson('/api/v1/lessons/'.$oldLesson->public_id.'/join')
             ->assertOk()
             ->assertJsonPath('data.can_join', false)
             ->assertJsonPath('data.reason', 'lesson_rescheduled')

@@ -23,7 +23,7 @@ class ScheduleChangeRequestResource extends JsonResource
             || ($user !== null && (int) $this->resource->requester_id === (int) $user->id);
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'requester_id' => $this->whenLoaded('requester', fn () => $this->publicId($this->resource->requester)),
             'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
             'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
@@ -50,7 +50,7 @@ class ScheduleChangeRequestResource extends JsonResource
                 'status' => $this->resource->lesson->status,
             ] : null),
             'class_schedule' => $this->whenLoaded('classSchedule', fn () => $this->resource->classSchedule ? [
-                'id' => $this->resource->classSchedule->id,
+                'id' => $this->publicId($this->resource->classSchedule),
                 'student_id' => $this->resource->classSchedule->student_id,
                 'teacher_id' => $this->resource->classSchedule->teacher_id,
                 'starts_at' => $this->resource->classSchedule->starts_at,

@@ -61,7 +61,7 @@ class LessonNoteApiTest extends TestCase
         $lessonRecord = $this->createLessonRecord();
 
         $this->postJson('/api/v1/lesson-notes', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_record_id' => $lessonRecord->id,
             'lesson_objective' => 'Practice workplace introductions.',
             'topics_covered' => 'Introductions and follow-up questions.',
@@ -69,22 +69,22 @@ class LessonNoteApiTest extends TestCase
             'internal_note' => 'Keep correction direct but brief.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.lesson_id', $lesson->id)
-            ->assertJsonPath('data.student_id', $this->student->id)
+            ->assertJsonPath('data.lesson_id', $lesson->public_id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
             ->assertJsonPath('data.teacher_id', $this->teacher->id)
             ->assertJsonPath('data.author_id', $this->teacher->id)
             ->assertJsonPath('data.lesson_record_id', $lessonRecord->id)
             ->assertJsonPath('data.lesson_objective', 'Practice workplace introductions.')
             ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.')
-            ->assertJsonPath('data.lesson.id', $lesson->id)
+            ->assertJsonPath('data.lesson.id', $lesson->public_id)
             ->assertJsonPath('data.lesson.status', Lesson::STATUS_COMPLETED)
-            ->assertJsonPath('data.student.id', $this->student->id)
+            ->assertJsonPath('data.student.id', $this->student->public_id)
             ->assertJsonPath('data.teacher.id', $this->teacher->id)
             ->assertJsonPath('data.author.id', $this->teacher->id);
 
         $this->assertDatabaseHas('lesson_notes', [
-            'lesson_id' => $lesson->id,
-            'student_id' => $this->student->id,
+            'lesson_id' => $lesson->public_id,
+            'student_id' => $this->student->public_id,
             'teacher_id' => $this->teacher->id,
             'author_id' => $this->teacher->id,
             'lesson_record_id' => $lessonRecord->id,
@@ -111,7 +111,7 @@ class LessonNoteApiTest extends TestCase
         $lesson = $this->createLesson();
 
         $this->postJson('/api/v1/lesson-notes', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'topics_covered' => ['Warm-up conversation.'],
             'homework_assignment' => ['Prepare answers.'],
         ])
@@ -128,7 +128,7 @@ class LessonNoteApiTest extends TestCase
             ])->id,
         ]);
 
-        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->public_id, [
             'internal_note' => ['Private coaching note.'],
         ])
             ->assertUnprocessable()
@@ -203,7 +203,7 @@ class LessonNoteApiTest extends TestCase
         ]);
 
         $this->postJson('/api/v1/lesson-notes', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_record_id' => $mismatchedRecord->id,
             'topics_covered' => 'Warm-up conversation.',
         ])
@@ -218,12 +218,12 @@ class LessonNoteApiTest extends TestCase
         $lesson = $this->createLesson();
         $lessonRecord = $this->createLessonRecord();
         $this->createLessonNote([
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_record_id' => $lessonRecord->id,
         ]);
 
         $this->postJson('/api/v1/lesson-notes', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'topics_covered' => 'Duplicate lesson note.',
         ])
             ->assertUnprocessable()
@@ -252,7 +252,7 @@ class LessonNoteApiTest extends TestCase
             'lesson_status' => LessonRecord::STATUS_CANCELLED,
         ]);
 
-        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->public_id, [
             'lesson_record_id' => $cancelledLessonRecord->id,
         ])
             ->assertUnprocessable()
@@ -273,7 +273,7 @@ class LessonNoteApiTest extends TestCase
             'submitted_at' => '2026-06-03 10:10:00',
         ]);
 
-        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->public_id, [
             'lesson_record_id' => $linkedLessonRecord->id,
         ])
             ->assertUnprocessable()
@@ -294,20 +294,20 @@ class LessonNoteApiTest extends TestCase
             'teacher_id' => $this->otherTeacher->id,
         ]);
 
-        $this->getJson('/api/v1/lesson-notes/'.$ownNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$ownNote->public_id)
             ->assertOk()
-            ->assertJsonPath('data.id', $ownNote->id);
+            ->assertJsonPath('data.id', $ownNote->public_id);
 
-        $this->patchJson('/api/v1/lesson-notes/'.$ownNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$ownNote->public_id, [
             'recommendation_for_next_lesson' => 'Review follow-up questions in role play.',
         ])
             ->assertOk()
             ->assertJsonPath('data.recommendation_for_next_lesson', 'Review follow-up questions in role play.');
 
-        $this->getJson('/api/v1/lesson-notes/'.$otherNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$otherNote->public_id)
             ->assertForbidden();
 
-        $this->patchJson('/api/v1/lesson-notes/'.$otherNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$otherNote->public_id, [
             'topics_covered' => 'Updated by the wrong teacher.',
         ])
             ->assertForbidden();
@@ -315,7 +315,7 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $ownNote->id);
+            ->assertJsonPath('data.0.id', $ownNote->public_id);
     }
 
     public function test_lesson_and_student_note_lists_are_available_for_progress_history(): void
@@ -323,17 +323,17 @@ class LessonNoteApiTest extends TestCase
         Sanctum::actingAs($this->admin);
 
         $lesson = $this->createLesson();
-        $lessonNote = $this->createLessonNote(['lesson_id' => $lesson->id]);
+        $lessonNote = $this->createLessonNote(['lesson_id' => $lesson->public_id]);
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/lesson-notes')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/lesson-notes')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lessonNote->id);
+            ->assertJsonPath('data.0.id', $lessonNote->public_id);
 
-        $this->getJson('/api/v1/students/'.$this->student->id.'/lesson-notes')
+        $this->getJson('/api/v1/students/'.$this->student->public_id.'/lesson-notes')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lessonNote->id);
+            ->assertJsonPath('data.0.id', $lessonNote->public_id);
     }
 
     public function test_admin_can_review_all_lesson_notes_with_internal_notes_and_filters(): void
@@ -348,14 +348,14 @@ class LessonNoteApiTest extends TestCase
         $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $otherStudent->assignRole('student');
         $otherLesson = $this->createLesson([
-            'student_id' => $otherStudent->id,
+            'student_id' => $otherStudent->public_id,
             'teacher_id' => $this->otherTeacher->id,
             'start_time' => '2026-06-02 09:00:00',
             'end_time' => '2026-06-02 10:00:00',
         ]);
         $secondNote = $this->createLessonNote([
             'lesson_id' => $otherLesson->id,
-            'student_id' => $otherStudent->id,
+            'student_id' => $otherStudent->public_id,
             'teacher_id' => $this->otherTeacher->id,
             'author_id' => $this->otherTeacher->id,
             'internal_note' => 'Second internal review note.',
@@ -389,7 +389,7 @@ class LessonNoteApiTest extends TestCase
         ]);
 
         $this->postJson('/api/v1/lesson-notes', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'topics_covered' => 'Introductions and follow-up questions.',
             'recommendation_for_next_lesson' => 'Practice short workplace answers.',
             'internal_note' => 'Needs more wait time before corrections.',
@@ -398,7 +398,7 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonPath('data.lesson_record_id', $lessonRecord->id);
 
         $this->assertDatabaseHas('lesson_notes', [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_record_id' => $lessonRecord->id,
             'topics_covered' => 'Introductions and follow-up questions.',
         ]);
@@ -414,7 +414,7 @@ class LessonNoteApiTest extends TestCase
         $lesson = $this->createLesson();
         $lessonRecord = $this->createLessonRecord();
         $lessonNote = $this->createLessonNote([
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_record_id' => $lessonRecord->id,
             'topics_covered' => 'Introductions and follow-up questions.',
             'recommendation_for_next_lesson' => 'Practice short workplace answers.',
@@ -426,7 +426,7 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-records')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.lesson_note.id', $lessonNote->id)
+            ->assertJsonPath('data.0.lesson_note.id', $lessonNote->public_id)
             ->assertJsonPath('data.0.lesson_note.topics_covered', 'Introductions and follow-up questions.')
             ->assertJsonPath('data.0.lesson_note.recommendation_for_next_lesson', 'Practice short workplace answers.')
             ->assertJsonMissingPath('data.0.lesson_note.internal_note');
@@ -436,35 +436,35 @@ class LessonNoteApiTest extends TestCase
     {
         $lesson = $this->createLesson();
         $lessonNote = $this->createLessonNote([
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_objective' => 'Practice workplace introductions.',
             'internal_note' => 'Do not share this coaching context.',
         ]);
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->public_id)
             ->assertOk()
-            ->assertJsonPath('data.id', $lessonNote->id)
+            ->assertJsonPath('data.id', $lessonNote->public_id)
             ->assertJsonPath('data.lesson_objective', 'Practice workplace introductions.')
             ->assertJsonMissingPath('data.internal_note');
 
         $this->getJson('/api/v1/lesson-notes')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonPath('data.0.id', $lessonNote->public_id)
             ->assertJsonMissingPath('data.0.internal_note');
 
-        $this->getJson('/api/v1/lessons/'.$lesson->id.'/lesson-notes')
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/lesson-notes')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonPath('data.0.id', $lessonNote->public_id)
             ->assertJsonMissingPath('data.0.internal_note');
 
-        $this->getJson('/api/v1/students/'.$this->student->id.'/lesson-notes')
+        $this->getJson('/api/v1/students/'.$this->student->public_id.'/lesson-notes')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lessonNote->id)
+            ->assertJsonPath('data.0.id', $lessonNote->public_id)
             ->assertJsonMissingPath('data.0.internal_note');
     }
 
@@ -474,22 +474,22 @@ class LessonNoteApiTest extends TestCase
         $otherStudent->assignRole('student');
 
         $otherLesson = $this->createLesson([
-            'student_id' => $otherStudent->id,
+            'student_id' => $otherStudent->public_id,
             'start_time' => '2026-06-02 09:00:00',
             'end_time' => '2026-06-02 10:00:00',
         ]);
         $otherNote = $this->createLessonNote([
             'lesson_id' => $otherLesson->id,
-            'student_id' => $otherStudent->id,
+            'student_id' => $otherStudent->public_id,
             'internal_note' => 'Private note for another student.',
         ]);
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson('/api/v1/lesson-notes/'.$otherNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$otherNote->public_id)
             ->assertForbidden();
 
-        $this->getJson('/api/v1/students/'.$otherStudent->id.'/lesson-notes')
+        $this->getJson('/api/v1/students/'.$otherStudent->public_id.'/lesson-notes')
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }
@@ -502,13 +502,13 @@ class LessonNoteApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->public_id)
             ->assertOk()
             ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.');
 
         Sanctum::actingAs($this->teacher);
 
-        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->public_id)
             ->assertOk()
             ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.');
     }
@@ -526,7 +526,7 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes')
             ->assertForbidden();
 
-        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->public_id)
             ->assertForbidden();
 
         $this->postJson('/api/v1/lesson-notes', [
@@ -537,7 +537,7 @@ class LessonNoteApiTest extends TestCase
             'topics_covered' => 'Warm-up conversation.',
         ])->assertForbidden();
 
-        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->public_id, [
             'topics_covered' => 'Staff attempted update.',
         ])->assertForbidden();
 
@@ -552,7 +552,7 @@ class LessonNoteApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.internal_note', 'Visible only with lesson note permission.');
 
-        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->id)
+        $this->getJson('/api/v1/lesson-notes/'.$lessonNote->public_id)
             ->assertOk()
             ->assertJsonPath('data.internal_note', 'Visible only with lesson note permission.');
 
@@ -564,7 +564,7 @@ class LessonNoteApiTest extends TestCase
             'topics_covered' => 'Warm-up conversation.',
         ])->assertCreated();
 
-        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->id, [
+        $this->patchJson('/api/v1/lesson-notes/'.$lessonNote->public_id, [
             'topics_covered' => 'Staff updated note.',
         ])
             ->assertOk()
@@ -633,7 +633,7 @@ class LessonNoteApiTest extends TestCase
     {
         $lesson = $this->createLesson();
         $this->createLessonNote([
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'submitted_at' => null,
         ]);
 
@@ -642,7 +642,7 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes/pending')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.lesson_id', $lesson->id)
+            ->assertJsonPath('data.0.lesson_id', $lesson->public_id)
             ->assertJsonPath('meta.pending_notes', 1)
             ->assertJsonPath('meta.missing_notes', 1)
             ->assertJsonPath('meta.completed_lessons_requiring_notes', 1);
@@ -704,7 +704,7 @@ class LessonNoteApiTest extends TestCase
     private function createLesson(array $overrides = []): Lesson
     {
         return Lesson::create([
-            'student_id' => $this->student->id,
+            'student_id' => $this->student->public_id,
             'teacher_id' => $this->teacher->id,
             'start_time' => '2026-06-01 09:00:00',
             'end_time' => '2026-06-01 10:00:00',
@@ -719,7 +719,7 @@ class LessonNoteApiTest extends TestCase
     private function createLessonRecord(array $overrides = []): LessonRecord
     {
         return LessonRecord::create([
-            'student_id' => $this->student->id,
+            'student_id' => $this->student->public_id,
             'teacher_id' => $this->teacher->id,
             'scheduled_date' => '2026-06-01',
             'start_time' => '09:00',
@@ -738,7 +738,7 @@ class LessonNoteApiTest extends TestCase
     {
         return LessonNote::create([
             'lesson_id' => $overrides['lesson_id'] ?? $this->createLesson()->id,
-            'student_id' => $this->student->id,
+            'student_id' => $this->student->public_id,
             'teacher_id' => $this->teacher->id,
             'author_id' => $this->teacher->id,
             'topics_covered' => 'Introductions and follow-up questions.',

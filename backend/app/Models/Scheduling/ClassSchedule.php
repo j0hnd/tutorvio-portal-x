@@ -2,6 +2,7 @@
 
 namespace App\Models\Scheduling;
 
+use App\Models\Concerns\HasPublicId;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClassSchedule extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     public const STATUS_SCHEDULED = 'scheduled';
 

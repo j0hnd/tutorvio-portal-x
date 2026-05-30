@@ -63,10 +63,10 @@ class FileAccessSecurityTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/learning-resources/{$openResource->id}/download")->assertOk();
-        $this->getJson("/api/v1/learning-resources/{$ownAssigned->id}/download")->assertOk();
-        $this->getJson("/api/v1/learning-resources/{$otherAssigned->id}/download")->assertForbidden();
-        $this->getJson("/api/v1/learning-resources/{$teacherOnly->id}/download")->assertForbidden();
+        $this->getJson("/api/v1/learning-resources/{$openResource->public_id}/download")->assertOk();
+        $this->getJson("/api/v1/learning-resources/{$ownAssigned->public_id}/download")->assertOk();
+        $this->getJson("/api/v1/learning-resources/{$otherAssigned->public_id}/download")->assertForbidden();
+        $this->getJson("/api/v1/learning-resources/{$teacherOnly->public_id}/download")->assertForbidden();
     }
 
     public function test_teachers_can_only_access_assigned_student_or_class_files_and_teacher_visible_resources(): void
@@ -100,12 +100,12 @@ class FileAccessSecurityTest extends TestCase
 
         Sanctum::actingAs($teacher);
 
-        $this->getJson("/api/v1/learning-resources/{$teacherVisible->id}/download")->assertOk();
-        $this->getJson("/api/v1/learning-resources/{$ownStudentResource->id}/download")->assertOk();
-        $this->getJson("/api/v1/learning-resources/{$ownLessonResource->id}/download")->assertOk();
-        $this->getJson("/api/v1/learning-resources/{$otherStudentResource->id}/download")->assertForbidden();
-        $this->getJson("/api/v1/learning-resources/{$otherLessonResource->id}/download")->assertForbidden();
-        $this->getJson("/api/v1/learning-resources/{$adminOnly->id}/download")->assertForbidden();
+        $this->getJson("/api/v1/learning-resources/{$teacherVisible->public_id}/download")->assertOk();
+        $this->getJson("/api/v1/learning-resources/{$ownStudentResource->public_id}/download")->assertOk();
+        $this->getJson("/api/v1/learning-resources/{$ownLessonResource->public_id}/download")->assertOk();
+        $this->getJson("/api/v1/learning-resources/{$otherStudentResource->public_id}/download")->assertForbidden();
+        $this->getJson("/api/v1/learning-resources/{$otherLessonResource->public_id}/download")->assertForbidden();
+        $this->getJson("/api/v1/learning-resources/{$adminOnly->public_id}/download")->assertForbidden();
     }
 
     public function test_temporary_file_urls_are_only_issued_after_authorization(): void
@@ -135,7 +135,7 @@ class FileAccessSecurityTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/learning-resources/{$resource->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
             ->assertOk()
             ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
             ->assertJsonPath('data.download_url', 'https://cdn.example.test/cloud.pdf?signature=secret')
@@ -145,7 +145,7 @@ class FileAccessSecurityTest extends TestCase
 
         Sanctum::actingAs($otherStudent);
 
-        $this->getJson("/api/v1/learning-resources/{$resource->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
             ->assertForbidden();
     }
 
@@ -155,7 +155,7 @@ class FileAccessSecurityTest extends TestCase
 
         $resource = $this->storedResource('protected.pdf');
 
-        $this->getJson("/api/v1/learning-resources/{$resource->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
             ->assertUnauthorized()
             ->assertJsonMissing(['protected.pdf'])
             ->assertJsonMissing(['private document']);
@@ -178,7 +178,7 @@ class FileAccessSecurityTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/learning-resources/{$resource->id}")
+        $this->getJson("/api/v1/learning-resources/{$resource->public_id}")
             ->assertOk()
             ->assertJsonPath('data.title', 'assigned.pdf')
             ->assertJsonMissingPath('data.file_path')
@@ -199,17 +199,17 @@ class FileAccessSecurityTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson("/api/v1/learning-resources/{$adminOnly->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$adminOnly->public_id}/download")
             ->assertOk();
 
         Sanctum::actingAs($staff);
 
-        $this->getJson("/api/v1/learning-resources/{$adminOnly->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$adminOnly->public_id}/download")
             ->assertForbidden();
 
         $staff->givePermissionTo('learning_resources.view');
 
-        $this->getJson("/api/v1/learning-resources/{$adminOnly->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$adminOnly->public_id}/download")
             ->assertOk();
     }
 

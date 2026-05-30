@@ -58,7 +58,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertJsonPath('data.reason', 'Initial placement');
         $this->assertResponseDoesNotExposeTeacherPayroll($firstResponse->json());
 
-        $firstAssignmentId = $firstResponse->json('data.id');
+        $firstAssignmentPublicId = $firstResponse->json('data.id');
 
         $secondTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $secondTeacher->assignRole('teacher');
@@ -77,7 +77,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertJsonPath('data.status', TeacherStudentAssignment::STATUS_ACTIVE);
 
         $this->assertDatabaseHas('teacher_student_assignments', [
-            'id' => $firstAssignmentId,
+            'id' => TeacherStudentAssignment::where('public_id', $firstAssignmentPublicId)->value('id'),
             'student_id' => $this->student->id,
             'teacher_id' => $this->teacher->id,
             'status' => TeacherStudentAssignment::STATUS_REASSIGNED,
@@ -160,7 +160,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         ])
             ->assertForbidden();
 
-        $this->postJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment/reassign", [
+        $this->postJson("/api/v1/admin/students/{$this->student->public_id}/teacher-assignment/reassign", [
             'teacher_id' => $this->teacher->id,
         ])
             ->assertForbidden();
@@ -225,7 +225,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         ], hasAvailability: true);
         $inactiveTeacher->update(['status' => User::STATUS_INACTIVE]);
 
-        $response = $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila&slot_minutes=60");
+        $response = $this->getJson("/api/v1/admin/students/{$this->student->public_id}/available-teachers?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila&slot_minutes=60");
 
         $response
             ->assertOk()
@@ -249,17 +249,17 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
         Sanctum::actingAs($staff);
 
-        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers")
+        $this->getJson("/api/v1/admin/students/{$this->student->public_id}/available-teachers")
             ->assertForbidden();
 
         $staff->givePermissionTo('teacher_assignments.view');
 
-        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers")
+        $this->getJson("/api/v1/admin/students/{$this->student->public_id}/available-teachers")
             ->assertOk();
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson("/api/v1/admin/students/{$this->student->id}/available-teachers")
+        $this->getJson("/api/v1/admin/students/{$this->student->public_id}/available-teachers")
             ->assertForbidden();
     }
 
@@ -280,7 +280,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertJsonPath('data.reason', 'Completed package');
 
         $this->assertDatabaseHas('teacher_student_assignments', [
-            'id' => $assignmentId,
+            'id' => TeacherStudentAssignment::where('public_id', $assignmentId)->value('id'),
             'status' => TeacherStudentAssignment::STATUS_ENDED,
             'active_student_id' => null,
         ]);
@@ -334,7 +334,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
     public function test_dedicated_assignment_end_and_history_endpoints_preserve_current_and_past_assignments(): void
     {
-        $firstResponse = $this->postJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment", [
+        $firstResponse = $this->postJson("/api/v1/admin/students/{$this->student->public_id}/teacher-assignment", [
             'teacher_id' => $this->teacher->id,
             'reason' => 'Initial match',
         ]);
@@ -344,7 +344,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         $secondTeacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $secondTeacher->assignRole('teacher');
 
-        $this->postJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment/reassign", [
+        $this->postJson("/api/v1/admin/students/{$this->student->public_id}/teacher-assignment/reassign", [
             'teacher_id' => $secondTeacher->id,
             'reason' => 'Better schedule fit',
             'notes' => 'Moved to evenings.',
@@ -352,36 +352,36 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.teacher_id', $secondTeacher->id);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/assigned-teacher")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/assigned-teacher")
             ->assertOk()
             ->assertJsonPath('data.teacher_id', $secondTeacher->id);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/teacher-assignment-history")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/teacher-assignment-history")
             ->assertOk()
             ->assertJsonCount(2, 'data');
 
-        $this->getJson("/api/v1/teachers/{$secondTeacher->id}/assigned-students")
+        $this->getJson("/api/v1/teachers/{$secondTeacher->public_id}/assigned-students")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.student_id', $this->student->id);
 
-        $this->getJson("/api/v1/teachers/{$this->teacher->id}/student-assignment-history")
+        $this->getJson("/api/v1/teachers/{$this->teacher->public_id}/student-assignment-history")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.status', TeacherStudentAssignment::STATUS_REASSIGNED);
 
-        $this->deleteJson("/api/v1/admin/students/{$this->student->id}/teacher-assignment", [
+        $this->deleteJson("/api/v1/admin/students/{$this->student->public_id}/teacher-assignment", [
             'reason' => 'Program complete',
             'notes' => 'No replacement needed.',
         ])
             ->assertOk()
             ->assertJsonPath('data.status', TeacherStudentAssignment::STATUS_ENDED);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/assigned-teacher")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/assigned-teacher")
             ->assertOk()
             ->assertJsonPath('data', null);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/teacher-assignment-history")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/teacher-assignment-history")
             ->assertOk()
             ->assertJsonCount(2, 'data');
     }
@@ -402,21 +402,21 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
         Sanctum::actingAs($this->teacher);
 
-        $this->getJson("/api/v1/teachers/{$this->teacher->id}/assigned-students")
+        $this->getJson("/api/v1/teachers/{$this->teacher->public_id}/assigned-students")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.student_id', $this->student->id);
 
-        $this->getJson("/api/v1/teachers/{$otherTeacher->id}/assigned-students")
+        $this->getJson("/api/v1/teachers/{$otherTeacher->public_id}/assigned-students")
             ->assertForbidden();
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson("/api/v1/students/{$this->student->id}/assigned-teacher")
+        $this->getJson("/api/v1/students/{$this->student->public_id}/assigned-teacher")
             ->assertOk()
             ->assertJsonPath('data.teacher_id', $this->teacher->id);
 
-        $this->getJson("/api/v1/students/{$otherStudent->id}/assigned-teacher")
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/assigned-teacher")
             ->assertForbidden();
     }
 

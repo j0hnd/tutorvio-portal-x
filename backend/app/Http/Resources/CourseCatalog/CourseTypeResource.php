@@ -16,7 +16,7 @@ class CourseTypeResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'name' => $this->resource->name,
             'slug' => $this->resource->slug,
             'description' => $this->resource->description,

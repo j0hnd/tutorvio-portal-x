@@ -84,7 +84,7 @@ class FormTemplateApiTest extends TestCase
             ->assertJsonPath('data.0.id', $templateId);
 
         $this->assertDatabaseHas('form_templates', [
-            'id' => $templateId,
+            'id' => FormTemplate::where('public_id', $templateId)->value('id'),
             'name' => 'Updated Student Absence Notice',
             'template_type' => FormTemplate::TYPE_STUDENT_ABSENCE_FORM,
             'status' => FormTemplate::STATUS_ARCHIVED,
@@ -167,11 +167,11 @@ class FormTemplateApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/form-templates')
             ->assertOk()
-            ->assertJsonFragment(['id' => $template->id]);
-        $this->getJson("/api/v1/admin/form-templates/{$template->id}")
+            ->assertJsonFragment(['id' => $template->public_id]);
+        $this->getJson("/api/v1/admin/form-templates/{$template->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $template->id);
-        $this->patchJson("/api/v1/admin/form-templates/{$template->id}", [
+            ->assertJsonPath('data.id', $template->public_id);
+        $this->patchJson("/api/v1/admin/form-templates/{$template->public_id}", [
             'title' => 'Updated Class Incident',
         ])->assertForbidden();
 
@@ -228,18 +228,18 @@ class FormTemplateApiTest extends TestCase
 
         $this->getJson('/api/v1/form-templates')
             ->assertOk()
-            ->assertJsonFragment(['id' => $studentForm->id])
-            ->assertJsonMissing(['id' => $teacherForm->id])
+            ->assertJsonFragment(['id' => $studentForm->public_id])
+            ->assertJsonMissing(['id' => $teacherForm->public_id])
             ->assertJsonMissing(['title' => 'Archived Student Absence']);
 
-        $this->getJson("/api/v1/form-templates/{$teacherForm->id}")
+        $this->getJson("/api/v1/form-templates/{$teacherForm->public_id}")
             ->assertForbidden();
 
         Sanctum::actingAs($this->createRoleUser('teacher'));
 
-        $this->getJson("/api/v1/form-templates/{$teacherForm->id}")
+        $this->getJson("/api/v1/form-templates/{$teacherForm->public_id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $teacherForm->id);
+            ->assertJsonPath('data.id', $teacherForm->public_id);
     }
 
     private function createRoleUser(string $role): User

@@ -47,17 +47,17 @@ class FileDownloadTest extends TestCase
             'assigned_at' => now(),
         ]);
 
-        $this->getJson("/api/v1/learning-resources/{$ownResource->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$ownResource->public_id}/download")
             ->assertUnauthorized();
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/learning-resources/{$ownResource->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$ownResource->public_id}/download")
             ->assertOk()
             ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
             ->assertDownload('own-worksheet.pdf');
 
-        $this->getJson("/api/v1/learning-resources/{$otherResource->id}/download")
+        $this->getJson("/api/v1/learning-resources/{$otherResource->public_id}/download")
             ->assertForbidden();
     }
 
@@ -67,11 +67,11 @@ class FileDownloadTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->getJson("/api/v1/learning-resources/{$resource->id}");
+        $response = $this->getJson("/api/v1/learning-resources/{$resource->public_id}");
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.download.endpoint', url("/api/v1/learning-resources/{$resource->id}/download"))
+            ->assertJsonPath('data.download.endpoint', url("/api/v1/learning-resources/{$resource->public_id}/download"))
             ->assertJsonMissingPath('data.file_path')
             ->assertJsonMissingPath('data.storage_disk');
 

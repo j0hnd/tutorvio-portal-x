@@ -26,10 +26,10 @@ class AcademicRecordResource extends JsonResource
         $canViewAdminFields = $this->canViewAdminFields($request);
 
         $data = [
-            'id' => $this->resource->id,
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
-            'course_program_id' => $this->resource->course_program_id,
+            'id' => $this->publicId($this->resource),
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
+            'course_program_id' => $this->whenLoaded('courseProgram', fn () => $this->publicId($this->resource->courseProgram)),
             'lesson_id' => $this->resource->lesson_id,
             'class_schedule_id' => $this->resource->class_schedule_id,
             'record_type' => $this->resource->record_type,
@@ -48,19 +48,19 @@ class AcademicRecordResource extends JsonResource
             'internal_notes' => $this->when(array_key_exists('internal_notes', $recordData), $recordData['internal_notes'] ?? null),
             'data' => $recordData,
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
                 'timezone' => $this->resource->student->timezone,
             ]),
             'teacher' => $this->whenLoaded('teacher', fn () => $this->resource->teacher === null ? null : [
-                'id' => $this->resource->teacher->id,
+                'id' => $this->publicId($this->resource->teacher),
                 'name' => $this->resource->teacher->name,
                 'email' => $this->resource->teacher->email,
                 'timezone' => $this->resource->teacher->timezone,
             ]),
             'course_program' => $this->whenLoaded('courseProgram', fn () => $this->resource->courseProgram === null ? null : [
-                'id' => $this->resource->courseProgram->id,
+                'id' => $this->publicId($this->resource->courseProgram),
                 'title' => $this->resource->courseProgram->title,
                 'slug' => $this->resource->courseProgram->slug,
                 'placement_level' => $this->resource->courseProgram->placement_level,

@@ -106,7 +106,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/dashboard', DashboardController::class);
         Route::get('/portal-settings', [PortalSettingController::class, 'index']);
         Route::get('/form-templates', [FormTemplateController::class, 'index']);
-        Route::get('/form-templates/{formTemplate}', [FormTemplateController::class, 'show']);
+        Route::get('/form-templates/{formTemplate:public_id}', [FormTemplateController::class, 'show']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::get('/notifications/history', [NotificationController::class, 'history'])
             ->middleware(['role:admin|staff', 'permission:notifications.history.view']);
@@ -127,7 +127,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/announcements/{announcement:public_id}/read', [AnnouncementController::class, 'markRead']);
         Route::post('/announcements/{announcement:public_id}/unread', [AnnouncementController::class, 'markUnread']);
         Route::post('/issue-reports', [IssueReportController::class, 'store']);
-        Route::get('/issue-reports/{issueReport}', [IssueReportController::class, 'show']);
+        Route::get('/issue-reports/{issueReport:public_id}', [IssueReportController::class, 'show']);
         Route::get('/lessons/{lesson:public_id}/join', LessonJoinController::class);
         Route::get('/lessons/{lesson:public_id}/lesson-notes', [LessonNoteController::class, 'byLesson']);
         Route::get('/students/{student:public_id}/lesson-notes', [LessonNoteController::class, 'byStudent']);
@@ -150,11 +150,13 @@ Route::prefix('v1')->group(function () {
             ->parameters(['lesson-records' => 'lessonRecord'])
             ->scoped(['lessonRecord' => 'public_id']);
         Route::apiResource('student-progress-records', StudentProgressRecordController::class)
-            ->parameters(['student-progress-records' => 'studentProgressRecord']);
-        Route::post('/academic-records/{academicRecord}/archive', [AcademicRecordController::class, 'archive']);
+            ->parameters(['student-progress-records' => 'studentProgressRecord'])
+            ->scoped(['studentProgressRecord' => 'public_id']);
+        Route::post('/academic-records/{academicRecord:public_id}/archive', [AcademicRecordController::class, 'archive']);
         Route::apiResource('academic-records', AcademicRecordController::class)
             ->only(['index', 'store', 'show', 'update'])
-            ->parameters(['academic-records' => 'academicRecord']);
+            ->parameters(['academic-records' => 'academicRecord'])
+            ->scoped(['academicRecord' => 'public_id']);
         Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
         Route::get('/homeworks', [HomeworkController::class, 'index']);
@@ -171,8 +173,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
         Route::get('/schedule-change-requests', [ScheduleChangeRequestController::class, 'index']);
         Route::post('/schedule-change-requests', [ScheduleChangeRequestController::class, 'store']);
-        Route::get('/schedule-change-requests/{scheduleChangeRequest}', [ScheduleChangeRequestController::class, 'show']);
-        Route::post('/schedule-change-requests/{scheduleChangeRequest}/cancel', [ScheduleChangeRequestController::class, 'cancel']);
+        Route::get('/schedule-change-requests/{scheduleChangeRequest:public_id}', [ScheduleChangeRequestController::class, 'show']);
+        Route::post('/schedule-change-requests/{scheduleChangeRequest:public_id}/cancel', [ScheduleChangeRequestController::class, 'cancel']);
         Route::get('/teacher-change-requests', [TeacherChangeRequestController::class, 'index'])
             ->middleware('role:student');
         Route::post('/teacher-change-requests', [TeacherChangeRequestController::class, 'store'])
@@ -194,9 +196,10 @@ Route::prefix('v1')->group(function () {
             ->parameters(['learning-resources' => 'learningResource'])
             ->scoped(['learningResource' => 'public_id']);
 
-        Route::post('/course-types/{courseType}/archive', [CourseTypeController::class, 'archive']);
+        Route::post('/course-types/{courseType:public_id}/archive', [CourseTypeController::class, 'archive']);
         Route::apiResource('course-types', CourseTypeController::class)
-            ->parameters(['course-types' => 'courseType']);
+            ->parameters(['course-types' => 'courseType'])
+            ->scoped(['courseType' => 'public_id']);
         Route::post('/course-programs/{courseProgram:public_id}/archive', [CourseProgramController::class, 'archive']);
         Route::post('/course-programs/{courseProgram:public_id}/learning-resources', [CourseProgramController::class, 'attachLearningResources']);
         Route::delete('/course-programs/{courseProgram:public_id}/learning-resources/{learningResource:public_id}', [CourseProgramController::class, 'detachLearningResource'])
@@ -217,13 +220,14 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::prefix('admin')->middleware(['role:admin|staff', 'permission:announcements.manage'])->group(function () {
-            Route::post('/announcements/{announcement}/publish', [AdminAnnouncementController::class, 'publish']);
-            Route::post('/announcements/{announcement}/unpublish', [AdminAnnouncementController::class, 'unpublish']);
-            Route::post('/announcements/{announcement}/schedule', [AdminAnnouncementController::class, 'schedule']);
-            Route::post('/announcements/{announcement}/archive', [AdminAnnouncementController::class, 'archive']);
-            Route::get('/announcements/{announcement}/recipient-count', [AdminAnnouncementController::class, 'recipientCount']);
+            Route::post('/announcements/{announcement:public_id}/publish', [AdminAnnouncementController::class, 'publish']);
+            Route::post('/announcements/{announcement:public_id}/unpublish', [AdminAnnouncementController::class, 'unpublish']);
+            Route::post('/announcements/{announcement:public_id}/schedule', [AdminAnnouncementController::class, 'schedule']);
+            Route::post('/announcements/{announcement:public_id}/archive', [AdminAnnouncementController::class, 'archive']);
+            Route::get('/announcements/{announcement:public_id}/recipient-count', [AdminAnnouncementController::class, 'recipientCount']);
             Route::apiResource('announcements', AdminAnnouncementController::class)
-                ->only(['index', 'store', 'show', 'update', 'destroy']);
+                ->only(['index', 'store', 'show', 'update', 'destroy'])
+                ->scoped(['announcement' => 'public_id']);
         });
 
         Route::prefix('admin')->middleware(['role:admin|staff'])->group(function () {
@@ -257,39 +261,39 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:form_templates.view');
             Route::post('/form-templates', [AdminFormTemplateController::class, 'store'])
                 ->middleware('permission:form_templates.manage');
-            Route::get('/form-templates/{formTemplate}', [AdminFormTemplateController::class, 'show'])
+            Route::get('/form-templates/{formTemplate:public_id}', [AdminFormTemplateController::class, 'show'])
                 ->middleware('permission:form_templates.view');
-            Route::match(['put', 'patch'], '/form-templates/{formTemplate}', [AdminFormTemplateController::class, 'update'])
+            Route::match(['put', 'patch'], '/form-templates/{formTemplate:public_id}', [AdminFormTemplateController::class, 'update'])
                 ->middleware('permission:form_templates.manage');
-            Route::post('/form-templates/{formTemplate}/archive', [AdminFormTemplateController::class, 'archive'])
+            Route::post('/form-templates/{formTemplate:public_id}/archive', [AdminFormTemplateController::class, 'archive'])
                 ->middleware('permission:form_templates.manage');
             Route::get('/issue-reports', [AdminIssueReportController::class, 'index'])
                 ->middleware('permission:issue_reports.view');
-            Route::get('/issue-reports/{issueReport}', [AdminIssueReportController::class, 'show'])
+            Route::get('/issue-reports/{issueReport:public_id}', [AdminIssueReportController::class, 'show'])
                 ->middleware('permission:issue_reports.view');
-            Route::patch('/issue-reports/{issueReport}/status', [AdminIssueReportController::class, 'updateStatus'])
+            Route::patch('/issue-reports/{issueReport:public_id}/status', [AdminIssueReportController::class, 'updateStatus'])
                 ->middleware('permission:issue_reports.manage');
-            Route::patch('/issue-reports/{issueReport}/assignment', [AdminIssueReportController::class, 'assign'])
+            Route::patch('/issue-reports/{issueReport:public_id}/assignment', [AdminIssueReportController::class, 'assign'])
                 ->middleware('permission:issue_reports.assign');
-            Route::post('/issue-reports/{issueReport}/resolution-notes', [AdminIssueReportController::class, 'addResolutionNote'])
+            Route::post('/issue-reports/{issueReport:public_id}/resolution-notes', [AdminIssueReportController::class, 'addResolutionNote'])
                 ->middleware('permission:issue_reports.resolve');
-            Route::post('/issue-reports/{issueReport}/close', [AdminIssueReportController::class, 'close'])
+            Route::post('/issue-reports/{issueReport:public_id}/close', [AdminIssueReportController::class, 'close'])
                 ->middleware('permission:issue_reports.manage');
-            Route::post('/issue-reports/{issueReport}/cancel', [AdminIssueReportController::class, 'cancel'])
+            Route::post('/issue-reports/{issueReport:public_id}/cancel', [AdminIssueReportController::class, 'cancel'])
                 ->middleware('permission:issue_reports.manage');
 
             Route::get('/classes', [ClassOversightController::class, 'index'])
                 ->middleware('permission:classes.view');
-            Route::get('/classes/{lesson}/teacher-notes', [ClassOversightController::class, 'teacherNotes'])
+            Route::get('/classes/{lesson:public_id}/teacher-notes', [ClassOversightController::class, 'teacherNotes'])
                 ->middleware('permission:lesson_notes.view');
-            Route::patch('/teacher-notes/{lessonNote}/review', [ClassOversightController::class, 'reviewTeacherNote'])
+            Route::patch('/teacher-notes/{lessonNote:public_id}/review', [ClassOversightController::class, 'reviewTeacherNote'])
                 ->middleware('permission:lesson_notes.update');
 
-            Route::get('/teachers/{teacher}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
+            Route::get('/teachers/{teacher:public_id}/teacher-compensations', [TeacherCompensationController::class, 'teacher'])
                 ->middleware('permission:teacher_compensations.view');
-            Route::get('/teachers/{teacher}/teacher-earnings', [AdminTeacherEarningController::class, 'teacher'])
+            Route::get('/teachers/{teacher:public_id}/teacher-earnings', [AdminTeacherEarningController::class, 'teacher'])
                 ->middleware('permission:teacher_earnings.view');
-            Route::get('/teachers/{teacher}/payout-report', [PayoutReportController::class, 'teacher'])
+            Route::get('/teachers/{teacher:public_id}/payout-report', [PayoutReportController::class, 'teacher'])
                 ->middleware('permission:payroll.view');
             Route::get('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'index'])
                 ->middleware('permission:teacher_assignments.view');
@@ -297,35 +301,35 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:teacher_change_requests.view');
             Route::get('/teacher-change-requests', [AdminTeacherChangeRequestController::class, 'index'])
                 ->middleware('permission:teacher_change_requests.view');
-            Route::get('/teacher-change-requests/{teacherChangeRequest}', [AdminTeacherChangeRequestController::class, 'show'])
+            Route::get('/teacher-change-requests/{teacherChangeRequest:public_id}', [AdminTeacherChangeRequestController::class, 'show'])
                 ->middleware('permission:teacher_change_requests.view');
-            Route::post('/teacher-change-requests/{teacherChangeRequest}/approve', [AdminTeacherChangeRequestController::class, 'approve'])
+            Route::post('/teacher-change-requests/{teacherChangeRequest:public_id}/approve', [AdminTeacherChangeRequestController::class, 'approve'])
                 ->middleware('permission:teacher_change_requests.manage');
-            Route::post('/teacher-change-requests/{teacherChangeRequest}/reject', [AdminTeacherChangeRequestController::class, 'reject'])
+            Route::post('/teacher-change-requests/{teacherChangeRequest:public_id}/reject', [AdminTeacherChangeRequestController::class, 'reject'])
                 ->middleware('permission:teacher_change_requests.manage');
             Route::get('/schedule-change-requests/pending', [AdminScheduleChangeRequestController::class, 'pending'])
                 ->middleware('permission:schedule_change_requests.view');
             Route::get('/schedule-change-requests', [AdminScheduleChangeRequestController::class, 'index'])
                 ->middleware('permission:schedule_change_requests.view');
-            Route::get('/schedule-change-requests/{scheduleChangeRequest}', [AdminScheduleChangeRequestController::class, 'show'])
+            Route::get('/schedule-change-requests/{scheduleChangeRequest:public_id}', [AdminScheduleChangeRequestController::class, 'show'])
                 ->middleware('permission:schedule_change_requests.view');
-            Route::post('/schedule-change-requests/{scheduleChangeRequest}/approve', [AdminScheduleChangeRequestController::class, 'approve'])
+            Route::post('/schedule-change-requests/{scheduleChangeRequest:public_id}/approve', [AdminScheduleChangeRequestController::class, 'approve'])
                 ->middleware('permission:schedule_change_requests.manage');
-            Route::post('/schedule-change-requests/{scheduleChangeRequest}/reject', [AdminScheduleChangeRequestController::class, 'reject'])
+            Route::post('/schedule-change-requests/{scheduleChangeRequest:public_id}/reject', [AdminScheduleChangeRequestController::class, 'reject'])
                 ->middleware('permission:schedule_change_requests.manage');
             Route::post('/teacher-student-assignments', [TeacherStudentAssignmentController::class, 'store'])
                 ->middleware('permission:teacher_assignments.manage');
-            Route::post('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'assignStudent'])
+            Route::post('/students/{student:public_id}/teacher-assignment', [TeacherStudentAssignmentController::class, 'assignStudent'])
                 ->middleware('permission:teacher_assignments.manage');
-            Route::get('/students/{student}/available-teachers', [TeacherStudentAssignmentController::class, 'availableTeachers'])
+            Route::get('/students/{student:public_id}/available-teachers', [TeacherStudentAssignmentController::class, 'availableTeachers'])
                 ->middleware('permission:teacher_assignments.view');
-            Route::post('/students/{student}/teacher-assignment/reassign', [TeacherStudentAssignmentController::class, 'assignStudent'])
+            Route::post('/students/{student:public_id}/teacher-assignment/reassign', [TeacherStudentAssignmentController::class, 'assignStudent'])
                 ->middleware('permission:teacher_assignments.manage');
-            Route::delete('/students/{student}/teacher-assignment', [TeacherStudentAssignmentController::class, 'endActive'])
+            Route::delete('/students/{student:public_id}/teacher-assignment', [TeacherStudentAssignmentController::class, 'endActive'])
                 ->middleware('permission:teacher_assignments.manage');
-            Route::get('/teacher-student-assignments/{teacherStudentAssignment}', [TeacherStudentAssignmentController::class, 'show'])
+            Route::get('/teacher-student-assignments/{teacherStudentAssignment:public_id}', [TeacherStudentAssignmentController::class, 'show'])
                 ->middleware('permission:teacher_assignments.view');
-            Route::match(['put', 'patch'], '/teacher-student-assignments/{teacherStudentAssignment}', [TeacherStudentAssignmentController::class, 'update'])
+            Route::match(['put', 'patch'], '/teacher-student-assignments/{teacherStudentAssignment:public_id}', [TeacherStudentAssignmentController::class, 'update'])
                 ->middleware('permission:teacher_assignments.manage');
             Route::get('/teacher-earnings', [AdminTeacherEarningController::class, 'index'])
                 ->middleware('permission:teacher_earnings.view');
@@ -337,31 +341,34 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:payout_periods.view');
             Route::post('/payout-periods', [PayoutPeriodController::class, 'store'])
                 ->middleware('permission:payout_periods.manage');
-            Route::get('/payout-periods/{payoutPeriod}/report', [PayoutReportController::class, 'period'])
+            Route::get('/payout-periods/{payoutPeriod:public_id}/report', [PayoutReportController::class, 'period'])
                 ->middleware('permission:payroll.view');
-            Route::get('/payout-periods/{payoutPeriod}', [PayoutPeriodController::class, 'show'])
+            Route::get('/payout-periods/{payoutPeriod:public_id}', [PayoutPeriodController::class, 'show'])
                 ->middleware('permission:payout_periods.view');
-            Route::match(['put', 'patch'], '/payout-periods/{payoutPeriod}', [PayoutPeriodController::class, 'update'])
+            Route::match(['put', 'patch'], '/payout-periods/{payoutPeriod:public_id}', [PayoutPeriodController::class, 'update'])
                 ->middleware('permission:payout_periods.manage');
-            Route::post('/teacher-compensations/{teacherCompensation}/archive', [TeacherCompensationController::class, 'archive'])
+            Route::post('/teacher-compensations/{teacherCompensation:public_id}/archive', [TeacherCompensationController::class, 'archive'])
                 ->middleware('permission:teacher_compensations.manage');
-            Route::get('/teacher-compensations/{teacherCompensation}/rate-rules', [TeacherCompensationRateRuleController::class, 'index'])
+            Route::get('/teacher-compensations/{teacherCompensation:public_id}/rate-rules', [TeacherCompensationRateRuleController::class, 'index'])
                 ->middleware('permission:teacher_compensations.view');
-            Route::post('/teacher-compensations/{teacherCompensation}/rate-rules', [TeacherCompensationRateRuleController::class, 'store'])
+            Route::post('/teacher-compensations/{teacherCompensation:public_id}/rate-rules', [TeacherCompensationRateRuleController::class, 'store'])
                 ->middleware('permission:teacher_compensations.manage');
-            Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation}/rate-rules/{teacherCompensationRateRule}', [TeacherCompensationRateRuleController::class, 'update'])
-                ->middleware('permission:teacher_compensations.manage');
-            Route::post('/teacher-compensations/{teacherCompensation}/rate-rules/{teacherCompensationRateRule}/archive', [TeacherCompensationRateRuleController::class, 'archive'])
-                ->middleware('permission:teacher_compensations.manage');
-            Route::delete('/teacher-compensations/{teacherCompensation}/rate-rules/{teacherCompensationRateRule}', [TeacherCompensationRateRuleController::class, 'destroy'])
-                ->middleware('permission:teacher_compensations.manage');
+            Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation:public_id}/rate-rules/{teacherCompensationRateRule:public_id}', [TeacherCompensationRateRuleController::class, 'update'])
+                ->middleware('permission:teacher_compensations.manage')
+                ->withoutScopedBindings();
+            Route::post('/teacher-compensations/{teacherCompensation:public_id}/rate-rules/{teacherCompensationRateRule:public_id}/archive', [TeacherCompensationRateRuleController::class, 'archive'])
+                ->middleware('permission:teacher_compensations.manage')
+                ->withoutScopedBindings();
+            Route::delete('/teacher-compensations/{teacherCompensation:public_id}/rate-rules/{teacherCompensationRateRule:public_id}', [TeacherCompensationRateRuleController::class, 'destroy'])
+                ->middleware('permission:teacher_compensations.manage')
+                ->withoutScopedBindings();
             Route::get('/teacher-compensations', [TeacherCompensationController::class, 'index'])
                 ->middleware('permission:teacher_compensations.view');
             Route::post('/teacher-compensations', [TeacherCompensationController::class, 'store'])
                 ->middleware('permission:teacher_compensations.manage');
-            Route::get('/teacher-compensations/{teacherCompensation}', [TeacherCompensationController::class, 'show'])
+            Route::get('/teacher-compensations/{teacherCompensation:public_id}', [TeacherCompensationController::class, 'show'])
                 ->middleware('permission:teacher_compensations.view');
-            Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation}', [TeacherCompensationController::class, 'update'])
+            Route::match(['put', 'patch'], '/teacher-compensations/{teacherCompensation:public_id}', [TeacherCompensationController::class, 'update'])
                 ->middleware('permission:teacher_compensations.manage');
 
             Route::get('/students/{student:public_id}/subscriptions/history', [SubscriptionManagementController::class, 'studentHistory'])
@@ -413,17 +420,17 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:users.view');
             Route::post('/', [UserManagementController::class, 'store'])
                 ->middleware('permission:users.create');
-            Route::get('/{user}', [UserManagementController::class, 'show'])
+            Route::get('/{user:public_id}', [UserManagementController::class, 'show'])
                 ->middleware('permission:users.view');
-            Route::match(['put', 'patch'], '/{user}', [UserManagementController::class, 'update'])
+            Route::match(['put', 'patch'], '/{user:public_id}', [UserManagementController::class, 'update'])
                 ->middleware('permission:users.update');
-            Route::post('/{user}/activate', [UserManagementController::class, 'activate'])
+            Route::post('/{user:public_id}/activate', [UserManagementController::class, 'activate'])
                 ->middleware('permission:users.activate');
-            Route::post('/{user}/deactivate', [UserManagementController::class, 'deactivate'])
+            Route::post('/{user:public_id}/deactivate', [UserManagementController::class, 'deactivate'])
                 ->middleware('permission:users.deactivate');
-            Route::post('/{user}/roles', [UserManagementController::class, 'syncRoles'])
+            Route::post('/{user:public_id}/roles', [UserManagementController::class, 'syncRoles'])
                 ->middleware('permission:users.assign_roles');
-            Route::get('/{user}/status-history', [UserManagementController::class, 'statusHistory'])
+            Route::get('/{user:public_id}/status-history', [UserManagementController::class, 'statusHistory'])
                 ->middleware('permission:users.view');
         });
 
@@ -433,18 +440,23 @@ Route::prefix('v1')->group(function () {
 
             Route::post('class-schedules/recurring', [ClassScheduleController::class, 'recurring']);
             Route::apiResource('class-schedules', ClassScheduleController::class)
-                ->parameters(['class-schedules' => 'classSchedule']);
-            Route::post('class-schedules/{classSchedule}/cancel', [ClassScheduleController::class, 'cancel']);
-            Route::post('class-schedules/{classSchedule}/reschedule', [ClassScheduleController::class, 'reschedule']);
-            Route::patch('class-schedules/{classSchedule}/status', [ClassScheduleController::class, 'status']);
+                ->parameters(['class-schedules' => 'classSchedule'])
+                ->scoped(['classSchedule' => 'public_id']);
+            Route::post('class-schedules/{classSchedule:public_id}/cancel', [ClassScheduleController::class, 'cancel']);
+            Route::post('class-schedules/{classSchedule:public_id}/reschedule', [ClassScheduleController::class, 'reschedule']);
+            Route::patch('class-schedules/{classSchedule:public_id}/status', [ClassScheduleController::class, 'status']);
 
             Route::apiResource('teacher-availabilities', TeacherAvailabilityController::class)
-                ->parameters(['teacher-availabilities' => 'teacherAvailability']);
+                ->parameters(['teacher-availabilities' => 'teacherAvailability'])
+                ->scoped(['teacherAvailability' => 'public_id']);
             Route::apiResource('teacher-unavailable-dates', TeacherUnavailableDateController::class)
-                ->parameters(['teacher-unavailable-dates' => 'teacherUnavailableDate']);
-            Route::apiResource('holidays', HolidayController::class);
+                ->parameters(['teacher-unavailable-dates' => 'teacherUnavailableDate'])
+                ->scoped(['teacherUnavailableDate' => 'public_id']);
+            Route::apiResource('holidays', HolidayController::class)
+                ->scoped(['holiday' => 'public_id']);
             Route::apiResource('schedule-reminders', ScheduleReminderController::class)
-                ->parameters(['schedule-reminders' => 'scheduleReminder']);
+                ->parameters(['schedule-reminders' => 'scheduleReminder'])
+                ->scoped(['scheduleReminder' => 'public_id']);
         });
     });
 });

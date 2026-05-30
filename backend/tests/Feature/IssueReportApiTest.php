@@ -203,7 +203,7 @@ class IssueReportApiTest extends TestCase
         $this->getJson('/api/v1/admin/issue-reports?status=in_progress&issue_type=class_incident&priority=high&reporter_id='.$student->id.'&assigned_to_id='.$staff->id.'&related_student_id='.$student->id.'&related_teacher_id='.$teacher->id.'&lesson_id='.$lesson->id.'&date_from=2026-06-01&date_to=2026-06-30')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $matchingIssue->id)
+            ->assertJsonPath('data.0.id', $matchingIssue->public_id)
             ->assertJsonPath('data.0.description', 'Issue details.');
     }
 
@@ -216,7 +216,7 @@ class IssueReportApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->patchJson("/api/v1/admin/issue-reports/{$issue->id}/assignment", [
+        $this->patchJson("/api/v1/admin/issue-reports/{$issue->public_id}/assignment", [
             'assigned_to_id' => $staff->id,
             'note' => 'Assigned to operations.',
         ])
@@ -224,7 +224,7 @@ class IssueReportApiTest extends TestCase
             ->assertJsonPath('data.assigned_to_id', $staff->id)
             ->assertJsonPath('data.status', IssueReport::STATUS_IN_PROGRESS);
 
-        $this->patchJson("/api/v1/admin/issue-reports/{$issue->id}/status", [
+        $this->patchJson("/api/v1/admin/issue-reports/{$issue->public_id}/status", [
             'status' => IssueReport::STATUS_RESOLVED,
             'note' => 'Resolved after follow-up.',
         ])
@@ -232,13 +232,13 @@ class IssueReportApiTest extends TestCase
             ->assertJsonPath('data.status', IssueReport::STATUS_RESOLVED)
             ->assertJsonPath('data.resolved_by', $admin->id);
 
-        $this->postJson("/api/v1/admin/issue-reports/{$issue->id}/resolution-notes", [
+        $this->postJson("/api/v1/admin/issue-reports/{$issue->public_id}/resolution-notes", [
             'resolution_notes' => 'Parent and teacher were notified.',
         ])
             ->assertOk()
             ->assertJsonPath('data.resolution_notes', 'Parent and teacher were notified.');
 
-        $this->postJson("/api/v1/admin/issue-reports/{$issue->id}/close", [
+        $this->postJson("/api/v1/admin/issue-reports/{$issue->public_id}/close", [
             'note' => 'Closed by admin.',
         ])
             ->assertOk()
@@ -272,7 +272,7 @@ class IssueReportApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->postJson("/api/v1/admin/issue-reports/{$issue->id}/cancel", [
+        $this->postJson("/api/v1/admin/issue-reports/{$issue->public_id}/cancel", [
             'note' => 'Duplicate report.',
             'resolution_notes' => 'Cancelled after confirming it duplicates another ticket.',
         ])
@@ -311,18 +311,18 @@ class IssueReportApiTest extends TestCase
         ]);
 
         Sanctum::actingAs($staff);
-        $this->getJson("/api/v1/admin/issue-reports/{$issue->id}")->assertForbidden();
+        $this->getJson("/api/v1/admin/issue-reports/{$issue->public_id}")->assertForbidden();
 
         $staff->givePermissionTo('issue_reports.view');
-        $this->getJson("/api/v1/admin/issue-reports/{$issue->id}")
+        $this->getJson("/api/v1/admin/issue-reports/{$issue->public_id}")
             ->assertOk()
             ->assertJsonPath('data.description', 'Sensitive concern details.');
 
         Sanctum::actingAs($otherStudent);
-        $this->getJson("/api/v1/issue-reports/{$issue->id}")->assertNotFound();
+        $this->getJson("/api/v1/issue-reports/{$issue->public_id}")->assertNotFound();
 
         Sanctum::actingAs($student);
-        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+        $this->getJson("/api/v1/issue-reports/{$issue->public_id}")
             ->assertOk()
             ->assertJsonPath('data.status', IssueReport::STATUS_OPEN)
             ->assertJsonMissing(['description' => 'Sensitive concern details.']);
@@ -341,11 +341,11 @@ class IssueReportApiTest extends TestCase
         ]);
 
         Sanctum::actingAs($student);
-        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+        $this->getJson("/api/v1/issue-reports/{$issue->public_id}")
             ->assertNotFound();
 
         Sanctum::actingAs($teacher);
-        $this->getJson("/api/v1/issue-reports/{$issue->id}")
+        $this->getJson("/api/v1/issue-reports/{$issue->public_id}")
             ->assertNotFound();
     }
 

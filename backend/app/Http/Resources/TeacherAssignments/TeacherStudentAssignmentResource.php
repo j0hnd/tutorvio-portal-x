@@ -18,7 +18,7 @@ class TeacherStudentAssignmentResource extends JsonResource
         $canViewAdminFields = $this->canViewAdminFields($request, 'teacher_student_assignments.view');
 
         $data = [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'student_id' => $this->resource->student_id,
             'teacher_id' => $this->resource->teacher_id,
             'assigned_at' => $this->resource->assigned_at,

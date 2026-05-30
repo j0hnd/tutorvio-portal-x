@@ -284,9 +284,9 @@ class AcademicRecordController extends Controller
     private function relations(): array
     {
         return [
-            'student:id,name,email,timezone',
-            'teacher:id,name,email,timezone',
-            'courseProgram:id,title,slug,placement_level',
+            'student:id,public_id,name,email,timezone',
+            'teacher:id,public_id,name,email,timezone',
+            'courseProgram:id,public_id,title,slug,placement_level',
             'recordedBy:id,name,email',
             'approvedBy:id,name,email',
             'archivedBy:id,name,email',

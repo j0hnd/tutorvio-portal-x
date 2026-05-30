@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use App\Models\Scheduling\ClassSchedule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class IssueReport extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasPublicId, SoftDeletes;
 
     public const TYPE_TECHNICAL_ISSUE = 'technical_issue';
 
