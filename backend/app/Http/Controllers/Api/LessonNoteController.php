@@ -92,7 +92,7 @@ class LessonNoteController extends Controller
 
         return LessonNoteRequirementResource::collection(
             $query
-                ->with(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])
+                ->with(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])
                 ->orderByDesc('start_time')
                 ->paginate($validated['per_page'] ?? 25)
         )->additional([

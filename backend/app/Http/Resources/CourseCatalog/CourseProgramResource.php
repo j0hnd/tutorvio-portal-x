@@ -21,7 +21,7 @@ class CourseProgramResource extends JsonResource
 
         $data = [
             'id' => $this->publicId($this->resource),
-            'course_type_id' => $this->resource->course_type_id,
+            'course_type_id' => $this->whenLoaded('courseType', fn () => $this->publicId($this->resource->courseType)),
             'course_type' => $this->whenLoaded('courseType', fn () => new CourseTypeResource($this->resource->courseType)),
             'title' => $this->resource->title,
             'name' => $this->resource->title,

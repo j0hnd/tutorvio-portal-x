@@ -18,7 +18,6 @@ class CourseProgramStudentAssignmentResource extends JsonResource
         $canViewAdminFields = $this->canViewAdminFields($request, 'course_programs.view');
 
         $data = [
-            'id' => $this->resource->id,
             'course_program_id' => $this->whenLoaded('courseProgram', fn () => $this->publicId($this->resource->courseProgram)),
             'course_program' => $this->whenLoaded('courseProgram', fn () => new CourseProgramResource($this->resource->courseProgram)),
             'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),

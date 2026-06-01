@@ -35,7 +35,7 @@ class LessonJoinController extends Controller
         $this->logAccessAttempt($request, $lesson, $user, $accessResult, $reason);
 
         $data = [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'status' => $lesson->status,
             'can_join' => $canJoin,
             'available_from' => $this->timestamp($availability['available_from']),
@@ -60,7 +60,7 @@ class LessonJoinController extends Controller
 
                 if ($replacementLesson = $lesson->replacementLesson()->first()) {
                     $data['replacement_lesson'] = [
-                        'id' => $replacementLesson->id,
+                        'id' => $replacementLesson->public_id,
                     ];
                 }
             }

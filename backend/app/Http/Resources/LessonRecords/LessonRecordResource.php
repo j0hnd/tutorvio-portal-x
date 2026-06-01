@@ -49,7 +49,7 @@ class LessonRecordResource extends JsonResource
                 'timezone' => $this->resource->teacher->timezone,
             ]),
             'materials' => $this->whenLoaded('materials', fn () => $this->resource->materials->map(fn ($material) => [
-                'id' => $material->id,
+                'id' => $this->publicId($material),
                 'title' => $material->title,
                 'description' => $material->description,
                 'url' => $material->url,
@@ -59,7 +59,7 @@ class LessonRecordResource extends JsonResource
 
         if ($this->canViewAdminFields($request)) {
             $data += [
-                'lesson_balance_consumed_subscription_id' => $this->resource->lesson_balance_consumed_subscription_id,
+                'lesson_balance_consumed_subscription_id' => $this->lessonBalanceConsumedSubscriptionPublicId(),
                 'lesson_balance_consumed_at' => $this->resource->lesson_balance_consumed_at,
                 'created_by' => $this->resource->created_by,
                 'updated_by' => $this->resource->updated_by,
@@ -124,5 +124,18 @@ class LessonRecordResource extends JsonResource
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && $user->can('lesson_notes.view'))
             || ($user->hasRole('teacher') && (int) $this->resource->teacher_id === (int) $user->id);
+    }
+
+    private function lessonBalanceConsumedSubscriptionPublicId(): ?string
+    {
+        if ($this->resource->lesson_balance_consumed_subscription_id === null) {
+            return null;
+        }
+
+        if ($this->resource->relationLoaded('lessonBalanceConsumedSubscription')) {
+            return $this->publicId($this->resource->lessonBalanceConsumedSubscription);
+        }
+
+        return $this->resource->lessonBalanceConsumedSubscription()->value('public_id');
     }
 }

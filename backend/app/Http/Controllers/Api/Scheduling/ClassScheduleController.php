@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Scheduling\ClassScheduleResource;
 use App\Models\Scheduling\ClassSchedule;
 use App\Services\Scheduling\ClassScheduleService;
 use Illuminate\Http\JsonResponse;
@@ -30,7 +31,7 @@ class ClassScheduleController extends Controller
         $user = $request->user();
 
         $schedules = ClassSchedule::query()
-            ->with(['student:id,name,email,timezone', 'teacher:id,name,email,timezone', 'reminders'])
+            ->with(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone', 'reminders'])
             ->when($validated['teacher_id'] ?? null, fn ($query, int $teacherId) => $query->where('teacher_id', $teacherId))
             ->when($validated['student_id'] ?? null, fn ($query, int $studentId) => $query->where('student_id', $studentId))
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
@@ -41,7 +42,9 @@ class ClassScheduleController extends Controller
             ->orderBy('starts_at')
             ->paginate($validated['per_page'] ?? 25);
 
-        return response()->json($schedules);
+        return response()->json(
+            $schedules->through(fn (ClassSchedule $schedule) => new ClassScheduleResource($schedule))
+        );
     }
 
     public function store(Request $request): JsonResponse
@@ -50,7 +53,9 @@ class ClassScheduleController extends Controller
 
         $schedule = $this->scheduleService->create($this->validatePayload($request, true), $request->user());
 
-        return response()->json(['data' => $schedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])], 201);
+        return response()->json([
+            'data' => new ClassScheduleResource($schedule->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])),
+        ], 201);
     }
 
     public function recurring(Request $request): JsonResponse
@@ -103,7 +108,7 @@ class ClassScheduleController extends Controller
                 'skipped_count' => count($result['skipped']),
                 'requested_occurrences' => $result['requested_occurrences'],
                 'created' => collect($result['created'])
-                    ->map(fn (ClassSchedule $schedule) => $schedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone']))
+                    ->map(fn (ClassSchedule $schedule) => new ClassScheduleResource($schedule->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])))
                     ->values(),
                 'skipped' => $result['skipped'],
             ],
@@ -115,7 +120,7 @@ class ClassScheduleController extends Controller
         Gate::authorize('view', $classSchedule);
 
         return response()->json([
-            'data' => $classSchedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone', 'reminders']),
+            'data' => new ClassScheduleResource($classSchedule->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone', 'reminders'])),
         ]);
     }
 
@@ -125,7 +130,9 @@ class ClassScheduleController extends Controller
 
         $schedule = $this->scheduleService->update($classSchedule, $this->validatePayload($request, false), $request->user());
 
-        return response()->json(['data' => $schedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])]);
+        return response()->json([
+            'data' => new ClassScheduleResource($schedule->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])),
+        ]);
     }
 
     public function destroy(ClassSchedule $classSchedule): JsonResponse
@@ -146,7 +153,10 @@ class ClassScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->scheduleService->cancel($classSchedule, $request->user(), $validated['reason'] ?? null),
+            'data' => new ClassScheduleResource(
+                $this->scheduleService->cancel($classSchedule, $request->user(), $validated['reason'] ?? null)
+                    ->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])
+            ),
         ]);
     }
 
@@ -169,7 +179,10 @@ class ClassScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->scheduleService->reschedule($classSchedule, $validated, $request->user()),
+            'data' => new ClassScheduleResource(
+                $this->scheduleService->reschedule($classSchedule, $validated, $request->user())
+                    ->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])
+            ),
         ], 201);
     }
 
@@ -182,7 +195,10 @@ class ClassScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->scheduleService->updateStatus($classSchedule, $validated['status'], $request->user()),
+            'data' => new ClassScheduleResource(
+                $this->scheduleService->updateStatus($classSchedule, $validated['status'], $request->user())
+                    ->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])
+            ),
         ]);
     }
 

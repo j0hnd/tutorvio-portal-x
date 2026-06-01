@@ -157,7 +157,9 @@ class SchedulingApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.student_id', $this->student->id);
+            ->assertJsonPath('data.0.student_id', $this->student->public_id);
+
+        $this->assertNoNumericIdsInPayload($response->json('data.0'));
     }
 
     public function test_holidays_block_schedule_creation(): void
@@ -247,9 +249,11 @@ class SchedulingApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.status', ClassSchedule::STATUS_PENDING_CONFIRMATION);
+
+        $this->assertNoNumericIdsInPayload($response->json('data'));
 
         $this->assertDatabaseHas('class_schedules', [
             'student_id' => $this->student->id,
@@ -996,8 +1000,8 @@ class SchedulingApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data.availability')
             ->assertJsonCount(1, 'data.booked_lessons')
-            ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->id)
-            ->assertJsonPath('data.booked_lessons.0.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->public_id)
+            ->assertJsonPath('data.booked_lessons.0.teacher.id', $this->teacher->public_id)
             ->assertJsonPath('data.booked_lessons.0.starts_at', '2026-06-01T09:00:00+08:00');
     }
 
@@ -1053,8 +1057,8 @@ class SchedulingApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data.availability')
             ->assertJsonCount(1, 'data.booked_lessons')
-            ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->id)
-            ->assertJsonPath('data.booked_lessons.0.student.id', $this->student->id)
+            ->assertJsonPath('data.availability.0.teacher.id', $this->teacher->public_id)
+            ->assertJsonPath('data.booked_lessons.0.student.id', $this->student->public_id)
             ->assertJsonPath('data.booked_lessons.0.status', ClassSchedule::STATUS_COMPLETED);
     }
 
@@ -1109,7 +1113,7 @@ class SchedulingApiTest extends TestCase
             ->assertJsonPath('data.range.starts_at', '2026-06-01T00:00:00+08:00')
             ->assertJsonCount(1, 'data.availability')
             ->assertJsonCount(1, 'data.booked_lessons')
-            ->assertJsonPath('data.booked_lessons.0.teacher.id', $this->teacher->id);
+            ->assertJsonPath('data.booked_lessons.0.teacher.id', $this->teacher->public_id);
 
         $this->getJson('/api/v1/scheduling/calendar?view=week&date=2026-06-01&timezone=Asia/Manila')
             ->assertOk()
@@ -1370,5 +1374,21 @@ class SchedulingApiTest extends TestCase
             'user_id' => $this->teacher->id,
             'status' => ScheduleReminder::STATUS_CANCELLED,
         ]);
+    }
+
+    private function assertNoNumericIdsInPayload(mixed $payload): void
+    {
+        if (! is_array($payload)) {
+            return;
+        }
+
+        foreach ($payload as $key => $value) {
+            if ((is_string($key) && ($key === 'id' || str_ends_with($key, '_id'))) && $value !== null) {
+                $this->assertIsString($value, "Expected {$key} to be an opaque public ID.");
+                $this->assertFalse(is_numeric($value), "Expected {$key} not to expose a numeric database ID.");
+            }
+
+            $this->assertNoNumericIdsInPayload($value);
+        }
     }
 }

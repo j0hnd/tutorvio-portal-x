@@ -21,7 +21,6 @@ class SubscriptionHistoryResource extends JsonResource
         $canViewBillingFields = $this->canViewBillingFields($request);
 
         return [
-            'id' => $this->resource->id,
             'subscription_id' => $this->subscriptionPublicId(),
             'student_id' => $this->studentPublicId(),
             'event_type' => $this->resource->event_type,

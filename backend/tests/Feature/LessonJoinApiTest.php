@@ -65,7 +65,7 @@ class LessonJoinApiTest extends TestCase
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
 
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'user_id' => $this->student->id,
             'user_role' => 'student',
             'access_result' => LessonJoinAccessLog::RESULT_ALLOWED,
@@ -100,7 +100,7 @@ class LessonJoinApiTest extends TestCase
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/secure-lesson');
 
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'user_id' => $this->admin->id,
             'user_role' => 'admin',
             'access_result' => LessonJoinAccessLog::RESULT_ALLOWED,
@@ -132,14 +132,14 @@ class LessonJoinApiTest extends TestCase
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', json_encode($response->json('data')));
         $this->assertStringNotContainsString('meeting_metadata', json_encode($response->json('data')));
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'user_id' => $this->student->id,
             'user_role' => 'student',
             'access_result' => LessonJoinAccessLog::RESULT_NOT_YET_AVAILABLE,
             'reason' => 'not_yet_available',
         ]);
         $this->assertDatabaseMissing('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'reason' => 'https://meet.example.com/secure-lesson',
         ]);
     }
@@ -161,7 +161,7 @@ class LessonJoinApiTest extends TestCase
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'user_id' => $otherStudent->id,
             'access_result' => LessonJoinAccessLog::RESULT_DENIED,
             'reason' => 'unauthorized',
@@ -185,7 +185,7 @@ class LessonJoinApiTest extends TestCase
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         $this->assertDatabaseHas('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'user_id' => $otherTeacher->id,
             'access_result' => LessonJoinAccessLog::RESULT_DENIED,
             'reason' => 'unauthorized',
@@ -201,7 +201,7 @@ class LessonJoinApiTest extends TestCase
 
         $this->assertStringNotContainsString('https://meet.example.com/secure-lesson', $response->getContent());
         $this->assertDatabaseMissing('lesson_join_access_logs', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
         ]);
     }
 
@@ -268,7 +268,7 @@ class LessonJoinApiTest extends TestCase
 
             $this->assertStringNotContainsString('https://meet.example.com/'.$status, $response->getContent());
             $this->assertDatabaseHas('lesson_join_access_logs', [
-                'lesson_id' => $lesson->public_id,
+                'lesson_id' => $lesson->id,
                 'user_id' => $this->student->id,
                 'access_result' => match ($status) {
                     Lesson::STATUS_CANCELLED => LessonJoinAccessLog::RESULT_CANCELLED,
@@ -312,7 +312,7 @@ class LessonJoinApiTest extends TestCase
             'start_time' => Carbon::parse('2026-06-02 09:00:00'),
             'end_time' => Carbon::parse('2026-06-02 10:00:00'),
             'meeting_link' => 'https://meet.example.com/new-lesson',
-            'rescheduled_from_id' => $oldLesson->public_id,
+            'rescheduled_from_id' => $oldLesson->id,
         ]);
 
         Sanctum::actingAs($this->student);
@@ -322,7 +322,7 @@ class LessonJoinApiTest extends TestCase
             ->assertJsonPath('data.can_join', false)
             ->assertJsonPath('data.reason', 'lesson_rescheduled')
             ->assertJsonPath('data.message', 'This lesson has been rescheduled.')
-            ->assertJsonPath('data.replacement_lesson.id', $replacementLesson->id)
+            ->assertJsonPath('data.replacement_lesson.id', $replacementLesson->public_id)
             ->assertJsonPath('data.meeting_link', null);
 
         $this->assertStringNotContainsString('https://meet.example.com/old-lesson', $response->getContent());

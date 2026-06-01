@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Scheduling\ClassScheduleResource;
 use App\Models\Scheduling\ClassSchedule;
 use App\Services\Scheduling\ClassScheduleService;
 use Illuminate\Http\JsonResponse;
@@ -32,7 +33,7 @@ class LessonBookingController extends Controller
         ]), $request->user());
 
         return response()->json([
-            'data' => $schedule->load(['student:id,name,email,timezone', 'teacher:id,name,email,timezone']),
+            'data' => new ClassScheduleResource($schedule->load(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])),
         ], 201);
     }
 }

@@ -160,7 +160,8 @@ class MessageThreadApiTest extends TestCase
 
         $this->getJson("/api/v1/message-threads/{$thread->public_id}/messages")
             ->assertOk()
-            ->assertJsonPath('data.0.body', 'Can you check this?');
+            ->assertJsonPath('data.0.body', 'Can you check this?')
+            ->assertJsonMissingPath('data.0.id');
 
         $this->postJson("/api/v1/message-threads/{$thread->public_id}/read")
             ->assertOk()

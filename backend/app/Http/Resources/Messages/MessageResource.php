@@ -16,7 +16,6 @@ class MessageResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = [
-            'id' => $this->resource->id,
             'thread_id' => $this->whenLoaded('thread', fn () => $this->publicId($this->resource->thread)),
             'sender_id' => $this->whenLoaded('sender', fn () => $this->publicId($this->resource->sender)),
             'sender' => $this->whenLoaded('sender', fn () => $this->userSummary($this->resource->sender, $request)),

@@ -84,7 +84,7 @@ class CalendarService
         }
 
         $availabilities = TeacherAvailability::query()
-            ->with('teacher:id,name,email,timezone')
+            ->with('teacher:id,public_id,name,email,timezone')
             ->whereIn('teacher_id', $teacherIds)
             ->where('is_active', true)
             ->where(function (Builder $query) use ($endsAt) {
@@ -131,7 +131,7 @@ class CalendarService
 
                 if ($start->lessThanOrEqualTo($endsAt) && $end->greaterThanOrEqualTo($startsAt)) {
                     $events->push([
-                        'id' => $availability->id,
+                        'id' => $this->opaqueId('availability', $availability->id),
                         'type' => 'availability',
                         'teacher' => $this->userPayload($availability->teacher),
                         'starts_at' => $start->toIso8601String(),
@@ -155,7 +155,7 @@ class CalendarService
     private function bookedLessons(User $user, CarbonImmutable $startsAt, CarbonImmutable $endsAt, string $timezone): array
     {
         return ClassSchedule::query()
-            ->with(['student:id,name,email,timezone', 'teacher:id,name,email,timezone'])
+            ->with(['student:id,public_id,name,email,timezone', 'teacher:id,public_id,name,email,timezone'])
             ->where('starts_at', '<=', $endsAt->utc())
             ->whereRaw('COALESCE(teacher_blocked_until, ends_at) >= ?', [$startsAt->utc()])
             ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn (Builder $query) => $query->where('teacher_id', $user->id))
@@ -163,7 +163,7 @@ class CalendarService
             ->orderBy('starts_at')
             ->get()
             ->map(fn (ClassSchedule $schedule) => [
-                'id' => $schedule->id,
+                'id' => $schedule->public_id,
                 'type' => 'booked_lesson',
                 'title' => $schedule->title,
                 'description' => $schedule->description,
@@ -193,14 +193,14 @@ class CalendarService
         }
 
         return TeacherUnavailableDate::query()
-            ->with('teacher:id,name,email,timezone')
+            ->with('teacher:id,public_id,name,email,timezone')
             ->whereIn('teacher_id', $teacherIds)
             ->where('starts_at', '<=', $endsAt->utc())
             ->where('ends_at', '>=', $startsAt->utc())
             ->orderBy('starts_at')
             ->get()
             ->map(fn (TeacherUnavailableDate $unavailableDate) => [
-                'id' => $unavailableDate->id,
+                'id' => $this->opaqueId('unavailable_date', $unavailableDate->id),
                 'type' => 'unavailable_date',
                 'teacher' => $this->userPayload($unavailableDate->teacher),
                 'starts_at' => $unavailableDate->starts_at->setTimezone($timezone)->toIso8601String(),
@@ -236,7 +236,7 @@ class CalendarService
                     $occurrenceDate = $holiday->repeats_annually ? $date->year($year) : $date;
 
                     return [
-                        'id' => $holiday->id,
+                        'id' => $this->opaqueId('holiday', $holiday->id),
                         'type' => 'holiday_block',
                         'name' => $holiday->name,
                         'date' => $occurrenceDate->toDateString(),
@@ -270,11 +270,16 @@ class CalendarService
         }
 
         return [
-            'id' => $user->id,
+            'id' => $user->public_id,
             'name' => $user->name,
             'email' => $user->email,
             'timezone' => $user->timezone,
         ];
+    }
+
+    private function opaqueId(string $type, int|string $id): string
+    {
+        return $type.'_'.substr(hash_hmac('sha256', (string) $id, (string) config('app.key')), 0, 24);
     }
 
     private function timeValue(mixed $time): string

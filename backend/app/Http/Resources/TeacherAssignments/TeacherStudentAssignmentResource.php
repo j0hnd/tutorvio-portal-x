@@ -19,19 +19,19 @@ class TeacherStudentAssignmentResource extends JsonResource
 
         $data = [
             'id' => $this->publicId($this->resource),
-            'student_id' => $this->resource->student_id,
-            'teacher_id' => $this->resource->teacher_id,
+            'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
+            'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
             'assigned_at' => $this->resource->assigned_at,
             'status' => $this->resource->status,
             'reason' => $this->resource->reason,
             'ended_at' => $this->resource->ended_at,
             'student' => $this->whenLoaded('student', fn () => [
-                'id' => $this->resource->student->id,
+                'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
                 'email' => $this->resource->student->email,
             ]),
             'teacher' => $this->whenLoaded('teacher', fn () => [
-                'id' => $this->resource->teacher->id,
+                'id' => $this->publicId($this->resource->teacher),
                 'name' => $this->resource->teacher->name,
                 'email' => $this->resource->teacher->email,
             ]),
