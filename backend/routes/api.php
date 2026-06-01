@@ -463,9 +463,8 @@ Route::prefix('v1')->group(function () {
 
 Route::get('/settings/public', PublicPortalSettingController::class);
 
-Route::middleware('auth:sanctum')
-    ->prefix('admin')
-    ->middleware(['role:admin|staff'])
+Route::prefix('admin')
+    ->middleware(['auth:sanctum', 'role:admin|staff'])
     ->group(function () {
         Route::get('/settings', [AdminPortalSettingController::class, 'index'])
             ->middleware('permission:portal_settings.view');
