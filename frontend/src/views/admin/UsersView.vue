@@ -32,19 +32,16 @@
           </template>
         </TVInput>
       </div>
+      <TVDateRangePicker
+        v-model="joinDateRange"
+        placeholder="Joined date"
+        class="users-page__date-range"
+        aria-label="Filter by join date"
+      />
       <div class="users-page__filter-selects">
-        <TVSelect
-          v-model="roleFilter"
-          :options="roleOptions"
-          placeholder="All Roles"
-          aria-label="Filter by Role"
-        />
-        <TVSelect
-          v-model="statusFilter"
-          :options="statusOptions"
-          placeholder="All Statuses"
-          aria-label="Filter by Status"
-        />
+        <TVSelect v-model="roleFilter" :options="roleOptions" placeholder="All Roles" aria-label="Filter by Role" />
+        <TVSelect v-model="statusFilter" :options="statusOptions" placeholder="All Statuses" aria-label="Filter by Status" />
+        <button v-if="hasUserFilters" class="users-clear-btn" type="button" @click="clearUserFilters">Clear</button>
       </div>
     </div>
 
@@ -153,6 +150,8 @@ import TVButton from '@/components/ui/TVButton.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
 import TVBadge from '@/components/ui/TVBadge.vue'
+import TVDateRangePicker from '@/components/ui/TVDateRangePicker.vue'
+import type { DateRange } from '@/components/ui/TVDateRangePicker.vue'
 import TVDataTable from '@/components/ui/TVDataTable.vue'
 import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import type { UserRole, SelectOption, ManagedUser } from '@/types'
@@ -162,8 +161,12 @@ const store = useUsersStore()
 const toast = useToast()
 
 const search = ref('')
-const roleFilter = ref<UserRole | ''>('')
-const statusFilter = ref<'active' | 'inactive' | ''>('')
+const roleFilter      = ref<UserRole | ''>('')
+const statusFilter    = ref<'active' | 'inactive' | ''>('')
+const joinDateRange   = ref<DateRange>({ start: '', end: '' })
+
+const hasUserFilters = computed(() => !!search.value || !!roleFilter.value || !!statusFilter.value || !!(joinDateRange.value.start || joinDateRange.value.end))
+function clearUserFilters() { search.value = ''; roleFilter.value = ''; statusFilter.value = ''; joinDateRange.value = { start: '', end: '' } }
 
 const columns: DataTableColumn[] = [
   { key: 'name',      label: 'Name',    sortable: true,  sortKey: '_fullName', width: '30%' },
@@ -188,19 +191,22 @@ const statusOptions: SelectOption[] = [
   { value: 'inactive', label: 'Inactive' },
 ]
 
-const rows = computed(() =>
-  store
-    .filteredUsers({
-      role: roleFilter.value,
-      status: statusFilter.value,
-      search: search.value,
+const rows = computed(() => {
+  const { start, end } = joinDateRange.value
+  return store
+    .filteredUsers({ role: roleFilter.value, status: statusFilter.value, search: search.value })
+    .filter(user => {
+      const d = (user.createdAt ?? '').slice(0, 10)
+      if (start && d < start) return false
+      if (end   && d > end)   return false
+      return true
     })
     .map(user => ({
       ...user,
       _fullName: `${user.firstName} ${user.lastName}`,
       _initials: `${user.firstName[0]}${user.lastName[0]}`.toUpperCase(),
-    })),
-)
+    }))
+})
 
 function roleLabel(role: string): string {
   const map: Record<string, string> = {
@@ -281,10 +287,15 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.users-page__filter-selects > * {
-  width: 148px;
-  flex-shrink: 0;
+.users-page__date-range { width: 200px; flex-shrink: 0; }
+.users-page__filter-selects > * { width: 160px; flex-shrink: 0; }
+.users-clear-btn {
+  font-size: var(--tv-text-sm); color: var(--tv-text-muted); background: none;
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
 }
+.users-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
 .user-cell {
   display: flex;

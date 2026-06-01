@@ -8,20 +8,34 @@
         <p class="av-subtitle">Set your weekly recurring schedule and mark days off</p>
       </div>
       <div class="av-header__right">
-        <!-- Admin teacher selector -->
-        <TVSelect
-          v-if="isAdmin"
-          v-model="selectedTeacher"
-          :options="teacherOptions"
-          aria-label="Select teacher"
-          class="av-teacher-tvselect"
-        />
-        <span class="av-tz-badge">{{ timezone }}</span>
+        <!-- Admin teacher selector + timezone -->
+        <div v-if="isAdmin" class="av-teacher-block">
+          <TVSelect
+            v-model="selectedTeacher"
+            :options="[{ value: '', label: 'Select a teacher' }, ...teacherOptions]"
+            placeholder="Select a teacher"
+            aria-label="Select teacher"
+            class="av-teacher-tvselect"
+          />
+          <span class="av-tz-badge">{{ timezone }}</span>
+        </div>
+        <span v-else class="av-tz-badge">{{ timezone }}</span>
       </div>
     </div>
 
+  <!-- No teacher selected prompt (admin only) -->
+  <div v-if="isAdmin && !teacherId" class="av-empty-prompt">
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <circle cx="15" cy="12" r="5" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M4 30c0-5.523 4.925-9 11-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="27" cy="24" r="6.5" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M27 21v3.5l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <p>Select a teacher above to view and manage their availability.</p>
+  </div>
+
   <!-- Two-column layout -->
-  <div class="av-columns">
+  <div v-else class="av-columns">
 
     <!-- Column 1: Weekly Recurring Availability -->
     <section class="av-card av-col">
@@ -175,11 +189,10 @@ const reasonOptions: { value: UnavailableReason; label: string }[] = [
   { value: 'NATIONAL_HOLIDAY', label: 'National Holiday' },
 ]
 
-const defaultTeacher = (route.query.teacher as string) || 'u2'
-const selectedTeacher = ref(defaultTeacher)
+const selectedTeacher = ref((route.query.teacher as string) || '')
 
 const teacherId = computed(() =>
-  isAdmin.value ? selectedTeacher.value : (auth.user?.id ?? 'u2')
+  isAdmin.value ? selectedTeacher.value : (auth.user?.id ?? '')
 )
 
 // ---- Grid config ----
@@ -296,6 +309,18 @@ function slotDMY(dateStr: string): string {
   box-sizing: border-box;
 }
 
+.av-empty-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tv-space-3);
+  padding: 60px var(--tv-space-4);
+  color: var(--tv-text-muted);
+  text-align: center;
+}
+.av-empty-prompt svg { opacity: 0.35; }
+.av-empty-prompt p { font-size: var(--tv-text-sm); margin: 0; }
+
 /* Two-column layout */
 .av-columns {
   display: grid;
@@ -339,7 +364,8 @@ function slotDMY(dateStr: string): string {
 }
 
 .av-header__left { flex: 1; }
-.av-header__right { display: flex; align-items: center; gap: var(--tv-space-2); }
+.av-header__right { display: flex; align-items: flex-start; gap: var(--tv-space-2); }
+.av-teacher-block { display: flex; flex-direction: column; gap: var(--tv-space-2); align-items: flex-end; }
 
 .av-title {
   font-size: var(--tv-text-xl);

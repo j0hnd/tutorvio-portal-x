@@ -31,19 +31,11 @@
 
     <!-- Filters -->
     <div class="att-page__filters">
-      <div class="att-page__filter-dates">
-        <TVDatePicker
-          v-model="filterDateFrom"
-          placeholder="Start date"
-          aria-label="Filter from date"
-        />
-        <TVDatePicker
-          v-model="filterDateTo"
-          placeholder="End date"
-          :min="filterDateFrom"
-          aria-label="Filter to date"
-        />
-      </div>
+      <TVDateRangePicker
+        v-model="filterDateRange"
+        placeholder="All dates"
+        aria-label="Filter by date range"
+      />
       <div class="att-page__filter-selects">
         <TVSelect
           v-if="canFilterByTeacher"
@@ -71,6 +63,7 @@
           placeholder="All Subjects"
           aria-label="Filter by subject"
         />
+        <button v-if="hasAttFilters" class="att-clear-btn" type="button" @click="clearAttFilters">Clear</button>
       </div>
     </div>
 
@@ -195,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, type WritableComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedule'
 import { useAuthStore } from '@/stores/auth'
@@ -204,7 +197,8 @@ import { useViewAs } from '@/composables/useViewAs'
 import TVDataTable from '@/components/ui/TVDataTable.vue'
 import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
-import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVDateRangePicker from '@/components/ui/TVDateRangePicker.vue'
+import type { DateRange } from '@/components/ui/TVDateRangePicker.vue'
 import TVBadge from '@/components/ui/TVBadge.vue'
 import TVButton from '@/components/ui/TVButton.vue'
 import type { AttendanceStatus, LessonAttendance, ScheduleLesson } from '@/stores/schedule'
@@ -224,6 +218,13 @@ const canOverride = computed(() => role.value === 'ADMIN' || role.value === 'STA
 // ── Filters ──
 const filterDateFrom = ref('')
 const filterDateTo   = ref('')
+
+const hasAttFilters = computed(() => !!filterDateFrom.value || !!filterDateTo.value || !!filterTeacherId.value || !!filterStudentId.value || !!filterStatus.value || !!filterSubject.value)
+function clearAttFilters() { filterDateFrom.value = ''; filterDateTo.value = ''; filterTeacherId.value = ''; filterStudentId.value = ''; filterStatus.value = ''; filterSubject.value = '' }
+const filterDateRange = computed({
+  get: (): DateRange => ({ start: filterDateFrom.value, end: filterDateTo.value }),
+  set: (v: DateRange) => { filterDateFrom.value = v.start; filterDateTo.value = v.end },
+})
 const filterTeacherId = ref('')
 const filterStudentId = ref('')
 const filterStatus   = ref('')
@@ -290,7 +291,7 @@ const filteredRecords = computed((): AttendanceRecord[] => {
   return baseRecords.value.filter(rec => {
     const lessonDate = rec.lesson.startTime.slice(0, 10)
     if (filterDateFrom.value && lessonDate < filterDateFrom.value) return false
-    if (filterDateTo.value && lessonDate > filterDateTo.value) return false
+    if (filterDateTo.value   && lessonDate > filterDateTo.value)   return false
     if (filterTeacherId.value && rec.lesson.teacherId !== filterTeacherId.value) return false
     if (filterStudentId.value && rec.lesson.studentId !== filterStudentId.value) return false
     if (filterStatus.value && rec.studentStatus !== filterStatus.value && rec.teacherStatus !== filterStatus.value) return false
@@ -465,18 +466,7 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: flex-end;
 }
-
-.att-page__filter-dates {
-  display: flex;
-  gap: var(--tv-space-3);
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-.att-page__filter-dates > * {
-  width: 148px;
-  flex-shrink: 0;
-}
+.att-page__filters > .tvdrp-wrap { width: 200px; flex-shrink: 0; }
 
 .att-page__filter-selects {
   display: flex;
@@ -485,10 +475,14 @@ onMounted(() => {
   align-items: flex-end;
 }
 
-.att-page__filter-selects > * {
-  width: 160px;
-  flex-shrink: 0;
+.att-page__filter-selects > * { width: 160px; flex-shrink: 0; }
+.att-clear-btn {
+  font-size: var(--tv-text-sm); color: var(--tv-text-muted); background: none;
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
 }
+.att-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
 /* Table cells */
 .att-lesson-cell {
@@ -781,7 +775,6 @@ onMounted(() => {
 
 @media (max-width: 767px) {
   .att-page { padding: var(--tv-space-4); }
-  .att-page__filter-dates > *,
   .att-page__filter-selects > * { width: auto; flex: 1; min-width: 130px; }
   .att-form-row { grid-template-columns: 1fr; }
 }

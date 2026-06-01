@@ -1051,6 +1051,10 @@ export const useScheduleStore = defineStore('schedule', () => {
     lessonNotes.value = lessonNotes.value.filter(n => n.id !== noteId)
   }
 
+  function getLessonNote(lessonId: string): LessonNote | undefined {
+    return lessonNotes.value.find(n => n.lessonId === lessonId)
+  }
+
   function getPendingNoteLessons(teacherId: string): ScheduleLesson[] {
     const needsNote: LessonStatus[] = ['COMPLETED', 'MISSED_BY_STUDENT', 'MISSED_BY_TEACHER']
     return lessons.value.filter(l =>
@@ -1327,6 +1331,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     getNoteForLesson,
     saveNote,
     deleteNote,
+    getLessonNote,
     getPendingNoteLessons,
     getAttendanceForLesson,
     getAllAttendance,

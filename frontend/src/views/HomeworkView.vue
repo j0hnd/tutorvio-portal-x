@@ -21,12 +21,19 @@
         </svg>
         <input v-model="search" class="hw-search" type="search" placeholder="Search..." />
       </div>
-      <TVSelect v-model="filterStatus" :options="statusOptions" placeholder="All Statuses" />
-      <TVDatePicker v-model="filterDueDate" placeholder="Due date" />
-      <TVSelect v-if="canViewAll" v-model="filterStudent" :options="studentOptions" placeholder="All Students" />
-      <TVSelect v-if="role === 'ADMIN'" v-model="filterTeacher" :options="teacherOptions" placeholder="All Teachers" />
-      <TVSelect v-if="canViewAll" v-model="filterLesson" :options="lessonOptions" placeholder="All Lessons" />
+      <TVDateRangePicker class="hw-date-range" v-model="filterDueRange" placeholder="Due date" />
+      <TVSelect class="hw-filter-ctrl" v-model="filterStatus" :options="statusOptions" placeholder="All Statuses" />
+      <TVSelect v-if="canViewAll" class="hw-filter-ctrl" v-model="filterStudent" :options="studentOptions" placeholder="All Students" />
+      <TVSelect v-if="role === 'ADMIN'" class="hw-filter-ctrl" v-model="filterTeacher" :options="teacherOptions" placeholder="All Teachers" />
+      <TVSelect v-if="canViewAll" class="hw-filter-ctrl" v-model="filterLesson" :options="lessonOptions" placeholder="All Lessons" />
       <button v-if="hasActiveFilters" class="hw-clear-btn" type="button" @click="clearFilters">Clear</button>
+      <TVPagination
+        v-if="filtered.length > HW_PAGE_SIZE"
+        v-model="hwPage"
+        :total="filtered.length"
+        :page-size="HW_PAGE_SIZE"
+        class="hw-pagination"
+      />
     </div>
 
     <!-- Homework list -->
@@ -141,16 +148,8 @@
       </div>
     </div>
 
-    <!-- Pagination -->
-    <TVPagination
-      v-if="filtered.length > HW_PAGE_SIZE"
-      v-model="hwPage"
-      :total="filtered.length"
-      :page-size="HW_PAGE_SIZE"
-    />
-
     <!-- Empty -->
-    <div v-else-if="!filtered.length" class="hw-empty">
+    <div v-if="!filtered.length" class="hw-empty">
       <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <rect x="6" y="4" width="24" height="32" rx="3" stroke="currentColor" stroke-width="1.5"/>
         <path d="M13 14h10M13 20h10M13 26h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
@@ -197,7 +196,8 @@ import { useToast } from '@/composables/useToast'
 import TVModal from '@/components/ui/TVModal.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
-import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVDateRangePicker from '@/components/ui/TVDateRangePicker.vue'
+import type { DateRange } from '@/components/ui/TVDateRangePicker.vue'
 import StatsGrid from '@/components/dashboard/StatsGrid.vue'
 import TVPagination from '@/components/ui/TVPagination.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
@@ -280,22 +280,25 @@ const lessonOptions = computed(() => {
 // ── Filters ──
 const search        = ref('')
 const filterStatus  = ref<HomeworkStatus | ''>('')
-const filterDueDate = ref('')
+const todayHW      = new Date().toLocaleDateString('sv-SE')
+const filterDueRange = ref<DateRange>({ start: todayHW, end: todayHW })
 const filterStudent = ref('')
 const filterTeacher = ref('')
 const filterLesson  = ref('')
 
 const hasActiveFilters = computed(() =>
-  !!search.value || !!filterStatus.value || !!filterDueDate.value ||
+  !!search.value || !!filterStatus.value ||
+  !!(filterDueRange.value.start || filterDueRange.value.end) ||
   !!filterStudent.value || !!filterTeacher.value || !!filterLesson.value
 )
 
 function clearFilters(): void {
-  search.value = ''; filterStatus.value = ''; filterDueDate.value = ''
+  search.value = ''; filterStatus.value = ''
+  filterDueRange.value = { start: '', end: '' }
   filterStudent.value = ''; filterTeacher.value = ''; filterLesson.value = ''
 }
 
-const HW_PAGE_SIZE = 10
+const HW_PAGE_SIZE = 5
 const hwPage = ref(1)
 
 const filtered = computed(() => {
@@ -303,7 +306,8 @@ const filtered = computed(() => {
   return homework.value.filter(hw => {
     if (q && !hw.title.toLowerCase().includes(q) && !hw.studentName.toLowerCase().includes(q)) return false
     if (filterStatus.value && hw.status !== filterStatus.value) return false
-    if (filterDueDate.value && hw.dueDate !== filterDueDate.value) return false
+    if (filterDueRange.value.start && hw.dueDate < filterDueRange.value.start) return false
+    if (filterDueRange.value.end   && hw.dueDate > filterDueRange.value.end)   return false
     if (filterStudent.value && hw.studentName !== filterStudent.value) return false
     if (filterTeacher.value && hw.teacherName !== filterTeacher.value) return false
     if (filterLesson.value && hw.lessonId !== filterLesson.value) return false
@@ -463,7 +467,10 @@ function formatDateTime(iso: string): string {
 
 /* Filters */
 .hw-filters { display: flex; flex-wrap: wrap; gap: var(--tv-space-2); align-items: center; }
-.hw-search-wrap { position: relative; width: 200px; flex-shrink: 0; }
+.hw-search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 360px; }
+.hw-filter-ctrl { width: 160px; flex-shrink: 0; }
+.hw-date-range  { width: 200px; flex-shrink: 0; }
+.hw-pagination { margin-left: auto; flex-shrink: 0; }
 .hw-search-icon { position: absolute; left: var(--tv-space-3); top: 50%; transform: translateY(-50%); color: var(--tv-text-muted); pointer-events: none; }
 .hw-search {
   width: 100%; padding: var(--tv-space-2) var(--tv-space-3) var(--tv-space-2) calc(var(--tv-space-3) + 20px);
@@ -475,7 +482,8 @@ function formatDateTime(iso: string): string {
 .hw-clear-btn {
   font-size: var(--tv-text-sm); color: var(--tv-text-muted);
   background: none; border: 1px solid var(--tv-border);
-  border-radius: var(--tv-radius); padding: var(--tv-space-2) var(--tv-space-3);
+  border-radius: var(--tv-radius); padding: 0 var(--tv-space-3);
+  min-height: 42px; display: inline-flex; align-items: center;
   cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
 }
 .hw-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }

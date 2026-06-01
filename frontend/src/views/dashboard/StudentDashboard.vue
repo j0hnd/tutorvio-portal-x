@@ -34,26 +34,16 @@
         <section class="sd-panel">
           <div class="sd-panel__header">
             <h2 class="sd-panel__title">Learning Progress</h2>
+            <button class="sd-link-btn" type="button" @click="router.push({ name: 'Progress' })">View Progress →</button>
           </div>
           <div class="sd-progress-grid">
 
             <!-- Left: CEFR level journey -->
             <div class="sd-progress-col">
               <p class="sd-col-label">Level Journey</p>
-              <div class="sd-level-track">
-                <div
-                  v-for="lvl in CEFR_LEVELS"
-                  :key="lvl.code"
-                  :class="['sd-level-node', {
-                    'sd-level-node--done':   lvl.order < currentLevelOrder,
-                    'sd-level-node--active': lvl.order === currentLevelOrder,
-                  }]"
-                >
-                  <span class="sd-level-node__dot" />
-                  <span class="sd-level-node__code">{{ lvl.code }}</span>
-                  <span class="sd-level-node__label">{{ lvl.label }}</span>
-                </div>
-              </div>
+              <TVCEFRTrack
+                :current-level="LEVEL_SHORT[studentProfile?.englishLevel ?? ''] ?? 'A1'"
+              />
             </div>
 
             <!-- Right: Assigned course detail -->
@@ -90,51 +80,53 @@
           </div>
         </section>
 
-        <!-- Recent Homework -->
-        <section class="sd-panel">
-          <div class="sd-panel__header">
-            <h2 class="sd-panel__title">Recent Homework</h2>
-            <span class="sd-panel__badge">{{ pendingCount }} pending</span>
-          </div>
-          <ul class="sd-list">
-            <li v-for="hw in studentHomework" :key="hw.id" class="sd-list-item">
-              <div class="sd-list-item__icon sd-list-item__icon--doc">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <path d="M3 1h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-                  <path d="M8 1v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <div class="sd-list-item__body">
-                <p class="sd-list-item__title">{{ hw.title }}</p>
-                <p class="sd-list-item__meta">Due {{ hw.dueDate }}</p>
-              </div>
-              <span class="sd-status-chip" :class="`sd-status-chip--${hw.status.toLowerCase().replace('_', '-')}`">{{ hw.status }}</span>
-            </li>
-            <li v-if="!studentHomework.length" class="sd-list-item sd-list-item--empty">No homework assigned yet.</li>
-          </ul>
-        </section>
+        <!-- Recent Homework + Recent Materials in same row -->
+        <div class="sd-row2">
 
-        <!-- Recent Materials -->
-        <section class="sd-panel">
-          <div class="sd-panel__header">
-            <h2 class="sd-panel__title">Recent Materials</h2>
-          </div>
-          <ul class="sd-list">
-            <li v-for="mat in MOCK_MATERIALS" :key="mat.id" class="sd-list-item">
-              <div class="sd-list-item__icon sd-list-item__icon--file">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <path d="M3 1h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-                  <path d="M8 1v3h3M4 7h6M4 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <div class="sd-list-item__body">
-                <p class="sd-list-item__title">{{ mat.title }}</p>
-                <p class="sd-list-item__meta">{{ mat.lesson }} · Accessed {{ mat.accessed }}</p>
-              </div>
-              <span class="sd-type-tag">{{ mat.type }}</span>
-            </li>
-          </ul>
-        </section>
+          <!-- Recent Homework -->
+          <section class="sd-panel">
+            <div class="sd-panel__header">
+              <h2 class="sd-panel__title">Recent Homework</h2>
+              <span class="sd-panel__badge">{{ pendingCount }} pending</span>
+            </div>
+            <ul class="sd-list">
+              <li v-for="hw in studentHomework" :key="hw.id" class="sd-list-item">
+                <div class="sd-list-item__icon sd-list-item__icon--doc">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M3 1h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                    <path d="M8 1v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="sd-list-item__body">
+                  <p class="sd-list-item__title">{{ hw.title }}</p>
+                  <p class="sd-list-item__meta">Due {{ hw.dueDate }}</p>
+                </div>
+                <span :class="['sd-hw-badge', `sd-hw-badge--${hw.status.toLowerCase().replace('_', '-')}`]">
+                  {{ hwStatusLabel(hw.status) }}
+                </span>
+              </li>
+              <li v-if="!studentHomework.length" class="sd-list-item sd-list-item--empty">No homework assigned yet.</li>
+            </ul>
+          </section>
+
+          <!-- Recent Materials -->
+          <section class="sd-panel">
+            <div class="sd-panel__header">
+              <h2 class="sd-panel__title">Recent Materials</h2>
+            </div>
+            <ul class="sd-list">
+              <li v-for="mat in MOCK_MATERIALS" :key="mat.id" class="sd-list-item">
+                <div :class="['sd-mat-type-icon', `sd-mat-type-icon--${mat.type.toLowerCase()}`]">{{ matTypeIcon(mat.type) }}</div>
+                <div class="sd-list-item__body">
+                  <p class="sd-list-item__title">{{ mat.title }}</p>
+                  <p class="sd-list-item__meta">{{ mat.lesson }} · Accessed {{ mat.accessed }}</p>
+                </div>
+                <span class="sd-type-tag">{{ mat.type }}</span>
+              </li>
+            </ul>
+          </section>
+
+        </div>
 
       </div>
 
@@ -205,6 +197,7 @@ import { useUsersStore }    from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
 import StatsGrid       from '@/components/dashboard/StatsGrid.vue'
 import UpcomingLessons from '@/components/dashboard/UpcomingLessons.vue'
+import TVCEFRTrack     from '@/components/ui/TVCEFRTrack.vue'
 import type { StatItem } from '@/components/dashboard/StatsGrid.vue'
 import type { Lesson }    from '@/components/dashboard/UpcomingLessons.vue'
 
@@ -320,6 +313,30 @@ const MOCK_REMINDERS = [
 ]
 
 const pendingCount = computed(() => studentHomework.value.filter(h => ['PENDING', 'IN_PROGRESS', 'OVERDUE'].includes(h.status)).length)
+
+function hwStatusLabel(status: string): string {
+  switch (status) {
+    case 'PENDING':     return 'Pending'
+    case 'IN_PROGRESS': return 'In Progress'
+    case 'SUBMITTED':   return 'Submitted'
+    case 'REVIEWED':    return 'Reviewed'
+    case 'OVERDUE':     return 'Overdue'
+    default:            return status
+  }
+}
+
+function matTypeIcon(type: string): string {
+  switch (type.toUpperCase()) {
+    case 'PDF':       return '📄'
+    case 'WORKSHEET': return '📋'
+    case 'SLIDES':    return '📊'
+    case 'VIDEO':     return '🎬'
+    case 'LINK':      return '🔗'
+    case 'DOCUMENT':  return '📝'
+    case 'IMAGE':     return '🖼️'
+    default:          return '📎'
+  }
+}
 
 const CEFR_LEVELS = [
   { code: 'A1', label: 'Beginner',          order: 1, key: 'BEGINNER' },
@@ -526,29 +543,65 @@ const formattedStartDate = computed(() => {
   margin: 0 0 var(--tv-space-3);
 }
 
-/* CEFR level track */
-.sd-level-track { display: flex; flex-direction: column; gap: var(--tv-space-2); }
-.sd-level-node  { display: flex; align-items: center; gap: var(--tv-space-2); }
+/* Link button */
+.sd-link-btn { font-size: var(--tv-text-sm); color: var(--tv-primary); background: none; border: none; cursor: pointer; font-weight: var(--tv-font-medium); padding: 0; }
+.sd-link-btn:hover { text-decoration: underline; }
+
+/* Row layout for homework + materials */
+.sd-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--tv-space-4); }
+
+/* CEFR level track — matches Progress page style */
+.sd-level-track { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: var(--tv-space-4); }
+.sd-level-track::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--tv-border); }
+.sd-level-node  { display: flex; align-items: flex-start; gap: var(--tv-space-2); padding: var(--tv-space-1) 0; }
 .sd-level-node__dot {
-  width: 10px; height: 10px;
+  width: 14px; height: 14px; margin-top: 2px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--tv-bg-soft);
+  background: var(--tv-bg-card);
   border: 2px solid var(--tv-border);
+  position: relative; z-index: 1;
   transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.sd-level-node--done .sd-level-node__dot   { background: var(--tv-primary); border-color: var(--tv-primary); }
+.sd-level-node--done .sd-level-node__dot   { background: var(--tv-success-fg); border-color: var(--tv-success-fg); }
 .sd-level-node--active .sd-level-node__dot { background: var(--tv-primary); border-color: var(--tv-primary); box-shadow: 0 0 0 3px var(--tv-primary-soft); }
+.sd-level-node__info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-space-2); }
 .sd-level-node__code {
   font-size: var(--tv-text-xs);
   font-weight: var(--tv-font-bold);
-  width: 22px;
   color: var(--tv-text-muted);
+  width: 22px;
 }
 .sd-level-node--done .sd-level-node__code,
 .sd-level-node--active .sd-level-node__code { color: var(--tv-primary); }
-.sd-level-node__label { font-size: var(--tv-text-sm); color: var(--tv-text-muted); }
+.sd-level-node__label { font-size: var(--tv-text-xs); color: var(--tv-text-muted); }
 .sd-level-node--active .sd-level-node__label { color: var(--tv-text); font-weight: var(--tv-font-semibold); }
+.sd-level-node__badge { font-size: 10px; font-weight: var(--tv-font-semibold); padding: 1px 7px; border-radius: var(--tv-radius-full); }
+.sd-level-node__badge--current { background: var(--tv-primary); color: var(--tv-text-inverse); }
+
+/* Homework status badges */
+.sd-hw-badge { font-size: 10px; font-weight: var(--tv-font-semibold); padding: 2px 8px; border-radius: var(--tv-radius-full); border: 1px solid; white-space: nowrap; flex-shrink: 0; }
+.sd-hw-badge--pending     { background: var(--tv-bg-soft); color: var(--tv-text-muted); border-color: var(--tv-border); }
+.sd-hw-badge--in-progress { background: hsl(220,80%,95%); color: hsl(220,65%,40%); border-color: hsl(220,65%,80%); }
+.sd-hw-badge--submitted   { background: var(--tv-primary-soft); color: var(--tv-primary); border-color: var(--tv-primary-muted); }
+.sd-hw-badge--reviewed    { background: var(--tv-success-soft); color: var(--tv-success-fg); border-color: var(--tv-success-border); }
+.sd-hw-badge--overdue     { background: var(--tv-danger-soft); color: var(--tv-danger-fg); border-color: var(--tv-danger-border); }
+
+/* Material type icons — match MaterialsView */
+.sd-mat-type-icon {
+  width: 32px; height: 32px; border-radius: var(--tv-radius-sm); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; line-height: 1;
+}
+.sd-mat-type-icon--pdf      { background: hsl(0, 80%, 95%); }
+.sd-mat-type-icon--worksheet { background: hsl(220, 80%, 95%); }
+.sd-mat-type-icon--slides,
+.sd-mat-type-icon--pptx     { background: hsl(280, 70%, 95%); }
+.sd-mat-type-icon--video    { background: hsl(340, 80%, 95%); }
+.sd-mat-type-icon--link     { background: hsl(195, 80%, 95%); }
+.sd-mat-type-icon--document,
+.sd-mat-type-icon--docx     { background: hsl(38, 90%, 95%); }
+.sd-mat-type-icon--image    { background: hsl(145, 60%, 95%); }
 
 /* Course detail rows */
 .sd-course-rows { display: flex; flex-direction: column; }
@@ -568,6 +621,7 @@ const formattedStartDate = computed(() => {
 }
 @media (max-width: 900px) {
   .sd-progress-grid { grid-template-columns: 1fr; gap: var(--tv-space-4); }
+  .sd-row2 { grid-template-columns: 1fr; }
 }
 @media (max-width: 767px) {
   .sd-page { padding: var(--tv-space-4); }
