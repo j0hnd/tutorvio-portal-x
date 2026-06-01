@@ -143,19 +143,9 @@ use OpenApi\Attributes as OA;
             description: 'Login succeeded. Send `Authorization: Bearer {access_token}` on protected endpoints.',
             content: new OA\JsonContent(ref: '#/components/schemas/AuthTokenResponse')
         ),
-        new OA\Response(
-            response: 401,
-            description: 'Invalid credentials or inactive account.',
-            content: new OA\JsonContent(
-                allOf: [new OA\Schema(ref: '#/components/schemas/UnauthorizedResponse')],
-                example: ['message' => 'Invalid credentials.']
-            )
-        ),
-        new OA\Response(
-            response: 422,
-            description: 'Validation error.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Post(
@@ -187,11 +177,8 @@ use OpenApi\Attributes as OA;
                 example: ['message' => 'User registered successfully']
             )
         ),
-        new OA\Response(
-            response: 422,
-            description: 'Validation error.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Post(
@@ -220,11 +207,8 @@ use OpenApi\Attributes as OA;
                 example: ['message' => 'If the account exists, a reset link has been sent.']
             )
         ),
-        new OA\Response(
-            response: 422,
-            description: 'Validation error.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Post(
@@ -264,11 +248,8 @@ use OpenApi\Attributes as OA;
                 example: ['message' => 'Failed to reset password.']
             )
         ),
-        new OA\Response(
-            response: 422,
-            description: 'Validation error.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Post(
@@ -287,18 +268,15 @@ use OpenApi\Attributes as OA;
                 example: ['message' => 'Logged out']
             )
         ),
-        new OA\Response(
-            response: 401,
-            description: 'Missing, expired, or invalid bearer token.',
-            content: new OA\JsonContent(ref: '#/components/schemas/UnauthorizedResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Post(
     path: '/auth/invite',
     operationId: 'authInvite',
     summary: 'Invite user',
-    description: 'Creates a user invitation token. Required header: `Authorization: Bearer {access_token}`. The authenticated user must be an admin or staff user with `users.create` permission.',
+    description: 'Creates a user invitation token. Required header: `Authorization: Bearer {access_token}`. Access: admin users, or staff users with `users.create` permission.',
     security: [['sanctum' => []]],
     requestBody: new OA\RequestBody(
         required: true,
@@ -320,17 +298,10 @@ use OpenApi\Attributes as OA;
                 example: ['message' => 'Invitation sent.']
             )
         ),
-        new OA\Response(
-            response: 401,
-            description: 'Missing, expired, or invalid bearer token.',
-            content: new OA\JsonContent(ref: '#/components/schemas/UnauthorizedResponse')
-        ),
-        new OA\Response(response: 403, description: 'Authenticated user does not have permission to invite users.'),
-        new OA\Response(
-            response: 422,
-            description: 'Validation error.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Get(
@@ -368,13 +339,14 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(response: 404, description: 'Invitation token was not found.'),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 #[OA\Get(
     path: '/user',
     operationId: 'authCurrentUser',
     summary: 'Current authenticated user',
-    description: 'Returns the user associated with the current Sanctum token. Required header: `Authorization: Bearer {access_token}`.',
+    description: 'Returns the user associated with the current Sanctum token. Required header: `Authorization: Bearer {access_token}`. Access: any authenticated admin, staff, teacher, or student user.',
     security: [['sanctum' => []]],
     tags: ['Authentication'],
     responses: [
@@ -383,11 +355,8 @@ use OpenApi\Attributes as OA;
             description: 'Authenticated user profile.',
             content: new OA\JsonContent(ref: '#/components/schemas/CurrentUserResponse')
         ),
-        new OA\Response(
-            response: 401,
-            description: 'Missing, expired, or invalid bearer token.',
-            content: new OA\JsonContent(ref: '#/components/schemas/UnauthorizedResponse')
-        ),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
 class AuthDocumentation {}
