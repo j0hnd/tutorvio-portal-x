@@ -30,9 +30,11 @@
         </TVInput>
       </div>
       <div class="lv-page__filter-selects">
+        <TVDateRangePicker v-model="filterDateRange" placeholder="All dates" class="lv-range-picker" />
         <TVSelect v-model="filterStatus" :options="statusOptions" placeholder="All Statuses" />
         <TVSelect v-if="showTeacherFilter" v-model="filterTeacher" :options="teacherOptions" placeholder="All Teachers" />
         <TVSelect v-if="showStudentFilter" v-model="filterStudent" :options="studentOptions" placeholder="All Students" />
+        <button v-if="hasLessonFilters" class="lv-clear-btn" type="button" @click="clearLessonFilters">Clear</button>
       </div>
     </div>
 
@@ -143,6 +145,8 @@ import TVInput from '@/components/ui/TVInput.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
 import TVDataTable from '@/components/ui/TVDataTable.vue'
 import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVDateRangePicker from '@/components/ui/TVDateRangePicker.vue'
+import type { DateRange } from '@/components/ui/TVDateRangePicker.vue'
 import TVTimePicker from '@/components/ui/TVTimePicker.vue'
 import type { DataTableColumn } from '@/components/ui/TVDataTable.vue'
 import type { LessonStatus } from '@/stores/schedule'
@@ -154,10 +158,21 @@ const auth     = useAuthStore()
 const users    = useUsersStore()
 const { effectiveRole } = useViewAs()
 
+const todayLocal    = new Date().toLocaleDateString('sv-SE')
 const search        = ref('')
+const filterDateRange = ref<DateRange>({ start: todayLocal, end: todayLocal })
 const filterStatus  = ref('')
 const filterTeacher = ref((route.query.teacher as string) || '')
 const filterStudent = ref((route.query.student as string) || '')
+
+const hasLessonFilters = computed(() =>
+  !!search.value || !!filterStatus.value || !!filterTeacher.value || !!filterStudent.value ||
+  !!(filterDateRange.value.start || filterDateRange.value.end)
+)
+function clearLessonFilters() {
+  search.value = ''; filterStatus.value = ''; filterTeacher.value = ''; filterStudent.value = ''
+  filterDateRange.value = { start: '', end: '' }
+}
 
 const role = computed(() => effectiveRole.value)
 
@@ -230,6 +245,10 @@ const filteredLessons = computed(() => {
   const q = search.value.toLowerCase()
   return sourceLessons.value
     .filter(l => {
+      const d = l.startTime.slice(0, 10)
+      const { start, end } = filterDateRange.value
+      if (start && d < start) return false
+      if (end   && d > end)   return false
       if (filterStatus.value  && l.status    !== filterStatus.value)  return false
       if (filterTeacher.value && l.teacherId !== filterTeacher.value) return false
       if (filterStudent.value && l.studentId !== filterStudent.value) return false
@@ -452,6 +471,14 @@ function submitCreate(): void {
   width: 160px;
   flex-shrink: 0;
 }
+.lv-range-picker { width: 200px; }
+.lv-clear-btn {
+  font-size: var(--tv-text-sm); color: var(--tv-text-muted);
+  background: none; border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
+}
+.lv-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
 /* Subject cell */
 .lv-subject-cell {

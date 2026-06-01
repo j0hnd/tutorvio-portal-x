@@ -47,6 +47,9 @@
         <TVButton variant="ghost" size="sm" @click="router.push({ name: 'Lessons', query: { student: student.id } })">
           View Lessons
         </TVButton>
+        <TVButton variant="ghost" size="sm" @click="router.push({ name: 'Progress', query: { student: student.id } })">
+          View Progress
+        </TVButton>
       </div>
     </div>
 
@@ -70,10 +73,10 @@
       </div>
     </div>
 
-    <!-- Two-column layout -->
-    <div class="sd-grid">
+    <!-- Three-card row -->
+    <div class="sd-cards3">
 
-      <!-- Profile info -->
+      <!-- Card 1: Profile -->
       <section class="sd-panel">
         <h2 class="sd-panel__title">Profile</h2>
         <div class="sd-info-list">
@@ -101,22 +104,29 @@
             <span class="sd-info-label">Timezone</span>
             <span class="sd-info-value">{{ student.timezone || '—' }}</span>
           </div>
-          <div v-if="student.studentProfile?.goals" class="sd-info-row sd-info-row--block">
+        </div>
+      </section>
+
+      <!-- Card 2: Goals, Learning Concerns & Notes -->
+      <section class="sd-panel">
+        <h2 class="sd-panel__title">Goals & Notes</h2>
+        <div class="sd-info-list">
+          <div class="sd-info-row sd-info-row--block">
             <span class="sd-info-label">Goals</span>
-            <p class="sd-info-text">{{ student.studentProfile.goals }}</p>
+            <p class="sd-info-text">{{ student.studentProfile?.goals || '—' }}</p>
           </div>
-          <div v-if="student.studentProfile?.learningConcerns" class="sd-info-row sd-info-row--block">
+          <div class="sd-info-row sd-info-row--block">
             <span class="sd-info-label">Learning Concerns</span>
-            <p class="sd-info-text">{{ student.studentProfile.learningConcerns }}</p>
+            <p class="sd-info-text">{{ student.studentProfile?.learningConcerns || '—' }}</p>
           </div>
-          <div v-if="student.studentProfile?.notes" class="sd-info-row sd-info-row--block">
+          <div class="sd-info-row sd-info-row--block">
             <span class="sd-info-label">Notes</span>
-            <p class="sd-info-text">{{ student.studentProfile.notes }}</p>
+            <p class="sd-info-text">{{ student.studentProfile?.notes || '—' }}</p>
           </div>
         </div>
       </section>
 
-      <!-- Account info -->
+      <!-- Card 3: Account -->
       <section class="sd-panel">
         <h2 class="sd-panel__title">Account</h2>
         <div class="sd-info-list">
@@ -137,8 +147,6 @@
             <span class="sd-info-value">{{ formatDate(student.lastLoginAt) }}</span>
           </div>
         </div>
-
-        <!-- Quick actions — only admins can deactivate -->
         <div v-if="isAdmin" class="sd-account-actions">
           <button
             class="sd-action-btn"
@@ -430,7 +438,7 @@ function toggleActive(): void {
 .sd-stat-card__label { font-size: var(--tv-text-xs); color: var(--tv-text-muted); text-transform: uppercase; letter-spacing: .04em; }
 
 /* Two-col grid */
-.sd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--tv-space-4); }
+.sd-cards3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--tv-space-4); align-items: start; }
 
 /* Panel */
 .sd-panel {
@@ -536,8 +544,9 @@ function toggleActive(): void {
   align-items: center; gap: var(--tv-space-4); color: var(--tv-text-muted);
 }
 
+@media (max-width: 1100px) { .sd-cards3 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 900px) {
-  .sd-grid { grid-template-columns: 1fr; }
+  .sd-cards3 { grid-template-columns: 1fr; }
   .sd-stats { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {

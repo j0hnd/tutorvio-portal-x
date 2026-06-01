@@ -87,6 +87,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['STUDENT', 'ADMIN'] },
   },
 
+  /* ── Progress ── */
+  {
+    path: '/progress',
+    name: 'Progress',
+    component: () => import('@/views/ProgressView.vue'),
+    meta: { requiresAuth: true },
+  },
+
   /* ── Attendance ── */
   {
     path: '/attendance',

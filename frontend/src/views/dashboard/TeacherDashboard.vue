@@ -69,9 +69,10 @@
         <section class="td-panel">
           <div class="td-panel__header">
             <h2 class="td-panel__title">Upcoming Classes</h2>
+            <a href="/schedule" class="td-panel__link">Full schedule</a>
           </div>
           <ul class="td-list">
-            <li v-for="cls in MOCK_UPCOMING" :key="cls.id" class="td-list-item">
+            <li v-for="cls in upcomingClasses" :key="cls.id" class="td-list-item">
               <div class="td-list-item__icon td-list-item__icon--cal">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <rect x="1" y="2" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
@@ -82,7 +83,10 @@
                 <p class="td-list-item__title">{{ cls.subject }}</p>
                 <p class="td-list-item__meta">{{ cls.student }} · {{ cls.day }}, {{ cls.time }}</p>
               </div>
-              <a :href="`/profile/${cls.studentId}`" class="td-profile-link">View</a>
+              <button class="td-profile-link" type="button" @click="router.push({ name: 'LessonDetail', params: { id: cls.id } })">View</button>
+            </li>
+            <li v-if="!upcomingClasses.length" class="td-list-item">
+              <p class="td-list-item__meta" style="padding: 4px 0;">No upcoming classes in the next 7 days.</p>
             </li>
           </ul>
         </section>
@@ -91,16 +95,19 @@
         <section class="td-panel">
           <div class="td-panel__header">
             <h2 class="td-panel__title">Students Needing Notes / Follow-up</h2>
-            <span class="td-panel__badge">{{ MOCK_FOLLOWUP.length }} pending</span>
+            <span class="td-panel__badge">{{ followupStudents.length }} pending</span>
           </div>
           <ul class="td-list">
-            <li v-for="s in MOCK_FOLLOWUP" :key="s.id" class="td-list-item">
+            <li v-for="s in followupStudents" :key="s.id" class="td-list-item">
               <div class="td-list-item__avatar">{{ s.initials }}</div>
               <div class="td-list-item__body">
                 <p class="td-list-item__title">{{ s.name }}</p>
                 <p class="td-list-item__meta">Last lesson: {{ s.lastLesson }} · {{ s.reason }}</p>
               </div>
               <span class="td-chip" :class="`td-chip--${s.urgency}`">{{ s.urgencyLabel }}</span>
+            </li>
+            <li v-if="!followupStudents.length" class="td-list-item">
+              <p class="td-list-item__meta" style="padding: 4px 0;">All notes are up to date!</p>
             </li>
           </ul>
         </section>
@@ -111,7 +118,7 @@
             <h2 class="td-panel__title">Recent Lesson Submissions</h2>
           </div>
           <ul class="td-list">
-            <li v-for="sub in MOCK_SUBMISSIONS" :key="sub.id" class="td-list-item">
+            <li v-for="sub in recentSubmissions" :key="sub.id" class="td-list-item" style="cursor:pointer" @click="router.push({ name: 'LessonDetail', params: { id: sub.id } })">
               <div class="td-list-item__icon td-list-item__icon--doc">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <path d="M3 1h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
@@ -123,6 +130,9 @@
                 <p class="td-list-item__meta">{{ sub.student }} · {{ sub.date }}</p>
               </div>
               <span class="td-chip" :class="`td-chip--${sub.status}`">{{ sub.statusLabel }}</span>
+            </li>
+            <li v-if="!recentSubmissions.length" class="td-list-item">
+              <p class="td-list-item__meta" style="padding: 4px 0;">No completed lessons yet.</p>
             </li>
           </ul>
         </section>
@@ -270,31 +280,80 @@ const todayClasses = computed(() => {
 
 const liveClass = computed(() => todayClasses.value.find(c => c.live))
 
-const MOCK_UPCOMING = [
-  { id: 'u1', subject: 'IELTS Preparation — Writing',    student: 'Carlos Dela Cruz', studentId: 'u12', day: 'Tomorrow', time: '10:00 AM' },
-  { id: 'u2', subject: 'General English — Vocabulary',   student: 'Yuki Tanaka',       studentId: 'u14', day: 'May 23',   time: '9:00 AM' },
-  { id: 'u3', subject: 'Business English — Negotiation', student: 'Emma Santos',       studentId: 'u1',  day: 'May 24',   time: '2:00 PM' },
-]
+// ── Upcoming classes (next 7 days, excluding today, not yet started) ──
+const upcomingClasses = computed(() => {
+  const now = new Date()
+  const cutoff = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  return schedule.myLessons
+    .filter(l => {
+      const start = new Date(l.startTime)
+      return start > now && start <= cutoff && ['SCHEDULED', 'TRIAL'].includes(l.status)
+    })
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    .slice(0, 5)
+    .map(l => {
+      const start = new Date(l.startTime)
+      const isToday  = start.toLocaleDateString('sv-SE') === todayStr.value
+      const isTomorrow = (() => {
+        const tom = new Date(); tom.setDate(tom.getDate() + 1)
+        return start.toLocaleDateString('sv-SE') === tom.toLocaleDateString('sv-SE')
+      })()
+      const dayLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow'
+        : start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const timeLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      return { id: l.id, subject: l.subject, student: l.studentName, studentId: l.studentId, day: dayLabel, time: timeLabel }
+    })
+})
 
-const MOCK_FOLLOWUP = [
-  { id: 'f1', name: 'Emma Santos',    initials: 'ES', lastLesson: 'May 15', reason: 'Note not filed',          urgency: 'high',   urgencyLabel: 'Overdue'  },
-  { id: 'f2', name: 'Marco Reyes',    initials: 'MR', lastLesson: 'May 17', reason: 'Progress check needed',   urgency: 'medium', urgencyLabel: 'Due Soon' },
-  { id: 'f3', name: 'Yuki Tanaka',    initials: 'YT', lastLesson: 'May 19', reason: 'Homework not reviewed',   urgency: 'low',    urgencyLabel: 'Pending'  },
-  { id: 'f4', name: 'Carlos Dela Cruz', initials: 'CD', lastLesson: 'May 19', reason: 'Follow-up on IELTS goals', urgency: 'low', urgencyLabel: 'Pending' },
-]
+// ── Students needing follow-up (pending notes, past completed lessons) ──
+const followupStudents = computed(() => {
+  const uid = auth.user?.id
+  if (!uid) return []
+  const seen = new Map<string, { id: string; name: string; initials: string; lastLesson: string; reason: string; urgency: string; urgencyLabel: string; daysAgo: number }>()
+  for (const lesson of pendingNoteLessons.value) {
+    if (seen.has(lesson.studentId)) continue
+    const start = new Date(lesson.startTime)
+    const daysAgo = Math.floor((Date.now() - start.getTime()) / 86_400_000)
+    const urgency = daysAgo >= 7 ? 'high' : daysAgo >= 3 ? 'medium' : 'low'
+    const urgencyLabel = daysAgo >= 7 ? 'Overdue' : daysAgo >= 3 ? 'Due Soon' : 'Pending'
+    const nameParts = lesson.studentName.split(' ')
+    const initials = nameParts.map((p: string) => p[0]).join('').toUpperCase().slice(0, 2)
+    seen.set(lesson.studentId, {
+      id: lesson.studentId,
+      name: lesson.studentName,
+      initials,
+      lastLesson: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      reason: 'Note not filed',
+      urgency,
+      urgencyLabel,
+      daysAgo,
+    })
+  }
+  return [...seen.values()].sort((a, b) => b.daysAgo - a.daysAgo).slice(0, 5)
+})
 
-const MOCK_SUBMISSIONS = [
-  { id: 's1', lesson: 'Business English — Presentation Skills', student: 'Emma Santos',      date: 'May 19', status: 'done',    statusLabel: 'Reviewed' },
-  { id: 's2', lesson: 'General English — Vocabulary',           student: 'Marco Reyes',      date: 'May 18', status: 'pending', statusLabel: 'Pending'  },
-  { id: 's3', lesson: 'Executive English — Writing',            student: 'David Cruz',       date: 'May 17', status: 'done',    statusLabel: 'Reviewed' },
-  { id: 's4', lesson: 'General English — Grammar Drill',        student: 'Yuki Tanaka',      date: 'May 16', status: 'pending', statusLabel: 'Pending'  },
-]
-
-const MOCK_PENDING_DOCS = [
-  { id: 'd1', student: 'Emma Santos',    lesson: 'Business English',  date: 'May 15' },
-  { id: 'd2', student: 'Marco Reyes',    lesson: 'General English',   date: 'May 17' },
-  { id: 'd3', student: 'Yuki Tanaka',    lesson: 'General English',   date: 'May 19' },
-]
+// ── Recent lesson submissions (completed lessons, most recent first) ──
+const recentSubmissions = computed(() => {
+  const uid = auth.user?.id
+  if (!uid) return []
+  return schedule.myLessons
+    .filter(l => l.status === 'COMPLETED')
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+    .slice(0, 5)
+    .map(l => {
+      const note = schedule.getLessonNote(l.id)
+      const hasNote = !!note
+      const submitted = note?.status === 'submitted'
+      return {
+        id: l.id,
+        lesson: l.subject,
+        student: l.studentName,
+        date: new Date(l.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        status: submitted ? 'done' : hasNote ? 'pending' : 'missing',
+        statusLabel: submitted ? 'Reviewed' : hasNote ? 'Draft' : 'No Note',
+      }
+    })
+})
 
 const MOCK_ANNOUNCEMENTS = [
   { id: 'a1', text: 'Monthly teacher meeting — May 28 at 3:00 PM',  date: 'May 20', type: 'info'    },
@@ -541,6 +600,7 @@ const stats = computed((): StatItem[] => [
 .td-chip--low     { background: var(--tv-bg-soft);      color: var(--tv-text-muted); }
 .td-chip--done    { background: var(--tv-success-soft); color: var(--tv-success-fg); }
 .td-chip--pending { background: var(--tv-warning-soft); color: var(--tv-warning-fg); }
+.td-chip--missing { background: var(--tv-danger-soft);  color: var(--tv-danger-fg); }
 
 /* Sidebar card */
 .td-card {

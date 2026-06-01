@@ -24,12 +24,19 @@
         </svg>
         <input v-model="search" class="ml-search" type="search" placeholder="Search..." />
       </div>
-      <TVSelect v-model="filterCategory" :options="[{ value: '', label: 'All Categories' }, ...CATEGORIES]" placeholder="All Categories" />
-      <TVSelect v-model="filterLevel" :options="[{ value: '', label: 'All Levels' }, ...LEVELS]" placeholder="All Levels" />
-      <TVSelect v-model="filterType" :options="[{ value: '', label: 'All Types' }, ...TYPES]" placeholder="All Types" />
-      <TVSelect v-if="canManage" v-model="filterVisibility" :options="visibilityOptions" placeholder="All Visibility" />
-      <TVDatePicker v-model="filterDate" placeholder="Filter by date" />
+      <TVDateRangePicker class="ml-date-range" v-model="filterDateRange" placeholder="Upload date" />
+      <TVSelect class="ml-filter-ctrl" v-model="filterCategory" :options="[{ value: '', label: 'All Categories' }, ...CATEGORIES]" placeholder="All Categories" />
+      <TVSelect class="ml-filter-ctrl" v-model="filterLevel" :options="[{ value: '', label: 'All Levels' }, ...LEVELS]" placeholder="All Levels" />
+      <TVSelect class="ml-filter-ctrl" v-model="filterType" :options="[{ value: '', label: 'All Types' }, ...TYPES]" placeholder="All Types" />
+      <TVSelect v-if="canManage" class="ml-filter-ctrl" v-model="filterVisibility" :options="visibilityOptions" placeholder="All Visibility" />
       <button v-if="hasActiveFilters" class="ml-clear-btn" type="button" @click="clearFilters">Clear</button>
+      <TVPagination
+        v-if="filtered.length > ML_PAGE_SIZE"
+        v-model="mlPage"
+        :total="filtered.length"
+        :page-size="ML_PAGE_SIZE"
+        class="ml-pagination"
+      />
     </div>
 
     <!-- Material list -->
@@ -87,16 +94,8 @@
       </div>
     </div>
 
-    <!-- Pagination -->
-    <TVPagination
-      v-if="filtered.length > ML_PAGE_SIZE"
-      v-model="mlPage"
-      :total="filtered.length"
-      :page-size="ML_PAGE_SIZE"
-    />
-
     <!-- Empty state -->
-    <div v-else-if="!filtered.length" class="ml-empty">
+    <div v-if="!filtered.length" class="ml-empty">
       <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <rect x="6" y="4" width="24" height="32" rx="3" stroke="currentColor" stroke-width="1.5"/>
         <path d="M12 13h12M12 19h12M12 25h7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
@@ -153,7 +152,8 @@ import { useToast } from '@/composables/useToast'
 import TVModal from '@/components/ui/TVModal.vue'
 import TVInput from '@/components/ui/TVInput.vue'
 import TVSelect from '@/components/ui/TVSelect.vue'
-import TVDatePicker from '@/components/ui/TVDatePicker.vue'
+import TVDateRangePicker from '@/components/ui/TVDateRangePicker.vue'
+import type { DateRange } from '@/components/ui/TVDateRangePicker.vue'
 import TVPagination from '@/components/ui/TVPagination.vue'
 import type { LessonMaterial, MaterialType, MaterialCategory, MaterialLevel, MaterialVisibility } from '@/stores/schedule'
 
@@ -201,7 +201,8 @@ const filterCategory   = ref<MaterialCategory | ''>('')
 const filterLevel      = ref<MaterialLevel | ''>('')
 const filterType       = ref<MaterialType | ''>('')
 const filterVisibility = ref<MaterialVisibility | ''>('')
-const filterDate       = ref('')
+const todayML          = new Date().toLocaleDateString('sv-SE')
+const filterDateRange  = ref<DateRange>({ start: todayML, end: todayML })
 
 const visibilityOptions = [
   { value: '',                label: 'All Visibility' },
@@ -212,7 +213,7 @@ const visibilityOptions = [
 
 const hasActiveFilters = computed(() =>
   !!search.value || !!filterCategory.value || !!filterLevel.value ||
-  !!filterType.value || !!filterVisibility.value || !!filterDate.value
+  !!filterType.value || !!filterVisibility.value || !!(filterDateRange.value.start || filterDateRange.value.end)
 )
 
 function clearFilters(): void {
@@ -221,7 +222,7 @@ function clearFilters(): void {
   filterLevel.value = ''
   filterType.value = ''
   filterVisibility.value = ''
-  filterDate.value = ''
+  filterDateRange.value = { start: '', end: '' }
 }
 
 // ── Data ──
@@ -235,12 +236,14 @@ const filtered = computed(() => {
     if (filterLevel.value && m.level !== filterLevel.value && m.level !== 'all') return false
     if (filterType.value && m.type !== filterType.value) return false
     if (filterVisibility.value && (m.visibility ?? 'student-visible') !== filterVisibility.value) return false
-    if (filterDate.value && !m.uploadedAt.startsWith(filterDate.value)) return false
+    const d = m.uploadedAt.slice(0, 10)
+    if (filterDateRange.value.start && d < filterDateRange.value.start) return false
+    if (filterDateRange.value.end   && d > filterDateRange.value.end)   return false
     return true
   })
 })
 
-const ML_PAGE_SIZE = 10
+const ML_PAGE_SIZE = 5
 const mlPage = ref(1)
 const paginated = computed(() =>
   filtered.value.slice((mlPage.value - 1) * ML_PAGE_SIZE, mlPage.value * ML_PAGE_SIZE)
@@ -386,9 +389,13 @@ function formatDate(iso: string): string {
 }
 .ml-search-wrap {
   position: relative;
-  width: 200px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
 }
+.ml-filter-ctrl { width: 160px; flex-shrink: 0; }
+.ml-date-range  { width: 200px; flex-shrink: 0; }
+.ml-pagination { margin-left: auto; flex-shrink: 0; }
 .ml-search-icon {
   position: absolute;
   left: var(--tv-space-3);
@@ -432,7 +439,8 @@ function formatDate(iso: string): string {
   background: none;
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius);
-  padding: var(--tv-space-2) var(--tv-space-3);
+  padding: 0 var(--tv-space-3);
+  min-height: 42px; display: inline-flex; align-items: center;
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.15s, background 0.15s;

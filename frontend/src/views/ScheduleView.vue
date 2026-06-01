@@ -848,15 +848,19 @@ function handleCreateLesson(payload: {
   align-items: center;
   gap: var(--tv-space-3);
 }
-.sv-header__left  { display: flex; align-items: center; gap: var(--tv-space-3); }
+.sv-header__left  { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .sv-header__center { display: flex; align-items: center; gap: var(--tv-space-2); justify-content: center; }
 .sv-header__right  { display: flex; align-items: center; gap: var(--tv-space-2); justify-content: flex-end; flex-wrap: wrap; }
 
-.sv-title { font-size: var(--tv-text-xl); font-weight: var(--tv-font-semibold); color: var(--tv-text); margin: 0; }
+.sv-title { font-size: var(--tv-text-2xl); font-weight: var(--tv-font-bold); color: var(--tv-text); margin: 0; letter-spacing: -0.025em; }
 .sv-tz-badge {
   font-size: var(--tv-text-xs); color: var(--tv-text-muted);
   background: var(--tv-bg-soft); border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-full); padding: 2px var(--tv-space-2);
+}
+.sv-tz-sub {
+  font-size: var(--tv-text-xs); color: var(--tv-text-muted);
+  margin: 0; line-height: 1.4;
 }
 
 .sv-ctrl-select, .sv-period-select {

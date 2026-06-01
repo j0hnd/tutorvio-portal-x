@@ -33,6 +33,7 @@
         <TVSelect v-model="levelFilter" :options="levelOptions" placeholder="All Levels" />
         <TVSelect v-model="statusFilter" :options="statusOptions" placeholder="All Statuses" />
         <TVSelect v-if="showTeacherFilter" v-model="teacherFilter" :options="teacherFilterOptions" placeholder="All Teachers" />
+        <button v-if="hasStudentFilters" class="sv-clear-btn" type="button" @click="clearStudentFilters">Clear</button>
       </div>
     </div>
 
@@ -169,6 +170,9 @@ const teacherStudentIds = computed((): Set<string> => {
 const search       = ref('')
 const levelFilter  = ref('')
 const statusFilter = ref<'active' | 'inactive' | ''>('')
+
+const hasStudentFilters = computed(() => !!search.value || !!levelFilter.value || !!statusFilter.value || !!teacherFilter.value)
+function clearStudentFilters() { search.value = ''; levelFilter.value = ''; statusFilter.value = ''; teacherFilter.value = '' }
 const teacherFilter = ref('')
 
 const canCreate = computed(() => ['ADMIN', 'STAFF'].includes(effectiveRole.value))
@@ -299,6 +303,13 @@ const rows = computed(() =>
 
 .sv-page__filter-selects { display: flex; gap: var(--tv-space-3); flex-wrap: wrap; }
 .sv-page__filter-selects > * { width: 160px; flex-shrink: 0; }
+.sv-clear-btn {
+  font-size: var(--tv-text-sm); color: var(--tv-text-muted); background: none;
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
+}
+.sv-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
 
 /* Name cell */
 .sv-cell { display: flex; align-items: center; gap: var(--tv-space-3); }

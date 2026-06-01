@@ -310,7 +310,9 @@ function handleClickOutside(e: MouseEvent) {
     wrapperRef.value  && !wrapperRef.value.contains(target) &&
     dropdownRef.value && !dropdownRef.value.contains(target)
   ) {
-    isOpen.value = false; emit('blur')
+    isOpen.value = false
+    triggerRef.value?.blur()
+    emit('blur')
   }
 }
 
