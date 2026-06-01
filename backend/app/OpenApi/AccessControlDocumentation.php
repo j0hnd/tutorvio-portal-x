@@ -30,20 +30,6 @@ use OpenApi\Attributes as OA;
     ]
 )]
 #[OA\Get(
-    path: '/notifications/history',
-    operationId: 'notificationHistory',
-    summary: 'Notification history',
-    description: 'Protected endpoint. Required header: `Authorization: Bearer {access_token}`. Access: admin users, or staff users with `notifications.history.view` permission.',
-    security: [['sanctum' => []]],
-    tags: ['Authorization'],
-    responses: [
-        new OA\Response(response: 200, description: 'Notification history for permitted admin or staff users.'),
-        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
-        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
-        new OA\Response(ref: '#/components/responses/ServerError', response: 500),
-    ]
-)]
-#[OA\Get(
     path: '/teacher-change-requests',
     operationId: 'studentTeacherChangeRequests',
     summary: 'List teacher change requests',
