@@ -38,7 +38,7 @@ class StudentAccessTest extends TestCase
 
         Sanctum::actingAs($student);
 
-        $this->getJson("/api/v1/students/{$otherStudent->id}/progress-summary")
+        $this->getJson("/api/v1/students/{$otherStudent->public_id}/progress-summary")
             ->assertForbidden();
     }
 

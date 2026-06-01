@@ -117,7 +117,7 @@ class InvoiceOverdueTrackingTest extends TestCase
         $this->getJson('/api/v1/invoices?overdue=true&per_page=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $pastDue->id);
+            ->assertJsonPath('data.0.id', $pastDue->public_id);
     }
 
     public function test_model_calculates_overdue_in_app_timezone(): void

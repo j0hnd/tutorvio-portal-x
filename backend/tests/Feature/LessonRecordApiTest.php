@@ -65,8 +65,8 @@ class LessonRecordApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.lesson_type', LessonRecord::TYPE_BUSINESS_ENGLISH)
             ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_SCHEDULED)
             ->assertJsonPath('data.homework_details', 'Complete unit 4 exercises.')
@@ -89,7 +89,7 @@ class LessonRecordApiTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
 
-        $lessonId = (int) $response->json('data.id');
+        $lessonId = LessonRecord::where('public_id', $response->json('data.id'))->value('id');
 
         $lessonLog = AuditLog::query()
             ->where('action_type', AuditActionType::LESSON_CREATED->value)
@@ -143,7 +143,7 @@ class LessonRecordApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('lesson_type');
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_type' => 'grammar_drills',
         ])
             ->assertUnprocessable()
@@ -165,7 +165,7 @@ class LessonRecordApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('lesson_status');
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_status' => 'waiting_for_feedback',
         ])
             ->assertUnprocessable()
@@ -187,7 +187,7 @@ class LessonRecordApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('meeting_provider');
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'meeting_provider' => 'zoom',
         ])
             ->assertUnprocessable()
@@ -209,7 +209,7 @@ class LessonRecordApiTest extends TestCase
             'join_available_until' => '2026-06-01 10:15:00',
         ]);
 
-        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertOk()
             ->assertJsonPath('data.meeting_provider', LessonRecord::PROVIDER_GOOGLE_MEET)
             ->assertJsonPath('data.is_join_available', false)
@@ -218,7 +218,7 @@ class LessonRecordApiTest extends TestCase
 
         Carbon::setTestNow(Carbon::parse('2026-06-01 09:00:00'));
 
-        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertOk()
             ->assertJsonPath('data.is_join_available', true)
             ->assertJsonPath('data.meeting_link', 'https://meet.example.com/lesson-1')
@@ -235,14 +235,14 @@ class LessonRecordApiTest extends TestCase
         $this->getJson('/api/v1/lesson-records?student_id='.$this->student->id)
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $lessonRecord->id);
+            ->assertJsonPath('data.0.id', $lessonRecord->public_id);
 
-        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertOk()
-            ->assertJsonPath('data.student.id', $this->student->id)
-            ->assertJsonPath('data.teacher.id', $this->teacher->id);
+            ->assertJsonPath('data.student.id', $this->student->public_id)
+            ->assertJsonPath('data.teacher.id', $this->teacher->public_id);
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_status' => LessonRecord::STATUS_COMPLETED,
             'is_completed' => true,
             'lesson_notes' => 'Student completed the target lesson.',
@@ -252,7 +252,7 @@ class LessonRecordApiTest extends TestCase
             ->assertJsonPath('data.is_completed', true)
             ->assertJsonPath('data.completed_by', $this->admin->id);
 
-        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->id.'/cancel', [
+        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->public_id.'/cancel', [
             'reason' => 'Student requested a later slot.',
         ])
             ->assertOk()
@@ -265,7 +265,7 @@ class LessonRecordApiTest extends TestCase
         Sanctum::actingAs($this->admin);
         $lessonRecord = $this->createLessonRecord();
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'is_completed' => true,
             'attendance_status' => LessonRecord::ATTENDANCE_PRESENT,
             'lesson_notes' => 'Student completed all lesson objectives.',
@@ -308,12 +308,12 @@ class LessonRecordApiTest extends TestCase
         ]);
         $lessonRecord = $this->createLessonRecord();
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_status' => LessonRecord::STATUS_COMPLETED,
             'is_completed' => true,
         ])
             ->assertOk()
-            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', $subscription->id);
+            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', $subscription->public_id);
 
         $this->assertDatabaseHas('subscriptions', [
             'id' => $subscription->id,
@@ -326,7 +326,7 @@ class LessonRecordApiTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_notes' => 'Updated after completion.',
         ])->assertOk();
 
@@ -356,14 +356,14 @@ class LessonRecordApiTest extends TestCase
             'scheduled_date' => '2026-06-02',
         ]);
 
-        $this->patchJson('/api/v1/lesson-records/'.$firstLessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$firstLessonRecord->public_id, [
             'lesson_status' => LessonRecord::STATUS_COMPLETED,
             'is_completed' => true,
         ])
             ->assertOk()
-            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', $subscription->id);
+            ->assertJsonPath('data.lesson_balance_consumed_subscription_id', $subscription->public_id);
 
-        $this->patchJson('/api/v1/lesson-records/'.$secondLessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$secondLessonRecord->public_id, [
             'lesson_status' => LessonRecord::STATUS_COMPLETED,
             'is_completed' => true,
         ])
@@ -401,7 +401,7 @@ class LessonRecordApiTest extends TestCase
         ]);
         $lessonRecord = $this->createLessonRecord();
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_status' => LessonRecord::STATUS_COMPLETED,
             'is_completed' => true,
         ])
@@ -431,7 +431,7 @@ class LessonRecordApiTest extends TestCase
             'homework_details' => 'Initial homework.',
         ]);
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_notes' => 'Reviewed past tense and pronunciation.',
             'homework_instructions' => 'Write five sentences using past tense.',
             'homework_due_date' => '2026-06-09',
@@ -475,7 +475,8 @@ class LessonRecordApiTest extends TestCase
             ->assertJsonPath('data.materials.0.url', 'https://cdn.example.com/unit-4.pdf')
             ->assertJsonPath('data.materials.1.title', 'Pronunciation video');
 
-        $lessonRecordId = $response->json('data.id');
+        $lessonRecordPublicId = $response->json('data.id');
+        $lessonRecordId = LessonRecord::where('public_id', $lessonRecordPublicId)->value('id');
 
         $this->assertDatabaseHas('lesson_record_materials', [
             'lesson_record_id' => $lessonRecordId,
@@ -484,7 +485,7 @@ class LessonRecordApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $this->getJson('/api/v1/lesson-records/'.$lessonRecordId)
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecordPublicId)
             ->assertOk()
             ->assertJsonCount(2, 'data.materials')
             ->assertJsonPath('data.materials.0.title', 'Unit 4 worksheet');
@@ -499,7 +500,7 @@ class LessonRecordApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'material_ids' => [$video->id],
         ])
             ->assertOk()
@@ -515,7 +516,7 @@ class LessonRecordApiTest extends TestCase
             'material_id' => $video->id,
         ]);
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'material_ids' => [],
         ])
             ->assertOk()
@@ -540,17 +541,17 @@ class LessonRecordApiTest extends TestCase
         $this->getJson('/api/v1/lesson-records')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $ownLessonRecord->id);
+            ->assertJsonPath('data.0.id', $ownLessonRecord->public_id);
 
-        $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->public_id)
             ->assertOk()
-            ->assertJsonPath('data.id', $ownLessonRecord->id)
+            ->assertJsonPath('data.id', $ownLessonRecord->public_id)
             ->assertJsonMissingPath('data.internal_remarks');
 
-        $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->public_id)
             ->assertForbidden();
 
-        $this->patchJson('/api/v1/lesson-records/'.$ownLessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$ownLessonRecord->public_id, [
             'lesson_notes' => 'Teacher attempted update.',
         ])->assertForbidden();
     }
@@ -568,26 +569,26 @@ class LessonRecordApiTest extends TestCase
         $this->getJson('/api/v1/lesson-records')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $ownLessonRecord->id);
+            ->assertJsonPath('data.0.id', $ownLessonRecord->public_id);
 
-        $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$ownLessonRecord->public_id)
             ->assertOk()
-            ->assertJsonPath('data.id', $ownLessonRecord->id);
+            ->assertJsonPath('data.id', $ownLessonRecord->public_id);
 
-        $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$otherLessonRecord->public_id)
             ->assertForbidden();
 
         $this->postJson('/api/v1/lesson-records', $this->validPayload())
             ->assertForbidden();
 
-        $this->patchJson('/api/v1/lesson-records/'.$ownLessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$ownLessonRecord->public_id, [
             'lesson_notes' => 'Student attempted update.',
         ])->assertForbidden();
 
-        $this->deleteJson('/api/v1/lesson-records/'.$ownLessonRecord->id)
+        $this->deleteJson('/api/v1/lesson-records/'.$ownLessonRecord->public_id)
             ->assertForbidden();
 
-        $this->postJson('/api/v1/lesson-records/'.$ownLessonRecord->id.'/cancel')
+        $this->postJson('/api/v1/lesson-records/'.$ownLessonRecord->public_id.'/cancel')
             ->assertForbidden();
     }
 
@@ -614,15 +615,15 @@ class LessonRecordApiTest extends TestCase
             'scheduled_date' => '2026-06-02',
         ]))->assertCreated();
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_notes' => 'Staff updated record.',
         ])->assertOk();
 
-        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->id.'/cancel')
+        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->public_id.'/cancel')
             ->assertOk()
             ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_CANCELLED);
 
-        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertNoContent();
     }
 
@@ -637,20 +638,20 @@ class LessonRecordApiTest extends TestCase
         $this->getJson('/api/v1/lesson-records')
             ->assertForbidden();
 
-        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->getJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertForbidden();
 
         $this->postJson('/api/v1/lesson-records', $this->validPayload())
             ->assertForbidden();
 
-        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->id, [
+        $this->patchJson('/api/v1/lesson-records/'.$lessonRecord->public_id, [
             'lesson_notes' => 'Staff attempted update.',
         ])->assertForbidden();
 
-        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertForbidden();
 
-        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->id.'/cancel')
+        $this->postJson('/api/v1/lesson-records/'.$lessonRecord->public_id.'/cancel')
             ->assertForbidden();
     }
 
@@ -659,7 +660,7 @@ class LessonRecordApiTest extends TestCase
         Sanctum::actingAs($this->admin);
         $lessonRecord = $this->createLessonRecord();
 
-        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->id)
+        $this->deleteJson('/api/v1/lesson-records/'.$lessonRecord->public_id)
             ->assertNoContent();
 
         $this->assertDatabaseMissing('lesson_records', [

@@ -7,8 +7,10 @@ use App\Models\LessonNote;
 use App\Models\LessonRecord;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -71,20 +73,20 @@ class LessonNoteApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.lesson_id', $lesson->public_id)
             ->assertJsonPath('data.student_id', $this->student->public_id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.author_id', $this->teacher->id)
-            ->assertJsonPath('data.lesson_record_id', $lessonRecord->id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.author_id', $this->teacher->public_id)
+            ->assertJsonPath('data.lesson_record_id', $lessonRecord->public_id)
             ->assertJsonPath('data.lesson_objective', 'Practice workplace introductions.')
             ->assertJsonPath('data.internal_note', 'Keep correction direct but brief.')
             ->assertJsonPath('data.lesson.id', $lesson->public_id)
             ->assertJsonPath('data.lesson.status', Lesson::STATUS_COMPLETED)
             ->assertJsonPath('data.student.id', $this->student->public_id)
-            ->assertJsonPath('data.teacher.id', $this->teacher->id)
-            ->assertJsonPath('data.author.id', $this->teacher->id);
+            ->assertJsonPath('data.teacher.id', $this->teacher->public_id)
+            ->assertJsonPath('data.author.id', $this->teacher->public_id);
 
         $this->assertDatabaseHas('lesson_notes', [
-            'lesson_id' => $lesson->public_id,
-            'student_id' => $this->student->public_id,
+            'lesson_id' => $lesson->id,
+            'student_id' => $this->student->id,
             'teacher_id' => $this->teacher->id,
             'author_id' => $this->teacher->id,
             'lesson_record_id' => $lessonRecord->id,
@@ -367,16 +369,16 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.id', $secondNote->id)
+            ->assertJsonPath('data.0.id', $secondNote->public_id)
             ->assertJsonPath('data.0.internal_note', 'Second internal review note.')
-            ->assertJsonPath('data.1.id', $firstNote->id)
+            ->assertJsonPath('data.1.id', $firstNote->public_id)
             ->assertJsonPath('data.1.internal_note', 'First internal review note.');
 
         $this->getJson('/api/v1/lesson-notes?teacher_id='.$this->otherTeacher->id)
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $secondNote->id)
-            ->assertJsonPath('data.0.teacher_id', $this->otherTeacher->id);
+            ->assertJsonPath('data.0.id', $secondNote->public_id)
+            ->assertJsonPath('data.0.teacher_id', $this->otherTeacher->public_id);
     }
 
     public function test_submitted_lesson_note_is_auto_linked_to_matching_progress_record(): void
@@ -395,10 +397,10 @@ class LessonNoteApiTest extends TestCase
             'internal_note' => 'Needs more wait time before corrections.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.lesson_record_id', $lessonRecord->id);
+            ->assertJsonPath('data.lesson_record_id', $lessonRecord->public_id);
 
         $this->assertDatabaseHas('lesson_notes', [
-            'lesson_id' => $lesson->public_id,
+            'lesson_id' => $lesson->id,
             'lesson_record_id' => $lessonRecord->id,
             'topics_covered' => 'Introductions and follow-up questions.',
         ]);
@@ -593,8 +595,8 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes/pending')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.lesson_id', $ownPendingLesson->id)
-            ->assertJsonPath('data.0.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.0.lesson_id', $ownPendingLesson->public_id)
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.0.note_required', true)
             ->assertJsonPath('data.0.note_status', 'missing')
             ->assertJsonPath('meta.pending_notes', 1)
@@ -622,8 +624,8 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes/pending')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.lesson_id', $otherTeacherPendingLesson->id)
-            ->assertJsonPath('data.1.lesson_id', $ownPendingLesson->id)
+            ->assertJsonPath('data.0.lesson_id', $otherTeacherPendingLesson->public_id)
+            ->assertJsonPath('data.1.lesson_id', $ownPendingLesson->public_id)
             ->assertJsonPath('meta.pending_notes', 2)
             ->assertJsonPath('meta.missing_notes', 2)
             ->assertJsonPath('meta.completed_lessons_requiring_notes', 2);
@@ -677,7 +679,7 @@ class LessonNoteApiTest extends TestCase
         $this->getJson('/api/v1/lesson-notes/pending')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.lesson_id', $completedLesson->id)
+            ->assertJsonPath('data.0.lesson_id', $completedLesson->public_id)
             ->assertJsonPath('meta.pending_notes', 1)
             ->assertJsonPath('meta.missing_notes', 1)
             ->assertJsonPath('meta.completed_lessons_requiring_notes', 1)
@@ -703,8 +705,13 @@ class LessonNoteApiTest extends TestCase
      */
     private function createLesson(array $overrides = []): Lesson
     {
+        $overrides = $this->normalizeForeignKeys($overrides, [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]);
+
         return Lesson::create([
-            'student_id' => $this->student->public_id,
+            'student_id' => $this->student->id,
             'teacher_id' => $this->teacher->id,
             'start_time' => '2026-06-01 09:00:00',
             'end_time' => '2026-06-01 10:00:00',
@@ -718,8 +725,13 @@ class LessonNoteApiTest extends TestCase
      */
     private function createLessonRecord(array $overrides = []): LessonRecord
     {
+        $overrides = $this->normalizeForeignKeys($overrides, [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]);
+
         return LessonRecord::create([
-            'student_id' => $this->student->public_id,
+            'student_id' => $this->student->id,
             'teacher_id' => $this->teacher->id,
             'scheduled_date' => '2026-06-01',
             'start_time' => '09:00',
@@ -736,9 +748,17 @@ class LessonNoteApiTest extends TestCase
      */
     private function createLessonNote(array $overrides = []): LessonNote
     {
+        $overrides = $this->normalizeForeignKeys($overrides, [
+            'lesson_id' => Lesson::class,
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+            'author_id' => User::class,
+            'lesson_record_id' => LessonRecord::class,
+        ]);
+
         return LessonNote::create([
             'lesson_id' => $overrides['lesson_id'] ?? $this->createLesson()->id,
-            'student_id' => $this->student->public_id,
+            'student_id' => $this->student->id,
             'teacher_id' => $this->teacher->id,
             'author_id' => $this->teacher->id,
             'topics_covered' => 'Introductions and follow-up questions.',
@@ -746,5 +766,25 @@ class LessonNoteApiTest extends TestCase
             'submitted_at' => '2026-06-01 10:10:00',
             ...$overrides,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, class-string<Model>>  $models
+     * @return array<string, mixed>
+     */
+    private function normalizeForeignKeys(array $attributes, array $models): array
+    {
+        foreach ($models as $key => $modelClass) {
+            if (! isset($attributes[$key]) || ! is_string($attributes[$key]) || ! Str::isUlid($attributes[$key])) {
+                continue;
+            }
+
+            $attributes[$key] = $modelClass::query()
+                ->where('public_id', $attributes[$key])
+                ->value('id') ?? $attributes[$key];
+        }
+
+        return $attributes;
     }
 }

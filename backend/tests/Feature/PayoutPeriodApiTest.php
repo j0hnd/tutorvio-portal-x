@@ -60,7 +60,8 @@ class PayoutPeriodApiTest extends TestCase
             ->assertJsonPath('data.earnings_count', 1)
             ->assertJsonPath('data.earnings.0.id', $eligible->id);
 
-        $periodId = $response->json('data.id');
+        $periodPublicId = $response->json('data.id');
+        $periodId = PayoutPeriod::where('public_id', $periodPublicId)->value('id');
 
         $this->assertDatabaseHas('payout_period_teacher_earning', [
             'payout_period_id' => $periodId,
@@ -107,15 +108,16 @@ class PayoutPeriodApiTest extends TestCase
         $included = $this->createEarning('2026-06-10', TeacherEarning::STATUS_APPROVED);
         $addedAfterDateChange = $this->createEarning('2026-06-20', TeacherEarning::STATUS_APPROVED);
 
-        $periodId = $this->postJson('/api/v1/admin/payout-periods', [
+        $periodPublicId = $this->postJson('/api/v1/admin/payout-periods', [
             'name' => 'June first half',
             'start_date' => '2026-06-01',
             'end_date' => '2026-06-15',
             'cutoff_date' => '2026-06-16',
             'payout_date' => '2026-06-20',
         ])->json('data.id');
+        $periodId = PayoutPeriod::where('public_id', $periodPublicId)->value('id');
 
-        $this->patchJson("/api/v1/admin/payout-periods/{$periodId}", [
+        $this->patchJson("/api/v1/admin/payout-periods/{$periodPublicId}", [
             'end_date' => '2026-06-20',
             'cutoff_date' => '2026-06-21',
             'payout_date' => '2026-06-25',
@@ -132,15 +134,15 @@ class PayoutPeriodApiTest extends TestCase
             'teacher_earning_id' => $addedAfterDateChange->id,
         ]);
 
-        $this->patchJson("/api/v1/admin/payout-periods/{$periodId}", [
+        $this->patchJson("/api/v1/admin/payout-periods/{$periodPublicId}", [
             'status' => PayoutPeriod::STATUS_LOCKED,
         ])->assertOk();
 
-        $this->patchJson("/api/v1/admin/payout-periods/{$periodId}", [
+        $this->patchJson("/api/v1/admin/payout-periods/{$periodPublicId}", [
             'end_date' => '2026-06-25',
         ])->assertUnprocessable();
 
-        $this->patchJson("/api/v1/admin/payout-periods/{$periodId}", [
+        $this->patchJson("/api/v1/admin/payout-periods/{$periodPublicId}", [
             'status' => PayoutPeriod::STATUS_PAID,
         ])->assertOk();
 

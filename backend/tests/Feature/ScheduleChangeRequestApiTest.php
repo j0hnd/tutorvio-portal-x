@@ -64,7 +64,7 @@ class ScheduleChangeRequestApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.status', ScheduleChangeRequest::STATUS_PENDING)
             ->assertJsonPath('data.requester_id', $this->student->public_id)
-            ->assertJsonPath('data.class_schedule_id', $schedule->id);
+            ->assertJsonPath('data.class_schedule_id', $schedule->public_id);
 
         $this->assertDatabaseHas('schedule_change_requests', [
             'requester_id' => $this->student->id,
@@ -191,7 +191,7 @@ class ScheduleChangeRequestApiTest extends TestCase
         $this->getJson('/api/v1/admin/schedule-change-requests')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.class_schedule_id', $schedule->id);
+            ->assertJsonPath('data.0.class_schedule_id', $schedule->public_id);
     }
 
     public function test_staff_schedule_change_approval_flow_depends_on_view_and_manage_permissions(): void

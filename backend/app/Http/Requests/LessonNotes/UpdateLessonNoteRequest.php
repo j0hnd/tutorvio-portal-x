@@ -2,10 +2,20 @@
 
 namespace App\Http\Requests\LessonNotes;
 
+use App\Models\LessonRecord;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 
 class UpdateLessonNoteRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'lesson_record_id' => $this->resolvePublicId($this->input('lesson_record_id'), LessonRecord::class),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -23,5 +33,17 @@ class UpdateLessonNoteRequest extends FormRequest
             'recommendation_for_next_lesson' => ['sometimes', 'nullable', 'string'],
             'internal_note' => ['sometimes', 'nullable', 'string'],
         ];
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     */
+    private function resolvePublicId(mixed $value, string $modelClass): mixed
+    {
+        if (! is_string($value) || ! Str::isUlid($value)) {
+            return $value;
+        }
+
+        return $modelClass::query()->where('public_id', $value)->value('id') ?? $value;
     }
 }

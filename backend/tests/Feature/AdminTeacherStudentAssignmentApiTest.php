@@ -52,8 +52,8 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
         $firstResponse
             ->assertCreated()
-            ->assertJsonPath('data.student_id', $this->student->id)
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.student_id', $this->student->public_id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.status', TeacherStudentAssignment::STATUS_ACTIVE)
             ->assertJsonPath('data.reason', 'Initial placement');
         $this->assertResponseDoesNotExposeTeacherPayroll($firstResponse->json());
@@ -73,7 +73,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
         $secondResponse
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $secondTeacher->id)
+            ->assertJsonPath('data.teacher_id', $secondTeacher->public_id)
             ->assertJsonPath('data.status', TeacherStudentAssignment::STATUS_ACTIVE);
 
         $this->assertDatabaseHas('teacher_student_assignments', [
@@ -103,7 +103,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-student-assignments?student_id='.$this->student->id.'&active=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.teacher_id', $secondTeacher->id);
+            ->assertJsonPath('data.0.teacher_id', $secondTeacher->public_id);
     }
 
     public function test_assignment_rejects_inactive_or_wrong_role_users(): void
@@ -350,11 +350,11 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
             'notes' => 'Moved to evenings.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $secondTeacher->id);
+            ->assertJsonPath('data.teacher_id', $secondTeacher->public_id);
 
         $this->getJson("/api/v1/students/{$this->student->public_id}/assigned-teacher")
             ->assertOk()
-            ->assertJsonPath('data.teacher_id', $secondTeacher->id);
+            ->assertJsonPath('data.teacher_id', $secondTeacher->public_id);
 
         $this->getJson("/api/v1/students/{$this->student->public_id}/teacher-assignment-history")
             ->assertOk()
@@ -363,7 +363,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         $this->getJson("/api/v1/teachers/{$secondTeacher->public_id}/assigned-students")
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.student_id', $this->student->id);
+            ->assertJsonPath('data.0.student_id', $this->student->public_id);
 
         $this->getJson("/api/v1/teachers/{$this->teacher->public_id}/student-assignment-history")
             ->assertOk()
@@ -405,7 +405,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
         $this->getJson("/api/v1/teachers/{$this->teacher->public_id}/assigned-students")
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.student_id', $this->student->id);
+            ->assertJsonPath('data.0.student_id', $this->student->public_id);
 
         $this->getJson("/api/v1/teachers/{$otherTeacher->public_id}/assigned-students")
             ->assertForbidden();
@@ -414,7 +414,7 @@ class AdminTeacherStudentAssignmentApiTest extends TestCase
 
         $this->getJson("/api/v1/students/{$this->student->public_id}/assigned-teacher")
             ->assertOk()
-            ->assertJsonPath('data.teacher_id', $this->teacher->id);
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id);
 
         $this->getJson("/api/v1/students/{$otherStudent->public_id}/assigned-teacher")
             ->assertForbidden();

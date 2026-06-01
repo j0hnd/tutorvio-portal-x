@@ -49,7 +49,7 @@ class LessonRecordResource extends JsonResource
                 'timezone' => $this->resource->teacher->timezone,
             ]),
             'materials' => $this->whenLoaded('materials', fn () => $this->resource->materials->map(fn ($material) => [
-                'id' => $this->publicId($material),
+                'id' => $material->id,
                 'title' => $material->title,
                 'description' => $material->description,
                 'url' => $material->url,

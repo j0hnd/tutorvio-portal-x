@@ -77,7 +77,7 @@ class TeacherWorkloadApiTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $this->getJson("/api/v1/teacher-workloads/{$this->teacher->id}?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila")
+        $this->getJson("/api/v1/teacher-workloads/{$this->teacher->public_id}?from=2026-06-01&to=2026-06-01&timezone=Asia/Manila")
             ->assertOk()
             ->assertJsonPath('data.teacher.id', $this->teacher->id)
             ->assertJsonPath('data.period.starts_at', '2026-06-01T00:00:00+08:00')
@@ -97,7 +97,7 @@ class TeacherWorkloadApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
 
-        $this->getJson("/api/v1/teacher-workloads/{$otherTeacher->id}")
+        $this->getJson("/api/v1/teacher-workloads/{$otherTeacher->public_id}")
             ->assertForbidden();
     }
 
