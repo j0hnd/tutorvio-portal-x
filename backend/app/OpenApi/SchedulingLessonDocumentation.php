@@ -14,13 +14,7 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'SchedulingUserSummary',
-    properties: [
-        new OA\Property(property: 'id', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
-        new OA\Property(property: 'name', type: 'string', example: 'Alex Student'),
-        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'alex.student@example.com'),
-        new OA\Property(property: 'timezone', nullable: true, type: 'string', example: 'Asia/Manila'),
-    ],
-    type: 'object'
+    allOf: [new OA\Schema(ref: '#/components/schemas/UserSummary')]
 )]
 #[OA\Schema(
     schema: 'ClassStatus',

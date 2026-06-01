@@ -61,17 +61,17 @@ use OpenApi\Attributes as OA;
         new OA\Response(
             response: 'UnauthorizedError',
             description: 'Unauthorized. The bearer token is missing, expired, or invalid.',
-            content: new OA\JsonContent(ref: '#/components/schemas/UnauthorizedResponse')
+            content: new OA\JsonContent(ref: '#/components/schemas/UnauthorizedError')
         ),
         new OA\Response(
             response: 'ForbiddenError',
             description: 'Forbidden. The authenticated user does not have the required role, permission, or resource ownership.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ForbiddenResponse')
+            content: new OA\JsonContent(ref: '#/components/schemas/ForbiddenError')
         ),
         new OA\Response(
             response: 'ValidationError',
             description: 'Validation error. One or more submitted fields failed validation.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')
+            content: new OA\JsonContent(ref: '#/components/schemas/ValidationError')
         ),
         new OA\Response(
             response: 'ServerError',

@@ -30,25 +30,24 @@ use OpenApi\Attributes as OA;
         'issue_type' => 'technical_issue',
         'previous_status' => 'open',
         'new_status' => 'in_progress',
-        'assigned_to_id' => 7,
+        'assigned_to_id' => 'usr_01J0STAFF0000000000000001',
         'changed_fields' => ['assigned_to_id' => true, 'status' => true],
         'note_present' => true,
     ]
 )]
 #[OA\Schema(
     schema: 'AuditLog',
+    description: 'Reusable public-safe audit log response. The `id` and `target_entity_id` values are public IDs when the target has a public identifier.',
     required: ['id', 'action_type', 'module', 'timestamp', 'metadata'],
     properties: [
-        new OA\Property(property: 'id', type: 'integer', example: 1001),
-        new OA\Property(property: 'actor_user', nullable: true, type: 'object', example: ['id' => 7, 'name' => 'Admin User', 'email' => 'admin@example.com', 'roles' => ['admin']]),
+        new OA\Property(property: 'id', type: 'string', example: 'aud_01J0AUDIT000000000000001'),
+        new OA\Property(property: 'actor_user', ref: '#/components/schemas/UserSummary', nullable: true),
         new OA\Property(property: 'action_type', type: 'string', example: 'issue_status_changed'),
         new OA\Property(property: 'module', type: 'string', example: 'issue_reports'),
         new OA\Property(property: 'target_entity_type', nullable: true, type: 'string', example: 'issue_report'),
-        new OA\Property(property: 'target_entity_id', nullable: true, type: 'integer', example: 42),
+        new OA\Property(property: 'target_entity_id', nullable: true, type: 'string', example: 'isr_01J0ISSUE000000000000001'),
         new OA\Property(property: 'timestamp', type: 'string', format: 'date-time', example: '2026-06-01T08:30:00Z'),
         new OA\Property(property: 'metadata', ref: '#/components/schemas/AuditLogMetadata'),
-        new OA\Property(property: 'ip_address', nullable: true, type: 'string', example: '203.0.113.10'),
-        new OA\Property(property: 'user_agent', nullable: true, type: 'string', example: 'Mozilla/5.0'),
     ],
     type: 'object'
 )]
