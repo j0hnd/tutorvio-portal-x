@@ -18,7 +18,7 @@ class SwaggerDocumentationTest extends TestCase
         File::deleteDirectory($this->docsPath);
 
         config([
-            'l5-swagger.allowed_environments' => ['testing'],
+            'l5-swagger.allowed_environments' => [app()->environment()],
             'l5-swagger.allow_production' => false,
             'l5-swagger.defaults.paths.docs' => $this->docsPath,
             'l5-swagger.defaults.generate_always' => false,
