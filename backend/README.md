@@ -43,6 +43,41 @@ The default `.env.example` is configured for the Docker MariaDB service:
 - `DB_USERNAME=tutorvio`
 - `DB_PASSWORD=tutorvio_password`
 
+Redis is optional in local development. The backend keeps `CACHE_STORE=database` and `QUEUE_CONNECTION=database` by default so the app can run without Redis. When Redis is available, enable it with:
+
+```env
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+```
+
+The Docker stack includes a Redis service:
+
+```bash
+docker compose up -d redis
+```
+
+Redis-backed cache locks use `REDIS_CACHE_LOCK_CONNECTION`, which defaults to the dedicated `lock` Redis connection.
+
+The Docker backend image installs the `phpredis` extension for `REDIS_CLIENT=phpredis`. Non-Docker Redis use requires the same PHP extension in the local PHP runtime.
+
+Required Redis environment variables:
+
+- `REDIS_CLIENT`: Redis client, usually `phpredis`.
+- `REDIS_HOST`: Redis host or Docker service name.
+- `REDIS_PORT`: Redis port.
+- `REDIS_USERNAME`: Redis username when required by the service.
+- `REDIS_PASSWORD`: Redis password, or `null` for no password.
+- `REDIS_DB`: Default Redis database.
+- `REDIS_CACHE_DB`: Redis database for cache values.
+- `REDIS_QUEUE_DB`: Redis database for queues.
+- `REDIS_LOCK_DB`: Redis database for cache locks.
+- `REDIS_CACHE_CONNECTION`: Laravel Redis connection used by the `redis` cache store.
+- `REDIS_CACHE_LOCK_CONNECTION`: Laravel Redis connection used by Redis cache locks.
+- `REDIS_QUEUE_CONNECTION`: Laravel Redis connection used by the `redis` queue driver.
+- `REDIS_QUEUE`: Queue name for Redis jobs.
+- `REDIS_QUEUE_RETRY_AFTER`: Seconds before a Redis job is retried.
+- `REDIS_QUEUE_BLOCK_FOR`: Optional seconds for Redis queue blocking pop; use `null` to disable blocking.
+
 ## Common Commands
 
 Run from `backend/` unless using `docker compose exec backend`.
