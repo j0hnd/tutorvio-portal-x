@@ -97,6 +97,36 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('api-public', function (Request $request): array {
+            return [
+                Limit::perMinute(60)->by($request->ip()),
+            ];
+        });
+
+        RateLimiter::for('api-action', function (Request $request): array {
+            return [
+                Limit::perMinute(30)->by($this->rateLimitKey($request)),
+            ];
+        });
+
+        RateLimiter::for('api-upload', function (Request $request): array {
+            return [
+                Limit::perMinute(10)->by($this->rateLimitKey($request)),
+            ];
+        });
+
+        RateLimiter::for('api-download', function (Request $request): array {
+            return [
+                Limit::perMinute(60)->by($this->rateLimitKey($request)),
+            ];
+        });
+
+        RateLimiter::for('api-report', function (Request $request): array {
+            return [
+                Limit::perMinute(30)->by($this->rateLimitKey($request)),
+            ];
+        });
+
         Gate::policy(ClassSchedule::class, ClassSchedulePolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(AcademicRecord::class, AcademicRecordPolicy::class);
@@ -131,5 +161,10 @@ class AppServiceProvider extends ServiceProvider
                 || ($user->hasRole('staff') && $user->can('teacher_workloads.view'))
                 || ($user->hasRole('teacher') && (int) $user->id === (int) $teacher->id);
         });
+    }
+
+    private function rateLimitKey(Request $request): string
+    {
+        return ((string) ($request->user()?->id ?? 'guest')).'|'.$request->ip();
     }
 }

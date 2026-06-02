@@ -23,16 +23,19 @@ class HolidayController extends Controller
             'timezone' => ['sometimes', 'string', Rule::in(timezone_identifiers_list())],
             'country_code' => ['sometimes', 'string', 'size:2'],
             'is_active' => ['sometimes', 'boolean'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        return response()->json([
-            'data' => HolidayResource::collection(Holiday::query()
-                ->when($validated['timezone'] ?? null, fn ($query, string $timezone) => $query->where('timezone', $timezone))
-                ->when($validated['country_code'] ?? null, fn ($query, string $countryCode) => $query->where('country_code', strtoupper($countryCode)))
-                ->when(array_key_exists('is_active', $validated), fn ($query) => $query->where('is_active', $validated['is_active']))
-                ->orderBy('date')
-                ->get()),
-        ]);
+        $holidays = Holiday::query()
+            ->when($validated['timezone'] ?? null, fn ($query, string $timezone) => $query->where('timezone', $timezone))
+            ->when($validated['country_code'] ?? null, fn ($query, string $countryCode) => $query->where('country_code', strtoupper($countryCode)))
+            ->when(array_key_exists('is_active', $validated), fn ($query) => $query->where('is_active', $validated['is_active']))
+            ->orderBy('date')
+            ->paginate($validated['per_page'] ?? 25);
+
+        return response()->json(
+            $holidays->through(fn (Holiday $holiday) => new HolidayResource($holiday))
+        );
     }
 
     public function store(Request $request): JsonResponse

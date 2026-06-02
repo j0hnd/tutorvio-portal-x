@@ -172,10 +172,14 @@ class LessonNoteController extends Controller
     {
         Gate::authorize('viewAny', LessonNote::class);
 
+        $validated = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $notes = $this->queryForUser($request->user())
             ->where('lesson_id', $lesson->id)
             ->orderByDesc('submitted_at')
-            ->paginate($request->integer('per_page', 25));
+            ->paginate($validated['per_page'] ?? 25);
 
         return response()->json($notes->through(fn (LessonNote $lessonNote) => new LessonNoteResource($lessonNote)));
     }
@@ -184,10 +188,14 @@ class LessonNoteController extends Controller
     {
         Gate::authorize('viewAny', LessonNote::class);
 
+        $validated = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $notes = $this->queryForUser($request->user())
             ->where('student_id', $student->id)
             ->orderByDesc('submitted_at')
-            ->paginate($request->integer('per_page', 25));
+            ->paginate($validated['per_page'] ?? 25);
 
         return response()->json($notes->through(fn (LessonNote $lessonNote) => new LessonNoteResource($lessonNote)));
     }

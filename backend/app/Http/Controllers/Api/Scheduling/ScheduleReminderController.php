@@ -23,20 +23,23 @@ class ScheduleReminderController extends Controller
             'class_schedule_id' => ['sometimes', 'integer', 'exists:class_schedules,id'],
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
             'status' => ['sometimes', 'string', Rule::in(ScheduleReminder::STATUSES)],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
         $user = $request->user();
 
-        return response()->json([
-            'data' => ScheduleReminderResource::collection(ScheduleReminder::query()
-                ->with(['classSchedule', 'user:id,public_id,name,email,timezone'])
-                ->when($validated['class_schedule_id'] ?? null, fn ($query, int $scheduleId) => $query->where('class_schedule_id', $scheduleId))
-                ->when($validated['user_id'] ?? null, fn ($query, int $userId) => $query->where('user_id', $userId))
-                ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-                ->when(! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('user_id', $user->id))
-                ->orderBy('scheduled_for')
-                ->get()),
-        ]);
+        $reminders = ScheduleReminder::query()
+            ->with(['classSchedule', 'user:id,public_id,name,email,timezone'])
+            ->when($validated['class_schedule_id'] ?? null, fn ($query, int $scheduleId) => $query->where('class_schedule_id', $scheduleId))
+            ->when($validated['user_id'] ?? null, fn ($query, int $userId) => $query->where('user_id', $userId))
+            ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->when(! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('user_id', $user->id))
+            ->orderBy('scheduled_for')
+            ->paginate($validated['per_page'] ?? 25);
+
+        return response()->json(
+            $reminders->through(fn (ScheduleReminder $reminder) => new ScheduleReminderResource($reminder))
+        );
     }
 
     public function store(Request $request): JsonResponse

@@ -110,23 +110,32 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::get('/notifications/history', [NotificationController::class, 'history'])
             ->middleware(['role:admin|staff', 'permission:notifications.history.view']);
-        Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+        Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])
+            ->middleware('throttle:api-action');
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::get('/notifications/{notification:public_id}', [NotificationController::class, 'show']);
-        Route::post('/notifications/{notification:public_id}/read', [NotificationController::class, 'markRead']);
+        Route::post('/notifications/{notification:public_id}/read', [NotificationController::class, 'markRead'])
+            ->middleware('throttle:api-action');
         Route::get('/message-threads/unread-count', [MessageThreadController::class, 'unreadCount']);
         Route::get('/message-threads', [MessageThreadController::class, 'index']);
-        Route::post('/message-threads', [MessageThreadController::class, 'store']);
+        Route::post('/message-threads', [MessageThreadController::class, 'store'])
+            ->middleware('throttle:api-action');
         Route::get('/message-threads/{messageThread:public_id}/messages', [MessageThreadController::class, 'messages']);
-        Route::post('/message-threads/{messageThread:public_id}/messages', [MessageThreadController::class, 'send']);
-        Route::post('/message-threads/{messageThread:public_id}/read', [MessageThreadController::class, 'markRead']);
+        Route::post('/message-threads/{messageThread:public_id}/messages', [MessageThreadController::class, 'send'])
+            ->middleware('throttle:api-action');
+        Route::post('/message-threads/{messageThread:public_id}/read', [MessageThreadController::class, 'markRead'])
+            ->middleware('throttle:api-action');
         Route::get('/announcements/unread-count', [AnnouncementController::class, 'unreadCount']);
-        Route::post('/announcements/mark-all-read', [AnnouncementController::class, 'markAllRead']);
+        Route::post('/announcements/mark-all-read', [AnnouncementController::class, 'markAllRead'])
+            ->middleware('throttle:api-action');
         Route::get('/announcements', [AnnouncementController::class, 'index']);
         Route::get('/announcements/{announcement:public_id}', [AnnouncementController::class, 'show']);
-        Route::post('/announcements/{announcement:public_id}/read', [AnnouncementController::class, 'markRead']);
-        Route::post('/announcements/{announcement:public_id}/unread', [AnnouncementController::class, 'markUnread']);
-        Route::post('/issue-reports', [IssueReportController::class, 'store']);
+        Route::post('/announcements/{announcement:public_id}/read', [AnnouncementController::class, 'markRead'])
+            ->middleware('throttle:api-action');
+        Route::post('/announcements/{announcement:public_id}/unread', [AnnouncementController::class, 'markUnread'])
+            ->middleware('throttle:api-action');
+        Route::post('/issue-reports', [IssueReportController::class, 'store'])
+            ->middleware('throttle:api-action');
         Route::get('/issue-reports/{issueReport:public_id}', [IssueReportController::class, 'show']);
         Route::get('/lessons/{lesson:public_id}/join', LessonJoinController::class);
         Route::get('/lessons/{lesson:public_id}/lesson-notes', [LessonNoteController::class, 'byLesson']);
@@ -157,7 +166,8 @@ Route::prefix('v1')->group(function () {
             ->only(['index', 'store', 'show', 'update'])
             ->parameters(['academic-records' => 'academicRecord'])
             ->scoped(['academicRecord' => 'public_id']);
-        Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile']);
+        Route::post('/learning-resources/files', [LearningResourceController::class, 'storeFile'])
+            ->middleware('throttle:api-upload');
         Route::post('/learning-resources/links', [LearningResourceController::class, 'storeLink']);
         Route::get('/homeworks', [HomeworkController::class, 'index']);
         Route::post('/homeworks', [HomeworkController::class, 'store']);
@@ -167,9 +177,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/teacher-earnings', [TeacherEarningController::class, 'index']);
         Route::get('/teacher-workloads', [TeacherWorkloadController::class, 'index']);
         Route::get('/teacher-workloads/{teacher:public_id}', [TeacherWorkloadController::class, 'show']);
-        Route::get('/reports/teacher-load', TeacherLoadReportController::class);
-        Route::get('/reports/student-progress', StudentProgressReportController::class);
-        Route::get('/reports/teacher-note-completions', TeacherNoteCompletionReportController::class);
+        Route::get('/reports/teacher-load', TeacherLoadReportController::class)
+            ->middleware('throttle:api-report');
+        Route::get('/reports/student-progress', StudentProgressReportController::class)
+            ->middleware('throttle:api-report');
+        Route::get('/reports/teacher-note-completions', TeacherNoteCompletionReportController::class)
+            ->middleware('throttle:api-report');
         Route::get('/payroll-adjustments', [TeacherPayoutAdjustmentController::class, 'index']);
         Route::get('/schedule-change-requests', [ScheduleChangeRequestController::class, 'index']);
         Route::post('/schedule-change-requests', [ScheduleChangeRequestController::class, 'store']);
@@ -189,7 +202,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/learning-resources/{learningResource:public_id}/lessons', [LearningResourceController::class, 'assignLesson']);
         Route::delete('/learning-resources/{learningResource:public_id}/lessons/{lesson:public_id}', [LearningResourceController::class, 'unassignLesson'])
             ->withoutScopedBindings();
-        Route::get('/learning-resources/{learningResource:public_id}/download', [LearningResourceController::class, 'download']);
+        Route::get('/learning-resources/{learningResource:public_id}/download', [LearningResourceController::class, 'download'])
+            ->middleware('throttle:api-download');
         Route::get('/learning-resources/{learningResource:public_id}/versions', [LearningResourceController::class, 'versions']);
         Route::apiResource('learning-resources', LearningResourceController::class)
             ->only(['index', 'show', 'update', 'destroy'])
@@ -240,7 +254,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
                 ->middleware('permission:audit_logs.view');
             // Admin-wide school management reports require explicit report access.
-            Route::prefix('reports')->middleware('permission:school_reports.view')->group(function () {
+            Route::prefix('reports')->middleware(['permission:school_reports.view', 'throttle:api-report'])->group(function () {
                 Route::get('/teacher-load', TeacherLoadReportController::class);
                 Route::get('/school', [SchoolReportController::class, 'index']);
                 Route::get('/active-students', ActiveStudentsReportController::class);
@@ -405,14 +419,15 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('invoices')->group(function () {
             Route::get('/', [InvoiceController::class, 'index']);
-            Route::get('/{invoice:public_id}/download', [InvoiceController::class, 'download']);
+            Route::get('/{invoice:public_id}/download', [InvoiceController::class, 'download'])
+                ->middleware('throttle:api-download');
             Route::get('/{invoice:public_id}', [InvoiceController::class, 'show']);
             Route::patch('/{invoice:public_id}/payment-status', [InvoiceController::class, 'updatePaymentStatus'])
                 ->middleware(['role:admin|staff', 'permission:invoices.update']);
             Route::post('/{invoice:public_id}/send-email', [InvoiceController::class, 'sendEmail'])
-                ->middleware(['role:admin|staff', 'permission:invoices.create']);
+                ->middleware(['role:admin|staff', 'permission:invoices.create', 'throttle:api-action']);
             Route::post('/generate', [InvoiceGenerationController::class, 'store'])
-                ->middleware(['role:admin|staff', 'permission:invoices.create']);
+                ->middleware(['role:admin|staff', 'permission:invoices.create', 'throttle:api-action']);
         });
 
         Route::prefix('users')->middleware('role:admin|staff')->group(function () {
@@ -436,32 +451,43 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('scheduling')->group(function () {
             Route::get('calendar', CalendarController::class);
-            Route::post('lesson-bookings', [LessonBookingController::class, 'store'])->middleware('role:student');
+            Route::post('lesson-bookings', [LessonBookingController::class, 'store'])
+                ->middleware(['role:student', 'throttle:api-action']);
 
-            Route::post('class-schedules/recurring', [ClassScheduleController::class, 'recurring']);
+            Route::post('class-schedules/recurring', [ClassScheduleController::class, 'recurring'])
+                ->middleware('throttle:api-action');
             Route::apiResource('class-schedules', ClassScheduleController::class)
+                ->middleware('throttle:api-action')
                 ->parameters(['class-schedules' => 'classSchedule'])
                 ->scoped(['classSchedule' => 'public_id']);
-            Route::post('class-schedules/{classSchedule:public_id}/cancel', [ClassScheduleController::class, 'cancel']);
-            Route::post('class-schedules/{classSchedule:public_id}/reschedule', [ClassScheduleController::class, 'reschedule']);
-            Route::patch('class-schedules/{classSchedule:public_id}/status', [ClassScheduleController::class, 'status']);
+            Route::post('class-schedules/{classSchedule:public_id}/cancel', [ClassScheduleController::class, 'cancel'])
+                ->middleware('throttle:api-action');
+            Route::post('class-schedules/{classSchedule:public_id}/reschedule', [ClassScheduleController::class, 'reschedule'])
+                ->middleware('throttle:api-action');
+            Route::patch('class-schedules/{classSchedule:public_id}/status', [ClassScheduleController::class, 'status'])
+                ->middleware('throttle:api-action');
 
             Route::apiResource('teacher-availabilities', TeacherAvailabilityController::class)
+                ->middleware('throttle:api-action')
                 ->parameters(['teacher-availabilities' => 'teacherAvailability'])
                 ->scoped(['teacherAvailability' => 'public_id']);
             Route::apiResource('teacher-unavailable-dates', TeacherUnavailableDateController::class)
+                ->middleware('throttle:api-action')
                 ->parameters(['teacher-unavailable-dates' => 'teacherUnavailableDate'])
                 ->scoped(['teacherUnavailableDate' => 'public_id']);
             Route::apiResource('holidays', HolidayController::class)
+                ->middleware('throttle:api-action')
                 ->scoped(['holiday' => 'public_id']);
             Route::apiResource('schedule-reminders', ScheduleReminderController::class)
+                ->middleware('throttle:api-action')
                 ->parameters(['schedule-reminders' => 'scheduleReminder'])
                 ->scoped(['scheduleReminder' => 'public_id']);
         });
     });
 });
 
-Route::get('/settings/public', PublicPortalSettingController::class);
+Route::get('/settings/public', PublicPortalSettingController::class)
+    ->middleware('throttle:api-public');
 
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'role:admin|staff'])

@@ -22,20 +22,23 @@ class TeacherUnavailableDateController extends Controller
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
         $user = $request->user();
         $assignedTeacherId = $user->studentProfile?->assigned_teacher_id;
 
-        return response()->json([
-            'data' => TeacherUnavailableDateResource::collection(TeacherUnavailableDate::query()
-                ->with('teacher:id,public_id,name,email,timezone')
-                ->when($validated['teacher_id'] ?? null, fn ($query, int $teacherId) => $query->where('teacher_id', $teacherId))
-                ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $user->id))
-                ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $assignedTeacherId ?? 0))
-                ->orderBy('starts_at')
-                ->get()),
-        ]);
+        $unavailableDates = TeacherUnavailableDate::query()
+            ->with('teacher:id,public_id,name,email,timezone')
+            ->when($validated['teacher_id'] ?? null, fn ($query, int $teacherId) => $query->where('teacher_id', $teacherId))
+            ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $user->id))
+            ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $assignedTeacherId ?? 0))
+            ->orderBy('starts_at')
+            ->paginate($validated['per_page'] ?? 25);
+
+        return response()->json(
+            $unavailableDates->through(fn (TeacherUnavailableDate $unavailableDate) => new TeacherUnavailableDateResource($unavailableDate))
+        );
     }
 
     public function store(Request $request): JsonResponse
