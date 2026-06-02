@@ -125,7 +125,7 @@ class InvoiceGenerationApiTest extends TestCase
         $this->assertNotNull($audit);
         $this->assertSame($student->id, $audit->metadata['affected_user_id'] ?? null);
         $this->assertSame($subscription->id, $audit->metadata['subscription_id'] ?? null);
-        $this->assertTrue(($audit->metadata['payment_reference_present'] ?? false) === true);
+        $this->assertTrue(($audit->metadata['external_reference_supplied'] ?? false) === true);
         $this->assertArrayNotHasKey('payment_reference', $audit->metadata);
         $this->assertArrayNotHasKey('card_number', $audit->metadata);
     }

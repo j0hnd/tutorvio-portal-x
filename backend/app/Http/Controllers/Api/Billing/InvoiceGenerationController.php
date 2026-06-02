@@ -44,7 +44,7 @@ class InvoiceGenerationController extends Controller
                     'due_date' => true,
                 ],
                 'new_status' => $invoice->status,
-                'payment_reference_present' => $invoice->payment_reference !== null,
+                'external_reference_supplied' => $invoice->payment_reference !== null,
             ],
         );
 
