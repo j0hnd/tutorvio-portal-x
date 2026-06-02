@@ -126,15 +126,15 @@ class StudentProgressReportApiTest extends TestCase
             ->assertJsonPath('data.summary.status_counts.completed', 1)
             ->assertJsonPath('data.summary.status_counts.in_progress', 1)
             ->assertJsonCount(2, 'data.rows')
-            ->assertJsonPath('data.rows.0.student_id', $this->student->id)
+            ->assertJsonPath('data.rows.0.student_id', $this->student->public_id)
             ->assertJsonPath('data.rows.0.student_name', 'Ada Student')
-            ->assertJsonPath('data.rows.0.course.id', $this->courseProgram->id)
+            ->assertJsonPath('data.rows.0.course.id', $this->courseProgram->public_id)
             ->assertJsonPath('data.rows.0.course.title', 'Business English')
-            ->assertJsonPath('data.rows.0.assigned_teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.rows.0.assigned_teacher.id', $this->teacher->public_id)
             ->assertJsonPath('data.rows.0.progress_level', 'B1')
             ->assertJsonPath('data.rows.0.previous_level', 'A2')
             ->assertJsonPath('data.rows.0.milestone', 'Completed first presentation.')
-            ->assertJsonPath('data.rows.0.skill_progress.grammar.record_id', $latest->id)
+            ->assertJsonPath('data.rows.0.skill_progress.grammar.record_id', $latest->public_id)
             ->assertJsonPath('data.rows.0.teacher_comments_count', 2)
             ->assertJsonPath('data.rows.0.completed_lessons_count', 7)
             ->assertJsonPath('data.rows.0.last_progress_update_date', '2026-06-15')
@@ -168,9 +168,9 @@ class StudentProgressReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.students_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.student_id', $this->student->id)
+            ->assertJsonPath('data.rows.0.student_id', $this->student->public_id)
             ->assertJsonPath('data.rows.0.current_progress_status', StudentProgressRecord::STATUS_COMPLETED)
-            ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $matching->id)
+            ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $matching->public_id)
             ->assertJsonPath('data.filters.date_from', '2026-06-01')
             ->assertJsonPath('data.filters.date_to', '2026-06-30')
             ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
@@ -204,12 +204,12 @@ class StudentProgressReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.students_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.student_id', $this->student->id)
-            ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $ownRecord->id);
+            ->assertJsonPath('data.rows.0.student_id', $this->student->public_id)
+            ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $ownRecord->public_id);
 
         $this->getJson('/api/v1/reports/student-progress?student_id='.$this->student->id)
             ->assertOk()
-            ->assertJsonPath('data.rows.0.student_id', $this->student->id);
+            ->assertJsonPath('data.rows.0.student_id', $this->student->public_id);
 
         $this->getJson('/api/v1/reports/student-progress?student_id='.$this->otherStudent->id)
             ->assertForbidden();
@@ -237,8 +237,8 @@ class StudentProgressReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.students_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.student_id', $this->student->id)
-            ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $assignedRecord->id);
+            ->assertJsonPath('data.rows.0.student_id', $this->student->public_id)
+            ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $assignedRecord->public_id);
     }
 
     public function test_student_progress_report_requires_report_permission_for_admin_route(): void

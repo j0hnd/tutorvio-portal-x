@@ -96,8 +96,8 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/v1/admin/audit-logs?actor_user_id='.$actorOne->id)
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $match->id)
-            ->assertJsonPath('data.0.actor_user.id', $actorOne->id);
+            ->assertJsonPath('data.0.id', $match->public_id)
+            ->assertJsonPath('data.0.actor_user.id', $actorOne->public_id);
     }
 
     public function test_filter_by_action_type_works_for_admin_audit_log_queries(): void
@@ -110,7 +110,7 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/v1/admin/audit-logs?action_type=schedule.updated')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.id', $match->public_id)
             ->assertJsonPath('data.0.action_type', 'schedule.updated');
     }
 
@@ -124,7 +124,7 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/v1/admin/audit-logs?module=scheduling')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.id', $match->public_id)
             ->assertJsonPath('data.0.module', 'scheduling');
     }
 
@@ -148,7 +148,7 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/v1/admin/audit-logs?target_entity_type=class_schedule&target_entity_id=44')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonPath('data.0.id', $match->public_id)
             ->assertJsonPath('data.0.target_entity_type', 'class_schedule')
             ->assertJsonPath('data.0.target_entity_id', 44);
     }
@@ -165,8 +165,8 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/v1/admin/audit-logs?date_from=2026-05-27&date_to=2026-05-28')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.id', $inRangeTwo->id)
-            ->assertJsonPath('data.1.id', $inRangeOne->id);
+            ->assertJsonPath('data.0.id', $inRangeTwo->public_id)
+            ->assertJsonPath('data.1.id', $inRangeOne->public_id);
     }
 
     public function test_pagination_works_for_admin_audit_log_queries(): void
@@ -183,14 +183,14 @@ class AdminAuditLogApiTest extends TestCase
             ->assertJsonPath('current_page', 1)
             ->assertJsonPath('per_page', 2)
             ->assertJsonPath('total', 3)
-            ->assertJsonPath('data.0.id', $newest->id)
-            ->assertJsonPath('data.1.id', $middle->id);
+            ->assertJsonPath('data.0.id', $newest->public_id)
+            ->assertJsonPath('data.1.id', $middle->public_id);
 
         $this->getJson('/api/v1/admin/audit-logs?per_page=2&page=2')
             ->assertOk()
             ->assertJsonPath('current_page', 2)
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $oldest->id);
+            ->assertJsonPath('data.0.id', $oldest->public_id);
     }
 
     public function test_results_are_sorted_newest_first(): void
@@ -204,9 +204,9 @@ class AdminAuditLogApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/audit-logs')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $newest->id)
-            ->assertJsonPath('data.1.id', $middle->id)
-            ->assertJsonPath('data.2.id', $oldest->id);
+            ->assertJsonPath('data.0.id', $newest->public_id)
+            ->assertJsonPath('data.1.id', $middle->public_id)
+            ->assertJsonPath('data.2.id', $oldest->public_id);
     }
 
     public function test_sensitive_metadata_fields_are_not_returned_in_audit_log_api_responses(): void

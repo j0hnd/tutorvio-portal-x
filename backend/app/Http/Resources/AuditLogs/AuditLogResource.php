@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\AuditLogs;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Support\LogSanitizer;
@@ -13,13 +14,15 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class AuditLogResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
+            'id' => $this->publicId($this->resource),
             'actor_user' => $this->actorSummary(),
             'action_type' => $this->resource->action_type,
             'module' => $this->resource->module,
@@ -45,7 +48,7 @@ class AuditLogResource extends JsonResource
         }
 
         return [
-            'id' => $actor->id,
+            'id' => $this->publicId($actor),
             'name' => $actor->name,
             'email' => $actor->email,
             'roles' => $actor->relationLoaded('roles')

@@ -92,7 +92,7 @@ class AcademicRecordApiTest extends TestCase
             ->assertJsonPath('data.record_type', AcademicRecord::TYPE_PLACEMENT)
             ->assertJsonPath('data.student_level', 'B1')
             ->assertJsonPath('data.internal_notes', 'Discuss scholarship eligibility internally.')
-            ->assertJsonPath('data.recorded_by', $this->admin->id);
+            ->assertJsonPath('data.recorded_by', $this->admin->public_id);
 
         $recordId = $response->json('data.id');
 
@@ -114,7 +114,7 @@ class AcademicRecordApiTest extends TestCase
         $this->postJson("/api/v1/academic-records/{$recordId}/archive")
             ->assertOk()
             ->assertJsonPath('data.status', AcademicRecord::STATUS_ARCHIVED)
-            ->assertJsonPath('data.archived_by', $this->admin->id);
+            ->assertJsonPath('data.archived_by', $this->admin->public_id);
 
         $this->assertDatabaseHas('academic_records', [
             'public_id' => $recordId,
@@ -251,7 +251,7 @@ class AcademicRecordApiTest extends TestCase
         $this->postJson("/api/v1/academic-records/{$record->public_id}/archive")
             ->assertOk()
             ->assertJsonPath('data.status', AcademicRecord::STATUS_ARCHIVED)
-            ->assertJsonPath('data.archived_by', $this->staff->id);
+            ->assertJsonPath('data.archived_by', $this->staff->public_id);
     }
 
     /**

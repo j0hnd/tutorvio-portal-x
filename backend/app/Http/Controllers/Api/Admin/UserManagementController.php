@@ -225,17 +225,20 @@ class UserManagementController extends Controller
     {
         return response()->json([
             'data' => $user->statusHistories()
-                ->with('changedBy:id,name,email')
+                ->with('changedBy:id,public_id,name,email')
                 ->latest('changed_at')
                 ->get()
                 ->map(fn (UserStatusHistory $history) => [
-                    'id' => $history->id,
-                    'user_id' => $history->user_id,
+                    'user_id' => $this->userPublicId($history->user_id),
                     'old_status' => $history->old_status,
                     'new_status' => $history->new_status,
                     'reason' => $history->reason,
-                    'changed_by' => $history->changed_by,
-                    'changed_by_user' => $history->changedBy,
+                    'changed_by' => $this->userPublicId($history->changed_by),
+                    'changed_by_user' => $history->changedBy === null ? null : [
+                        'id' => $history->changedBy->public_id,
+                        'name' => $history->changedBy->name,
+                        'email' => $history->changedBy->email,
+                    ],
                     'changed_at' => $history->changed_at,
                     'created_at' => $history->created_at,
                     'updated_at' => $history->updated_at,
@@ -557,7 +560,7 @@ class UserManagementController extends Controller
         $user->loadMissing($this->userRelations());
 
         return [
-            'id' => $user->id,
+            'id' => $user->public_id,
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
@@ -567,15 +570,100 @@ class UserManagementController extends Controller
             'status' => $user->status,
             'invited_at' => $user->invited_at,
             'activated_at' => $user->activated_at,
-            'created_by' => $user->created_by,
-            'updated_by' => $user->updated_by,
+            'created_by' => $this->userPublicId($user->created_by),
+            'updated_by' => $this->userPublicId($user->updated_by),
             'roles' => $user->roles->pluck('name')->values(),
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),
-            'student_profile' => $user->studentProfile,
-            'teacher_profile' => $user->teacherProfile,
-            'staff_profile' => $user->staffProfile,
+            'student_profile' => $this->studentProfilePayload($user),
+            'teacher_profile' => $this->teacherProfilePayload($user),
+            'staff_profile' => $this->staffProfilePayload($user),
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
+        ];
+    }
+
+    private function userPublicId(mixed $id): ?string
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        if (is_string($id) && ! is_numeric($id)) {
+            return $id;
+        }
+
+        return User::query()->whereKey($id)->value('public_id');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function studentProfilePayload(User $user): ?array
+    {
+        $profile = $user->studentProfile;
+
+        if ($profile === null) {
+            return null;
+        }
+
+        return [
+            'id' => $user->public_id,
+            'english_level' => $profile->english_level,
+            'current_level' => $profile->current_level,
+            'course' => $profile->course,
+            'assigned_teacher_id' => $this->userPublicId($profile->assigned_teacher_id),
+            'class_type' => $profile->class_type,
+            'start_date' => $profile->start_date,
+            'notes' => $profile->notes,
+            'teacher_notes' => $profile->teacher_notes,
+            'internal_notes' => $profile->internal_notes,
+            'preferences' => $profile->preferences,
+            'goals' => $profile->goals,
+            'learning_concerns' => $profile->learning_concerns,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function teacherProfilePayload(User $user): ?array
+    {
+        $profile = $user->teacherProfile;
+
+        if ($profile === null) {
+            return null;
+        }
+
+        return [
+            'id' => $user->public_id,
+            'specialization' => $profile->specialization,
+            'bio' => $profile->bio,
+            'expertise' => $profile->expertise,
+            'class_load' => $profile->class_load,
+            'teaching_availability' => $profile->teaching_availability,
+            'performance_summary' => $profile->performance_summary,
+            'internal_status' => $profile->internal_status,
+            'teaching_notes' => $profile->teaching_notes,
+            'internal_remarks' => $profile->internal_remarks,
+            'document_contract_status' => $profile->document_contract_status,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function staffProfilePayload(User $user): ?array
+    {
+        $profile = $user->staffProfile;
+
+        if ($profile === null) {
+            return null;
+        }
+
+        return [
+            'id' => $user->public_id,
+            'department' => $profile->department,
+            'access_limitations' => $profile->access_limitations,
         ];
     }
 }

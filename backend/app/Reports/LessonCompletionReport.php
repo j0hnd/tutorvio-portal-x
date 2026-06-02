@@ -37,11 +37,11 @@ class LessonCompletionReport
     {
         $query = LessonRecord::query()
             ->with([
-                'student:id,name,email',
-                'teacher:id,name,email',
+                'student:id,public_id,name,email',
+                'teacher:id,public_id,name,email',
                 'student.courseProgramAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('courseProgram:id,title,placement_level')
+                    ->with('courseProgram:id,public_id,title,placement_level')
                     ->latest('start_date')
                     ->latest('assigned_at')
                     ->latest('id'),
@@ -92,18 +92,18 @@ class LessonCompletionReport
         $course = $this->course($lessonRecord);
 
         return [
-            'lesson_id' => $lessonRecord->id,
-            'lesson_record_id' => $lessonRecord->id,
+            'lesson_id' => $lessonRecord->public_id,
+            'lesson_record_id' => $lessonRecord->public_id,
             'lesson_datetime' => $lessonRecord->scheduled_date?->toDateString().' '.$lessonRecord->start_time,
             'lesson_date' => $lessonRecord->scheduled_date?->toDateString(),
             'start_time' => $lessonRecord->start_time,
             'end_time' => $lessonRecord->end_time,
             'student' => [
-                'id' => $lessonRecord->student?->id,
+                'id' => $lessonRecord->student?->public_id,
                 'name' => $lessonRecord->student?->name,
             ],
             'teacher' => [
-                'id' => $lessonRecord->teacher?->id,
+                'id' => $lessonRecord->teacher?->public_id,
                 'name' => $lessonRecord->teacher?->name,
             ],
             'course' => $course,
@@ -146,7 +146,7 @@ class LessonCompletionReport
         }
 
         return [
-            'id' => $courseProgram->id,
+            'id' => $courseProgram->public_id,
             'title' => $courseProgram->title,
             'placement_level' => $courseProgram->placement_level,
         ];

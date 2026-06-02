@@ -42,10 +42,10 @@ class IssueReportApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.type', IssueReport::TYPE_STUDENT_ABSENT_ISSUE_FORM)
             ->assertJsonPath('data.status', IssueReport::STATUS_OPEN)
-            ->assertJsonPath('data.reporter_id', $student->id)
-            ->assertJsonPath('data.related_student_id', $student->id)
-            ->assertJsonPath('data.related_teacher_id', $teacher->id)
-            ->assertJsonPath('data.lesson_id', $lesson->id);
+            ->assertJsonPath('data.reporter_id', $student->public_id)
+            ->assertJsonPath('data.related_student_id', $student->public_id)
+            ->assertJsonPath('data.related_teacher_id', $teacher->public_id)
+            ->assertJsonPath('data.lesson_id', $lesson->public_id);
 
         $this->assertDatabaseHas('issue_reports', [
             'issue_type' => IssueReport::TYPE_STUDENT_ABSENT_ISSUE_FORM,
@@ -112,9 +112,9 @@ class IssueReportApiTest extends TestCase
         ])
             ->assertCreated()
             ->assertJsonPath('data.status', IssueReport::STATUS_OPEN)
-            ->assertJsonPath('data.reporter_id', $teacher->id)
-            ->assertJsonPath('data.related_student_id', $student->id)
-            ->assertJsonPath('data.related_teacher_id', $teacher->id);
+            ->assertJsonPath('data.reporter_id', $teacher->public_id)
+            ->assertJsonPath('data.related_student_id', $student->public_id)
+            ->assertJsonPath('data.related_teacher_id', $teacher->public_id);
     }
 
     public function test_teacher_cannot_create_issue_for_unassigned_student(): void
@@ -149,8 +149,8 @@ class IssueReportApiTest extends TestCase
             'description' => 'Submitted by staff on behalf of the student.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.reporter_id', $admin->id)
-            ->assertJsonPath('data.target_user_id', $student->id);
+            ->assertJsonPath('data.reporter_id', $admin->public_id)
+            ->assertJsonPath('data.target_user_id', $student->public_id);
 
         $staff = $this->createRoleUser('staff');
         Sanctum::actingAs($staff);
@@ -171,8 +171,8 @@ class IssueReportApiTest extends TestCase
             'description' => 'The student cannot sign in.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.reporter_id', $staff->id)
-            ->assertJsonPath('data.target_user_id', $student->id);
+            ->assertJsonPath('data.reporter_id', $staff->public_id)
+            ->assertJsonPath('data.target_user_id', $student->public_id);
     }
 
     public function test_admin_can_list_and_filter_issue_reports(): void
@@ -221,7 +221,7 @@ class IssueReportApiTest extends TestCase
             'note' => 'Assigned to operations.',
         ])
             ->assertOk()
-            ->assertJsonPath('data.assigned_to_id', $staff->id)
+            ->assertJsonPath('data.assigned_to_id', $staff->public_id)
             ->assertJsonPath('data.status', IssueReport::STATUS_IN_PROGRESS);
 
         $this->patchJson("/api/v1/admin/issue-reports/{$issue->public_id}/status", [
@@ -230,7 +230,7 @@ class IssueReportApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.status', IssueReport::STATUS_RESOLVED)
-            ->assertJsonPath('data.resolved_by', $admin->id);
+            ->assertJsonPath('data.resolved_by', $admin->public_id);
 
         $this->postJson("/api/v1/admin/issue-reports/{$issue->public_id}/resolution-notes", [
             'resolution_notes' => 'Parent and teacher were notified.',
@@ -278,7 +278,7 @@ class IssueReportApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.status', IssueReport::STATUS_CANCELLED)
-            ->assertJsonPath('data.resolved_by', $admin->id)
+            ->assertJsonPath('data.resolved_by', $admin->public_id)
             ->assertJsonPath('data.resolution_notes', 'Cancelled after confirming it duplicates another ticket.');
 
         $this->assertDatabaseHas('issue_reports', [

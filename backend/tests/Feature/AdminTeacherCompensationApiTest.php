@@ -49,7 +49,7 @@ class AdminTeacherCompensationApiTest extends TestCase
 
         $createResponse
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.pay_model', TeacherCompensation::PAY_MODEL_PER_HOUR)
             ->assertJsonPath('data.base_rate', '30.50')
             ->assertJsonPath('data.currency', 'USD')
@@ -76,7 +76,7 @@ class AdminTeacherCompensationApiTest extends TestCase
 
         $this->postJson("/api/v1/admin/teacher-compensations/{$compensationId}/archive")
             ->assertOk()
-            ->assertJsonPath('data.archived_by', $this->admin->id);
+            ->assertJsonPath('data.archived_by', $this->admin->public_id);
 
         $this->assertDatabaseHas('teacher_compensations', [
             'id' => TeacherCompensation::where('public_id', $compensationId)->value('id'),
@@ -294,7 +294,7 @@ class AdminTeacherCompensationApiTest extends TestCase
             'effective_start_date' => '2026-08-01',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $this->teacher->id);
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id);
     }
 
     public function test_staff_with_view_only_payroll_permission_cannot_manage_compensation_settings(): void

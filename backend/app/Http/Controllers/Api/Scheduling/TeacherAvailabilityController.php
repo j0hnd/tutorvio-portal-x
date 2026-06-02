@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Scheduling\TeacherAvailabilityResource;
 use App\Models\Scheduling\TeacherAvailability;
 use App\Services\Scheduling\TeacherAvailabilityService;
 use Illuminate\Http\JsonResponse;
@@ -27,14 +28,14 @@ class TeacherAvailabilityController extends Controller
         $assignedTeacherId = $user->studentProfile?->assigned_teacher_id;
 
         return response()->json([
-            'data' => TeacherAvailability::query()
-                ->with('teacher:id,name,email,timezone')
+            'data' => TeacherAvailabilityResource::collection(TeacherAvailability::query()
+                ->with('teacher:id,public_id,name,email,timezone')
                 ->when($validated['teacher_id'] ?? null, fn ($query, int $teacherId) => $query->where('teacher_id', $teacherId))
                 ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $user->id))
                 ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $assignedTeacherId ?? 0))
                 ->orderBy('day_of_week')
                 ->orderBy('start_time')
-                ->get(),
+                ->get()),
         ]);
     }
 
@@ -46,7 +47,7 @@ class TeacherAvailabilityController extends Controller
         $this->assertTeacherCanManage($request, $validated['teacher_id']);
 
         return response()->json([
-            'data' => $this->availabilityService->createAvailability($validated)->load('teacher:id,name,email,timezone'),
+            'data' => new TeacherAvailabilityResource($this->availabilityService->createAvailability($validated)->load('teacher:id,public_id,name,email,timezone')),
         ], 201);
     }
 
@@ -54,7 +55,7 @@ class TeacherAvailabilityController extends Controller
     {
         Gate::authorize('view', $teacherAvailability);
 
-        return response()->json(['data' => $teacherAvailability->load('teacher:id,name,email,timezone')]);
+        return response()->json(['data' => new TeacherAvailabilityResource($teacherAvailability->load('teacher:id,public_id,name,email,timezone'))]);
     }
 
     public function update(Request $request, TeacherAvailability $teacherAvailability): JsonResponse
@@ -65,7 +66,7 @@ class TeacherAvailabilityController extends Controller
         $this->assertTeacherCanManage($request, $validated['teacher_id'] ?? $teacherAvailability->teacher_id);
 
         return response()->json([
-            'data' => $this->availabilityService->updateAvailability($teacherAvailability, $validated),
+            'data' => new TeacherAvailabilityResource($this->availabilityService->updateAvailability($teacherAvailability, $validated)->load('teacher:id,public_id,name,email,timezone')),
         ]);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Notifications;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -32,8 +33,7 @@ class NotificationResource extends JsonResource
         ];
 
         if ($this->canViewAdminFields($request, 'notifications.history.view')) {
-            $data['recipient_user_id'] = $this->resource->user_id;
-            $data['recipient_id'] = $this->resource->id;
+            $data['recipient_user_id'] = $this->publicIdFor(User::class, $this->resource->user_id);
             $data['channel'] = $this->resource->channel;
             $data['delivery_status'] = $this->resource->delivery_status;
             $data['metadata'] = $notification->metadata ?? [];

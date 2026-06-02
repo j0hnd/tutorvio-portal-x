@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Scheduling\ScheduleReminderResource;
 use App\Models\Scheduling\ScheduleReminder;
 use App\Services\Scheduling\ScheduleReminderService;
 use Illuminate\Http\JsonResponse;
@@ -27,14 +28,14 @@ class ScheduleReminderController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'data' => ScheduleReminder::query()
-                ->with(['classSchedule', 'user:id,name,email,timezone'])
+            'data' => ScheduleReminderResource::collection(ScheduleReminder::query()
+                ->with(['classSchedule', 'user:id,public_id,name,email,timezone'])
                 ->when($validated['class_schedule_id'] ?? null, fn ($query, int $scheduleId) => $query->where('class_schedule_id', $scheduleId))
                 ->when($validated['user_id'] ?? null, fn ($query, int $userId) => $query->where('user_id', $userId))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->when(! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('user_id', $user->id))
                 ->orderBy('scheduled_for')
-                ->get(),
+                ->get()),
         ]);
     }
 
@@ -43,7 +44,7 @@ class ScheduleReminderController extends Controller
         Gate::authorize('create', ScheduleReminder::class);
 
         return response()->json([
-            'data' => $this->reminderService->create($this->validatePayload($request, true))->load(['classSchedule', 'user:id,name,email,timezone']),
+            'data' => new ScheduleReminderResource($this->reminderService->create($this->validatePayload($request, true))->load(['classSchedule', 'user:id,public_id,name,email,timezone'])),
         ], 201);
     }
 
@@ -51,7 +52,7 @@ class ScheduleReminderController extends Controller
     {
         Gate::authorize('view', $scheduleReminder);
 
-        return response()->json(['data' => $scheduleReminder->load(['classSchedule', 'user:id,name,email,timezone'])]);
+        return response()->json(['data' => new ScheduleReminderResource($scheduleReminder->load(['classSchedule', 'user:id,public_id,name,email,timezone']))]);
     }
 
     public function update(Request $request, ScheduleReminder $scheduleReminder): JsonResponse
@@ -59,7 +60,7 @@ class ScheduleReminderController extends Controller
         Gate::authorize('update', $scheduleReminder);
 
         return response()->json([
-            'data' => $this->reminderService->update($scheduleReminder, $this->validatePayload($request, false)),
+            'data' => new ScheduleReminderResource($this->reminderService->update($scheduleReminder, $this->validatePayload($request, false))->load(['classSchedule', 'user:id,public_id,name,email,timezone'])),
         ]);
     }
 

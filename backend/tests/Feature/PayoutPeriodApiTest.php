@@ -58,7 +58,7 @@ class PayoutPeriodApiTest extends TestCase
             ->assertJsonPath('data.name', 'June first half')
             ->assertJsonPath('data.status', PayoutPeriod::STATUS_OPEN)
             ->assertJsonPath('data.earnings_count', 1)
-            ->assertJsonPath('data.earnings.0.id', $eligible->id);
+            ->assertJsonMissingPath('data.earnings.0.id');
 
         $periodPublicId = $response->json('data.id');
         $periodId = PayoutPeriod::where('public_id', $periodPublicId)->value('id');

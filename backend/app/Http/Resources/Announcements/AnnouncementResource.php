@@ -3,6 +3,11 @@
 namespace App\Http\Resources\Announcements;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\AnnouncementTarget;
+use App\Models\CourseProgram;
+use App\Models\CourseType;
+use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -38,14 +43,13 @@ class AnnouncementResource extends JsonResource
         if ($canViewAdminFields) {
             $data += [
                 'archived_at' => $this->resource->archived_at,
-                'created_by' => $this->resource->author_id,
-                'archived_by' => $this->resource->archived_by,
+                'created_by' => $this->publicIdFor(User::class, $this->resource->author_id),
+                'archived_by' => $this->publicIdFor(User::class, $this->resource->archived_by),
                 'recipient_count' => $this->whenCounted('recipients'),
                 'targets' => $this->whenLoaded('targets', fn () => $this->resource->targets->map(fn ($target) => [
-                    'id' => $target->id,
                     'type' => $target->target_type,
-                    'target_id' => $target->target_id,
-                    'user_id' => $target->user_id,
+                    'target_id' => $this->targetPublicId($target),
+                    'user_id' => $this->publicIdFor(User::class, $target->user_id),
                     'role' => $target->role,
                     'metadata' => $target->metadata,
                 ])->values()),
@@ -55,5 +59,16 @@ class AnnouncementResource extends JsonResource
         }
 
         return $data;
+    }
+
+    private function targetPublicId(AnnouncementTarget $target): mixed
+    {
+        return match ($target->target_type) {
+            AnnouncementTarget::TARGET_USER => $this->publicIdFor(User::class, $target->target_id),
+            AnnouncementTarget::TARGET_COURSE, AnnouncementTarget::TARGET_COURSE_PROGRAM => $this->publicIdFor(CourseProgram::class, $target->target_id),
+            AnnouncementTarget::TARGET_COURSE_TYPE => $this->publicIdFor(CourseType::class, $target->target_id),
+            AnnouncementTarget::TARGET_CLASS_SCHEDULE => $this->publicIdFor(ClassSchedule::class, $target->target_id),
+            default => $target->target_id,
+        };
     }
 }

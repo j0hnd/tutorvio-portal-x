@@ -200,7 +200,7 @@ class NotificationApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $other->public_id)
-            ->assertJsonPath('data.0.recipient_user_id', $this->otherUser->id)
+            ->assertJsonPath('data.0.recipient_user_id', $this->otherUser->public_id)
             ->assertJsonPath('per_page', 1)
             ->assertJsonPath('total', 3);
 

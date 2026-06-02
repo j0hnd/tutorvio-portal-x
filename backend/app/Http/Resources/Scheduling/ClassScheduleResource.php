@@ -39,7 +39,6 @@ class ClassScheduleResource extends JsonResource
 
         if ($canViewAdminFields) {
             $data += [
-                'internal_id' => $this->resource->id,
                 'rescheduled_from_id' => $this->whenLoaded('rescheduledFrom', fn () => $this->publicId($this->resource->rescheduledFrom)),
                 'created_by' => $this->whenLoaded('createdBy', fn () => $this->publicId($this->resource->createdBy)),
                 'updated_by' => $this->whenLoaded('updatedBy', fn () => $this->publicId($this->resource->updatedBy)),

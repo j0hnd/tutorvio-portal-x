@@ -258,7 +258,7 @@ class LearningResourceController extends Controller
         Gate::authorize('viewVersionHistory', $learningResource);
 
         $versions = $learningResource->versions()
-            ->with('uploadedBy:id,name,email')
+            ->with('uploadedBy:id,public_id,name,email')
             ->get()
             ->map(fn (LearningResourceVersion $version) => [
                 'version_number' => $version->version_number,
@@ -271,9 +271,9 @@ class LearningResourceController extends Controller
                 'preview_metadata' => $version->preview_metadata,
                 'change_notes' => $version->change_notes,
                 'uploaded_at' => $version->uploaded_at,
-                'uploaded_by' => $version->uploaded_by,
+                'uploaded_by' => $version->uploadedBy?->public_id,
                 'uploaded_by_user' => $version->uploadedBy === null ? null : [
-                    'id' => $version->uploadedBy->id,
+                    'id' => $version->uploadedBy->public_id,
                     'name' => $version->uploadedBy->name,
                     'email' => $version->uploadedBy->email,
                 ],

@@ -41,10 +41,10 @@ class PackageUsageReport
         $query = Subscription::query()
             ->with([
                 'invoice:id,invoice_number',
-                'student:id,name,email',
+                'student:id,public_id,name,email',
                 'student.courseProgramAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('courseProgram:id,title,placement_level')
+                    ->with('courseProgram:id,public_id,title,placement_level')
                     ->latest('start_date')
                     ->latest('assigned_at')
                     ->latest('id'),
@@ -95,14 +95,14 @@ class PackageUsageReport
     private function row(Subscription $subscription, bool $canViewBilling): array
     {
         $row = [
-            'student_id' => $subscription->student?->id,
+            'student_id' => $subscription->student?->public_id,
             'student_name' => $subscription->student?->name,
             'student' => [
-                'id' => $subscription->student?->id,
+                'id' => $subscription->student?->public_id,
                 'name' => $subscription->student?->name,
             ],
-            'package_id' => $subscription->id,
-            'subscription_id' => $subscription->id,
+            'package_id' => $subscription->public_id,
+            'subscription_id' => $subscription->public_id,
             'package_name' => $subscription->plan_name,
             'subscription_name' => $subscription->plan_name,
             'package_status' => $subscription->is_frozen ? 'frozen' : $subscription->status,
@@ -131,7 +131,7 @@ class PackageUsageReport
     }
 
     /**
-     * @return array{id: int|null, title: string|null, placement_level: string|null}|null
+     * @return array{id: string|null, title: string|null, placement_level: string|null}|null
      */
     private function course(Subscription $subscription): ?array
     {
@@ -144,7 +144,7 @@ class PackageUsageReport
         }
 
         return [
-            'id' => $courseProgram->id,
+            'id' => $courseProgram->public_id,
             'title' => $courseProgram->title,
             'placement_level' => $courseProgram->placement_level,
         ];

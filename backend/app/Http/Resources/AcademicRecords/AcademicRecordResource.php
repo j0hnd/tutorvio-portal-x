@@ -3,6 +3,9 @@
 namespace App\Http\Resources\AcademicRecords;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\Lesson;
+use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
@@ -30,8 +33,8 @@ class AcademicRecordResource extends JsonResource
             'student_id' => $this->whenLoaded('student', fn () => $this->publicId($this->resource->student)),
             'teacher_id' => $this->whenLoaded('teacher', fn () => $this->publicId($this->resource->teacher)),
             'course_program_id' => $this->whenLoaded('courseProgram', fn () => $this->publicId($this->resource->courseProgram)),
-            'lesson_id' => $this->resource->lesson_id,
-            'class_schedule_id' => $this->resource->class_schedule_id,
+            'lesson_id' => $this->publicIdFor(Lesson::class, $this->resource->lesson_id),
+            'class_schedule_id' => $this->publicIdFor(ClassSchedule::class, $this->resource->class_schedule_id),
             'record_type' => $this->resource->record_type,
             'title' => $this->resource->title,
             'description' => $this->resource->description,
@@ -69,10 +72,10 @@ class AcademicRecordResource extends JsonResource
 
         if ($canViewAdminFields) {
             $data += [
-                'recorded_by' => $this->resource->recorded_by,
-                'approved_by' => $this->resource->approved_by,
+                'recorded_by' => $this->publicIdFor(User::class, $this->resource->recorded_by),
+                'approved_by' => $this->publicIdFor(User::class, $this->resource->approved_by),
                 'approved_at' => $this->resource->approved_at,
-                'archived_by' => $this->resource->archived_by,
+                'archived_by' => $this->publicIdFor(User::class, $this->resource->archived_by),
                 'archived_at' => $this->resource->archived_at,
                 'recorded_by_user' => $this->whenLoaded('recordedBy', fn () => $this->userSummary($this->resource->recordedBy, $request)),
                 'approved_by_user' => $this->whenLoaded('approvedBy', fn () => $this->userSummary($this->resource->approvedBy, $request)),

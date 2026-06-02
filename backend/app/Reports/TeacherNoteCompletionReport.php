@@ -40,11 +40,11 @@ class TeacherNoteCompletionReport
             ->requiringLessonNote()
             ->with([
                 'lessonNote:id,lesson_id,submitted_at',
-                'student:id,name,email',
-                'teacher:id,name,email',
+                'student:id,public_id,name,email',
+                'teacher:id,public_id,name,email',
                 'student.courseProgramAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('courseProgram:id,title,placement_level')
+                    ->with('courseProgram:id,public_id,title,placement_level')
                     ->latest('start_date')
                     ->latest('assigned_at')
                     ->latest('id'),
@@ -91,17 +91,17 @@ class TeacherNoteCompletionReport
         $submittedAt = $lesson->lessonNote?->submitted_at;
 
         return [
-            'lesson_id' => $lesson->id,
+            'lesson_id' => $lesson->public_id,
             'lesson_datetime' => $lesson->start_time?->toJSON(),
             'lesson_date' => $lesson->start_time?->toDateString(),
             'start_time' => $lesson->start_time?->format('H:i:s'),
             'end_time' => $lesson->end_time?->format('H:i:s'),
             'teacher' => [
-                'id' => $lesson->teacher?->id,
+                'id' => $lesson->teacher?->public_id,
                 'name' => $lesson->teacher?->name,
             ],
             'student' => [
-                'id' => $lesson->student?->id,
+                'id' => $lesson->student?->public_id,
                 'name' => $lesson->student?->name,
             ],
             'course' => $course,
@@ -117,7 +117,7 @@ class TeacherNoteCompletionReport
     }
 
     /**
-     * @return array{id: int|null, title: string|null, placement_level: string|null}|null
+     * @return array{id: string|null, title: string|null, placement_level: string|null}|null
      */
     private function course(Lesson $lesson): ?array
     {
@@ -130,7 +130,7 @@ class TeacherNoteCompletionReport
         }
 
         return [
-            'id' => $courseProgram->id,
+            'id' => $courseProgram->public_id,
             'title' => $courseProgram->title,
             'placement_level' => $courseProgram->placement_level,
         ];

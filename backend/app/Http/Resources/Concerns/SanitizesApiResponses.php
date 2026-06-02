@@ -31,6 +31,22 @@ trait SanitizesApiResponses
     }
 
     /**
+     * @param  class-string<Model>  $modelClass
+     */
+    protected function publicIdFor(string $modelClass, mixed $id): ?string
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        if (is_string($id) && ! is_numeric($id)) {
+            return $id;
+        }
+
+        return $modelClass::query()->whereKey($id)->value('public_id');
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     protected function userSummary(?User $user, Request $request, bool $includeEmail = true): ?array

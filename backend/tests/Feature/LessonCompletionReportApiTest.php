@@ -92,11 +92,11 @@ class LessonCompletionReportApiTest extends TestCase
             ->assertJsonPath('data.summary.cancelled_rescheduled_missed_count', 1)
             ->assertJsonPath('data.summary.completion_rate', 50)
             ->assertJsonCount(4, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_id', $completed->id)
-            ->assertJsonPath('data.rows.0.lesson_record_id', $completed->id)
+            ->assertJsonPath('data.rows.0.lesson_id', $completed->public_id)
+            ->assertJsonPath('data.rows.0.lesson_record_id', $completed->public_id)
             ->assertJsonPath('data.rows.0.lesson_datetime', '2026-06-10 09:00:00')
             ->assertJsonPath('data.rows.0.student.name', 'Ada Student')
-            ->assertJsonPath('data.rows.0.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.rows.0.teacher.id', $this->teacher->public_id)
             ->assertJsonPath('data.rows.0.course.title', 'Business English')
             ->assertJsonPath('data.rows.0.lesson_type', LessonRecord::TYPE_BUSINESS_ENGLISH)
             ->assertJsonPath('data.rows.0.lesson_status', LessonRecord::STATUS_COMPLETED)
@@ -125,7 +125,7 @@ class LessonCompletionReportApiTest extends TestCase
             ->assertJsonPath('data.summary.completed_count', 0)
             ->assertJsonPath('data.summary.cancelled_rescheduled_missed_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_id', $matching->id)
+            ->assertJsonPath('data.rows.0.lesson_id', $matching->public_id)
             ->assertJsonPath('data.filters.status', LessonRecord::STATUS_RESCHEDULED);
 
         $this->getJson('/api/v1/admin/reports/lesson-completions?status=present')

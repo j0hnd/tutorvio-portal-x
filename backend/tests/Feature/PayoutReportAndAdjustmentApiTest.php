@@ -61,13 +61,13 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
             'internal_notes' => 'Verified against class log.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.payout_period_id', $this->period->id)
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.payout_period_id', $this->period->public_id)
             ->assertJsonPath('data.type', TeacherPayoutAdjustment::TYPE_DEDUCTION)
             ->assertJsonPath('data.amount', '-15.00')
             ->assertJsonPath('data.reason', 'Correct overpaid lesson duration.')
             ->assertJsonPath('data.internal_notes', 'Verified against class log.')
-            ->assertJsonPath('data.created_by', $this->admin->id);
+            ->assertJsonPath('data.created_by', $this->admin->public_id);
 
         $this->assertDatabaseHas('teacher_payout_adjustments', [
             'teacher_id' => $this->teacher->id,
@@ -104,13 +104,13 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
         $this->getJson("/api/v1/admin/payout-periods/{$this->period->public_id}/report")
             ->assertOk()
             ->assertJsonPath('data.scope', 'period')
-            ->assertJsonPath('data.payout_period.id', $this->period->id)
+            ->assertJsonPath('data.payout_period.id', $this->period->public_id)
             ->assertJsonPath('data.breakdown.base_earnings', 100)
             ->assertJsonPath('data.breakdown.variable_rate_earnings', 40)
             ->assertJsonPath('data.breakdown.manual_additions', 25)
             ->assertJsonPath('data.breakdown.manual_deductions', 10)
             ->assertJsonPath('data.breakdown.total_payout_amount', 155)
-            ->assertJsonPath('data.teachers.0.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.teachers.0.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.teachers.0.breakdown.total_payout_amount', 155);
     }
 
@@ -132,7 +132,7 @@ class PayoutReportAndAdjustmentApiTest extends TestCase
         $this->getJson("/api/v1/admin/teachers/{$this->teacher->public_id}/payout-report?payout_period_id={$this->period->id}")
             ->assertOk()
             ->assertJsonPath('data.scope', 'teacher')
-            ->assertJsonPath('data.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.teacher.id', $this->teacher->public_id)
             ->assertJsonPath('data.breakdown.base_earnings', 80)
             ->assertJsonPath('data.breakdown.manual_additions', 12)
             ->assertJsonPath('data.breakdown.total_payout_amount', 92);

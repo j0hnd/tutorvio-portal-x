@@ -57,8 +57,10 @@ class AdminUserManagementApiTest extends TestCase
             ->assertJsonPath('data.roles.0', 'student')
             ->assertJsonPath('data.student_profile.english_level', 'B1');
 
+        $created = User::where('public_id', $response->json('data.id'))->firstOrFail();
+
         $this->assertDatabaseHas('student_profiles', [
-            'user_id' => $response->json('data.id'),
+            'user_id' => $created->id,
             'assigned_teacher_id' => $teacher->id,
         ]);
     }
@@ -83,8 +85,10 @@ class AdminUserManagementApiTest extends TestCase
             ->assertJsonPath('data.roles.0', 'teacher')
             ->assertJsonPath('data.teacher_profile.specialization', 'Business English');
 
+        $created = User::where('public_id', $response->json('data.id'))->firstOrFail();
+
         $this->assertDatabaseHas('teacher_profiles', [
-            'user_id' => $response->json('data.id'),
+            'user_id' => $created->id,
             'internal_status' => 'available',
         ]);
     }
@@ -114,7 +118,7 @@ class AdminUserManagementApiTest extends TestCase
             ->assertJsonPath('data.roles.0', 'staff')
             ->assertJsonPath('data.staff_profile.department', 'Operations');
 
-        $staff = User::findOrFail($staffResponse->json('data.id'));
+        $staff = User::where('public_id', $staffResponse->json('data.id'))->firstOrFail();
         $this->assertTrue($staff->hasDirectPermission('users.update'));
     }
 
@@ -166,12 +170,12 @@ class AdminUserManagementApiTest extends TestCase
             ->assertJsonFragment([
                 'new_status' => User::STATUS_ACTIVE,
                 'reason' => 'Ready for lessons',
-                'changed_by' => $this->admin->id,
+                'changed_by' => $this->admin->public_id,
             ])
             ->assertJsonFragment([
                 'new_status' => User::STATUS_INACTIVE,
                 'reason' => 'Paused subscription',
-                'changed_by' => $this->admin->id,
+                'changed_by' => $this->admin->public_id,
             ]);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Scheduling\TeacherUnavailableDateResource;
 use App\Models\Scheduling\TeacherUnavailableDate;
 use App\Services\Scheduling\TeacherAvailabilityService;
 use Illuminate\Http\JsonResponse;
@@ -27,13 +28,13 @@ class TeacherUnavailableDateController extends Controller
         $assignedTeacherId = $user->studentProfile?->assigned_teacher_id;
 
         return response()->json([
-            'data' => TeacherUnavailableDate::query()
-                ->with('teacher:id,name,email,timezone')
+            'data' => TeacherUnavailableDateResource::collection(TeacherUnavailableDate::query()
+                ->with('teacher:id,public_id,name,email,timezone')
                 ->when($validated['teacher_id'] ?? null, fn ($query, int $teacherId) => $query->where('teacher_id', $teacherId))
                 ->when($user->hasRole('teacher') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $user->id))
                 ->when($user->hasRole('student') && ! $user->hasAnyRole(['admin', 'staff']), fn ($query) => $query->where('teacher_id', $assignedTeacherId ?? 0))
                 ->orderBy('starts_at')
-                ->get(),
+                ->get()),
         ]);
     }
 
@@ -45,7 +46,7 @@ class TeacherUnavailableDateController extends Controller
         $this->assertTeacherCanManage($request, $validated['teacher_id']);
 
         return response()->json([
-            'data' => $this->availabilityService->createUnavailableDate($validated)->load('teacher:id,name,email,timezone'),
+            'data' => new TeacherUnavailableDateResource($this->availabilityService->createUnavailableDate($validated)->load('teacher:id,public_id,name,email,timezone')),
         ], 201);
     }
 
@@ -53,7 +54,7 @@ class TeacherUnavailableDateController extends Controller
     {
         Gate::authorize('view', $teacherUnavailableDate);
 
-        return response()->json(['data' => $teacherUnavailableDate->load('teacher:id,name,email,timezone')]);
+        return response()->json(['data' => new TeacherUnavailableDateResource($teacherUnavailableDate->load('teacher:id,public_id,name,email,timezone'))]);
     }
 
     public function update(Request $request, TeacherUnavailableDate $teacherUnavailableDate): JsonResponse
@@ -64,7 +65,7 @@ class TeacherUnavailableDateController extends Controller
         $this->assertTeacherCanManage($request, $validated['teacher_id'] ?? $teacherUnavailableDate->teacher_id);
 
         return response()->json([
-            'data' => $this->availabilityService->updateUnavailableDate($teacherUnavailableDate, $validated),
+            'data' => new TeacherUnavailableDateResource($this->availabilityService->updateUnavailableDate($teacherUnavailableDate, $validated)->load('teacher:id,public_id,name,email,timezone')),
         ]);
     }
 

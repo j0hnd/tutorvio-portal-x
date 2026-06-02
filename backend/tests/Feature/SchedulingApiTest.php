@@ -681,8 +681,8 @@ class SchedulingApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $this->teacher->id);
-        $availability = TeacherAvailability::findOrFail($response->json('data.id'));
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id);
+        $availability = TeacherAvailability::where('public_id', $response->json('data.id'))->firstOrFail();
 
         $this->postJson('/api/v1/scheduling/teacher-availabilities', [
             'teacher_id' => $otherTeacher->id,
@@ -760,7 +760,7 @@ class SchedulingApiTest extends TestCase
         $this->getJson('/api/v1/scheduling/teacher-availabilities')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->public_id);
     }
 
     public function test_overlapping_teacher_availability_is_rejected(): void
@@ -830,7 +830,7 @@ class SchedulingApiTest extends TestCase
             'reason' => 'Training',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.teacher_id', $this->teacher->id);
+            ->assertJsonPath('data.teacher_id', $this->teacher->public_id);
 
         $this->assertDatabaseHas('teacher_unavailable_dates', [
             'teacher_id' => $this->teacher->id,

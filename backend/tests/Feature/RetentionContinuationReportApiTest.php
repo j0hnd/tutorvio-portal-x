@@ -111,15 +111,15 @@ class RetentionContinuationReportApiTest extends TestCase
 
         $rows = collect($response->json('data.rows'))->keyBy('student_id');
 
-        $this->assertSame(Subscription::STATUS_EXPIRED, $rows[$endedStudent->id]['current_package_status']);
-        $this->assertNull($rows[$endedStudent->id]['renewal_continuation_status']);
-        $this->assertSame($this->courseProgram->id, $rows[$renewedStudent->id]['course']['id']);
-        $this->assertSame($this->teacher->id, $rows[$renewedStudent->id]['assigned_teacher']['id']);
-        $this->assertSame(Subscription::STATUS_ACTIVE, $rows[$renewedStudent->id]['current_package_status']);
-        $this->assertSame('2026-06-30', $rows[$renewedStudent->id]['package_end_date']);
-        $this->assertSame('2026-05-20', $rows[$renewedStudent->id]['last_lesson_date']);
-        $this->assertSame('renewed', $rows[$renewedStudent->id]['renewal_continuation_status']);
-        $this->assertSame(User::STATUS_ACTIVE, $rows[$renewedStudent->id]['student_status']);
+        $this->assertSame(Subscription::STATUS_EXPIRED, $rows[$endedStudent->public_id]['current_package_status']);
+        $this->assertNull($rows[$endedStudent->public_id]['renewal_continuation_status']);
+        $this->assertSame($this->courseProgram->public_id, $rows[$renewedStudent->public_id]['course']['id']);
+        $this->assertSame($this->teacher->public_id, $rows[$renewedStudent->public_id]['assigned_teacher']['id']);
+        $this->assertSame(Subscription::STATUS_ACTIVE, $rows[$renewedStudent->public_id]['current_package_status']);
+        $this->assertSame('2026-06-30', $rows[$renewedStudent->public_id]['package_end_date']);
+        $this->assertSame('2026-05-20', $rows[$renewedStudent->public_id]['last_lesson_date']);
+        $this->assertSame('renewed', $rows[$renewedStudent->public_id]['renewal_continuation_status']);
+        $this->assertSame(User::STATUS_ACTIVE, $rows[$renewedStudent->public_id]['student_status']);
     }
 
     public function test_retention_continuation_report_filters_by_package_end_date_teacher_student_course_and_status(): void
@@ -154,7 +154,7 @@ class RetentionContinuationReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.active_students_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.student_id', $matchingStudent->id)
+            ->assertJsonPath('data.rows.0.student_id', $matchingStudent->public_id)
             ->assertJsonPath('data.filters.date_from', '2026-05-01')
             ->assertJsonPath('data.filters.date_to', '2026-05-31')
             ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)

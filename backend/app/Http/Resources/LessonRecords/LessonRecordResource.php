@@ -3,6 +3,7 @@
 namespace App\Http\Resources\LessonRecords;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -35,7 +36,7 @@ class LessonRecordResource extends JsonResource
             'attendance_status' => $this->resource->attendance_status,
             'is_completed' => $this->resource->is_completed,
             'completed_at' => $this->resource->completed_at,
-            'completed_by' => $this->resource->completed_by,
+            'completed_by' => $this->publicIdFor(User::class, $this->resource->completed_by),
             'student' => $this->whenLoaded('student', fn () => [
                 'id' => $this->publicId($this->resource->student),
                 'name' => $this->resource->student->name,
@@ -49,7 +50,6 @@ class LessonRecordResource extends JsonResource
                 'timezone' => $this->resource->teacher->timezone,
             ]),
             'materials' => $this->whenLoaded('materials', fn () => $this->resource->materials->map(fn ($material) => [
-                'id' => $material->id,
                 'title' => $material->title,
                 'description' => $material->description,
                 'url' => $material->url,
@@ -61,8 +61,8 @@ class LessonRecordResource extends JsonResource
             $data += [
                 'lesson_balance_consumed_subscription_id' => $this->lessonBalanceConsumedSubscriptionPublicId(),
                 'lesson_balance_consumed_at' => $this->resource->lesson_balance_consumed_at,
-                'created_by' => $this->resource->created_by,
-                'updated_by' => $this->resource->updated_by,
+                'created_by' => $this->publicIdFor(User::class, $this->resource->created_by),
+                'updated_by' => $this->publicIdFor(User::class, $this->resource->updated_by),
                 'internal_remarks' => $this->resource->internal_remarks,
                 'completed_by_user' => $this->whenLoaded('completedBy', fn () => $this->userSummary($this->resource->completedBy, $request)),
                 'created_by_user' => $this->whenLoaded('createdBy', fn () => $this->userSummary($this->resource->createdBy, $request)),

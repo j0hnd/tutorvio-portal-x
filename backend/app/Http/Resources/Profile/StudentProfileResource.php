@@ -31,7 +31,7 @@ class StudentProfileResource extends JsonResource
         ];
 
         if ($isAdminOrStaff) {
-            $data['assigned_teacher_id'] = $this->resource->assigned_teacher_id;
+            $data['assigned_teacher_id'] = $this->publicIdFor(User::class, $this->resource->assigned_teacher_id);
             $data['start_date'] = $this->resource->start_date;
             $data['notes'] = $this->resource->notes;
             $data['teacher_notes'] = $this->resource->teacher_notes;

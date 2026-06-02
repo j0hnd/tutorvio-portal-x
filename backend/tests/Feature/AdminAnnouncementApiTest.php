@@ -70,7 +70,7 @@ class AdminAnnouncementApiTest extends TestCase
             ->assertJsonPath('data.content', 'Classes are paused next Friday.')
             ->assertJsonPath('data.body', 'Classes are paused next Friday.')
             ->assertJsonPath('data.status', Announcement::STATUS_DRAFT)
-            ->assertJsonPath('data.created_by', $this->admin->id);
+            ->assertJsonPath('data.created_by', $this->admin->public_id);
 
         $announcement = Announcement::firstOrFail();
 
@@ -309,7 +309,7 @@ class AdminAnnouncementApiTest extends TestCase
         $this->postJson("/api/v1/admin/announcements/{$announcement->public_id}/archive")
             ->assertOk()
             ->assertJsonPath('data.status', Announcement::STATUS_ARCHIVED)
-            ->assertJsonPath('data.archived_by', $this->admin->id)
+            ->assertJsonPath('data.archived_by', $this->admin->public_id)
             ->assertJsonPath('data.archived_at', '2026-06-15T12:00:00.000000Z');
 
         $this->getJson('/api/v1/admin/announcements?per_page=10')
@@ -344,7 +344,7 @@ class AdminAnnouncementApiTest extends TestCase
         $this->deleteJson("/api/v1/admin/announcements/{$announcement->public_id}")
             ->assertOk()
             ->assertJsonPath('data.status', Announcement::STATUS_ARCHIVED)
-            ->assertJsonPath('data.archived_by', $this->admin->id);
+            ->assertJsonPath('data.archived_by', $this->admin->public_id);
 
         $this->assertDatabaseHas('announcements', [
             'id' => $announcement->id,
@@ -724,7 +724,7 @@ class AdminAnnouncementApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.title', 'Staff announcement')
-            ->assertJsonPath('data.created_by', $staff->id);
+            ->assertJsonPath('data.created_by', $staff->public_id);
     }
 
     /**

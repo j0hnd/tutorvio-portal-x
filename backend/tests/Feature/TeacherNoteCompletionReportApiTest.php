@@ -93,14 +93,14 @@ class TeacherNoteCompletionReportApiTest extends TestCase
             ->assertJsonPath('data.summary.lessons_missing_teacher_notes', 1)
             ->assertJsonPath('data.summary.teacher_note_completion_rate', 50)
             ->assertJsonCount(2, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_id', $withNote->id)
+            ->assertJsonPath('data.rows.0.lesson_id', $withNote->public_id)
             ->assertJsonPath('data.rows.0.teacher.name', $this->teacher->name)
             ->assertJsonPath('data.rows.0.student.name', 'Ada Student')
             ->assertJsonPath('data.rows.0.course.title', 'Business English')
             ->assertJsonPath('data.rows.0.lesson_status', Lesson::STATUS_COMPLETED)
             ->assertJsonPath('data.rows.0.note_status', 'submitted')
             ->assertJsonPath('data.rows.0.note_submitted_at', '2026-06-10T10:15:00.000000Z')
-            ->assertJsonPath('data.rows.1.lesson_id', $missingNote->id)
+            ->assertJsonPath('data.rows.1.lesson_id', $missingNote->public_id)
             ->assertJsonPath('data.rows.1.note_status', 'missing')
             ->assertJsonPath('data.rows.1.note_submitted_at', null);
     }
@@ -131,7 +131,7 @@ class TeacherNoteCompletionReportApiTest extends TestCase
             ->assertJsonPath('data.summary.total_completed_lessons_requiring_notes', 1)
             ->assertJsonPath('data.summary.lessons_with_teacher_notes', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_id', $matching->id)
+            ->assertJsonPath('data.rows.0.lesson_id', $matching->public_id)
             ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
             ->assertJsonPath('data.filters.student_id', $this->student->id)
             ->assertJsonPath('data.filters.course_id', $this->courseProgram->id)
@@ -157,7 +157,7 @@ class TeacherNoteCompletionReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.total_completed_lessons_requiring_notes', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_id', $ownLesson->id);
+            ->assertJsonPath('data.rows.0.lesson_id', $ownLesson->public_id);
 
         $this->getJson('/api/v1/reports/teacher-note-completions?teacher_id='.$this->otherTeacher->id)
             ->assertOk()

@@ -52,12 +52,12 @@ class TrialEnrollmentReport
         return ClassSchedule::query()
             ->where('class_type', ClassSchedule::CLASS_TYPE_TRIAL)
             ->with([
-                'teacher:id,name,email,status',
-                'student:id,name,email,status',
-                'student.studentProfile.assignedTeacher:id,name,email,status',
+                'teacher:id,public_id,name,email,status',
+                'student:id,public_id,name,email,status',
+                'student.studentProfile.assignedTeacher:id,public_id,name,email,status',
                 'student.courseProgramAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('courseProgram:id,title,placement_level')
+                    ->with('courseProgram:id,public_id,title,placement_level')
                     ->latest('start_date')
                     ->latest('assigned_at')
                     ->latest('id'),
@@ -122,13 +122,13 @@ class TrialEnrollmentReport
         $teacher = $trialClass->teacher;
 
         return [
-            'student_id' => $student?->id,
+            'student_id' => $student?->public_id,
             'prospect_id' => null,
             'student_name' => $student?->name,
             'prospect_name' => null,
             'trial_lesson_date' => $trialClass->starts_at?->toDateString(),
             'trial_teacher' => $teacher ? [
-                'id' => $teacher->id,
+                'id' => $teacher->public_id,
                 'name' => $teacher->name,
             ] : null,
             'course' => $this->course($trialClass, $courseAssignment),
@@ -159,13 +159,13 @@ class TrialEnrollmentReport
     }
 
     /**
-     * @return array{id: int|null, title: string|null, placement_level: string|null}|null
+     * @return array{id: string|null, title: string|null, placement_level: string|null}|null
      */
     private function course(ClassSchedule $trialClass, ?CourseProgramStudentAssignment $courseAssignment): ?array
     {
         if ($courseAssignment?->courseProgram) {
             return [
-                'id' => $courseAssignment->courseProgram->id,
+                'id' => $courseAssignment->courseProgram->public_id,
                 'title' => $courseAssignment->courseProgram->title,
                 'placement_level' => $courseAssignment->courseProgram->placement_level,
             ];

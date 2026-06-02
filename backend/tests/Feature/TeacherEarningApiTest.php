@@ -69,12 +69,12 @@ class TeacherEarningApiTest extends TestCase
         $this->getJson('/api/v1/admin/teacher-earnings?teacher_id='.$this->teacher->id.'&payout_period=2026-06&date_from=2026-06-01&date_to=2026-06-30&status=approved&lesson_type=business_english&course='.$this->courseProgram->id.'&pay_model=per_hour')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $earning->id)
+            ->assertJsonMissingPath('data.0.id')
             ->assertJsonPath('data.0.teacher_name', $this->teacher->name)
             ->assertJsonPath('data.0.earning_source.type', TeacherEarning::SOURCE_LESSON_RECORD)
-            ->assertJsonPath('data.0.earning_source.id', $earning->source_id)
-            ->assertJsonPath('data.0.lesson_reference.id', $earning->lesson_record_id)
-            ->assertJsonPath('data.0.course_reference.id', $this->courseProgram->id)
+            ->assertJsonPath('data.0.earning_source.id', $earning->lessonRecord->public_id)
+            ->assertJsonPath('data.0.lesson_reference.id', $earning->lessonRecord->public_id)
+            ->assertJsonPath('data.0.course_reference.id', $this->courseProgram->public_id)
             ->assertJsonPath('data.0.pay_model', TeacherCompensation::PAY_MODEL_PER_HOUR)
             ->assertJsonPath('data.0.rate_used', '40.00')
             ->assertJsonPath('data.0.quantity', '1.50')
@@ -96,8 +96,8 @@ class TeacherEarningApiTest extends TestCase
         $this->getJson("/api/v1/admin/teachers/{$this->teacher->public_id}/teacher-earnings")
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $earning->id)
-            ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
+            ->assertJsonMissingPath('data.0.id')
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->public_id);
     }
 
     public function test_staff_can_view_earnings_only_with_payroll_permission(): void
@@ -148,8 +148,8 @@ class TeacherEarningApiTest extends TestCase
         $this->getJson('/api/v1/teacher-earnings')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $ownEarning->id)
-            ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
+            ->assertJsonMissingPath('data.0.id')
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->public_id);
     }
 
     public function test_teacher_with_explicit_permission_can_view_only_own_earnings(): void
@@ -164,8 +164,8 @@ class TeacherEarningApiTest extends TestCase
         $this->getJson('/api/v1/teacher-earnings')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $ownEarning->id)
-            ->assertJsonPath('data.0.teacher_id', $this->teacher->id);
+            ->assertJsonMissingPath('data.0.id')
+            ->assertJsonPath('data.0.teacher_id', $this->teacher->public_id);
 
         $this->getJson('/api/v1/admin/teacher-earnings')->assertForbidden();
     }
@@ -182,7 +182,7 @@ class TeacherEarningApiTest extends TestCase
         $this->getJson('/api/v1/teacher-earnings?teacher_id='.$this->otherTeacher->id)
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $ownEarning->id)
+            ->assertJsonMissingPath('data.0.id')
             ->assertJsonMissing(['id' => $otherEarning->id]);
 
         $this->getJson("/api/v1/admin/teachers/{$this->otherTeacher->public_id}/teacher-earnings")

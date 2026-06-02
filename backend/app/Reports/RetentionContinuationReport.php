@@ -45,15 +45,15 @@ class RetentionContinuationReport
         return User::query()
             ->role('student')
             ->with([
-                'studentProfile.assignedTeacher:id,name,email,status',
+                'studentProfile.assignedTeacher:id,public_id,name,email,status',
                 'studentTeacherAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('teacher:id,name,email,status')
+                    ->with('teacher:id,public_id,name,email,status')
                     ->latest('assigned_at')
                     ->latest('id'),
                 'courseProgramAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('courseProgram:id,title,placement_level')
+                    ->with('courseProgram:id,public_id,title,placement_level')
                     ->latest('start_date')
                     ->latest('assigned_at')
                     ->latest('id'),
@@ -137,11 +137,11 @@ class RetentionContinuationReport
         $lastLesson = $student->studentLessonRecords->first();
 
         return [
-            'student_id' => $student->id,
+            'student_id' => $student->public_id,
             'student_name' => $student->name,
             'course' => $this->course($student, $courseAssignment),
             'assigned_teacher' => $teacher ? [
-                'id' => $teacher->id,
+                'id' => $teacher->public_id,
                 'name' => $teacher->name,
             ] : null,
             'current_package_status' => $subscription?->is_frozen ? 'frozen' : $subscription?->status,
@@ -178,13 +178,13 @@ class RetentionContinuationReport
     }
 
     /**
-     * @return array{id: int|null, title: string|null, placement_level: string|null}|null
+     * @return array{id: string|null, title: string|null, placement_level: string|null}|null
      */
     private function course(User $student, ?CourseProgramStudentAssignment $courseAssignment): ?array
     {
         if ($courseAssignment?->courseProgram) {
             return [
-                'id' => $courseAssignment->courseProgram->id,
+                'id' => $courseAssignment->courseProgram->public_id,
                 'title' => $courseAssignment->courseProgram->title,
                 'placement_level' => $courseAssignment->courseProgram->placement_level,
             ];

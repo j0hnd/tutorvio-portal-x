@@ -96,9 +96,9 @@ class AttendanceReportApiTest extends TestCase
             ->assertJsonPath('data.summary.cancelled_rescheduled_count', 2)
             ->assertJsonPath('data.summary.attendance_rate', 66.67)
             ->assertJsonCount(5, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_record_id', $present->id)
+            ->assertJsonPath('data.rows.0.lesson_record_id', $present->public_id)
             ->assertJsonPath('data.rows.0.student.name', 'Ada Student')
-            ->assertJsonPath('data.rows.0.teacher.id', $this->teacher->id)
+            ->assertJsonPath('data.rows.0.teacher.id', $this->teacher->public_id)
             ->assertJsonPath('data.rows.0.course.title', 'Business English')
             ->assertJsonPath('data.rows.0.lesson_date', '2026-06-10')
             ->assertJsonPath('data.rows.0.attendance_status', LessonRecord::ATTENDANCE_PRESENT)
@@ -149,7 +149,7 @@ class AttendanceReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.total_lessons', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_record_id', $matching->id)
+            ->assertJsonPath('data.rows.0.lesson_record_id', $matching->public_id)
             ->assertJsonPath('data.filters.status', LessonRecord::ATTENDANCE_ABSENT);
     }
 
@@ -176,10 +176,10 @@ class AttendanceReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.missed_class_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.lesson_record_id', $missed->id)
+            ->assertJsonPath('data.rows.0.lesson_record_id', $missed->public_id)
             ->assertJsonPath('data.rows.0.student.name', 'Ada Student')
             ->assertJsonPath('data.rows.0.teacher.name', $this->teacher->name)
-            ->assertJsonPath('data.rows.0.course.id', $this->courseProgram->id)
+            ->assertJsonPath('data.rows.0.course.id', $this->courseProgram->public_id)
             ->assertJsonPath('data.rows.0.lesson_date', '2026-06-10')
             ->assertJsonPath('data.rows.0.attendance_status', LessonRecord::ATTENDANCE_NO_SHOW)
             ->assertJsonPath('data.rows.0.missed_status', LessonRecord::ATTENDANCE_NO_SHOW)

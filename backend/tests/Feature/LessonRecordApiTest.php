@@ -250,7 +250,7 @@ class LessonRecordApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_COMPLETED)
             ->assertJsonPath('data.is_completed', true)
-            ->assertJsonPath('data.completed_by', $this->admin->id);
+            ->assertJsonPath('data.completed_by', $this->admin->public_id);
 
         $this->postJson('/api/v1/lesson-records/'.$lessonRecord->public_id.'/cancel', [
             'reason' => 'Student requested a later slot.',
@@ -273,7 +273,7 @@ class LessonRecordApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.lesson_status', LessonRecord::STATUS_COMPLETED)
             ->assertJsonPath('data.is_completed', true)
-            ->assertJsonPath('data.completed_by', $this->admin->id);
+            ->assertJsonPath('data.completed_by', $this->admin->public_id);
 
         $lessonRecord->refresh();
 
@@ -505,7 +505,7 @@ class LessonRecordApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonCount(1, 'data.materials')
-            ->assertJsonPath('data.materials.0.id', $video->id);
+            ->assertJsonMissingPath('data.materials.0.id');
 
         $this->assertDatabaseMissing('lesson_record_materials', [
             'lesson_record_id' => $lessonRecord->id,

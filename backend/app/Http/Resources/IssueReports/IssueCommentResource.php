@@ -3,6 +3,8 @@
 namespace App\Http\Resources\IssueReports;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\IssueReport;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,9 +18,8 @@ class IssueCommentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
-            'issue_report_id' => $this->resource->issue_report_id,
-            'author_id' => $this->resource->author_id,
+            'issue_report_id' => $this->publicIdFor(IssueReport::class, $this->resource->issue_report_id),
+            'author_id' => $this->publicIdFor(User::class, $this->resource->author_id),
             'comment_type' => $this->resource->comment_type,
             'body' => $this->resource->body,
             'is_internal' => $this->resource->is_internal,

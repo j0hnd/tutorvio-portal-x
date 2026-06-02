@@ -29,7 +29,7 @@ class PayoutReportService
         return [
             'scope' => 'period',
             'payout_period' => [
-                'id' => $period->id,
+                'id' => $period->public_id,
                 'name' => $period->name,
                 'start_date' => $period->start_date?->toDateString(),
                 'end_date' => $period->end_date?->toDateString(),
@@ -66,7 +66,7 @@ class PayoutReportService
         return [
             'scope' => 'teacher',
             'teacher' => [
-                'id' => $teacher->id,
+                'id' => $teacher->public_id,
                 'name' => $teacher->name,
             ],
             ...$this->buildReport($earnings, $adjustments),
@@ -113,7 +113,7 @@ class PayoutReportService
         $manualDeductions = abs($adjustments->sum(fn (TeacherPayoutAdjustment $adjustment): float => min(0.0, (float) $adjustment->amount)));
 
         return [
-            'teacher_id' => $teacherId,
+            'teacher_id' => $teacher?->public_id,
             'teacher_name' => $teacher?->name,
             'breakdown' => [
                 'base_earnings' => round($baseEarnings, 2),

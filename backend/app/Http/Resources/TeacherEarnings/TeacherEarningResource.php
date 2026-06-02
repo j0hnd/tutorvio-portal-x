@@ -2,7 +2,12 @@
 
 namespace App\Http\Resources\TeacherEarnings;
 
+use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\CourseProgram;
+use App\Models\CourseType;
+use App\Models\LessonRecord;
 use App\Models\TeacherEarning;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,6 +16,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class TeacherEarningResource extends JsonResource
 {
+    use SanitizesApiResponses;
+
     /**
      * Transform the resource into an array.
      *
@@ -23,22 +30,21 @@ class TeacherEarningResource extends JsonResource
             : [];
 
         return [
-            'id' => $this->resource->id,
-            'teacher_id' => $this->resource->teacher_id,
+            'teacher_id' => $this->publicIdFor(User::class, $this->resource->teacher_id),
             'teacher_name' => $this->resource->teacher?->name,
             'earning_source' => [
                 'type' => $this->resource->source_type,
-                'id' => $this->resource->source_id,
+                'id' => $this->sourcePublicId(),
             ],
             'lesson_reference' => $this->whenLoaded('lessonRecord', fn () => $this->resource->lessonRecord ? [
-                'id' => $this->resource->lessonRecord->id,
+                'id' => $this->publicId($this->resource->lessonRecord),
                 'scheduled_date' => $this->resource->lessonRecord->scheduled_date?->toDateString(),
                 'lesson_type' => $this->resource->lessonRecord->lesson_type,
                 'lesson_status' => $this->resource->lessonRecord->lesson_status,
             ] : null),
             'course_reference' => isset($metadata['course_program_id']) ? [
-                'id' => $metadata['course_program_id'],
-                'course_type_id' => $metadata['course_type_id'] ?? null,
+                'id' => $this->publicIdFor(CourseProgram::class, $metadata['course_program_id']),
+                'course_type_id' => $this->publicIdFor(CourseType::class, $metadata['course_type_id'] ?? null),
             ] : null,
             'pay_model' => $this->resource->pay_model,
             'rate_used' => $this->resource->rate_used,
@@ -65,5 +71,14 @@ class TeacherEarningResource extends JsonResource
         }
 
         return $this->resource->created_at?->toDateString();
+    }
+
+    private function sourcePublicId(): mixed
+    {
+        if ($this->resource->source_type === TeacherEarning::SOURCE_LESSON_RECORD) {
+            return $this->publicIdFor(LessonRecord::class, $this->resource->source_id);
+        }
+
+        return $this->resource->source_id;
     }
 }

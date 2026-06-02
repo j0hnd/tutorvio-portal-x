@@ -88,19 +88,19 @@ class TrialEnrollmentReportApiTest extends TestCase
 
         $rows = collect($response->json('data.rows'))->keyBy('student_id');
 
-        $this->assertSame($convertedStudent->id, $rows[$convertedStudent->id]['student_id']);
-        $this->assertNull($rows[$convertedStudent->id]['prospect_id']);
-        $this->assertSame('Converted Student', $rows[$convertedStudent->id]['student_name']);
-        $this->assertNull($rows[$convertedStudent->id]['prospect_name']);
-        $this->assertSame('2026-05-10', $rows[$convertedStudent->id]['trial_lesson_date']);
-        $this->assertSame($this->teacher->id, $rows[$convertedStudent->id]['trial_teacher']['id']);
-        $this->assertSame($this->courseProgram->id, $rows[$convertedStudent->id]['course']['id']);
-        $this->assertSame(ClassSchedule::STATUS_COMPLETED, $rows[$convertedStudent->id]['trial_status']);
-        $this->assertSame('enrolled', $rows[$convertedStudent->id]['enrollment_status']);
-        $this->assertSame('2026-05-12', $rows[$convertedStudent->id]['enrollment_date']);
-        $this->assertNull($rows[$convertedStudent->id]['follow_up_status']);
-        $this->assertSame('not_converted', $rows[$preExistingStudent->id]['enrollment_status']);
-        $this->assertNull($rows[$preExistingStudent->id]['enrollment_date']);
+        $this->assertSame($convertedStudent->public_id, $rows[$convertedStudent->public_id]['student_id']);
+        $this->assertNull($rows[$convertedStudent->public_id]['prospect_id']);
+        $this->assertSame('Converted Student', $rows[$convertedStudent->public_id]['student_name']);
+        $this->assertNull($rows[$convertedStudent->public_id]['prospect_name']);
+        $this->assertSame('2026-05-10', $rows[$convertedStudent->public_id]['trial_lesson_date']);
+        $this->assertSame($this->teacher->public_id, $rows[$convertedStudent->public_id]['trial_teacher']['id']);
+        $this->assertSame($this->courseProgram->public_id, $rows[$convertedStudent->public_id]['course']['id']);
+        $this->assertSame(ClassSchedule::STATUS_COMPLETED, $rows[$convertedStudent->public_id]['trial_status']);
+        $this->assertSame('enrolled', $rows[$convertedStudent->public_id]['enrollment_status']);
+        $this->assertSame('2026-05-12', $rows[$convertedStudent->public_id]['enrollment_date']);
+        $this->assertNull($rows[$convertedStudent->public_id]['follow_up_status']);
+        $this->assertSame('not_converted', $rows[$preExistingStudent->public_id]['enrollment_status']);
+        $this->assertNull($rows[$preExistingStudent->public_id]['enrollment_date']);
     }
 
     public function test_trial_enrollment_report_filters_by_date_teacher_student_course_and_status(): void
@@ -124,7 +124,7 @@ class TrialEnrollmentReportApiTest extends TestCase
             ->assertJsonPath('data.summary.total_trial_students_count', 1)
             ->assertJsonPath('data.summary.converted_enrolled_count', 1)
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.student_id', $matchingStudent->id)
+            ->assertJsonPath('data.rows.0.student_id', $matchingStudent->public_id)
             ->assertJsonPath('data.rows.0.enrollment_status', 'enrolled')
             ->assertJsonPath('data.filters.date_from', '2026-05-01')
             ->assertJsonPath('data.filters.date_to', '2026-05-31')

@@ -40,16 +40,16 @@ class StudentProgressReport
     {
         $query = StudentProgressRecord::query()
             ->with([
-                'student:id,name,email,timezone,status',
+                'student:id,public_id,name,email,timezone,status',
                 'student.studentProfile:id,user_id,current_level,english_level,course,assigned_teacher_id',
-                'student.studentProfile.assignedTeacher:id,name,email',
+                'student.studentProfile.assignedTeacher:id,public_id,name,email',
                 'student.courseProgramAssignments' => fn ($query) => $query
                     ->active()
-                    ->with('courseProgram:id,title,placement_level')
+                    ->with('courseProgram:id,public_id,title,placement_level')
                     ->latest('start_date')
                     ->latest('assigned_at')
                     ->latest('id'),
-                'teacher:id,name,email',
+                'teacher:id,public_id,name,email',
             ]);
 
         $filters->applyTo($query, [
@@ -130,15 +130,15 @@ class StudentProgressReport
         $assignedTeacher = $student?->studentProfile?->assignedTeacher ?? $latest->teacher;
 
         return [
-            'student_id' => $student?->id,
+            'student_id' => $student?->public_id,
             'student_name' => $student?->name,
             'student' => $student ? [
-                'id' => $student->id,
+                'id' => $student->public_id,
                 'name' => $student->name,
             ] : null,
             'course' => $this->course($student, $courseAssignment),
             'assigned_teacher' => $assignedTeacher ? [
-                'id' => $assignedTeacher->id,
+                'id' => $assignedTeacher->public_id,
                 'name' => $assignedTeacher->name,
             ] : null,
             'progress_level' => $student?->studentProfile?->current_level,
@@ -153,13 +153,13 @@ class StudentProgressReport
     }
 
     /**
-     * @return array{id: int|null, title: string|null, placement_level: string|null}|null
+     * @return array{id: string|null, title: string|null, placement_level: string|null}|null
      */
     private function course(?User $student, ?CourseProgramStudentAssignment $courseAssignment): ?array
     {
         if ($courseAssignment?->courseProgram) {
             return [
-                'id' => $courseAssignment->courseProgram->id,
+                'id' => $courseAssignment->courseProgram->public_id,
                 'title' => $courseAssignment->courseProgram->title,
                 'placement_level' => $courseAssignment->courseProgram->placement_level,
             ];
@@ -202,7 +202,7 @@ class StudentProgressReport
 
                 $progress[$skillArea] = [
                     'summary' => $summary,
-                    'record_id' => $record->id,
+                    'record_id' => $record->public_id,
                     'recorded_at' => $record->recorded_at?->toDateString(),
                     'status' => $record->progress_status,
                 ];

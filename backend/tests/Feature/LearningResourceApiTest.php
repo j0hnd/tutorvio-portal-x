@@ -371,7 +371,7 @@ class LearningResourceApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.version_number', 2)
             ->assertJsonPath('data.0.previous_file_reference', 'speaking-v1.pdf')
-            ->assertJsonPath('data.0.uploaded_by', $this->admin->id)
+            ->assertJsonPath('data.0.uploaded_by', $this->admin->public_id)
             ->assertJsonPath('data.0.uploaded_by_user.email', $this->admin->email)
             ->assertJsonPath('data.0.change_notes', 'Simplified activity flow.')
             ->assertJsonPath('data.0.uploaded_at', '2026-06-05T08:00:00.000000Z');

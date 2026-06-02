@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Scheduling\HolidayResource;
 use App\Models\Scheduling\Holiday;
 use App\Services\Scheduling\HolidayService;
 use Illuminate\Http\JsonResponse;
@@ -25,12 +26,12 @@ class HolidayController extends Controller
         ]);
 
         return response()->json([
-            'data' => Holiday::query()
+            'data' => HolidayResource::collection(Holiday::query()
                 ->when($validated['timezone'] ?? null, fn ($query, string $timezone) => $query->where('timezone', $timezone))
                 ->when($validated['country_code'] ?? null, fn ($query, string $countryCode) => $query->where('country_code', strtoupper($countryCode)))
                 ->when(array_key_exists('is_active', $validated), fn ($query) => $query->where('is_active', $validated['is_active']))
                 ->orderBy('date')
-                ->get(),
+                ->get()),
         ]);
     }
 
@@ -40,14 +41,14 @@ class HolidayController extends Controller
 
         $validated = $this->validatePayload($request, true);
 
-        return response()->json(['data' => $this->holidayService->create($validated)], 201);
+        return response()->json(['data' => new HolidayResource($this->holidayService->create($validated))], 201);
     }
 
     public function show(Holiday $holiday): JsonResponse
     {
         Gate::authorize('view', $holiday);
 
-        return response()->json(['data' => $holiday]);
+        return response()->json(['data' => new HolidayResource($holiday)]);
     }
 
     public function update(Request $request, Holiday $holiday): JsonResponse
@@ -56,7 +57,7 @@ class HolidayController extends Controller
 
         $validated = $this->validatePayload($request, false);
 
-        return response()->json(['data' => $this->holidayService->update($holiday, $validated)]);
+        return response()->json(['data' => new HolidayResource($this->holidayService->update($holiday, $validated))]);
     }
 
     public function destroy(Holiday $holiday): JsonResponse
