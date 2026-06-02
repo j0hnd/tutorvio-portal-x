@@ -39,11 +39,34 @@ class LearningResourceController extends Controller
         'visibility',
     ];
 
+    /**
+     * Create the controller with its service dependencies.
+
+     *
+
+     * The framework resolves this constructor before action-specific route
+
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  LearningResourceStorage  $storage
+     * @param  AuditLogService  $auditLogService
+     */
     public function __construct(
         private readonly LearningResourceStorage $storage,
         private readonly AuditLogService $auditLogService,
     ) {}
 
+    /**
+     * Display a filtered list of learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', LearningResource::class);
@@ -86,6 +109,17 @@ class LearningResourceController extends Controller
         );
     }
 
+    /**
+     * Handle the store file action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreFileResourceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  StoreFileResourceRequest  $request
+     * @return JsonResponse
+     */
     public function storeFile(StoreFileResourceRequest $request): JsonResponse
     {
         Gate::authorize('create', LearningResource::class);
@@ -118,6 +152,17 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the store link action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreLinkResourceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  StoreLinkResourceRequest  $request
+     * @return JsonResponse
+     */
     public function storeLink(StoreLinkResourceRequest $request): JsonResponse
     {
         Gate::authorize('create', LearningResource::class);
@@ -142,6 +187,17 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected learning resource record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @return JsonResponse
+     */
     public function show(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('view', $learningResource);
@@ -151,6 +207,17 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Download the selected learning resource file or document.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a downloadable HTTP response or an error response when access or file checks fail.
+     *
+     * @param  LearningResource  $learningResource
+     * @return StreamedResponse|JsonResponse
+     */
     public function download(LearningResource $learningResource): StreamedResponse|JsonResponse
     {
         Gate::authorize('view', $learningResource);
@@ -209,6 +276,18 @@ class LearningResourceController extends Controller
         );
     }
 
+    /**
+     * Update the selected learning resource record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $learningResource.
+     * The UpdateLearningResourceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateLearningResourceRequest  $request
+     * @param  LearningResource  $learningResource
+     * @return JsonResponse
+     */
     public function update(UpdateLearningResourceRequest $request, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('update', $learningResource);
@@ -253,6 +332,17 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the versions action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @return JsonResponse
+     */
     public function versions(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('viewVersionHistory', $learningResource);
@@ -285,6 +375,18 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the assign student action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $learningResource.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  LearningResource  $learningResource
+     * @return JsonResponse
+     */
     public function assignStudent(Request $request, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
@@ -311,6 +413,18 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the assign lesson action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $learningResource.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  LearningResource  $learningResource
+     * @return JsonResponse
+     */
     public function assignLesson(Request $request, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
@@ -336,6 +450,18 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the unassign student action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $student.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @param  User  $student
+     * @return JsonResponse
+     */
     public function unassignStudent(LearningResource $learningResource, User $student): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
@@ -346,6 +472,18 @@ class LearningResourceController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Handle the unassign lesson action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $lesson.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @param  Lesson  $lesson
+     * @return JsonResponse
+     */
     public function unassignLesson(LearningResource $learningResource, Lesson $lesson): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
@@ -355,6 +493,17 @@ class LearningResourceController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Delete the selected learning resource record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     *
+     * @param  LearningResource  $learningResource
+     * @return JsonResponse
+     */
     public function destroy(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('delete', $learningResource);
@@ -368,6 +517,8 @@ class LearningResourceController extends Controller
     /**
      * @param  array{original_filename: string, mime_type: string|null, file_size: int}  $fileMetadata
      * @return array<string, mixed>
+     *
+     * @param  array  $fileMetadata
      */
     private function previewMetadata(array $fileMetadata): array
     {
@@ -381,6 +532,13 @@ class LearningResourceController extends Controller
 
     /**
      * @param  array{storage_disk: string, file_path: string, original_filename: string, mime_type: string|null, file_size: int}  $fileMetadata
+     *
+     * @param  LearningResource  $learningResource
+     * @param  array  $fileMetadata
+     * @param  int  $uploadedBy
+     * @param  ?string  $previousFilePath
+     * @param  ?string  $changeNotes
+     * @return void
      */
     private function createVersionSnapshot(
         LearningResource $learningResource,
@@ -404,6 +562,17 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the ensure initial version snapshot exists action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @return void
+     */
     private function ensureInitialVersionSnapshotExists(LearningResource $learningResource): void
     {
         if (! $learningResource->hasStoredFile()) {
@@ -429,6 +598,17 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the delete all stored files action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @return void
+     */
     private function deleteAllStoredFiles(LearningResource $learningResource): void
     {
         $paths = $learningResource->versions()
@@ -449,6 +629,17 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the assert student user action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $student
+     * @return void
+     */
     private function assertStudentUser(User $student): void
     {
         if (! $student->hasRole('student')) {
@@ -458,6 +649,18 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the assert student assignment does not exist action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @param  User  $student
+     * @return void
+     */
     private function assertStudentAssignmentDoesNotExist(LearningResource $learningResource, User $student): void
     {
         if ($learningResource->assignedStudents()->whereKey($student->id)->exists()) {
@@ -467,6 +670,18 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson assignment does not exist action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $lesson.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @param  Lesson  $lesson
+     * @return void
+     */
     private function assertLessonAssignmentDoesNotExist(LearningResource $learningResource, Lesson $lesson): void
     {
         if ($learningResource->assignedLessons()->whereKey($lesson->id)->exists()) {
@@ -476,6 +691,19 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the where assigned to student for user action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $studentId, $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Builder  $query
+     * @param  int  $studentId
+     * @param  User  $user
+     * @return Builder
+     */
     private function whereAssignedToStudentForUser(Builder $query, int $studentId, User $user): Builder
     {
         return $query->whereHas('assignedStudents', function (Builder $query) use ($studentId, $user) {
@@ -491,6 +719,19 @@ class LearningResourceController extends Controller
         });
     }
 
+    /**
+     * Handle the where assigned to lesson for user action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $lessonId, $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Builder  $query
+     * @param  int  $lessonId
+     * @param  User  $user
+     * @return Builder
+     */
     private function whereAssignedToLessonForUser(Builder $query, int $lessonId, User $user): Builder
     {
         return $query->whereHas('assignedLessons', function (Builder $query) use ($lessonId, $user) {
@@ -506,6 +747,17 @@ class LearningResourceController extends Controller
         });
     }
 
+    /**
+     * Handle the should return temporary url action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @return bool
+     */
     private function shouldReturnTemporaryUrl(LearningResource $learningResource): bool
     {
         $disk = $learningResource->storageDisk();
@@ -525,6 +777,8 @@ class LearningResourceController extends Controller
 
     /**
      * @return array<string, string>
+     *
+     * @param  ?string  $originalFilename
      */
     private function temporaryDownloadOptions(?string $originalFilename): array
     {
@@ -541,11 +795,34 @@ class LearningResourceController extends Controller
         ];
     }
 
+    /**
+     * Handle the temporary url ttl minutes action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * This action does not require additional request parameters beyond the route context.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @return int
+     */
     private function temporaryUrlTtlMinutes(): int
     {
         return max(1, (int) config('learning_resources.download.temporary_url_ttl_minutes', 10));
     }
 
+    /**
+     * Handle the log file uploaded action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $actorUserId, $isReplacement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @param  int  $actorUserId
+     * @param  bool  $isReplacement
+     * @return void
+     */
     private function logFileUploaded(LearningResource $learningResource, int $actorUserId, bool $isReplacement): void
     {
         $this->auditLogService->record(
@@ -565,6 +842,19 @@ class LearningResourceController extends Controller
         );
     }
 
+    /**
+     * Handle the log file downloaded action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $actorUserId, $deliveryType.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LearningResource  $learningResource
+     * @param  ?int  $actorUserId
+     * @param  string  $deliveryType
+     * @return void
+     */
     private function logFileDownloaded(LearningResource $learningResource, ?int $actorUserId, string $deliveryType): void
     {
         $this->auditLogService->record(

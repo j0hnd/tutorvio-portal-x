@@ -17,8 +17,27 @@ use Illuminate\Validation\Rule;
 
 class TeacherLoadReportController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  TeacherWorkloadService  $workloads
+     */
     public function __construct(private readonly TeacherWorkloadService $workloads) {}
 
+    /**
+     * Handle the teacher load report endpoint.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function __invoke(Request $request): JsonResponse
     {
         Gate::authorize('viewTeacherWorkloads');
@@ -45,6 +64,8 @@ class TeacherLoadReportController extends Controller
 
     /**
      * @return array<string, mixed>
+     *
+     * @param  Request  $request
      */
     private function validatedFilters(Request $request): array
     {
@@ -93,6 +114,8 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return array<string, int|float>
+     *
+     * @param  Collection  $rows
      */
     private function summary(Collection $rows): array
     {
@@ -110,6 +133,8 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  array<string, mixed>  $summary
      * @return array<string, mixed>
+     *
+     * @param  array  $summary
      */
     private function reportRow(array $summary): array
     {
@@ -129,6 +154,8 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
+     *
+     * @param  array  $filters
      */
     private function reportFilters(array $filters): array
     {
@@ -149,6 +176,8 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return array{page: int, per_page: int}
+     *
+     * @param  array  $filters
      */
     private function pagination(array $filters): array
     {

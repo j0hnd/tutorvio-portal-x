@@ -13,6 +13,17 @@ use Illuminate\Validation\Rule;
 
 class FormTemplateController extends Controller
 {
+    /**
+     * Display a filtered list of form template records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         foreach (['category', 'template_type'] as $key) {
@@ -48,6 +59,18 @@ class FormTemplateController extends Controller
         return response()->json($templates->through(fn (FormTemplate $template) => new FormTemplateResource($template)));
     }
 
+    /**
+     * Display the selected form template record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $formTemplate.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  FormTemplate  $formTemplate
+     * @return JsonResponse
+     */
     public function show(Request $request, FormTemplate $formTemplate): JsonResponse
     {
         $userRoles = $request->user()?->roles->pluck('name')->all() ?? [];
@@ -64,6 +87,17 @@ class FormTemplateController extends Controller
         ]);
     }
 
+    /**
+     * Handle the normalize template type action for form template records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $templateType.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  string  $templateType
+     * @return string
+     */
     private function normalizeTemplateType(string $templateType): string
     {
         return Str::of($templateType)

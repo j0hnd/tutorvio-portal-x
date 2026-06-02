@@ -15,6 +15,17 @@ use Illuminate\Validation\Rule;
 
 class TeacherPayoutAdjustmentController extends Controller
 {
+    /**
+     * Display a filtered list of teacher payout adjustment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherPayoutAdjustment::class);
@@ -38,6 +49,17 @@ class TeacherPayoutAdjustmentController extends Controller
         return response()->json($adjustments->through(fn (TeacherPayoutAdjustment $adjustment) => new TeacherPayoutAdjustmentResource($adjustment)));
     }
 
+    /**
+     * Create a new teacher payout adjustment record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreTeacherPayoutAdjustmentRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreTeacherPayoutAdjustmentRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreTeacherPayoutAdjustmentRequest $request): JsonResponse
     {
         Gate::authorize('create', TeacherPayoutAdjustment::class);
@@ -59,6 +81,18 @@ class TeacherPayoutAdjustmentController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the normalized amount action for teacher payout adjustment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $type, $amount.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  string  $type
+     * @param  float  $amount
+     * @return float
+     */
     private function normalizedAmount(string $type, float $amount): float
     {
         if ($type === TeacherPayoutAdjustment::TYPE_DEDUCTION) {

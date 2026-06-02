@@ -14,8 +14,27 @@ use Illuminate\Validation\Rule;
 
 class ScheduleChangeRequestController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  ScheduleChangeRequestService  $scheduleChangeRequests
+     */
     public function __construct(private readonly ScheduleChangeRequestService $scheduleChangeRequests) {}
 
+    /**
+     * Display a filtered list of schedule change request records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -39,6 +58,17 @@ class ScheduleChangeRequestController extends Controller
         return response()->json($requests->through(fn (ScheduleChangeRequest $request) => new ScheduleChangeRequestResource($request)));
     }
 
+    /**
+     * Create a new schedule change request record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', ScheduleChangeRequest::class);
@@ -61,6 +91,17 @@ class ScheduleChangeRequestController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected schedule change request record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The ScheduleChangeRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  ScheduleChangeRequest  $scheduleChangeRequest
+     * @return JsonResponse
+     */
     public function show(ScheduleChangeRequest $scheduleChangeRequest): JsonResponse
     {
         Gate::authorize('view', $scheduleChangeRequest);
@@ -72,6 +113,18 @@ class ScheduleChangeRequestController extends Controller
         ]);
     }
 
+    /**
+     * Cancel the selected schedule change request record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The ScheduleChangeRequest handles authorization and validation before the controller action runs. Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  ScheduleChangeRequest  $scheduleChangeRequest
+     * @return JsonResponse
+     */
     public function cancel(Request $request, ScheduleChangeRequest $scheduleChangeRequest): JsonResponse
     {
         Gate::authorize('cancel', $scheduleChangeRequest);

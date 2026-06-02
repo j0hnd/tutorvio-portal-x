@@ -12,6 +12,18 @@ use Illuminate\Http\Request;
 
 class StudentPackageHistoryController extends Controller
 {
+    /**
+     * Handle the student package history endpoint.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  User  $student
+     * @return JsonResponse
+     */
     public function __invoke(Request $request, User $student): JsonResponse
     {
         abort_unless($student->hasRole('student'), 404);
@@ -38,6 +50,18 @@ class StudentPackageHistoryController extends Controller
         );
     }
 
+    /**
+     * Handle the can view package history action for student package history records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @param  User  $student
+     * @return bool
+     */
     private function canViewPackageHistory(User $user, User $student): bool
     {
         if ($user->hasRole('student')) {
@@ -49,6 +73,17 @@ class StudentPackageHistoryController extends Controller
             || ($user->hasRole('staff') && $user->can('subscriptions.view'));
     }
 
+    /**
+     * Handle the requires safe history action for student package history records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @return bool
+     */
     private function requiresSafeHistory(User $user): bool
     {
         return ! $user->hasRole('admin')

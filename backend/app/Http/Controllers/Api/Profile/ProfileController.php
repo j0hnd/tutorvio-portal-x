@@ -16,8 +16,27 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ProfileController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  AuditLogService  $auditLogService
+     */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
+    /**
+     * Display the selected profile record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a user resource payload.
+     *
+     * @param  Request  $request
+     * @return UserResource
+     */
     public function show(Request $request): UserResource
     {
         $user = $request->user();
@@ -27,6 +46,18 @@ class ProfileController extends Controller
         return new UserResource($user);
     }
 
+    /**
+     * Handle the show user action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a user resource payload.
+     *
+     * @param  Request  $request
+     * @param  User  $user
+     * @return UserResource|JsonResponse
+     */
     public function showUser(Request $request, User $user): UserResource|JsonResponse
     {
         $requester = $request->user();
@@ -42,6 +73,17 @@ class ProfileController extends Controller
         return new UserResource($user);
     }
 
+    /**
+     * Update the selected profile record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The UpdateProfileRequest handles authorization and validation before the controller action runs.
+     * Returns a user resource payload.
+     *
+     * @param  UpdateProfileRequest  $request
+     * @return UserResource
+     */
     public function update(UpdateProfileRequest $request): UserResource
     {
         $user = $request->user();
@@ -49,6 +91,18 @@ class ProfileController extends Controller
         return $this->updateProfileData($user, $request->validated());
     }
 
+    /**
+     * Handle the update user action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * The UpdateProfileRequest handles authorization and validation before the controller action runs.
+     * Returns a user resource payload.
+     *
+     * @param  UpdateProfileRequest  $request
+     * @param  User  $user
+     * @return UserResource
+     */
     public function updateUser(UpdateProfileRequest $request, User $user): UserResource
     {
         $this->authorizeUserProfileAccess($request->user(), $user, 'update');
@@ -58,6 +112,8 @@ class ProfileController extends Controller
 
     /**
      * @return array<int, string>
+     *
+     * @param  User  $actor
      */
     private function profileRelationsFor(User $actor): array
     {
@@ -79,6 +135,19 @@ class ProfileController extends Controller
         return $relations;
     }
 
+    /**
+     * Handle the authorize user profile access action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $target, $operation.
+     * The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $actor
+     * @param  User  $target
+     * @param  string  $operation
+     * @return void
+     */
     private function authorizeUserProfileAccess(User $actor, User $target, string $operation): void
     {
         if ($actor->hasRole('admin')) {
@@ -109,6 +178,18 @@ class ProfileController extends Controller
         }
     }
 
+    /**
+     * Handle the update profile data action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user, $data.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a user resource payload.
+     *
+     * @param  User  $user
+     * @param  array  $data
+     * @return UserResource
+     */
     private function updateProfileData(User $user, array $data): UserResource
     {
         $originalUser = $user->only(['name', 'phone', 'timezone']);
@@ -145,6 +226,12 @@ class ProfileController extends Controller
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $originalUser
      * @param  array<string, mixed>  $originalStudentProfile
+     *
+     * @param  User  $user
+     * @param  array  $data
+     * @param  array  $originalUser
+     * @param  array  $originalStudentProfile
+     * @return void
      */
     private function logStudentProfileUpdate(
         User $user,

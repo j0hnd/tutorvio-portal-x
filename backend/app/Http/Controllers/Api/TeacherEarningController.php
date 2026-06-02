@@ -15,6 +15,17 @@ use Illuminate\Validation\Rule;
 
 class TeacherEarningController extends Controller
 {
+    /**
+     * Display a filtered list of teacher earning records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewOwn', TeacherEarning::class);
@@ -56,6 +67,19 @@ class TeacherEarningController extends Controller
         return response()->json($earnings->through(fn (TeacherEarning $earning) => new TeacherEarningResource($earning)));
     }
 
+    /**
+     * Handle the where earning date action for teacher earning records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $operator, $date.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Builder  $query
+     * @param  string  $operator
+     * @param  string  $date
+     * @return void
+     */
     private function whereEarningDate(Builder $query, string $operator, string $date): void
     {
         $query->where(function (Builder $query) use ($operator, $date): void {

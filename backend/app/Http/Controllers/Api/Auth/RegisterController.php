@@ -4,11 +4,24 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 
 class RegisterController extends Controller
 {
+    /**
+     * Register a new user account.
+     *
+     * Public authentication route, with throttling applied by route middleware.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON payload with the created user account.
+     *
+     * @return JsonResponse
+     *
+     * @param  Request  $request
+     */
     public function register(Request $request)
     {
         $validated = $request->validate([

@@ -12,6 +12,18 @@ use Illuminate\Validation\ValidationException;
 
 class StudentProgressReportController extends Controller
 {
+    /**
+     * Handle the student progress report endpoint.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $report.
+     * The StudentProgressReportRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  StudentProgressReportRequest  $request
+     * @param  StudentProgressReport  $report
+     * @return JsonResponse
+     */
     public function __invoke(StudentProgressReportRequest $request, StudentProgressReport $report): JsonResponse
     {
         $actor = $request->user();
@@ -22,6 +34,17 @@ class StudentProgressReportController extends Controller
         return ReportResponse::json($report->generate($request->filters(), $actor), $request->pagination());
     }
 
+    /**
+     * Handle the authorize report access action for student progress report records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $actor
+     * @return void
+     */
     private function authorizeReportAccess(User $actor): void
     {
         if ($actor->hasRole('admin')
@@ -33,6 +56,18 @@ class StudentProgressReportController extends Controller
         abort(403);
     }
 
+    /**
+     * Handle the authorize requested student action for student progress report records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $studentId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $actor
+     * @param  mixed  $studentId
+     * @return void
+     */
     private function authorizeRequestedStudent(User $actor, mixed $studentId): void
     {
         if ($studentId === null || $actor->hasRole('admin') || $actor->hasRole('staff') || $actor->hasRole('teacher')) {

@@ -17,6 +17,17 @@ use Illuminate\Validation\ValidationException;
 
 class MessageThreadController extends Controller
 {
+    /**
+     * Display a filtered list of message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
@@ -47,6 +58,17 @@ class MessageThreadController extends Controller
         );
     }
 
+    /**
+     * Create a new message thread record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
@@ -105,6 +127,18 @@ class MessageThreadController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the messages action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $messageThread.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  MessageThread  $messageThread
+     * @return JsonResponse
+     */
     public function messages(Request $request, MessageThread $messageThread): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
@@ -126,6 +160,18 @@ class MessageThreadController extends Controller
         );
     }
 
+    /**
+     * Handle the send action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $messageThread.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  MessageThread  $messageThread
+     * @return JsonResponse
+     */
     public function send(Request $request, MessageThread $messageThread): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
@@ -165,6 +211,18 @@ class MessageThreadController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the mark read action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $messageThread.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  MessageThread  $messageThread
+     * @return JsonResponse
+     */
     public function markRead(Request $request, MessageThread $messageThread): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
@@ -184,6 +242,17 @@ class MessageThreadController extends Controller
         ]);
     }
 
+    /**
+     * Handle the unread count action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function unreadCount(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -214,6 +283,8 @@ class MessageThreadController extends Controller
 
     /**
      * @return Builder<MessageThread>
+     *
+     * @param  User  $user
      */
     private function visibleThreadsFor(User $user): Builder
     {
@@ -232,6 +303,18 @@ class MessageThreadController extends Controller
             });
     }
 
+    /**
+     * Handle the visible thread for action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user, $thread.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @param  MessageThread  $thread
+     * @return MessageThread
+     */
     private function visibleThreadFor(User $user, MessageThread $thread): MessageThread
     {
         return $this->visibleThreadsFor($user)
@@ -243,6 +326,9 @@ class MessageThreadController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      * @return array{0: User, 1: User}
+     *
+     * @param  User  $actor
+     * @param  array  $payload
      */
     private function resolveThreadUsers(User $actor, array $payload): array
     {
@@ -274,6 +360,19 @@ class MessageThreadController extends Controller
         ]);
     }
 
+    /**
+     * Handle the assert can create thread action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $student, $teacher.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $actor
+     * @param  User  $student
+     * @param  User  $teacher
+     * @return void
+     */
     private function assertCanCreateThread(User $actor, User $student, User $teacher): void
     {
         if (! $this->canAccessMessages($actor)) {
@@ -317,6 +416,18 @@ class MessageThreadController extends Controller
         }
     }
 
+    /**
+     * Handle the assert can send message action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $thread.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $actor
+     * @param  MessageThread  $thread
+     * @return void
+     */
     private function assertCanSendMessage(User $actor, MessageThread $thread): void
     {
         if (! $this->canAccessMessages($actor)) {
@@ -336,16 +447,49 @@ class MessageThreadController extends Controller
         }
     }
 
+    /**
+     * Handle the can manage threads action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @return bool
+     */
     private function canManageThreads(User $user): bool
     {
         return $user->hasRole('admin') || $user->can('messages.manage');
     }
 
+    /**
+     * Handle the can access messages action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @return bool
+     */
     private function canAccessMessages(User $user): bool
     {
         return $user->hasRole('admin') || $user->can('messages.view') || $user->can('messages.manage');
     }
 
+    /**
+     * Handle the assert can access messages action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @return void
+     */
     private function assertCanAccessMessages(User $user): void
     {
         if (! $this->canAccessMessages($user)) {
@@ -353,12 +497,37 @@ class MessageThreadController extends Controller
         }
     }
 
+    /**
+     * Handle the can view all threads action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @return bool
+     */
     private function canViewAllThreads(User $user): bool
     {
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && ($user->can('messages.view') || $user->can('messages.manage')));
     }
 
+    /**
+     * Handle the sync participant action for message thread records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $thread, $user, $role, $lastReadAt.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  MessageThread  $thread
+     * @param  User  $user
+     * @param  string  $role
+     * @param  mixed  $lastReadAt
+     * @return void
+     */
     private function syncParticipant(MessageThread $thread, User $user, string $role, mixed $lastReadAt): void
     {
         MessageThreadParticipant::updateOrCreate(

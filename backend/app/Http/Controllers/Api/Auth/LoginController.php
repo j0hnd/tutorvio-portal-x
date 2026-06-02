@@ -7,13 +7,34 @@ use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  AuditLogService  $auditLogService
+     */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
+    /**
+     * Authenticate a user and issue an API access token.
+     *
+     * Public authentication route, with throttling applied by route middleware.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON payload with the API token, token type, and expiration time.
+     *
+     * @return JsonResponse
+     *
+     * @param  Request  $request
+     */
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -71,6 +92,18 @@ class LoginController extends Controller
         ], 401);
     }
 
+    /**
+     * Revoke the authenticated user's current API access token.
+     *
+     * Authenticated users only; route middleware requires a valid Sanctum token.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @return JsonResponse
+     *
+     * @param  Request  $request
+     */
     public function logout(Request $request)
     {
         $user = $request->user();
@@ -100,6 +133,20 @@ class LoginController extends Controller
         ]);
     }
 
+    /**
+     * Handle the log failed login action for login records.
+     *
+     * Public authentication route, with throttling applied by route middleware.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user, $failureReason, $loginIdentifierFingerprint.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  ?User  $user
+     * @param  string  $failureReason
+     * @param  string  $loginIdentifierFingerprint
+     * @return void
+     */
     private function logFailedLogin(Request $request, ?User $user, string $failureReason, string $loginIdentifierFingerprint): void
     {
         $this->auditLogService->record(

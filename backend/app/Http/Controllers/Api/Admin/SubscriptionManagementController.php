@@ -41,12 +41,36 @@ class SubscriptionManagementController extends Controller
         'payment_status',
     ];
 
+    /**
+     * Create the controller with its service dependencies.
+
+     *
+
+     * The framework resolves this constructor before action-specific route
+
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  SubscriptionLessonBalanceService  $lessonBalances
+     * @param  SubscriptionRenewalReminderService  $renewalReminders
+     * @param  AuditLogService  $auditLogService
+     */
     public function __construct(
         private readonly SubscriptionLessonBalanceService $lessonBalances,
         private readonly SubscriptionRenewalReminderService $renewalReminders,
         private readonly AuditLogService $auditLogService,
     ) {}
 
+    /**
+     * Display a filtered list of subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Subscription::class);
@@ -90,6 +114,17 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Create a new subscription management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include student_id, status, is_frozen.
+     * The StoreSubscriptionRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreSubscriptionRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreSubscriptionRequest $request): JsonResponse
     {
         Gate::authorize('create', Subscription::class);
@@ -127,6 +162,17 @@ class SubscriptionManagementController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected subscription management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $subscription.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function show(Subscription $subscription): JsonResponse
     {
         Gate::authorize('view', $subscription);
@@ -136,6 +182,18 @@ class SubscriptionManagementController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected subscription management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include student_id. Route model parameters include $subscription.
+     * The UpdateSubscriptionRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateSubscriptionRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function update(UpdateSubscriptionRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -184,6 +242,18 @@ class SubscriptionManagementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the update payment status action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include payment_status, status. Route model parameters include $subscription.
+     * The UpdateSubscriptionPaymentStatusRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  UpdateSubscriptionPaymentStatusRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function updatePaymentStatus(UpdateSubscriptionPaymentStatusRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('updatePaymentStatus', $subscription);
@@ -199,6 +269,18 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Handle the update status action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include status. Route model parameters include $subscription.
+     * The UpdateSubscriptionStatusRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  UpdateSubscriptionStatusRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function updateStatus(UpdateSubscriptionStatusRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -212,6 +294,18 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Handle the freeze action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $subscription.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function freeze(Request $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -223,6 +317,18 @@ class SubscriptionManagementController extends Controller
         ], SubscriptionHistory::EVENT_FROZEN, AuditActionType::PACKAGE_STATUS_CHANGED);
     }
 
+    /**
+     * Handle the unfreeze action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $subscription.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function unfreeze(Request $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -234,6 +340,18 @@ class SubscriptionManagementController extends Controller
         ], SubscriptionHistory::EVENT_UNFROZEN, AuditActionType::PACKAGE_STATUS_CHANGED);
     }
 
+    /**
+     * Handle the update notes action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include internal_notes, notes. Route model parameters include $subscription.
+     * The UpdateSubscriptionNotesRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  UpdateSubscriptionNotesRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function updateNotes(UpdateSubscriptionNotesRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -247,6 +365,18 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Handle the update invoice reference action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include invoice_reference, reference, invoice_id. Route model parameters include $subscription.
+     * The UpdateSubscriptionInvoiceReferenceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  UpdateSubscriptionInvoiceReferenceRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function updateInvoiceReference(UpdateSubscriptionInvoiceReferenceRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -268,6 +398,18 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Handle the adjust lesson balance action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $subscription.
+     * The AdjustSubscriptionLessonBalanceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  AdjustSubscriptionLessonBalanceRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function adjustLessonBalance(AdjustSubscriptionLessonBalanceRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('update', $subscription);
@@ -281,6 +423,18 @@ class SubscriptionManagementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the renew action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include student_id. Route model parameters include $subscription.
+     * The StoreSubscriptionRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  StoreSubscriptionRequest  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function renew(StoreSubscriptionRequest $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('renew', $subscription);
@@ -319,6 +473,18 @@ class SubscriptionManagementController extends Controller
         ], 201);
     }
 
+    /**
+     * Cancel the selected subscription management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $subscription.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function cancel(Request $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('cancel', $subscription);
@@ -332,6 +498,18 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Archive the selected subscription management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $subscription.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  Subscription  $subscription
+     * @return JsonResponse
+     */
     public function archive(Request $request, Subscription $subscription): JsonResponse
     {
         Gate::authorize('cancel', $subscription);
@@ -345,6 +523,18 @@ class SubscriptionManagementController extends Controller
         );
     }
 
+    /**
+     * Handle the student history action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  User  $student
+     * @return JsonResponse
+     */
     public function studentHistory(Request $request, User $student): JsonResponse
     {
         Gate::authorize('viewAny', Subscription::class);
@@ -369,6 +559,8 @@ class SubscriptionManagementController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
+     *
+     * @param  array  $validated
      */
     private function subscriptionPayload(array $validated): array
     {
@@ -379,6 +571,17 @@ class SubscriptionManagementController extends Controller
             ->all();
     }
 
+    /**
+     * Handle the invoice key action for subscription management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $publicId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  mixed  $publicId
+     * @return ?int
+     */
     private function invoiceKey(mixed $publicId): ?int
     {
         if ($publicId === null || $publicId === '') {
@@ -390,6 +593,13 @@ class SubscriptionManagementController extends Controller
 
     /**
      * @param  array<string, mixed>  $payload
+     *
+     * @param  Request  $request
+     * @param  Subscription  $subscription
+     * @param  array  $payload
+     * @param  string  $eventType
+     * @param  AuditActionType|string  $auditActionType
+     * @return JsonResponse
      */
     private function applyUpdate(
         Request $request,
@@ -469,6 +679,14 @@ class SubscriptionManagementController extends Controller
     /**
      * @param  array<string, mixed>  $previousValues
      * @param  array<string, mixed>  $newValues
+     *
+     * @param  Subscription  $subscription
+     * @param  string  $eventType
+     * @param  array  $previousValues
+     * @param  array  $newValues
+     * @param  int  $createdBy
+     * @param  ?string  $notes
+     * @return void
      */
     private function recordHistory(Subscription $subscription, string $eventType, array $previousValues, array $newValues, int $createdBy, ?string $notes = null): void
     {
@@ -498,6 +716,14 @@ class SubscriptionManagementController extends Controller
      * @param  array<string, mixed>  $previous
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>  $additionalMetadata
+     *
+     * @param  int  $actorId
+     * @param  AuditActionType|string  $actionType
+     * @param  Subscription  $subscription
+     * @param  array  $previous
+     * @param  array  $current
+     * @param  array  $additionalMetadata
+     * @return void
      */
     private function auditSubscriptionMutation(
         int $actorId,
@@ -542,6 +768,9 @@ class SubscriptionManagementController extends Controller
      * @param  array<string, mixed>  $previous
      * @param  array<string, mixed>  $current
      * @return array<int, string>
+     *
+     * @param  array  $previous
+     * @param  array  $current
      */
     private function changedFields(array $previous, array $current): array
     {

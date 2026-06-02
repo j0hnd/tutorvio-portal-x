@@ -17,11 +17,31 @@ use Illuminate\Validation\Rule;
 
 class LessonRecordController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  LessonRecordRepository  $lessonRecords
+     * @param  LessonRecordService  $lessonRecordService
+     */
     public function __construct(
         private readonly LessonRecordRepository $lessonRecords,
         private readonly LessonRecordService $lessonRecordService,
     ) {}
 
+    /**
+     * Display a filtered list of lesson records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', LessonRecord::class);
@@ -44,6 +64,17 @@ class LessonRecordController extends Controller
         );
     }
 
+    /**
+     * Create a new lesson record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreLessonRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreLessonRecordRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreLessonRecordRequest $request): JsonResponse
     {
         Gate::authorize('create', LessonRecord::class);
@@ -55,6 +86,17 @@ class LessonRecordController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected lesson record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lessonRecord.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LessonRecord  $lessonRecord
+     * @return JsonResponse
+     */
     public function show(LessonRecord $lessonRecord): JsonResponse
     {
         Gate::authorize('view', $lessonRecord);
@@ -64,6 +106,18 @@ class LessonRecordController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected lesson record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonRecord.
+     * The UpdateLessonRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateLessonRecordRequest  $request
+     * @param  LessonRecord  $lessonRecord
+     * @return JsonResponse
+     */
     public function update(UpdateLessonRecordRequest $request, LessonRecord $lessonRecord): JsonResponse
     {
         Gate::authorize('update', $lessonRecord);
@@ -75,6 +129,17 @@ class LessonRecordController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected lesson record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lessonRecord.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     *
+     * @param  LessonRecord  $lessonRecord
+     * @return JsonResponse
+     */
     public function destroy(LessonRecord $lessonRecord): JsonResponse
     {
         Gate::authorize('delete', $lessonRecord);
@@ -84,6 +149,18 @@ class LessonRecordController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Cancel the selected lesson record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonRecord.
+     * The CancelLessonRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  CancelLessonRecordRequest  $request
+     * @param  LessonRecord  $lessonRecord
+     * @return JsonResponse
+     */
     public function cancel(CancelLessonRecordRequest $request, LessonRecord $lessonRecord): JsonResponse
     {
         Gate::authorize('cancel', $lessonRecord);

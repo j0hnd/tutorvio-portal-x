@@ -12,6 +12,17 @@ use Illuminate\Support\Facades\Gate;
 
 class AuditLogController extends Controller
 {
+    /**
+     * Display a filtered list of audit log records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The ListAuditLogsRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  ListAuditLogsRequest  $request
+     * @return JsonResponse
+     */
     public function index(ListAuditLogsRequest $request): JsonResponse
     {
         Gate::authorize('viewAny', AuditLog::class);

@@ -15,6 +15,17 @@ use Illuminate\Validation\Rule;
 
 class ClassOversightController extends Controller
 {
+    /**
+     * Display a filtered list of class oversight records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -67,6 +78,17 @@ class ClassOversightController extends Controller
         );
     }
 
+    /**
+     * Handle the teacher notes action for class oversight records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $lesson.
+     * The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Lesson  $lesson
+     * @return JsonResponse
+     */
     public function teacherNotes(Lesson $lesson): JsonResponse
     {
         $lesson->load([
@@ -84,6 +106,18 @@ class ClassOversightController extends Controller
         ]);
     }
 
+    /**
+     * Handle the review teacher note action for class oversight records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonNote.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  LessonNote  $lessonNote
+     * @return JsonResponse
+     */
     public function reviewTeacherNote(Request $request, LessonNote $lessonNote): JsonResponse
     {
         $validated = $request->validate([

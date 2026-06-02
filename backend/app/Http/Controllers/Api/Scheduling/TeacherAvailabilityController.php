@@ -14,8 +14,27 @@ use Illuminate\Validation\ValidationException;
 
 class TeacherAvailabilityController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  TeacherAvailabilityService  $availabilityService
+     */
     public function __construct(private readonly TeacherAvailabilityService $availabilityService) {}
 
+    /**
+     * Display a filtered list of teacher availability records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherAvailability::class);
@@ -42,6 +61,17 @@ class TeacherAvailabilityController extends Controller
         );
     }
 
+    /**
+     * Create a new teacher availability record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', TeacherAvailability::class);
@@ -54,6 +84,17 @@ class TeacherAvailabilityController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected teacher availability record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $teacherAvailability.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  TeacherAvailability  $teacherAvailability
+     * @return JsonResponse
+     */
     public function show(TeacherAvailability $teacherAvailability): JsonResponse
     {
         Gate::authorize('view', $teacherAvailability);
@@ -61,6 +102,18 @@ class TeacherAvailabilityController extends Controller
         return response()->json(['data' => new TeacherAvailabilityResource($teacherAvailability->load('teacher:id,public_id,name,email,timezone'))]);
     }
 
+    /**
+     * Update the selected teacher availability record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherAvailability.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  TeacherAvailability  $teacherAvailability
+     * @return JsonResponse
+     */
     public function update(Request $request, TeacherAvailability $teacherAvailability): JsonResponse
     {
         Gate::authorize('update', $teacherAvailability);
@@ -73,6 +126,17 @@ class TeacherAvailabilityController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected teacher availability record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $teacherAvailability.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     *
+     * @param  TeacherAvailability  $teacherAvailability
+     * @return JsonResponse
+     */
     public function destroy(TeacherAvailability $teacherAvailability): JsonResponse
     {
         Gate::authorize('delete', $teacherAvailability);
@@ -86,6 +150,9 @@ class TeacherAvailabilityController extends Controller
 
     /**
      * @return array<string, mixed>
+     *
+     * @param  Request  $request
+     * @param  bool  $creating
      */
     private function validatePayload(Request $request, bool $creating): array
     {
@@ -103,6 +170,18 @@ class TeacherAvailabilityController extends Controller
         ]);
     }
 
+    /**
+     * Handle the assert teacher can manage action for teacher availability records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  int  $teacherId
+     * @return void
+     */
     private function assertTeacherCanManage(Request $request, int $teacherId): void
     {
         if ($request->user()->hasRole('teacher') && ! $request->user()->hasAnyRole(['admin', 'staff']) && $request->user()->id !== $teacherId) {

@@ -13,8 +13,27 @@ use Illuminate\Validation\Rule;
 
 class HolidayController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  HolidayService  $holidayService
+     */
     public function __construct(private readonly HolidayService $holidayService) {}
 
+    /**
+     * Display a filtered list of holiday records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Holiday::class);
@@ -38,6 +57,17 @@ class HolidayController extends Controller
         );
     }
 
+    /**
+     * Create a new holiday record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', Holiday::class);
@@ -47,6 +77,17 @@ class HolidayController extends Controller
         return response()->json(['data' => new HolidayResource($this->holidayService->create($validated))], 201);
     }
 
+    /**
+     * Display the selected holiday record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $holiday.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Holiday  $holiday
+     * @return JsonResponse
+     */
     public function show(Holiday $holiday): JsonResponse
     {
         Gate::authorize('view', $holiday);
@@ -54,6 +95,18 @@ class HolidayController extends Controller
         return response()->json(['data' => new HolidayResource($holiday)]);
     }
 
+    /**
+     * Update the selected holiday record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $holiday.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  Holiday  $holiday
+     * @return JsonResponse
+     */
     public function update(Request $request, Holiday $holiday): JsonResponse
     {
         Gate::authorize('update', $holiday);
@@ -63,6 +116,17 @@ class HolidayController extends Controller
         return response()->json(['data' => new HolidayResource($this->holidayService->update($holiday, $validated))]);
     }
 
+    /**
+     * Delete the selected holiday record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $holiday.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     *
+     * @param  Holiday  $holiday
+     * @return JsonResponse
+     */
     public function destroy(Holiday $holiday): JsonResponse
     {
         Gate::authorize('delete', $holiday);
@@ -74,6 +138,9 @@ class HolidayController extends Controller
 
     /**
      * @return array<string, mixed>
+     *
+     * @param  Request  $request
+     * @param  bool  $creating
      */
     private function validatePayload(Request $request, bool $creating): array
     {

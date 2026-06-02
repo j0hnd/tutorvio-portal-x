@@ -12,8 +12,27 @@ use Illuminate\Validation\Rule;
 
 class LessonBookingController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  ClassScheduleService  $scheduleService
+     */
     public function __construct(private readonly ClassScheduleService $scheduleService) {}
 
+    /**
+     * Create a new lesson booking record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         $schedule = $this->scheduleService->bookOneTimeLesson($request->validate([

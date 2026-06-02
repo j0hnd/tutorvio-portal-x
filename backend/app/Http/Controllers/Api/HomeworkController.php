@@ -24,8 +24,27 @@ use Throwable;
 
 class HomeworkController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  SystemNotificationService  $notificationService
+     */
     public function __construct(private readonly SystemNotificationService $notificationService) {}
 
+    /**
+     * Display a filtered list of homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Homework::class);
@@ -52,6 +71,17 @@ class HomeworkController extends Controller
         );
     }
 
+    /**
+     * Create a new homework record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreHomeworkRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreHomeworkRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreHomeworkRequest $request): JsonResponse
     {
         Gate::authorize('create', Homework::class);
@@ -106,6 +136,17 @@ class HomeworkController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected homework record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $homework.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Homework  $homework
+     * @return JsonResponse
+     */
     public function show(Homework $homework): JsonResponse
     {
         Gate::authorize('view', $homework);
@@ -115,6 +156,18 @@ class HomeworkController extends Controller
         ]);
     }
 
+    /**
+     * Handle the update progress action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $homework.
+     * The UpdateHomeworkProgressRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateHomeworkProgressRequest  $request
+     * @param  Homework  $homework
+     * @return JsonResponse
+     */
     public function updateProgress(UpdateHomeworkProgressRequest $request, Homework $homework): JsonResponse
     {
         Gate::authorize('updateProgress', $homework);
@@ -131,6 +184,18 @@ class HomeworkController extends Controller
         ]);
     }
 
+    /**
+     * Handle the review action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $homework.
+     * The ReviewHomeworkRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  ReviewHomeworkRequest  $request
+     * @param  Homework  $homework
+     * @return JsonResponse
+     */
     public function review(ReviewHomeworkRequest $request, Homework $homework): JsonResponse
     {
         Gate::authorize('review', $homework);
@@ -146,6 +211,17 @@ class HomeworkController extends Controller
         ]);
     }
 
+    /**
+     * Handle the assert student user action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $student
+     * @return void
+     */
     private function assertStudentUser(User $student): void
     {
         if (! $student->hasRole('student')) {
@@ -155,6 +231,17 @@ class HomeworkController extends Controller
         }
     }
 
+    /**
+     * Handle the notify homework assigned action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $homework.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Homework  $homework
+     * @return void
+     */
     private function notifyHomeworkAssigned(Homework $homework): void
     {
         try {
@@ -189,6 +276,18 @@ class HomeworkController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson student relationship action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lesson, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Lesson  $lesson
+     * @param  User  $student
+     * @return void
+     */
     private function assertLessonStudentRelationship(Lesson $lesson, User $student): void
     {
         if ((int) $lesson->student_id !== (int) $student->id) {
@@ -198,6 +297,17 @@ class HomeworkController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson teacher user action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lesson.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Lesson  $lesson
+     * @return void
+     */
     private function assertLessonTeacherUser(Lesson $lesson): void
     {
         if (! $lesson->teacher?->hasRole('teacher')) {
@@ -207,6 +317,19 @@ class HomeworkController extends Controller
         }
     }
 
+    /**
+     * Handle the assert teacher can assign homework action for homework records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $lesson, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $actor
+     * @param  Lesson  $lesson
+     * @param  User  $student
+     * @return void
+     */
     private function assertTeacherCanAssignHomework(User $actor, Lesson $lesson, User $student): void
     {
         if (! $actor->hasRole('teacher') || $actor->hasRole('admin')) {
@@ -228,6 +351,10 @@ class HomeworkController extends Controller
 
     /**
      * @param  array<int, int>  $documentIds
+     *
+     * @param  array  $documentIds
+     * @param  User  $actor
+     * @return void
      */
     private function assertDocumentAccessForUser(array $documentIds, User $actor): void
     {
@@ -265,6 +392,8 @@ class HomeworkController extends Controller
 
     /**
      * @return Builder<Homework>
+     *
+     * @param  User  $user
      */
     private function queryForUser(User $user): Builder
     {

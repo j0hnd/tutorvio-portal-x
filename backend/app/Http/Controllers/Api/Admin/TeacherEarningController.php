@@ -16,6 +16,17 @@ use Illuminate\Validation\Rule;
 
 class TeacherEarningController extends Controller
 {
+    /**
+     * Display a filtered list of teacher earning records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherEarning::class);
@@ -30,6 +41,18 @@ class TeacherEarningController extends Controller
         return response()->json($earnings->through(fn (TeacherEarning $earning) => new TeacherEarningResource($earning)));
     }
 
+    /**
+     * Handle the teacher action for teacher earning records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacher.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  User  $teacher
+     * @return JsonResponse
+     */
     public function teacher(Request $request, User $teacher): JsonResponse
     {
         Gate::authorize('viewAny', TeacherEarning::class);
@@ -49,6 +72,8 @@ class TeacherEarningController extends Controller
 
     /**
      * @return array<string, mixed>
+     *
+     * @param  Request  $request
      */
     private function validatedFilters(Request $request): array
     {
@@ -70,6 +95,8 @@ class TeacherEarningController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return Builder<TeacherEarning>
+     *
+     * @param  array  $filters
      */
     private function filteredQuery(array $filters): Builder
     {
@@ -94,6 +121,19 @@ class TeacherEarningController extends Controller
             ->when($filters['pay_model'] ?? null, fn (Builder $query, string $payModel) => $query->where('pay_model', $payModel));
     }
 
+    /**
+     * Handle the where earning date action for teacher earning records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $query, $operator, $date.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Builder  $query
+     * @param  string  $operator
+     * @param  string  $date
+     * @return void
+     */
     private function whereEarningDate(Builder $query, string $operator, string $date): void
     {
         $query->where(function (Builder $query) use ($operator, $date): void {

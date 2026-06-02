@@ -22,6 +22,14 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  AuditLogService  $auditLogService
+     */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
     private const SORTABLE_COLUMNS = [
@@ -35,6 +43,17 @@ class InvoiceController extends Controller
         'total_amount',
     ];
 
+    /**
+     * Display a filtered list of invoice records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Invoice::class);
@@ -51,6 +70,17 @@ class InvoiceController extends Controller
         );
     }
 
+    /**
+     * Display the selected invoice record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $invoice.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Invoice  $invoice
+     * @return JsonResponse
+     */
     public function show(Invoice $invoice): JsonResponse
     {
         Gate::authorize('view', $invoice);
@@ -60,6 +90,18 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Download the selected invoice file or document.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $invoice, $pdfs.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a downloadable HTTP response or an error response when access or file checks fail.
+     *
+     * @param  Invoice  $invoice
+     * @param  InvoicePdfService  $pdfs
+     * @return Response
+     */
     public function download(Invoice $invoice, InvoicePdfService $pdfs): Response
     {
         Gate::authorize('download', $invoice);
@@ -74,6 +116,19 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the send email action for invoice records.
+     *
+     * Admin or staff users with the invoice permission required by the route middleware.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $invoice, $emails.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  Invoice  $invoice
+     * @param  InvoiceEmailService  $emails
+     * @return JsonResponse
+     */
     public function sendEmail(Request $request, Invoice $invoice, InvoiceEmailService $emails): JsonResponse
     {
         Gate::authorize('sendEmail', $invoice);
@@ -86,6 +141,18 @@ class InvoiceController extends Controller
         ], $sent ? 200 : 422);
     }
 
+    /**
+     * Handle the update payment status action for invoice records.
+     *
+     * Admin or staff users with the invoice permission required by the route middleware.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $invoice.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  Invoice  $invoice
+     * @return JsonResponse
+     */
     public function updatePaymentStatus(Request $request, Invoice $invoice): JsonResponse
     {
         Gate::authorize('updatePaymentStatus', $invoice);
@@ -150,6 +217,18 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Display historical invoice records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  User  $student
+     * @return JsonResponse
+     */
     public function history(Request $request, User $student): JsonResponse
     {
         Gate::authorize('viewAny', Invoice::class);
@@ -172,6 +251,8 @@ class InvoiceController extends Controller
 
     /**
      * @return array<string, mixed>
+     *
+     * @param  Request  $request
      */
     private function validatedFilters(Request $request): array
     {
@@ -215,6 +296,9 @@ class InvoiceController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return Builder<Invoice>
+     *
+     * @param  User  $user
+     * @param  array  $filters
      */
     private function filteredInvoices(User $user, array $filters): Builder
     {
@@ -239,6 +323,18 @@ class InvoiceController extends Controller
             );
     }
 
+    /**
+     * Handle the where package matches action for invoice records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $package.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Builder  $query
+     * @param  string  $package
+     * @return void
+     */
     private function wherePackageMatches(Builder $query, string $package): void
     {
         $query->where(function (Builder $query) use ($package) {
@@ -248,18 +344,53 @@ class InvoiceController extends Controller
         });
     }
 
+    /**
+     * Handle the can view student history action for invoice records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @param  User  $student
+     * @return bool
+     */
     private function canViewStudentHistory(User $user, User $student): bool
     {
         return $this->canViewAllInvoices($user)
             || ($user->hasRole('student') && (int) $user->id === (int) $student->id);
     }
 
+    /**
+     * Handle the can view all invoices action for invoice records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  User  $user
+     * @return bool
+     */
     private function canViewAllInvoices(User $user): bool
     {
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && $user->can('invoices.view'));
     }
 
+    /**
+     * Handle the assert allowed payment status transition action for invoice records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $invoice, $newStatus.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Invoice  $invoice
+     * @param  string  $newStatus
+     * @return void
+     */
     private function assertAllowedPaymentStatusTransition(Invoice $invoice, string $newStatus): void
     {
         $allowed = match ($invoice->status) {
