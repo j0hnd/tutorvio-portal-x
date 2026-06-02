@@ -21,9 +21,13 @@ class InvoiceEmailService
     /**
      * Send an invoice email when automatic invoice delivery is enabled.
      *
-     * The method skips invoices already marked as automatically sent, creates
-     * notification history for attempts, updates invoice email metadata, and
-     * records failed delivery details instead of throwing mail exceptions.
+     * This mail-dispatch helper runs after invoice generation when automatic
+     * delivery is enabled. It skips invoices already marked as automatically
+     * sent, creates notification history for the attempt, sends the invoice
+     * email, updates invoice email metadata, and records failed delivery details
+     * instead of throwing mail exceptions. It logs mail failures as warnings and
+     * is safe to retry after a successful automatic send because
+     * `automatic_sent_at` prevents duplicates.
      */
     public function sendAutomatically(Invoice $invoice): bool
     {
@@ -41,9 +45,12 @@ class InvoiceEmailService
     /**
      * Resend an invoice email as a manual staff action.
      *
-     * The method records the sender on notification history when provided,
-     * updates invoice email metadata, and records missing-recipient or delivery
-     * failures as failed notification recipients.
+     * This mail-dispatch helper runs from a manual staff resend action. It
+     * records the sender on notification history when provided, sends the
+     * invoice email, updates invoice email metadata, and records
+     * missing-recipient or delivery failures as failed notification recipients.
+     * It logs mail failures as warnings. Retrying this method intentionally
+     * creates a new manual delivery attempt and may send another email.
      */
     public function resendManually(Invoice $invoice, ?User $sender = null): bool
     {

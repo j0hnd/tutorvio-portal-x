@@ -37,6 +37,15 @@ class BackfillPublicIds extends Command
 
     protected $description = 'Backfill ULID public IDs for existing public API records.';
 
+    /**
+     * Backfill missing public IDs for API-exposed records.
+     *
+     * This command runs manually during public-ID rollout or data repair. It
+     * scans known tables in chunks, writes ULIDs only where `public_id` is null,
+     * and prints a table summary to the console. It does not send email or
+     * portal notifications, and it should be safe to retry because rows already
+     * assigned a public ID are skipped.
+     */
     public function handle(): int
     {
         $chunkSize = max(1, (int) $this->option('chunk'));

@@ -94,9 +94,14 @@ class SystemNotificationService
     /**
      * Create or update a portal notification and synchronize its recipients.
      *
-     * The method normalizes recipient inputs, applies source and deduplication
-     * metadata, writes notification and recipient rows in a transaction, and
-     * attempts email delivery when requested.
+     * This shared system-level handler runs when application services need to
+     * publish a portal notification. It normalizes recipient inputs, applies
+     * source and deduplication metadata, writes notification and in-portal
+     * recipient rows in a transaction, and attempts email delivery when
+     * requested. Email delivery rows are marked sent or failed, and delivery
+     * failures are logged as warnings. It is safe to retry when callers provide
+     * `source_type` plus `source_id` or a `dedupe_key`; otherwise each call
+     * creates a new notification.
      *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata

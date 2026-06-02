@@ -94,8 +94,12 @@ class SubscriptionRenewalReminderService
     /**
      * Refresh renewal reminder state for subscriptions likely to be due.
      *
+     * This scheduled-task helper runs before renewal reminders are sent.
      * Matching subscriptions are processed in chunks, and the return value is
-     * the number whose due timestamp, status, or window key changed.
+     * the number whose due timestamp, status, or window key changed. It updates
+     * subscription reminder state only; it does not send email, create portal
+     * notifications, or write logs. It is safe to retry because state is
+     * recalculated from the current subscription data and reminder window.
      */
     public function refreshDueCandidates(?CarbonImmutable $now = null): int
     {
@@ -144,9 +148,13 @@ class SubscriptionRenewalReminderService
     /**
      * Send due subscription renewal reminders.
      *
-     * Pending subscriptions are claimed, portal reminders are created for the
-     * student, and last-sent reminder fields are updated to prevent duplicate
-     * sends within the same reminder window.
+     * This scheduled-task handler runs for pending renewal reminders whose due
+     * time has passed. Pending subscriptions are claimed, portal reminders are
+     * created for the student, optional email delivery is delegated to
+     * `SystemNotificationService`, and last-sent reminder fields are updated to
+     * prevent duplicate sends within the same reminder window. The method does
+     * not write logs directly. It is safe to retry at the batch level because
+     * claimed or already-sent reminder windows are skipped.
      */
     public function sendDue(?CarbonImmutable $now = null, int $limit = 100): int
     {

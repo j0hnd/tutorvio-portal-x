@@ -64,8 +64,12 @@ class ScheduleReminderService
     /**
      * Queue reminder rows for upcoming scheduled classes.
      *
-     * The method scans scheduled classes within the lookahead window and creates
-     * missing email reminders for eligible student and teacher participants.
+     * This scheduled-task helper runs before due reminders are sent. It scans
+     * scheduled classes within the lookahead window and creates missing email
+     * reminder rows for eligible student and teacher participants. It does not
+     * send email, create portal notifications, or write logs. It is safe to
+     * retry because reminder rows are created with `firstOrCreate` for each
+     * schedule, participant, channel, and send time.
      */
     public function queueUpcoming(int $lookaheadHours = 48, ?CarbonImmutable $now = null): int
     {
@@ -91,9 +95,12 @@ class ScheduleReminderService
     /**
      * Queue reminder rows for one class schedule.
      *
-     * The schedule is skipped when it is no longer scheduled or starts in the
-     * past. New reminder rows are created for participants with email addresses
-     * at the configured offsets.
+     * This helper runs when a schedule should be prepared for reminders. The
+     * schedule is skipped when it is no longer scheduled or starts in the past.
+     * New reminder rows are created for participants with email addresses at the
+     * configured offsets. It does not send email, create portal notifications,
+     * write logs, or update the class schedule status. It is safe to retry
+     * because duplicate reminder rows are avoided with `firstOrCreate`.
      */
     public function queueForSchedule(ClassSchedule $schedule, ?CarbonImmutable $now = null): int
     {
@@ -140,8 +147,14 @@ class ScheduleReminderService
     /**
      * Send due schedule reminder emails.
      *
-     * Pending reminders are claimed, portal notifications are attempted, email
-     * delivery is recorded, and ineligible reminders are cancelled.
+     * This scheduled-task handler runs for pending reminder rows whose send time
+     * has passed. It claims each reminder, validates that the class and
+     * recipient are still eligible, creates a portal notification, sends the
+     * reminder email, records email delivery, and moves reminder rows to sent,
+     * failed, or cancelled. Portal creation and email failures are logged as
+     * warnings. It is safe to retry at the batch level because only pending rows
+     * are claimed; failed reminders are not retried by this method unless their
+     * status is reset.
      */
     public function sendDue(?CarbonImmutable $now = null, int $limit = 100): int
     {
