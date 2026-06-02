@@ -75,7 +75,7 @@ use OpenApi\Attributes as OA;
             description: 'Teacher availability was created.',
             content: new OA\JsonContent(
                 type: 'object',
-                example: ['data' => ['id' => 'tav_01J0AVAILABILITY000000001', 'teacher_id' => 17, 'day_of_week' => 3, 'start_time' => '09:00', 'end_time' => '17:00', 'timezone' => 'Asia/Manila', 'effective_from' => '2026-06-01', 'effective_until' => null, 'capacity' => 1, 'is_active' => true]]
+                example: ['data' => ['id' => 'tav_01J0AVAILABILITY000000001', 'teacher_id' => 'usr_01J0TEACHER000000000000001', 'day_of_week' => 3, 'start_time' => '09:00', 'end_time' => '17:00', 'timezone' => 'Asia/Manila', 'effective_from' => '2026-06-01', 'effective_until' => null, 'capacity' => 1, 'is_active' => true]]
             )
         ),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),

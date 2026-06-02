@@ -206,11 +206,11 @@ use OpenApi\Attributes as OA;
     schema: 'TeacherEarning',
     description: 'Teacher earning row. Admin/staff routes can return all teachers according to permission; teacher self-service route is scoped to the authenticated teacher.',
     properties: [
-        new OA\Property(property: 'id', type: 'integer', example: 1001),
-        new OA\Property(property: 'teacher_id', type: 'integer', example: 17),
+        new OA\Property(property: 'teacher_id', description: 'Teacher public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'teacher_name', nullable: true, type: 'string', example: 'Taylor Teacher'),
-        new OA\Property(property: 'earning_source', type: 'object', example: ['type' => 'lesson_record', 'id' => 501]),
-        new OA\Property(property: 'lesson_reference', type: 'object', example: ['id' => 501, 'scheduled_date' => '2026-06-03', 'lesson_type' => 'business_english', 'lesson_status' => 'completed']),
+        new OA\Property(property: 'earning_source', type: 'object', example: ['type' => 'lesson_record', 'id' => 'lrc_01J0LESSONRECORD00000001']),
+        new OA\Property(property: 'lesson_reference', type: 'object', example: ['id' => 'lrc_01J0LESSONRECORD00000001', 'scheduled_date' => '2026-06-03', 'lesson_type' => 'business_english', 'lesson_status' => 'completed']),
+        new OA\Property(property: 'course_reference', type: 'object', example: ['id' => 'crs_01J0BUSINESS000000000001', 'course_type_id' => 'ctp_01J0COURSETYPE000000001']),
         new OA\Property(property: 'pay_model', ref: '#/components/schemas/TeacherPayModel'),
         new OA\Property(property: 'rate_used', type: 'number', format: 'float', example: 18.00),
         new OA\Property(property: 'quantity', type: 'number', format: 'float', example: 1.00),
@@ -228,7 +228,7 @@ use OpenApi\Attributes as OA;
     properties: [
         new OA\Property(property: 'scope', type: 'string', enum: ['period', 'teacher'], example: 'teacher'),
         new OA\Property(property: 'breakdown', type: 'object', example: ['base_earnings' => 360.00, 'variable_rate_earnings' => 40.00, 'manual_additions' => 25.00, 'manual_deductions' => 10.00, 'total_payout_amount' => 415.00]),
-        new OA\Property(property: 'teachers', type: 'array', items: new OA\Items(type: 'object'), example: [['teacher_id' => 17, 'teacher_name' => 'Taylor Teacher', 'breakdown' => ['base_earnings' => 360.00, 'variable_rate_earnings' => 40.00, 'manual_additions' => 25.00, 'manual_deductions' => 10.00, 'total_payout_amount' => 415.00], 'earning_ids' => [1001, 1002], 'adjustment_ids' => [51]]]),
+        new OA\Property(property: 'teachers', type: 'array', items: new OA\Items(type: 'object'), example: [['teacher_id' => 'usr_01J0TEACHER000000000000001', 'teacher_name' => 'Taylor Teacher', 'breakdown' => ['base_earnings' => 360.00, 'variable_rate_earnings' => 40.00, 'manual_additions' => 25.00, 'manual_deductions' => 10.00, 'total_payout_amount' => 415.00]]]),
     ],
     type: 'object'
 )]
@@ -236,10 +236,9 @@ use OpenApi\Attributes as OA;
     schema: 'PayrollAdjustment',
     description: 'Manual payroll adjustment. Teacher self-service responses omit `internal_notes`, `created_by`, `created_by_name`, and other teachers names.',
     properties: [
-        new OA\Property(property: 'id', type: 'integer', example: 51),
-        new OA\Property(property: 'teacher_id', type: 'integer', example: 17),
+        new OA\Property(property: 'teacher_id', description: 'Teacher public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'teacher_name', nullable: true, type: 'string', example: 'Taylor Teacher'),
-        new OA\Property(property: 'payout_period_id', nullable: true, type: 'integer', example: 7),
+        new OA\Property(property: 'payout_period_id', nullable: true, type: 'string', example: 'ppo_01J0PAYOUT000000000001'),
         new OA\Property(property: 'payout_period_name', nullable: true, type: 'string', example: 'June 2026 payout'),
         new OA\Property(property: 'type', ref: '#/components/schemas/PayrollAdjustmentType'),
         new OA\Property(property: 'amount', description: 'Deduction values are stored and returned as negative amounts.', type: 'number', format: 'float', example: 25.00),
@@ -507,7 +506,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Paginated teacher compensation records.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'tcp_01J0COMP000000000001', 'teacher_id' => 17, 'pay_model' => 'per_lesson', 'default_pay_rate' => '18.00', 'currency' => 'USD']]])),
+        new OA\Response(response: 200, description: 'Paginated teacher compensation records.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'tcp_01J0COMP000000000001', 'teacher_id' => 'usr_01J0TEACHER000000000000001', 'pay_model' => 'per_lesson', 'default_pay_rate' => '18.00', 'currency' => 'USD']]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
@@ -543,7 +542,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Paginated earnings for the authenticated teacher.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 1001, 'teacher_id' => 17, 'pay_model' => 'per_lesson', 'rate_used' => '18.00', 'quantity' => '1.00', 'amount' => '18.00', 'currency' => 'USD', 'status' => 'approved']]])),
+        new OA\Response(response: 200, description: 'Paginated earnings for the authenticated teacher.', content: new OA\JsonContent(type: 'object', example: ['data' => [['teacher_id' => 'usr_01J0TEACHER000000000000001', 'pay_model' => 'per_lesson', 'rate_used' => '18.00', 'quantity' => '1.00', 'amount' => '18.00', 'currency' => 'USD', 'status' => 'approved']]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
@@ -562,7 +561,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Paginated teacher earnings.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 1001, 'teacher_id' => 17, 'teacher_name' => 'Taylor Teacher', 'amount' => '18.00', 'currency' => 'USD', 'status' => 'approved']]])),
+        new OA\Response(response: 200, description: 'Paginated teacher earnings.', content: new OA\JsonContent(type: 'object', example: ['data' => [['teacher_id' => 'usr_01J0TEACHER000000000000001', 'teacher_name' => 'Taylor Teacher', 'amount' => '18.00', 'currency' => 'USD', 'status' => 'approved']]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
@@ -614,7 +613,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Paginated teacher-visible adjustments.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 51, 'teacher_id' => 17, 'payout_period_id' => 7, 'type' => 'bonus', 'amount' => '25.00', 'currency' => 'USD', 'reason' => 'Approved demo lesson bonus.']]])),
+        new OA\Response(response: 200, description: 'Paginated teacher-visible adjustments.', content: new OA\JsonContent(type: 'object', example: ['data' => [['teacher_id' => 'usr_01J0TEACHER000000000000001', 'payout_period_id' => 'ppo_01J0PAYOUT000000000001', 'type' => 'bonus', 'amount' => '25.00', 'currency' => 'USD', 'reason' => 'Approved demo lesson bonus.']]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
@@ -633,7 +632,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Paginated manual payroll adjustments.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 51, 'teacher_id' => 17, 'teacher_name' => 'Taylor Teacher', 'type' => 'bonus', 'amount' => '25.00', 'currency' => 'USD', 'reason' => 'Approved demo lesson bonus.']]])),
+        new OA\Response(response: 200, description: 'Paginated manual payroll adjustments.', content: new OA\JsonContent(type: 'object', example: ['data' => [['teacher_id' => 'usr_01J0TEACHER000000000000001', 'teacher_name' => 'Taylor Teacher', 'type' => 'bonus', 'amount' => '25.00', 'currency' => 'USD', 'reason' => 'Approved demo lesson bonus.']]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]

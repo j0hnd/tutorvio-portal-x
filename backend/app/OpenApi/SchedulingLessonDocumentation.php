@@ -303,7 +303,7 @@ use OpenApi\Attributes as OA;
             description: 'Teacher availability rows.',
             content: new OA\JsonContent(
                 type: 'object',
-                example: ['data' => [['id' => 'tav_01J0AVAILABILITY000000001', 'teacher_id' => 17, 'day_of_week' => 3, 'start_time' => '09:00', 'end_time' => '17:00', 'timezone' => 'Asia/Manila', 'effective_from' => '2026-06-01', 'effective_until' => null, 'capacity' => 1, 'is_active' => true]]]
+                example: ['data' => [['id' => 'tav_01J0AVAILABILITY000000001', 'teacher_id' => 'usr_01J0TEACHER000000000000001', 'day_of_week' => 3, 'start_time' => '09:00', 'end_time' => '17:00', 'timezone' => 'Asia/Manila', 'effective_from' => '2026-06-01', 'effective_until' => null, 'capacity' => 1, 'is_active' => true]]]
             )
         ),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
@@ -326,7 +326,7 @@ use OpenApi\Attributes as OA;
             description: 'Unavailable dates for the visible teacher scope.',
             content: new OA\JsonContent(
                 type: 'object',
-                example: ['data' => [['id' => 'tud_01J0UNAVAILABLE0000001', 'teacher_id' => 17, 'starts_at' => '2026-06-12T00:00:00+08:00', 'ends_at' => '2026-06-12T23:59:59+08:00', 'timezone' => 'Asia/Manila', 'is_all_day' => true, 'reason' => 'Personal leave']]]
+                example: ['data' => [['id' => 'tud_01J0UNAVAILABLE0000001', 'teacher_id' => 'usr_01J0TEACHER000000000000001', 'starts_at' => '2026-06-12T00:00:00+08:00', 'ends_at' => '2026-06-12T23:59:59+08:00', 'timezone' => 'Asia/Manila', 'is_all_day' => true, 'reason' => 'Personal leave']]]
             )
         ),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
