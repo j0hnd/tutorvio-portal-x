@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicId;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,32 +58,62 @@ class Announcement extends Model
         ];
     }
 
+    /**
+     * Get the author inverse relationship for this announcement.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
     }
 
+    /**
+     * Get the archived by inverse relationship for this announcement.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');
     }
 
+    /**
+     * Get the targets one-to-many relationship for this announcement.
+     *
+     * This user-facing relationship resolves multiple AnnouncementTarget models.
+     */
     public function targets(): HasMany
     {
         return $this->hasMany(AnnouncementTarget::class);
     }
 
+    /**
+     * Get the read states one-to-many relationship for this announcement.
+     *
+     * This user-facing relationship resolves multiple AnnouncementReadState models.
+     */
     public function readStates(): HasMany
     {
         return $this->hasMany(AnnouncementReadState::class);
     }
 
+    /**
+     * Get the recipients one-to-many relationship for this announcement.
+     *
+     * This user-facing relationship resolves multiple AnnouncementRecipient models.
+     */
     public function recipients(): HasMany
     {
         return $this->hasMany(AnnouncementRecipient::class);
     }
 
-    public function scopeActive($query)
+    /**
+     * Scope the query to active records.
+     *
+     * Important query filters: status, is_archived, published_at.
+     */
+    public function scopeActive(Builder $query): Builder
     {
         return $query
             ->where('status', self::STATUS_PUBLISHED)
@@ -91,7 +122,12 @@ class Announcement extends Model
             ->where('published_at', '<=', now());
     }
 
-    public function scopeVisibleTo($query, User $user)
+    /**
+     * Scope the query to visible to records.
+     *
+     * Important query filters: user_id, recipients relation.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         return $query->whereHas('recipients', fn ($query) => $query->where('user_id', $user->id));
     }

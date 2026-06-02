@@ -32,6 +32,9 @@ class AuditLog extends Model
         ];
     }
 
+    /**
+     * Return the metadata value for this audit log.
+     */
     protected function metadata(): Attribute
     {
         return Attribute::make(
@@ -41,6 +44,11 @@ class AuditLog extends Model
         );
     }
 
+    /**
+     * Get the actor inverse relationship for this audit log.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_user_id');

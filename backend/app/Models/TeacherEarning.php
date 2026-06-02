@@ -55,16 +55,31 @@ class TeacherEarning extends Model
         ];
     }
 
+    /**
+     * Get the teacher inverse relationship for this teacher earning.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the lesson record inverse relationship for this teacher earning.
+     *
+     * This admin/internal relationship resolves one LessonRecord model.
+     */
     public function lessonRecord(): BelongsTo
     {
         return $this->belongsTo(LessonRecord::class);
     }
 
+    /**
+     * Get the payout periods many-to-many relationship for this teacher earning.
+     *
+     * This admin/internal relationship resolves multiple PayoutPeriod models.
+     */
     public function payoutPeriods(): BelongsToMany
     {
         return $this->belongsToMany(PayoutPeriod::class, 'payout_period_teacher_earning')

@@ -57,11 +57,21 @@ class NotificationRecipient extends Model
         ];
     }
 
+    /**
+     * Get the notification inverse relationship for this notification recipient.
+     *
+     * This user-facing relationship resolves one Notification model.
+     */
     public function notification(): BelongsTo
     {
         return $this->belongsTo(Notification::class);
     }
 
+    /**
+     * Get the user inverse relationship for this notification recipient.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

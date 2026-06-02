@@ -37,11 +37,21 @@ class LearningResourceVersion extends Model
         ];
     }
 
+    /**
+     * Get the learning resource inverse relationship for this learning resource version.
+     *
+     * This admin/internal relationship resolves one LearningResource model.
+     */
     public function learningResource(): BelongsTo
     {
         return $this->belongsTo(LearningResource::class);
     }
 
+    /**
+     * Get the uploaded by inverse relationship for this learning resource version.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');

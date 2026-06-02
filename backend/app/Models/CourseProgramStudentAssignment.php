@@ -38,22 +38,41 @@ class CourseProgramStudentAssignment extends Model
         ];
     }
 
+    /**
+     * Get the course program inverse relationship for this course program student assignment.
+     *
+     * This user-facing relationship resolves one CourseProgram model.
+     */
     public function courseProgram(): BelongsTo
     {
         return $this->belongsTo(CourseProgram::class);
     }
 
+    /**
+     * Get the student inverse relationship for this course program student assignment.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the assigned by inverse relationship for this course program student assignment.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
     /**
+     * Scope the query to active records.
+     *
+     * Important query filters: status.
+     *
      * @param  Builder<CourseProgramStudentAssignment>  $query
      * @return Builder<CourseProgramStudentAssignment>
      */

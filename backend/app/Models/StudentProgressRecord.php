@@ -116,21 +116,41 @@ class StudentProgressRecord extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this student progress record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this student progress record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the created by inverse relationship for this student progress record.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this student progress record.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');

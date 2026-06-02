@@ -48,11 +48,22 @@ class CourseProgram extends Model
         });
     }
 
+    /**
+     * Get the course type inverse relationship for this course program.
+     *
+     * This user-facing relationship resolves one CourseType model.
+     */
     public function courseType(): BelongsTo
     {
         return $this->belongsTo(CourseType::class);
     }
 
+    /**
+     * Get the learning resources many-to-many relationship for this course program.
+     *
+     * This user-facing relationship resolves multiple LearningResource models.
+     * Important query filters: pivot columns attached_by, attached_at.
+     */
     public function learningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'course_program_learning_resource')
@@ -60,37 +71,71 @@ class CourseProgram extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the student assignments one-to-many relationship for this course program.
+     *
+     * This user-facing relationship resolves multiple CourseProgramStudentAssignment models.
+     */
     public function studentAssignments(): HasMany
     {
         return $this->hasMany(CourseProgramStudentAssignment::class);
     }
 
+    /**
+     * Get the invoices one-to-many relationship for this course program.
+     *
+     * This user-facing relationship resolves multiple Invoice models.
+     */
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
     }
 
+    /**
+     * Get the teacher compensation rate rules one-to-many relationship for this course program.
+     *
+     * This admin/internal relationship resolves multiple TeacherCompensationRateRule models.
+     */
     public function teacherCompensationRateRules(): HasMany
     {
         return $this->hasMany(TeacherCompensationRateRule::class);
     }
 
+    /**
+     * Get the created by inverse relationship for this course program.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this course program.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /**
+     * Get the archived by inverse relationship for this course program.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');
     }
 
     /**
+     * Scope the query to with archived records.
+     *
+     * Important query filters: notArchived global scope.
+     *
      * @param  Builder<CourseProgram>  $query
      * @return Builder<CourseProgram>
      */
@@ -100,6 +145,10 @@ class CourseProgram extends Model
     }
 
     /**
+     * Scope the query to only archived records.
+     *
+     * Important query filters: is_archived, withArchived scope.
+     *
      * @param  Builder<CourseProgram>  $query
      * @return Builder<CourseProgram>
      */
@@ -109,6 +158,10 @@ class CourseProgram extends Model
     }
 
     /**
+     * Scope the query to visible to records.
+     *
+     * Important query filters: assigned_teacher_id, student_id, studentAssignments relation, student.studentProfile relation.
+     *
      * @param  Builder<CourseProgram>  $query
      * @return Builder<CourseProgram>
      */

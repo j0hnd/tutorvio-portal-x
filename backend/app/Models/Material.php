@@ -16,6 +16,12 @@ class Material extends Model
         'url',
     ];
 
+    /**
+     * Get the students many-to-many relationship for this material.
+     *
+     * This user-facing relationship resolves multiple User models.
+     * Important query filters: pivot columns assigned_at, completed_at.
+     */
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'student_materials', 'material_id', 'student_id')
@@ -23,6 +29,11 @@ class Material extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the lesson records many-to-many relationship for this material.
+     *
+     * This user-facing relationship resolves multiple LessonRecord models.
+     */
     public function lessonRecords(): BelongsToMany
     {
         return $this->belongsToMany(LessonRecord::class, 'lesson_record_materials')

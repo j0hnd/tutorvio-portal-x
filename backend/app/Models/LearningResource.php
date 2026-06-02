@@ -86,11 +86,22 @@ class LearningResource extends Model
         ];
     }
 
+    /**
+     * Get the created by inverse relationship for this learning resource.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the assigned students many-to-many relationship for this learning resource.
+     *
+     * This user-facing relationship resolves multiple User models.
+     * Important query filters: pivot columns assigned_by, assigned_at.
+     */
     public function assignedStudents(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'learning_resource_student', 'learning_resource_id', 'student_id')
@@ -98,6 +109,12 @@ class LearningResource extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the assigned lessons many-to-many relationship for this learning resource.
+     *
+     * This user-facing relationship resolves multiple Lesson models.
+     * Important query filters: pivot columns assigned_by, assigned_at.
+     */
     public function assignedLessons(): BelongsToMany
     {
         return $this->belongsToMany(Lesson::class, 'learning_resource_lesson', 'learning_resource_id', 'lesson_id')
@@ -105,6 +122,12 @@ class LearningResource extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the assigned homeworks many-to-many relationship for this learning resource.
+     *
+     * This user-facing relationship resolves multiple Homework models.
+     * Important query filters: pivot columns assigned_by, assigned_at.
+     */
     public function assignedHomeworks(): BelongsToMany
     {
         return $this->belongsToMany(Homework::class, 'homework_learning_resource', 'learning_resource_id', 'homework_id')
@@ -112,6 +135,12 @@ class LearningResource extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the course programs many-to-many relationship for this learning resource.
+     *
+     * This user-facing relationship resolves multiple CourseProgram models.
+     * Important query filters: pivot columns attached_by, attached_at.
+     */
     public function coursePrograms(): BelongsToMany
     {
         return $this->belongsToMany(CourseProgram::class, 'course_program_learning_resource')
@@ -119,11 +148,22 @@ class LearningResource extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get the versions one-to-many relationship for this learning resource.
+     *
+     * This admin/internal relationship resolves multiple LearningResourceVersion models.
+     * Important query filters: version_number ordering.
+     */
     public function versions(): HasMany
     {
         return $this->hasMany(LearningResourceVersion::class)->orderByDesc('version_number');
     }
 
+    /**
+     * Scope the query to search records.
+     *
+     * Important query filters: title, description, resource_type, course, level, original_filename.
+     */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         $term = trim((string) $term);
@@ -145,6 +185,11 @@ class LearningResource extends Model
         });
     }
 
+    /**
+     * Scope the query to visible to records.
+     *
+     * Important query filters: visibility, assigned_teacher_id, teacher_id, student_id, assignedStudents relation, assignedLessons relation.
+     */
     public function scopeVisibleTo(Builder $query, ?User $user): Builder
     {
         if ($user?->hasRole('admin')) {
@@ -210,27 +255,42 @@ class LearningResource extends Model
         ];
     }
 
+    /**
+     * Determine whether this learning resource is external link.
+     */
     public function isExternalLink(): bool
     {
         return $this->resource_type === self::TYPE_LINK && $this->url !== null;
     }
 
+    /**
+     * Determine whether this learning resource has stored file.
+     */
     public function hasStoredFile(): bool
     {
         return $this->file_path !== null;
     }
 
+    /**
+     * Return the stored file exists value for this learning resource.
+     */
     public function storedFileExists(): bool
     {
         return $this->hasStoredFile()
             && Storage::disk($this->storageDisk())->exists($this->file_path);
     }
 
+    /**
+     * Return the storage disk value for this learning resource.
+     */
     public function storageDisk(): string
     {
         return $this->storage_disk ?: (string) config('learning_resources.disk', config('filesystems.default'));
     }
 
+    /**
+     * Return the current version number value for this learning resource.
+     */
     public function currentVersionNumber(): int
     {
         if ($this->current_version_number !== null) {

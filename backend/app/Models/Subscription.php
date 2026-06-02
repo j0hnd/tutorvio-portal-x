@@ -109,46 +109,91 @@ class Subscription extends Model
         ];
     }
 
+    /**
+     * Get the user inverse relationship for this subscription.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the student inverse relationship for this subscription.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /**
+     * Get the invoices one-to-many relationship for this subscription.
+     *
+     * This user-facing relationship resolves multiple Invoice models.
+     */
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
     }
 
+    /**
+     * Get the invoice inverse relationship for this subscription.
+     *
+     * This user-facing relationship resolves one Invoice model.
+     */
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
     }
 
+    /**
+     * Get the renewed from inverse relationship for this subscription.
+     *
+     * This user-facing relationship resolves one Subscription model.
+     */
     public function renewedFrom(): BelongsTo
     {
         return $this->belongsTo(self::class, 'renewed_from_subscription_id');
     }
 
+    /**
+     * Get the renewals one-to-many relationship for this subscription.
+     *
+     * This user-facing relationship resolves multiple Subscription models.
+     */
     public function renewals(): HasMany
     {
         return $this->hasMany(self::class, 'renewed_from_subscription_id');
     }
 
+    /**
+     * Get the histories one-to-many relationship for this subscription.
+     *
+     * This user-facing relationship resolves multiple SubscriptionHistory models.
+     */
     public function histories(): HasMany
     {
         return $this->hasMany(SubscriptionHistory::class);
     }
 
+    /**
+     * Get the created by inverse relationship for this subscription.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this subscription.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');

@@ -56,11 +56,21 @@ class ScheduleReminder extends Model
         ];
     }
 
+    /**
+     * Get the class schedule inverse relationship for this schedule reminder.
+     *
+     * This user-facing relationship resolves one ClassSchedule model.
+     */
     public function classSchedule(): BelongsTo
     {
         return $this->belongsTo(ClassSchedule::class);
     }
 
+    /**
+     * Get the user inverse relationship for this schedule reminder.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

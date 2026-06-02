@@ -41,32 +41,61 @@ class CourseType extends Model
         });
     }
 
+    /**
+     * Get the programs one-to-many relationship for this course type.
+     *
+     * This user-facing relationship resolves multiple CourseProgram models.
+     */
     public function programs(): HasMany
     {
         return $this->hasMany(CourseProgram::class);
     }
 
+    /**
+     * Get the teacher compensation rate rules one-to-many relationship for this course type.
+     *
+     * This admin/internal relationship resolves multiple TeacherCompensationRateRule models.
+     */
     public function teacherCompensationRateRules(): HasMany
     {
         return $this->hasMany(TeacherCompensationRateRule::class);
     }
 
+    /**
+     * Get the created by inverse relationship for this course type.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this course type.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /**
+     * Get the archived by inverse relationship for this course type.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');
     }
 
     /**
+     * Scope the query to with archived records.
+     *
+     * Important query filters: notArchived global scope.
+     *
      * @param  Builder<CourseType>  $query
      * @return Builder<CourseType>
      */
@@ -76,6 +105,10 @@ class CourseType extends Model
     }
 
     /**
+     * Scope the query to only archived records.
+     *
+     * Important query filters: is_archived, withArchived scope.
+     *
      * @param  Builder<CourseType>  $query
      * @return Builder<CourseType>
      */

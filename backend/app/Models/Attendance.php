@@ -16,11 +16,21 @@ class Attendance extends Model
         'status',
     ];
 
+    /**
+     * Get the lesson inverse relationship for this attendance.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the student inverse relationship for this attendance.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');

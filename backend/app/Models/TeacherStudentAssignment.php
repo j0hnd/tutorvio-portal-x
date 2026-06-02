@@ -47,22 +47,41 @@ class TeacherStudentAssignment extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this teacher student assignment.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this teacher student assignment.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the assigned by inverse relationship for this teacher student assignment.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
     /**
+     * Scope the query to active records.
+     *
+     * Important query filters: status, active_student_id.
+     *
      * @param  Builder<TeacherStudentAssignment>  $query
      * @return Builder<TeacherStudentAssignment>
      */

@@ -67,16 +67,31 @@ class Notification extends Model
         ];
     }
 
+    /**
+     * Get the sender inverse relationship for this notification.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
     }
 
+    /**
+     * Get the archived by inverse relationship for this notification.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');
     }
 
+    /**
+     * Get the recipients one-to-many relationship for this notification.
+     *
+     * This user-facing relationship resolves multiple NotificationRecipient models.
+     */
     public function recipients(): HasMany
     {
         return $this->hasMany(NotificationRecipient::class);

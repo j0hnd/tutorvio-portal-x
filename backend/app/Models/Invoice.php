@@ -64,26 +64,47 @@ class Invoice extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this invoice.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the subscription inverse relationship for this invoice.
+     *
+     * This user-facing relationship resolves one Subscription model.
+     */
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
     }
 
+    /**
+     * Get the course program inverse relationship for this invoice.
+     *
+     * This user-facing relationship resolves one CourseProgram model.
+     */
     public function courseProgram(): BelongsTo
     {
         return $this->belongsTo(CourseProgram::class);
     }
 
+    /**
+     * Determine whether this invoice is paid.
+     */
     public function isPaid(): bool
     {
         return $this->status === self::STATUS_PAID;
     }
 
+    /**
+     * Determine whether this invoice is overdue as of.
+     */
     public function isOverdueAsOf(?Carbon $asOf = null): bool
     {
         $today = ($asOf ?? Carbon::now(config('app.timezone')))->copy()->timezone(config('app.timezone'))->toDateString();
@@ -95,6 +116,10 @@ class Invoice extends Model
     }
 
     /**
+     * Scope the query to overdue as of records.
+     *
+     * Important query filters: status, paid_date, due_date.
+     *
      * @param  Builder<Invoice>  $query
      * @return Builder<Invoice>
      */

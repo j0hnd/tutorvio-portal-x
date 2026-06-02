@@ -44,12 +44,21 @@ class PortalSetting extends Model
         ];
     }
 
+    /**
+     * Get the updated by inverse relationship for this portal setting.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
     /**
+     * Scope the query to public records.
+     *
+     * Important query filters: is_public.
+     *
      * @param  Builder<PortalSetting>  $query
      * @return Builder<PortalSetting>
      */
@@ -59,6 +68,10 @@ class PortalSetting extends Model
     }
 
     /**
+     * Scope the query to internal records.
+     *
+     * Important query filters: is_public.
+     *
      * @param  Builder<PortalSetting>  $query
      * @return Builder<PortalSetting>
      */

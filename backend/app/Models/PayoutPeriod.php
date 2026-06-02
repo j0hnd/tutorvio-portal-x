@@ -60,33 +60,58 @@ class PayoutPeriod extends Model
         ];
     }
 
+    /**
+     * Get the earnings many-to-many relationship for this payout period.
+     *
+     * This admin/internal relationship resolves multiple TeacherEarning models.
+     */
     public function earnings(): BelongsToMany
     {
         return $this->belongsToMany(TeacherEarning::class, 'payout_period_teacher_earning')
             ->withTimestamps();
     }
 
+    /**
+     * Get the created by inverse relationship for this payout period.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this payout period.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /**
+     * Determine whether this payout period can refresh earnings.
+     */
     public function canRefreshEarnings(): bool
     {
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_OPEN], true);
     }
 
+    /**
+     * Determine whether this payout period is cancelled.
+     */
     public function isCancelled(): bool
     {
         return $this->status === self::STATUS_CANCELLED;
     }
 
     /**
+     * Scope the query to active records.
+     *
+     * Important query filters: status.
+     *
      * @param  Builder<PayoutPeriod>  $query
      * @return Builder<PayoutPeriod>
      */

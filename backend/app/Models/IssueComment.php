@@ -38,11 +38,21 @@ class IssueComment extends Model
         ];
     }
 
+    /**
+     * Get the issue report inverse relationship for this issue comment.
+     *
+     * This user-facing relationship resolves one IssueReport model.
+     */
     public function issueReport(): BelongsTo
     {
         return $this->belongsTo(IssueReport::class);
     }
 
+    /**
+     * Get the author inverse relationship for this issue comment.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');

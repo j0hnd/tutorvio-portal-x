@@ -26,11 +26,21 @@ class UserStatusHistory extends Model
         ];
     }
 
+    /**
+     * Get the user inverse relationship for this user status history.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the changed by inverse relationship for this user status history.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function changedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'changed_by');

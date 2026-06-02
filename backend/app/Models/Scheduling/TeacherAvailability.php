@@ -35,6 +35,11 @@ class TeacherAvailability extends Model
         ];
     }
 
+    /**
+     * Get the teacher inverse relationship for this teacher availability.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
