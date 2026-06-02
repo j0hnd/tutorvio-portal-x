@@ -191,6 +191,27 @@ class AcademicRecordApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_students_and_teachers_cannot_directly_view_archived_academic_records(): void
+    {
+        $record = $this->createAcademicRecord([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => AcademicRecord::STATUS_ARCHIVED,
+            'archived_by' => $this->admin->id,
+            'archived_at' => now(),
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/academic-records/{$record->public_id}")
+            ->assertForbidden();
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson("/api/v1/academic-records/{$record->public_id}")
+            ->assertForbidden();
+    }
+
     public function test_student_record_visibility_can_be_disabled_by_portal_setting(): void
     {
         $record = $this->createAcademicRecord([

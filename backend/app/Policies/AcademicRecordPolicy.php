@@ -18,6 +18,11 @@ class AcademicRecordPolicy
     {
         $academicRecord->loadMissing('student.studentProfile');
 
+        if ($academicRecord->status === AcademicRecord::STATUS_ARCHIVED) {
+            return $user->hasRole('admin')
+                || ($user->hasRole('staff') && $user->can('academic_records.view'));
+        }
+
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && $user->can('academic_records.view'))
             || ($user->hasRole('teacher')
