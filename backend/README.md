@@ -92,6 +92,18 @@ php artisan test --filter=BackfillPublicIdsCommandTest
 php artisan test --filter=PublicIdAuthorizationRegressionTest
 ```
 
+## Method Documentation
+
+Use method documentation to explain behavior that is not obvious from the method name or type signature:
+
+- Controllers should describe API behavior, request expectations, response shape, and access rules.
+- Services should describe business logic, important decisions, and side effects such as writes, events, notifications, or external calls.
+- Models should describe relationships, query scopes, casts, and domain-specific helpers that affect persistence or retrieval.
+- Policies should describe authorization rules, role and permission requirements, and ownership or state checks.
+- Resources should describe public-safe response fields and call out intentionally hidden internal or sensitive fields.
+- Avoid comments that simply repeat the method name or restate obvious code.
+- Keep documentation updated whenever behavior, access rules, side effects, or response fields change.
+
 ## OpenAPI And Swagger
 
 OpenAPI annotations live under `app/OpenApi` and related application classes. Generate the OpenAPI JSON with:
