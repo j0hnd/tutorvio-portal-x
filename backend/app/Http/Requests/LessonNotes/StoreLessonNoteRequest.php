@@ -8,8 +8,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
+/**
+ * Validates create lesson note requests.
+ *
+ * Expected roles: Authenticated teachers, staff, or admins allowed by lesson note routes, controller checks, or policies.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreLessonNoteRequest extends FormRequest
 {
+    /**
+     * Resolve accepted public ULID references to internal numeric IDs before integer exists rules run.
+     */
     protected function prepareForValidation(): void
     {
         $this->merge([
@@ -19,6 +28,10 @@ class StoreLessonNoteRequest extends FormRequest
     }
 
     /**
+     * Get validation rules for create lesson note requests.
+     *
+     * Important rules: conditional required rules accept aliases or require at least one meaningful content field; sometimes rules support partial updates or optional filters; exists rules require referenced records to be present; public_id exists rules expect public identifiers instead of numeric primary keys.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -39,6 +52,8 @@ class StoreLessonNoteRequest extends FormRequest
     }
 
     /**
+     * Resolve a public ULID to the internal primary key expected by the existing validation rules.
+     *
      * @param  class-string<Model>  $modelClass
      */
     private function resolvePublicId(mixed $value, string $modelClass): mixed

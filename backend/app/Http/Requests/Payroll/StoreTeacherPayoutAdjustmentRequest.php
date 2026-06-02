@@ -6,9 +6,19 @@ use App\Models\TeacherPayoutAdjustment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create teacher payout adjustment requests.
+ *
+ * Expected roles: Admin or staff users with payroll or payout-period management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreTeacherPayoutAdjustmentRequest extends FormRequest
 {
     /**
+     * Get validation rules for create teacher payout adjustment requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; required rules define the minimum payload for creation.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -24,6 +34,11 @@ class StoreTeacherPayoutAdjustmentRequest extends FormRequest
         ];
     }
 
+    /**
+     * Register after-validation checks for cross-field or database-backed constraints on create teacher payout adjustment requests.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {

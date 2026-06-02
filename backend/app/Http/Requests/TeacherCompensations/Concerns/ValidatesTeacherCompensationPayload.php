@@ -7,13 +7,25 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Validator;
 
+/**
+ * Provides validation behavior for teacher compensation alias handling and cross-field validation.
+ *
+ * Expected roles: Admin or staff users with teacher compensation management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 trait ValidatesTeacherCompensationPayload
 {
+    /**
+     * Determine whether the authenticated user can submit teacher compensation alias handling and cross-field validation. This request adds no request-local authorization beyond route middleware, controller gates, or policies.
+     */
     public function authorize(): bool
     {
         return true;
     }
 
+    /**
+     * Copy the base_rate alias into default_pay_rate when the canonical field is absent.
+     */
     protected function prepareForValidation(): void
     {
         if (! $this->has('default_pay_rate') && $this->has('base_rate')) {
@@ -21,6 +33,11 @@ trait ValidatesTeacherCompensationPayload
         }
     }
 
+    /**
+     * Register after-validation checks for teacher role, effective date order, and active compensation conflicts.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
@@ -53,6 +70,9 @@ trait ValidatesTeacherCompensationPayload
         });
     }
 
+    /**
+     * Support validation for teacher compensation alias handling and cross-field validation.
+     */
     private function teacherIdForValidation(): int
     {
         return (int) $this->input(
@@ -61,6 +81,9 @@ trait ValidatesTeacherCompensationPayload
         );
     }
 
+    /**
+     * Support validation for teacher compensation alias handling and cross-field validation.
+     */
     private function isTeacher(int $teacherId): bool
     {
         return User::query()
@@ -69,6 +92,9 @@ trait ValidatesTeacherCompensationPayload
             ->exists();
     }
 
+    /**
+     * Support validation for teacher compensation alias handling and cross-field validation.
+     */
     private function conflictsWithActiveCompensation(int $teacherId): bool
     {
         $start = $this->input('effective_start_date', $this->route('teacherCompensation')?->effective_start_date?->toDateString());

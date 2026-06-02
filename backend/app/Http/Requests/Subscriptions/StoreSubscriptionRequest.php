@@ -7,11 +7,21 @@ use App\Models\Subscription;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create subscription requests.
+ *
+ * Expected roles: Admin or staff users with the relevant subscription management permission.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreSubscriptionRequest extends FormRequest
 {
     use ValidatesSubscriptionPayload;
 
     /**
+     * Get validation rules for create subscription requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; public_id exists rules expect public identifiers instead of numeric primary keys.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

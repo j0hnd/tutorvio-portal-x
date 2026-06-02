@@ -6,14 +6,27 @@ use App\Reports\SchoolReportFilters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 
+/**
+ * Validates shared school report filters.
+ *
+ * Expected roles: Admin or staff users with school report access unless the route narrows access further.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class SchoolReportRequest extends FormRequest
 {
+    /**
+     * Normalize parseable report date filters to Y-m-d before validation.
+     */
     protected function prepareForValidation(): void
     {
         $this->merge($this->normalizedDateInput());
     }
 
     /**
+     * Get validation rules for shared school report filters.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; exists rules require referenced records to be present; date and time ordering rules keep ranges consistent; regex rules restrict filter tokens to safe identifier characters.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -30,12 +43,17 @@ class SchoolReportRequest extends FormRequest
         ];
     }
 
+    /**
+     * Build typed report filters from validated query parameters.
+     */
     public function filters(): SchoolReportFilters
     {
         return SchoolReportFilters::fromArray($this->validated());
     }
 
     /**
+     * Return normalized pagination values for school report responses.
+     *
      * @return array{page: int, per_page: int}
      */
     public function pagination(): array
@@ -49,6 +67,8 @@ class SchoolReportRequest extends FormRequest
     }
 
     /**
+     * Normalize parseable date filters without failing validation for unparseable values.
+     *
      * @return array<string, string>
      */
     private function normalizedDateInput(): array

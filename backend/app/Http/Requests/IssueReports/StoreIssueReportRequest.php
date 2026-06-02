@@ -13,8 +13,20 @@ use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create issue report requests.
+ *
+ * Expected roles: Students and teachers for scoped self-service reports; admin or staff users with issue report creation access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreIssueReportRequest extends FormRequest
 {
+    /**
+     * Determine whether the authenticated user can create an issue report.
+     *
+     * Students and teachers may create scoped self-service reports; admin or
+     * staff users must also have issue report creation access.
+     */
     public function authorize(): bool
     {
         $user = $this->user();
@@ -30,6 +42,9 @@ class StoreIssueReportRequest extends FormRequest
         return ($user->hasRole('admin') || $user->hasRole('staff')) && $user->can('issue_reports.create');
     }
 
+    /**
+     * Normalize issue type aliases and default the related student or teacher to the authenticated reporter when applicable.
+     */
     protected function prepareForValidation(): void
     {
         $issueType = $this->input('issue_type', $this->input('type'));
@@ -54,6 +69,10 @@ class StoreIssueReportRequest extends FormRequest
     }
 
     /**
+     * Get validation rules for create issue report requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; required rules define the minimum payload for creation.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -75,6 +94,11 @@ class StoreIssueReportRequest extends FormRequest
         ];
     }
 
+    /**
+     * Register after-validation checks for issue-type requirements, linked user roles, and reporter scope.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
@@ -92,6 +116,8 @@ class StoreIssueReportRequest extends FormRequest
     }
 
     /**
+     * Return the sanitized payload for create issue report requests.
+     *
      * @return array<string, mixed>
      */
     public function issuePayload(): array
@@ -106,6 +132,9 @@ class StoreIssueReportRequest extends FormRequest
         ];
     }
 
+    /**
+     * Support validation for create issue report requests.
+     */
     private function normalizeIssueType(string $issueType): string
     {
         $normalized = strtolower(trim($issueType));
@@ -118,6 +147,11 @@ class StoreIssueReportRequest extends FormRequest
         };
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for create issue report requests.
+     *
+     * @param  mixed  $validator
+     */
     private function validateTypeRequirements($validator, string $issueType): void
     {
         if (in_array($issueType, [
@@ -143,6 +177,11 @@ class StoreIssueReportRequest extends FormRequest
         }
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for create issue report requests.
+     *
+     * @param  mixed  $validator
+     */
     private function validateLinkedUserRoles($validator): void
     {
         $student = $this->filled('related_student_id')
@@ -161,6 +200,11 @@ class StoreIssueReportRequest extends FormRequest
         }
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for create issue report requests.
+     *
+     * @param  mixed  $validator
+     */
     private function validateReporterScope($validator): void
     {
         $user = $this->user();
@@ -187,6 +231,11 @@ class StoreIssueReportRequest extends FormRequest
         }
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for create issue report requests.
+     *
+     * @param  mixed  $validator
+     */
     private function validateStudentScope($validator, User $user, ?Lesson $lesson, ?ClassSchedule $classSchedule, ?int $studentId, ?int $teacherId): void
     {
         if ($studentId !== null && $studentId !== (int) $user->id) {
@@ -208,6 +257,11 @@ class StoreIssueReportRequest extends FormRequest
         $this->validateStudentCourseAndResourceScope($validator, $user);
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for create issue report requests.
+     *
+     * @param  mixed  $validator
+     */
     private function validateTeacherScope($validator, User $user, ?Lesson $lesson, ?ClassSchedule $classSchedule, ?int $studentId, ?int $teacherId): void
     {
         if ($teacherId !== null && $teacherId !== (int) $user->id) {
@@ -227,6 +281,9 @@ class StoreIssueReportRequest extends FormRequest
         }
     }
 
+    /**
+     * Support validation for create issue report requests.
+     */
     private function studentCanReferenceTeacher(User $student, int $teacherId, ?Lesson $lesson, ?ClassSchedule $classSchedule): bool
     {
         if ($lesson && (int) $lesson->teacher_id === $teacherId) {
@@ -244,6 +301,9 @@ class StoreIssueReportRequest extends FormRequest
             ->exists();
     }
 
+    /**
+     * Support validation for create issue report requests.
+     */
     private function teacherCanReferenceStudent(User $teacher, int $studentId, ?Lesson $lesson, ?ClassSchedule $classSchedule): bool
     {
         if ($lesson && (int) $lesson->student_id === $studentId) {
@@ -261,6 +321,11 @@ class StoreIssueReportRequest extends FormRequest
             ->exists();
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for create issue report requests.
+     *
+     * @param  mixed  $validator
+     */
     private function validateStudentCourseAndResourceScope($validator, User $student): void
     {
         if ($this->filled('course_program_id') && ! CourseProgram::query()->visibleTo($student)->whereKey($this->integer('course_program_id'))->exists()) {

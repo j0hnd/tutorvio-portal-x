@@ -6,9 +6,19 @@ use App\Models\AcademicRecord;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create academic record requests.
+ *
+ * Expected roles: Authenticated teachers, staff, or admins allowed by academic record routes, controller checks, or policies.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreAcademicRecordRequest extends FormRequest
 {
     /**
+     * Get validation rules for create academic record requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; required rules define the minimum payload for creation.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

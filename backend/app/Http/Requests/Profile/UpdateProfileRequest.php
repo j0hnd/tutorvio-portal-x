@@ -5,8 +5,20 @@ namespace App\Http\Requests\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates update profile requests.
+ *
+ * Expected roles: The target user, admins, staff with user update access, or assigned teachers for limited student profile updates.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateProfileRequest extends FormRequest
 {
+    /**
+     * Determine whether the authenticated user can update the target profile.
+     *
+     * Allows self updates, admins, staff with user update access, and assigned
+     * teachers for limited student profile updates.
+     */
     public function authorize(): bool
     {
         $user = $this->user();
@@ -43,6 +55,13 @@ class UpdateProfileRequest extends FormRequest
         return false;
     }
 
+    /**
+     * Get validation rules for update profile requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; prohibited rules protect fields that this role or request must not change; exists rules require referenced records to be present.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         $user = $this->user();
@@ -131,6 +150,8 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Return protected-field rules for update profile requests.
+     *
      * @return array<string, array<int, string>>
      */
     private function protectedFieldRules(): array
@@ -149,6 +170,8 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Return protected-field rules for update profile requests.
+     *
      * @return array<string, array<int, string>>
      */
     private function protectedStudentProfileRules(): array
@@ -162,6 +185,8 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Return protected-field rules for update profile requests.
+     *
      * @return array<string, array<int, string>>
      */
     private function protectedTeacherProfileRules(): array

@@ -7,11 +7,21 @@ use App\Models\TeacherCompensation;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create teacher compensation requests.
+ *
+ * Expected roles: Admin or staff users with teacher compensation management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreTeacherCompensationRequest extends FormRequest
 {
     use ValidatesTeacherCompensationPayload;
 
     /**
+     * Get validation rules for create teacher compensation requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; date and time ordering rules keep ranges consistent.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

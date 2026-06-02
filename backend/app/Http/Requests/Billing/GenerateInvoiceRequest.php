@@ -4,9 +4,19 @@ namespace App\Http\Requests\Billing;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates generate invoice requests.
+ *
+ * Expected roles: Admin or staff users with invoice creation access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class GenerateInvoiceRequest extends FormRequest
 {
     /**
+     * Get validation rules for generate invoice requests.
+     *
+     * Important rules: conditional required rules accept aliases or require at least one meaningful content field; sometimes rules support partial updates or optional filters; exists rules require referenced records to be present; public_id exists rules expect public identifiers instead of numeric primary keys.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

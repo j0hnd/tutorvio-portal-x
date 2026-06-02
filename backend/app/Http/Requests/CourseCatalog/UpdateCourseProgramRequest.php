@@ -6,13 +6,25 @@ use App\Models\CourseProgram;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates update course program requests.
+ *
+ * Expected roles: Authenticated catalog managers, typically admin or staff users allowed by controller authorization.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateCourseProgramRequest extends FormRequest
 {
+    /**
+     * Determine whether the authenticated user can submit update course program requests. This request adds no request-local authorization beyond route middleware, controller gates, or policies.
+     */
     public function authorize(): bool
     {
         return true;
     }
 
+    /**
+     * Copy the name alias into title when the canonical title field is absent.
+     */
     protected function prepareForValidation(): void
     {
         if (! $this->has('title') && $this->has('name')) {
@@ -21,6 +33,10 @@ class UpdateCourseProgramRequest extends FormRequest
     }
 
     /**
+     * Get validation rules for update course program requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; exists rules require referenced records to be present; distinct rules reject duplicate IDs in arrays; catalog uniqueness and existence checks ignore archived records.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

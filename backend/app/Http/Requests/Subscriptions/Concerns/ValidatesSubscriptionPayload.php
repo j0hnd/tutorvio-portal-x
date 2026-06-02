@@ -5,8 +5,19 @@ namespace App\Http\Requests\Subscriptions\Concerns;
 use App\Models\User;
 use Illuminate\Validation\Validator;
 
+/**
+ * Provides validation behavior for subscription payload consistency validation.
+ *
+ * Expected roles: Admin or staff users with the relevant subscription management permission.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 trait ValidatesSubscriptionPayload
 {
+    /**
+     * Register after-validation checks for subscription student role, lesson-count consistency, and date ranges.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
@@ -16,6 +27,11 @@ trait ValidatesSubscriptionPayload
         });
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for subscription payload consistency validation.
+     *
+     * @param  mixed  $validator
+     */
     private function validateStudent(Validator $validator): void
     {
         if (! $this->filled('student_id')) {
@@ -29,6 +45,11 @@ trait ValidatesSubscriptionPayload
         }
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for subscription payload consistency validation.
+     *
+     * @param  mixed  $validator
+     */
     private function validateLessonCounts(Validator $validator): void
     {
         $subscription = $this->route('subscription');
@@ -51,6 +72,11 @@ trait ValidatesSubscriptionPayload
         }
     }
 
+    /**
+     * Validate a conditional or role-scoped constraint for subscription payload consistency validation.
+     *
+     * @param  mixed  $validator
+     */
     private function validateDateRange(Validator $validator): void
     {
         $subscription = $this->route('subscription');

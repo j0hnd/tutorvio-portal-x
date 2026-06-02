@@ -6,9 +6,19 @@ use App\Models\AcademicRecord;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates update academic record requests.
+ *
+ * Expected roles: Authenticated teachers, staff, or admins allowed by academic record routes, controller checks, or policies.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateAcademicRecordRequest extends FormRequest
 {
     /**
+     * Get validation rules for update academic record requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; partial update rules validate only supplied fields unless a supplied field is explicitly required.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

@@ -7,9 +7,19 @@ use App\Models\AnnouncementTarget;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create announcement requests.
+ *
+ * Expected roles: Admin or staff users with announcement management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreAnnouncementRequest extends FormRequest
 {
     /**
+     * Get validation rules for create announcement requests.
+     *
+     * Important rules: conditional required rules accept aliases or require at least one meaningful content field; conditional required rules require companion fields for specific status values; sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
