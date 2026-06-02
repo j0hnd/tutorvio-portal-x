@@ -11,6 +11,12 @@ class TeacherUnavailableDateResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a teacher unavailable date into a public-safe scheduling response.
+     *
+     * Public fields expose unavailable timing, timezone, all-day state, reason,
+     * and loaded teacher summary using public IDs. Database primary keys should
+     * not be exposed in frontend-facing references.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

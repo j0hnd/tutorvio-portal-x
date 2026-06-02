@@ -11,6 +11,13 @@ class CourseTypeResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a course type into a public-safe catalog response.
+     *
+     * Public fields expose the course type public ID, display metadata, archive
+     * status, and optional program counts. User audit references and timestamps
+     * are admin-only or require course_programs.view. Database primary keys should
+     * not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

@@ -13,6 +13,13 @@ class CourseProgramResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a course program into a public-safe catalog response.
+     *
+     * Public fields expose catalog details, placement information, milestones,
+     * lesson structure, and loaded learning resources with public IDs. Archive,
+     * creator/updater, attachment audit metadata, and timestamps require admin
+     * access or course_programs.view. Database primary keys should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

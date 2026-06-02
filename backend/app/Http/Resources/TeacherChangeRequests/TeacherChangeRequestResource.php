@@ -11,6 +11,13 @@ class TeacherChangeRequestResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a teacher-change request into a role-aware API response.
+     *
+     * Public fields expose the request reason, preferred schedule notes, status,
+     * and loaded student/current/approved teacher summaries using public IDs.
+     * Review reason, reviewer, admin notes, and timestamps are admin-only or
+     * require teacher_change_requests.manage.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

@@ -11,6 +11,15 @@ class StaffProfileResource extends JsonResource
 {
     use SanitizesApiResponses;
 
+    /**
+     * Transform a staff profile into a public-safe profile response.
+     *
+     * The response exposes profile details and the linked user reference using
+     * public IDs. It should not expose database primary keys or private staff
+     * internals beyond the fields already selected for the API profile contract.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         return [

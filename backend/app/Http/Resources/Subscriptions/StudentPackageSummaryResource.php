@@ -9,6 +9,13 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class StudentPackageSummaryResource extends JsonResource
 {
     /**
+     * Transform a subscription into a student-facing package summary.
+     *
+     * Public fields expose package name, lesson counts, dates, renewal reminder,
+     * and student-facing status. Payment status and invoice reference are visible
+     * only to admins, permitted staff, or the owning student. Database IDs are not
+     * exposed in this summary.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

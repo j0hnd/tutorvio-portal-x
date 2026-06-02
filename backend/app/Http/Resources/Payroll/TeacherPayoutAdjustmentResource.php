@@ -17,7 +17,12 @@ class TeacherPayoutAdjustmentResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
-     * Transform the resource into an array.
+     * Transform a teacher payout adjustment into a role-aware payroll response.
+     *
+     * Teachers receive public-safe adjustment details for their own payout. Admin
+     * and staff viewers may also receive teacher names, internal notes, creator
+     * references, and creator names. Teacher and user references use public IDs
+     * instead of database primary keys.
      *
      * @return array<string, mixed>
      */

@@ -12,6 +12,16 @@ class StudentProfileResource extends JsonResource
 {
     use SanitizesApiResponses;
 
+    /**
+     * Transform a student profile into a public-safe profile response.
+     *
+     * Public fields expose student profile details, guardian/contact information
+     * already approved for the profile API, and loaded user references via public
+     * IDs. Database primary keys and private internal records should not be
+     * exposed.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         $user = $request->user();

@@ -11,6 +11,13 @@ class ScheduleChangeRequestResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a schedule-change request into a role-aware API response.
+     *
+     * Public fields expose request timing, reason, status, and loaded student,
+     * teacher, class, or lesson summaries using public IDs. Reviewer identifiers
+     * and review notes are conditional on admin or staff permission. Database
+     * primary keys should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

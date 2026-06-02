@@ -15,6 +15,14 @@ class AcademicRecordResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform an academic record into a public-safe API response.
+     *
+     * Public fields expose the record summary, public IDs for related student,
+     * teacher, course program, lesson, and class schedule references, and loaded
+     * public relation summaries. Internal remarks are controlled by the
+     * academic-record policy, while audit fields and archival metadata are
+     * admin-only. Database primary keys should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

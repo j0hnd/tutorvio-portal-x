@@ -11,6 +11,13 @@ class StudentProgressRecordResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a student progress record into a public-safe API response.
+     *
+     * Public fields expose skill progress, teacher comments, milestones, goals,
+     * status, and loaded student/teacher summaries using public IDs. Creator,
+     * updater, and timestamp audit fields are admin-only. Database primary keys
+     * should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

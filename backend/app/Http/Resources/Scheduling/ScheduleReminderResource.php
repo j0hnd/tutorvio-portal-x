@@ -12,6 +12,12 @@ class ScheduleReminderResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a schedule reminder into a role-aware API response.
+     *
+     * Public fields expose reminder timing, channel, status, and related schedule
+     * or recipient references using public IDs. Metadata is admin-only, so private
+     * reminder internals are not exposed to regular viewers.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

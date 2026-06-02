@@ -13,6 +13,13 @@ class IssueCommentResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform an issue-report comment into a public-safe API response.
+     *
+     * Public fields expose the comment public ID, body, visibility, author
+     * summary, and timestamps. Author references use public IDs. Private issue
+     * fields are not added here; visibility is governed by the parent issue-report
+     * workflow.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

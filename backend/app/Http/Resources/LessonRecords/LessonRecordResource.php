@@ -12,6 +12,13 @@ class LessonRecordResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a lesson record into a public-safe API response.
+     *
+     * Public fields expose scheduling, attendance, lesson status, completion,
+     * material, subscription-balance, and loaded relationship summaries using
+     * public IDs. Internal database IDs should be translated to public IDs before
+     * leaving the API boundary.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

@@ -12,6 +12,12 @@ class FormTemplateResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a form template into a public-safe API response.
+     *
+     * Public fields expose template identity, display labels, status, version,
+     * schema, fields, and instructions using the template public ID. Creator,
+     * updater, and timestamp fields are admin-only or require form_templates.view.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

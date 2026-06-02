@@ -12,6 +12,13 @@ class HomeworkResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform homework into a public-safe API response.
+     *
+     * Public fields expose assignment instructions, status, feedback, attachments,
+     * and loaded lesson/student/teacher summaries using public IDs. Created and
+     * updated timestamps are admin-only. Database primary keys should not be
+     * exposed in frontend-facing references.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

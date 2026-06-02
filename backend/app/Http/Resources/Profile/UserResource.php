@@ -10,6 +10,15 @@ class UserResource extends JsonResource
 {
     use SanitizesApiResponses;
 
+    /**
+     * Transform a user into a public-safe profile response.
+     *
+     * The response exposes the user public ID, identity, role/status information,
+     * and loaded role/permission names needed by the frontend. Database primary
+     * keys and private authentication internals should not be exposed.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         $user = $request->user();

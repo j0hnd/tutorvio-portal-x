@@ -11,6 +11,13 @@ class SubscriptionResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a subscription into a public-safe API response.
+     *
+     * Public fields expose package status, lesson counts, payment state, renewal
+     * timing, invoice and renewed-from references using public IDs, and loaded
+     * student summary. Renewal window keys, renewal notes, internal notes, and
+     * creator/updater references are admin-only or permission-dependent.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
