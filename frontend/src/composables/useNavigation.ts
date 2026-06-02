@@ -56,6 +56,12 @@ const ALL_NAV: NavItem[] = [
     roles: ['ADMIN', 'STAFF'],
   },
   {
+    path: '/courses',
+    label: 'Courses',
+    icon: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 4h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.4"/><path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10 4V2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    roles: ['STUDENT', 'TEACHER', 'ADMIN', 'STAFF'],
+  },
+  {
     path: '/materials',
     label: 'Materials',
     icon: ICONS.materials,
