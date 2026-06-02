@@ -6,7 +6,20 @@ use OpenApi\Attributes as OA;
 
 #[OA\Tag(
     name: 'Learning',
-    description: 'Student learning path, course program, homework, and progress APIs. All endpoints require Sanctum bearer authentication. Access rules: admins have full access; staff users need the documented permission; teachers are scoped to students assigned to them; students are scoped to their own active course programs, homework, and progress. Student-facing responses omit internal audit and administrative fields unless the authenticated user can view those fields.'
+    description: 'Student learning path, course program, academic record, homework, and progress APIs. All endpoints require Sanctum bearer authentication. Access rules: admins have full access; staff users need the documented permission; teachers are scoped to students assigned to them; students are scoped to their own active course programs, academic records, homework, and progress. Student-facing responses omit internal audit and administrative fields unless the authenticated user can view those fields.'
+)]
+#[OA\Schema(
+    schema: 'LearningAcademicRecordStatus',
+    description: 'Academic record lifecycle status. Archived records are hidden from student and teacher direct access; admins and staff with `academic_records.view` can inspect them.',
+    type: 'string',
+    enum: ['active', 'archived', 'void'],
+    example: 'active'
+)]
+#[OA\Schema(
+    schema: 'LearningAcademicRecordType',
+    type: 'string',
+    enum: ['progress', 'attendance', 'assessment', 'note', 'certificate', 'placement', 'homework'],
+    example: 'progress'
 )]
 #[OA\Schema(
     schema: 'LearningHomeworkStatus',
@@ -228,6 +241,159 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'recorded_at', type: 'string', format: 'date-time', example: '2026-06-01T09:00:00Z'),
     ],
     type: 'object'
+)]
+#[OA\Schema(
+    schema: 'LearningAcademicRecord',
+    description: 'Academic record returned to clients. Student and teacher responses omit internal notes and administrative audit fields. Archived records are only visible to admins and staff with `academic_records.view`.',
+    required: ['id', 'record_type', 'title', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'acr_01J0ACADEMIC0000000001'),
+        new OA\Property(property: 'student_id', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', nullable: true, type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'course_program_id', nullable: true, type: 'string', example: 'crs_01J0BUSINESS000000000001'),
+        new OA\Property(property: 'lesson_id', nullable: true, type: 'string', example: 'les_01J0LESSON000000000000001'),
+        new OA\Property(property: 'class_schedule_id', nullable: true, type: 'string', example: 'cls_01J0CLASS0000000000000001'),
+        new OA\Property(property: 'record_type', ref: '#/components/schemas/LearningAcademicRecordType'),
+        new OA\Property(property: 'title', type: 'string', example: 'Academic progress summary'),
+        new OA\Property(property: 'description', nullable: true, type: 'string', example: 'Monthly progress review.'),
+        new OA\Property(property: 'status', ref: '#/components/schemas/LearningAcademicRecordStatus'),
+        new OA\Property(property: 'recorded_on', nullable: true, type: 'string', format: 'date', example: '2026-06-15'),
+        new OA\Property(property: 'student_level', nullable: true, type: 'string', example: 'B1'),
+        new OA\Property(property: 'placement_result', nullable: true, type: 'string', example: 'Placed into intermediate conversation program.'),
+        new OA\Property(property: 'course_program_history', type: 'array', items: new OA\Items(type: 'object'), example: [['program' => 'General English', 'status' => 'completed']]),
+        new OA\Property(property: 'attendance_summary', type: 'object', example: ['completed' => 12, 'missed' => 1]),
+        new OA\Property(property: 'progress_summary', nullable: true, type: 'string', example: 'Improving fluency.'),
+        new OA\Property(property: 'teacher_remarks', description: 'Internal/admin field.', nullable: true, type: 'string', example: 'Ready for guided debates.'),
+        new OA\Property(property: 'certificates', type: 'array', items: new OA\Items(type: 'object'), example: [['name' => 'B1 Completion', 'issued_on' => '2026-06-15']]),
+        new OA\Property(property: 'completion_notes', nullable: true, type: 'string', example: 'Completed first course cycle.'),
+        new OA\Property(property: 'internal_notes', description: 'Internal/admin field.', nullable: true, type: 'string', example: 'Internal billing-related note.'),
+        new OA\Property(property: 'data', type: 'object', example: ['student_level' => 'B1', 'progress_summary' => 'Improving fluency.']),
+        new OA\Property(property: 'student', ref: '#/components/schemas/LearningUserSummary'),
+        new OA\Property(property: 'teacher', ref: '#/components/schemas/LearningUserSummary'),
+        new OA\Property(property: 'course_program', ref: '#/components/schemas/LearningCourseProgram'),
+        new OA\Property(property: 'recorded_by', description: 'Internal/admin field.', nullable: true, type: 'string', example: 'usr_01J0ADMIN000000000000001'),
+        new OA\Property(property: 'approved_by', description: 'Internal/admin field.', nullable: true, type: 'string', example: null),
+        new OA\Property(property: 'approved_at', description: 'Internal/admin field.', nullable: true, type: 'string', format: 'date-time', example: null),
+        new OA\Property(property: 'archived_by', description: 'Internal/admin field.', nullable: true, type: 'string', example: null),
+        new OA\Property(property: 'archived_at', description: 'Internal/admin field.', nullable: true, type: 'string', format: 'date-time', example: null),
+        new OA\Property(property: 'created_at', description: 'Internal/admin field.', type: 'string', format: 'date-time', example: '2026-06-01T09:00:00Z'),
+        new OA\Property(property: 'updated_at', description: 'Internal/admin field.', type: 'string', format: 'date-time', example: '2026-06-01T09:30:00Z'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'LearningAcademicRecordRequest',
+    required: ['student_id', 'record_type', 'title'],
+    properties: [
+        new OA\Property(property: 'student_id', description: 'Internal numeric student user ID.', type: 'integer', example: 23),
+        new OA\Property(property: 'teacher_id', description: 'Internal numeric teacher user ID.', nullable: true, type: 'integer', example: 17),
+        new OA\Property(property: 'course_program_id', nullable: true, type: 'integer', example: 3),
+        new OA\Property(property: 'lesson_id', nullable: true, type: 'integer', example: 501),
+        new OA\Property(property: 'class_schedule_id', nullable: true, type: 'integer', example: 701),
+        new OA\Property(property: 'record_type', ref: '#/components/schemas/LearningAcademicRecordType'),
+        new OA\Property(property: 'title', type: 'string', maxLength: 255, example: 'Academic progress summary'),
+        new OA\Property(property: 'description', nullable: true, type: 'string', maxLength: 10000, example: 'Monthly progress review.'),
+        new OA\Property(property: 'status', ref: '#/components/schemas/LearningAcademicRecordStatus'),
+        new OA\Property(property: 'recorded_on', nullable: true, type: 'string', format: 'date', example: '2026-06-15'),
+        new OA\Property(property: 'data', nullable: true, type: 'object', example: ['student_level' => 'B1']),
+        new OA\Property(property: 'student_level', nullable: true, type: 'string', maxLength: 255, example: 'B1'),
+        new OA\Property(property: 'placement_result', nullable: true, type: 'string', maxLength: 5000, example: 'Placed into intermediate conversation program.'),
+        new OA\Property(property: 'course_program_history', nullable: true, type: 'array', items: new OA\Items(type: 'object'), example: [['program' => 'General English', 'status' => 'completed']]),
+        new OA\Property(property: 'attendance_summary', nullable: true, type: 'object', example: ['completed' => 12, 'missed' => 1]),
+        new OA\Property(property: 'progress_summary', nullable: true, type: 'string', maxLength: 10000, example: 'Strong speaking progress.'),
+        new OA\Property(property: 'teacher_remarks', nullable: true, type: 'string', maxLength: 10000, example: 'Ready for guided debates.'),
+        new OA\Property(property: 'certificates', nullable: true, type: 'array', items: new OA\Items(type: 'object'), example: [['name' => 'B1 Completion', 'issued_on' => '2026-06-15']]),
+        new OA\Property(property: 'completion_notes', nullable: true, type: 'string', maxLength: 10000, example: 'Completed first course cycle.'),
+        new OA\Property(property: 'internal_notes', nullable: true, type: 'string', maxLength: 10000, example: 'Internal note.'),
+        new OA\Property(property: 'approved_by', nullable: true, type: 'integer', example: null),
+        new OA\Property(property: 'approved_at', nullable: true, type: 'string', format: 'date-time', example: null),
+    ],
+    type: 'object'
+)]
+#[OA\Get(
+    path: '/academic-records',
+    operationId: 'learningAcademicRecordList',
+    summary: 'List academic records',
+    description: 'Access: admin, student, teacher with `academic_records.view`, or staff with `academic_records.view`. Visibility defaults to active records only. Students see only their own active records when student academic record visibility is enabled; teachers see active records for assigned students; admins/permitted staff can filter by status, including archived.',
+    security: [['sanctum' => []]],
+    tags: ['Learning'],
+    parameters: [
+        new OA\Parameter(name: 'student_id', in: 'query', description: 'Internal numeric student user ID.', schema: new OA\Schema(type: 'integer'), example: 23),
+        new OA\Parameter(name: 'teacher_id', in: 'query', description: 'Internal numeric teacher user ID.', schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'course_program_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 3),
+        new OA\Parameter(name: 'lesson_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 501),
+        new OA\Parameter(name: 'class_schedule_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 701),
+        new OA\Parameter(name: 'record_type', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/LearningAcademicRecordType'), example: 'progress'),
+        new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/LearningAcademicRecordStatus'), example: 'active'),
+        new OA\Parameter(name: 'date_from', in: 'query', schema: new OA\Schema(type: 'string', format: 'date'), example: '2026-06-01'),
+        new OA\Parameter(name: 'date_to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date'), example: '2026-06-30'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated academic records.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'acr_01J0ACADEMIC0000000001', 'record_type' => 'progress', 'title' => 'Academic progress summary', 'status' => 'active', 'recorded_on' => '2026-06-15', 'progress_summary' => 'Improving fluency.']], 'meta' => ['current_page' => 1, 'per_page' => 25, 'total' => 1]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Post(
+    path: '/academic-records',
+    operationId: 'learningAcademicRecordCreate',
+    summary: 'Create academic record',
+    description: 'Access: admin or staff with `academic_records.manage`. Linked student, teacher, lesson, and class schedule IDs are validated for matching roles and ownership.',
+    security: [['sanctum' => []]],
+    tags: ['Learning'],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LearningAcademicRecordRequest')),
+    responses: [
+        new OA\Response(response: 201, description: 'Academic record created.', content: new OA\JsonContent(type: 'object', properties: [new OA\Property(property: 'data', ref: '#/components/schemas/LearningAcademicRecord')])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Get(
+    path: '/academic-records/{academicRecord}',
+    operationId: 'learningAcademicRecordShow',
+    summary: 'Show academic record',
+    description: 'Access: admin, staff with `academic_records.view`, the student owner, or the assigned teacher. Archived records return 403 for students and teachers even when they own or are assigned to the record; admins and permitted staff can view archived records directly.',
+    security: [['sanctum' => []]],
+    tags: ['Learning'],
+    parameters: [new OA\Parameter(name: 'academicRecord', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'acr_01J0ACADEMIC0000000001')],
+    responses: [
+        new OA\Response(response: 200, description: 'Academic record detail.', content: new OA\JsonContent(type: 'object', properties: [new OA\Property(property: 'data', ref: '#/components/schemas/LearningAcademicRecord')])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Patch(
+    path: '/academic-records/{academicRecord}',
+    operationId: 'learningAcademicRecordUpdate',
+    summary: 'Update academic record',
+    description: 'Access: admin or staff with `academic_records.manage`. Send only changed fields. Linked entity IDs are validated against the selected student and teacher.',
+    security: [['sanctum' => []]],
+    tags: ['Learning'],
+    parameters: [new OA\Parameter(name: 'academicRecord', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'acr_01J0ACADEMIC0000000001')],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LearningAcademicRecordRequest', example: ['title' => 'Updated academic summary', 'progress_summary' => 'Confident in longer speaking tasks.'])),
+    responses: [
+        new OA\Response(response: 200, description: 'Academic record updated.', content: new OA\JsonContent(type: 'object', properties: [new OA\Property(property: 'data', ref: '#/components/schemas/LearningAcademicRecord')])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Post(
+    path: '/academic-records/{academicRecord}/archive',
+    operationId: 'learningAcademicRecordArchive',
+    summary: 'Archive academic record',
+    description: 'Access: admin or staff with `academic_records.manage`. Sets `status=archived`, records `archived_by` and `archived_at`, and hides the record from student and teacher direct access.',
+    security: [['sanctum' => []]],
+    tags: ['Learning'],
+    parameters: [new OA\Parameter(name: 'academicRecord', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'acr_01J0ACADEMIC0000000001')],
+    responses: [
+        new OA\Response(response: 200, description: 'Academic record archived.', content: new OA\JsonContent(type: 'object', properties: [new OA\Property(property: 'data', ref: '#/components/schemas/LearningAcademicRecord')])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
 )]
 #[OA\Get(
     path: '/course-programs',
