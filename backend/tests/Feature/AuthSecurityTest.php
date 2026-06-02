@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Carbon\Carbon;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -33,6 +34,17 @@ class AuthSecurityTest extends TestCase
             ->assertJson([
                 'message' => 'Invalid credentials.',
             ]);
+
+        $auditLog = AuditLog::query()->where('action_type', 'auth.login_failed')->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertNull($auditLog->actor_user_id);
+        $this->assertNull($auditLog->target_entity_id);
+        $this->assertSame('invalid_credentials', $auditLog->metadata['failure_reason']);
+        $this->assertFalse($auditLog->metadata['account_found']);
+        $this->assertArrayHasKey('login_identifier_fingerprint', $auditLog->metadata);
+        $this->assertNotSame('missing-user@example.com', $auditLog->metadata['login_identifier_fingerprint']);
+        $this->assertSame(0, AuditLog::query()->whereJsonContains('metadata', ['password' => 'wrong-password'])->count());
     }
 
     public function test_non_active_user_cannot_log_in(): void
@@ -52,6 +64,14 @@ class AuthSecurityTest extends TestCase
             ->assertJson([
                 'message' => 'Invalid credentials.',
             ]);
+
+        $auditLog = AuditLog::query()->where('action_type', 'auth.login_failed')->first();
+
+        $this->assertNotNull($auditLog);
+        $this->assertNull($auditLog->actor_user_id);
+        $this->assertSame($user->id, $auditLog->target_entity_id);
+        $this->assertSame('inactive_user', $auditLog->metadata['failure_reason']);
+        $this->assertTrue($auditLog->metadata['account_found']);
     }
 
     public function test_successful_login_returns_token_without_internal_fields_and_sets_expiration(): void

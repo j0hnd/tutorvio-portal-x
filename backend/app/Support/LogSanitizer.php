@@ -20,6 +20,8 @@ class LogSanitizer
         'remember',
         'cookie',
         'signature',
+        'reset_link',
+        'reset_url',
         'signed_document',
         'signed_url',
         'private_url',
@@ -30,6 +32,9 @@ class LogSanitizer
         'private_note',
         'student_note',
         'payment_metadata',
+        'payment_reference',
+        'invoice_reference',
+        'billing_reference',
         'payment_method',
         'payment_intent',
         'checkout_session',
@@ -38,6 +43,17 @@ class LogSanitizer
         'card',
         'cvv',
         'cvc',
+        'phone',
+        'date_of_birth',
+        'dob',
+        'ssn',
+        'social_security',
+        'national_id',
+        'government_id',
+        'street_address',
+        'mailing_address',
+        'home_address',
+        'billing_address',
     ];
 
     /**
@@ -116,6 +132,12 @@ class LogSanitizer
             $sanitized
         ) ?? $sanitized;
 
+        $sanitized = preg_replace(
+            '/\b(payment[_ -]?reference|invoice[_ -]?reference|billing[_ -]?reference)\b\s*(?:[:=]\s*)?[A-Za-z0-9\-._~+\/:]+=*/i',
+            '$1 '.self::REDACTED_VALUE,
+            $sanitized
+        ) ?? $sanitized;
+
         $sanitized = preg_replace_callback(
             '#https?://[^\s<>"\']+#i',
             fn (array $matches): string => self::sanitizeUrl($matches[0]),
@@ -188,7 +210,7 @@ class LogSanitizer
 
         $path = strtolower((string) ($parts['path'] ?? ''));
 
-        if (str_contains($path, '/private/') || str_contains($path, '/protected/') || str_contains($path, '/storage/private/')) {
+        if (self::pathContainsSensitiveData($path)) {
             return self::REDACTED_VALUE;
         }
 
@@ -214,10 +236,18 @@ class LogSanitizer
 
         $path = strtolower((string) ($parts['path'] ?? ''));
 
+        return self::pathContainsSensitiveData($path)
+            || (isset($parts['query']) && self::queryContainsSensitiveData($parts['query']));
+    }
+
+    private static function pathContainsSensitiveData(string $path): bool
+    {
         return str_contains($path, '/private/')
             || str_contains($path, '/protected/')
             || str_contains($path, '/storage/private/')
-            || (isset($parts['query']) && self::queryContainsSensitiveData($parts['query']));
+            || str_contains($path, '/reset-password/')
+            || str_contains($path, '/password-reset/')
+            || str_contains($path, '/accept-invitation/');
     }
 
     private static function queryContainsSensitiveData(string $query): bool

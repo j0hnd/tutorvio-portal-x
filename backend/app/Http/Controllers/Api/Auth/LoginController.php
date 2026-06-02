@@ -20,6 +20,7 @@ class LoginController extends Controller
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'max:255'],
         ]);
+        $loginIdentifierFingerprint = hash('sha256', mb_strtolower($credentials['email']));
 
         if (Auth::attempt($credentials)) {
             /** @var User $user */
@@ -27,6 +28,7 @@ class LoginController extends Controller
 
             if ($user->status !== User::STATUS_ACTIVE) {
                 Auth::logout();
+                $this->logFailedLogin($request, $user, 'inactive_user', $loginIdentifierFingerprint);
 
                 return response()->json([
                     'message' => 'Invalid credentials.',
@@ -58,6 +60,11 @@ class LoginController extends Controller
                 'expires_at' => $expiresAt->toIso8601String(),
             ]);
         }
+
+        $attemptedUser = User::query()
+            ->where('email', $credentials['email'])
+            ->first(['id']);
+        $this->logFailedLogin($request, $attemptedUser, 'invalid_credentials', $loginIdentifierFingerprint);
 
         return response()->json([
             'message' => 'Invalid credentials.',
@@ -91,5 +98,25 @@ class LoginController extends Controller
         return response()->json([
             'message' => 'Logged out',
         ]);
+    }
+
+    private function logFailedLogin(Request $request, ?User $user, string $failureReason, string $loginIdentifierFingerprint): void
+    {
+        $this->auditLogService->record(
+            actorUserId: null,
+            actionType: AuditActionType::AUTH_LOGIN_FAILED,
+            module: AuditModule::AUTH,
+            targetEntityType: 'user',
+            targetEntityId: $user?->id,
+            metadata: [
+                'failure_reason' => $failureReason,
+                'account_found' => $user !== null,
+                'login_identifier_fingerprint' => $loginIdentifierFingerprint,
+            ],
+            requestContext: [
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ],
+        );
     }
 }

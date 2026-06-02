@@ -5,6 +5,7 @@ namespace App\Enums;
 enum AuditActionType: string
 {
     case AUTH_LOGIN = 'auth.login';
+    case AUTH_LOGIN_FAILED = 'auth.login_failed';
     case AUTH_LOGOUT = 'auth.logout';
     case LESSON_CREATED = 'lesson.created';
     case LESSON_UPDATED = 'lesson.updated';

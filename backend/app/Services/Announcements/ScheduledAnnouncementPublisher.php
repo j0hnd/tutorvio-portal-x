@@ -59,7 +59,7 @@ class ScheduledAnnouncementPublisher
 
                     Log::error('Scheduled announcement publication failed.', [
                         'announcement_id' => $announcementId,
-                        'error' => $exception->getMessage(),
+                        'failure_type' => $exception::class,
                     ]);
                 }
             });
