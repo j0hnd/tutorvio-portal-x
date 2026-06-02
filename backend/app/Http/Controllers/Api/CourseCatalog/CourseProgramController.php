@@ -34,9 +34,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -77,9 +74,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreCourseProgramRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreCourseProgramRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreCourseProgramRequest $request): JsonResponse
     {
@@ -108,10 +102,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function show(Request $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -129,10 +119,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * The UpdateCourseProgramRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  UpdateCourseProgramRequest  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function update(UpdateCourseProgramRequest $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -169,10 +155,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function attachLearningResources(Request $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -204,11 +186,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram, $learningResource.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @param  LearningResource  $learningResource
-     * @return JsonResponse
      */
     public function detachLearningResource(Request $request, CourseProgram $courseProgram, LearningResource $learningResource): JsonResponse
     {
@@ -230,10 +207,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function archive(Request $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -258,10 +231,6 @@ class CourseProgramController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON confirmation after deletion.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function destroy(Request $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -272,11 +241,6 @@ class CourseProgramController extends Controller
 
     /**
      * @param  array<int, int>  $resourceIds
-     *
-     * @param  CourseProgram  $program
-     * @param  array  $resourceIds
-     * @param  int  $userId
-     * @return void
      */
     private function syncLearningResources(CourseProgram $program, array $resourceIds, int $userId): void
     {
@@ -288,8 +252,6 @@ class CourseProgramController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
      */
     private function relations(Request $request): array
     {
@@ -305,9 +267,6 @@ class CourseProgramController extends Controller
     /**
      * @param  array<int, int>  $resourceIds
      * @return array<int, int>
-     *
-     * @param  array  $resourceIds
-     * @param  Request  $request
      */
     private function accessibleLearningResourceIds(array $resourceIds, Request $request): array
     {
@@ -339,10 +298,6 @@ class CourseProgramController extends Controller
      * Route model parameters include $query, $term.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Builder  $query
-     * @param  string  $term
-     * @return Builder
      */
     private function search(Builder $query, string $term): Builder
     {
@@ -356,15 +311,11 @@ class CourseProgramController extends Controller
     }
 
     /**
-     * Handle the can view archived action for course program records.
+     * Determine whether archived course programs can be included.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return bool
+     * Admins can include archived programs. Staff need
+     * `course_programs.view`. Teachers and students are denied archived
+     * visibility even when active programs are visible to them.
      */
     private function canViewArchived(Request $request): bool
     {
@@ -381,10 +332,6 @@ class CourseProgramController extends Controller
      * Route model parameters include $title, $ignore.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  string  $title
-     * @param  ?CourseProgram  $ignore
-     * @return string
      */
     private function uniqueSlug(string $title, ?CourseProgram $ignore = null): string
     {

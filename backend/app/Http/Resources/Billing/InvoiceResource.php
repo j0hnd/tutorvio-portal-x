@@ -59,6 +59,13 @@ class InvoiceResource extends JsonResource
         return $data;
     }
 
+    /**
+     * Determine whether invoice payment details can be serialized.
+     *
+     * Admins can view payment details. Staff need either `invoices.view` or
+     * `invoices.update`. Teachers, students, guests, and staff without those
+     * permissions are denied.
+     */
     private function canViewPaymentDetails(Request $request): bool
     {
         $user = $request->user();

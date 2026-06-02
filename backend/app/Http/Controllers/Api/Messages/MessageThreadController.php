@@ -24,9 +24,6 @@ class MessageThreadController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -65,9 +62,6 @@ class MessageThreadController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -134,10 +128,6 @@ class MessageThreadController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $messageThread.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  MessageThread  $messageThread
-     * @return JsonResponse
      */
     public function messages(Request $request, MessageThread $messageThread): JsonResponse
     {
@@ -167,10 +157,6 @@ class MessageThreadController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $messageThread.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  MessageThread  $messageThread
-     * @return JsonResponse
      */
     public function send(Request $request, MessageThread $messageThread): JsonResponse
     {
@@ -218,10 +204,6 @@ class MessageThreadController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $messageThread.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  MessageThread  $messageThread
-     * @return JsonResponse
      */
     public function markRead(Request $request, MessageThread $messageThread): JsonResponse
     {
@@ -249,9 +231,6 @@ class MessageThreadController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function unreadCount(Request $request): JsonResponse
     {
@@ -283,8 +262,6 @@ class MessageThreadController extends Controller
 
     /**
      * @return Builder<MessageThread>
-     *
-     * @param  User  $user
      */
     private function visibleThreadsFor(User $user): Builder
     {
@@ -310,10 +287,6 @@ class MessageThreadController extends Controller
      * Route model parameters include $user, $thread.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @param  MessageThread  $thread
-     * @return MessageThread
      */
     private function visibleThreadFor(User $user, MessageThread $thread): MessageThread
     {
@@ -326,9 +299,6 @@ class MessageThreadController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      * @return array{0: User, 1: User}
-     *
-     * @param  User  $actor
-     * @param  array  $payload
      */
     private function resolveThreadUsers(User $actor, array $payload): array
     {
@@ -361,17 +331,12 @@ class MessageThreadController extends Controller
     }
 
     /**
-     * Handle the assert can create thread action for message thread records.
+     * Authorize creating a message thread between a student and teacher.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $actor, $student, $teacher.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  User  $student
-     * @param  User  $teacher
-     * @return void
+     * The actor must have message access. Students can create threads only
+     * with their assigned teacher. Teachers can create threads only with
+     * assigned students. Admins and users with `messages.manage` can create
+     * managed threads. Invalid student/teacher roles fail validation.
      */
     private function assertCanCreateThread(User $actor, User $student, User $teacher): void
     {
@@ -417,16 +382,11 @@ class MessageThreadController extends Controller
     }
 
     /**
-     * Handle the assert can send message action for message thread records.
+     * Authorize sending a message in a thread.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $actor, $thread.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  MessageThread  $thread
-     * @return void
+     * The actor must have message access. Closed threads deny sends. Admins
+     * and users with `messages.manage` can send in any active thread; other
+     * users must already be thread participants.
      */
     private function assertCanSendMessage(User $actor, MessageThread $thread): void
     {
@@ -448,15 +408,10 @@ class MessageThreadController extends Controller
     }
 
     /**
-     * Handle the can manage threads action for message thread records.
+     * Determine whether the user can manage message threads globally.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return bool
+     * Admins can manage all threads. Non-admin users need `messages.manage`.
+     * Users without that Spatie permission are limited to participant access.
      */
     private function canManageThreads(User $user): bool
     {
@@ -464,15 +419,10 @@ class MessageThreadController extends Controller
     }
 
     /**
-     * Handle the can access messages action for message thread records.
+     * Determine whether the user has message access.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return bool
+     * Admins are allowed. Non-admin users need either `messages.view` or
+     * `messages.manage`. Users without both permissions are denied.
      */
     private function canAccessMessages(User $user): bool
     {
@@ -480,15 +430,10 @@ class MessageThreadController extends Controller
     }
 
     /**
-     * Handle the assert can access messages action for message thread records.
+     * Abort unless the user has message access.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return void
+     * Admins are allowed. Non-admin users need `messages.view` or
+     * `messages.manage`; otherwise the request is denied with 403.
      */
     private function assertCanAccessMessages(User $user): void
     {
@@ -498,15 +443,11 @@ class MessageThreadController extends Controller
     }
 
     /**
-     * Handle the can view all threads action for message thread records.
+     * Determine whether the user can view all message threads.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return bool
+     * Admins can view all threads. Staff need `messages.view` or
+     * `messages.manage`. Teachers and students are limited to participant
+     * threads even when they have general message access.
      */
     private function canViewAllThreads(User $user): bool
     {
@@ -521,12 +462,6 @@ class MessageThreadController extends Controller
      * Route model parameters include $thread, $user, $role, $lastReadAt.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  MessageThread  $thread
-     * @param  User  $user
-     * @param  string  $role
-     * @param  mixed  $lastReadAt
-     * @return void
      */
     private function syncParticipant(MessageThread $thread, User $user, string $role, mixed $lastReadAt): void
     {

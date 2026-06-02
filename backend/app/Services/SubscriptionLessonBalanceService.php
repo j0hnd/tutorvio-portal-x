@@ -181,6 +181,13 @@ class SubscriptionLessonBalanceService
             ->first();
     }
 
+    /**
+     * Validate whether lesson balance can be consumed from a subscription.
+     *
+     * Consumption is denied when the package is not active, is frozen, has
+     * already consumed all lessons, or has no remaining lessons. Role and
+     * Spatie permission authorization is handled before this domain guard.
+     */
     private function assertCanConsume(Subscription $subscription): void
     {
         if ($subscription->status !== Subscription::STATUS_ACTIVE || $subscription->is_frozen) {

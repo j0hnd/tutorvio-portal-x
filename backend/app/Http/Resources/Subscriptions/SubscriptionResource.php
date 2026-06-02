@@ -52,6 +52,12 @@ class SubscriptionResource extends JsonResource
         ];
     }
 
+    /**
+     * Determine whether subscription admin fields can be serialized.
+     *
+     * Admins can view admin fields. Staff need `subscriptions.view`.
+     * Teachers, students, guests, and staff without permission are denied.
+     */
     private function canViewAdminFields(Request $request): bool
     {
         $user = $request->user();

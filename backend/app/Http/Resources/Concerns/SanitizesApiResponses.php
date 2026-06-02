@@ -8,6 +8,13 @@ use Illuminate\Http\Request;
 
 trait SanitizesApiResponses
 {
+    /**
+     * Determine whether admin-only response fields can be included.
+     *
+     * Admins can view all admin fields. Staff can view them only when no
+     * permission is required or when they have the supplied Spatie permission.
+     * Teachers, students, guests, and staff missing the permission are denied.
+     */
     protected function canViewAdminFields(Request $request, ?string $permission = null): bool
     {
         $user = $request->user();

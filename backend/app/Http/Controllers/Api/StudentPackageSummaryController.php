@@ -17,8 +17,6 @@ class StudentPackageSummaryController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  SubscriptionRenewalReminderService  $renewalReminders
      */
     public function __construct(private readonly SubscriptionRenewalReminderService $renewalReminders) {}
 
@@ -29,10 +27,6 @@ class StudentPackageSummaryController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
      * The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $student
-     * @return JsonResponse
      */
     public function __invoke(Request $request, User $student): JsonResponse
     {
@@ -57,16 +51,11 @@ class StudentPackageSummaryController extends Controller
     }
 
     /**
-     * Handle the can view package summary action for student package summary records.
+     * Determine whether the user can view a student's package summary.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user, $student.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @param  User  $student
-     * @return bool
+     * Admins can view any summary. Staff need `subscriptions.view`. Students
+     * can view only their own summary. Teachers can view summaries only for
+     * students assigned to them. Other users are denied.
      */
     private function canViewPackageSummary(User $user, User $student): bool
     {

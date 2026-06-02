@@ -150,12 +150,26 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(TeacherChangeRequest::class, TeacherChangeRequestPolicy::class);
         Gate::policy(PayoutPeriod::class, PayoutPeriodPolicy::class);
 
+        /**
+         * Authorize viewing the teacher workload report index.
+         *
+         * Admins and teachers are allowed. Staff must have either
+         * `teacher_workloads.view` or `school_reports.view`. Students and staff
+         * without those Spatie permissions are denied.
+         */
         Gate::define('viewTeacherWorkloads', function (User $user): bool {
             return $user->hasRole('admin')
                 || ($user->hasRole('staff') && ($user->can('teacher_workloads.view') || $user->can('school_reports.view')))
                 || $user->hasRole('teacher');
         });
 
+        /**
+         * Authorize viewing a single teacher workload.
+         *
+         * Admins can view any teacher. Staff need `teacher_workloads.view`.
+         * Teachers can view only their own workload. Other teachers, students,
+         * and staff without permission are denied.
+         */
         Gate::define('viewTeacherWorkload', function (User $user, User $teacher): bool {
             return $user->hasRole('admin')
                 || ($user->hasRole('staff') && $user->can('teacher_workloads.view'))

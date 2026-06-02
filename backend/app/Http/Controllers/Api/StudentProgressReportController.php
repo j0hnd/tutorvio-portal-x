@@ -19,10 +19,6 @@ class StudentProgressReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $report.
      * The StudentProgressReportRequest handles authorization and validation before the controller action runs.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  StudentProgressReportRequest  $request
-     * @param  StudentProgressReport  $report
-     * @return JsonResponse
      */
     public function __invoke(StudentProgressReportRequest $request, StudentProgressReport $report): JsonResponse
     {
@@ -35,15 +31,11 @@ class StudentProgressReportController extends Controller
     }
 
     /**
-     * Handle the authorize report access action for student progress report records.
+     * Authorize access to the student progress report endpoint.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $actor.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @return void
+     * Admins, teachers, and students are allowed. Staff need either
+     * `school_reports.view` or `student_progress_records.view`. Users outside
+     * those roles or staff without permission are denied.
      */
     private function authorizeReportAccess(User $actor): void
     {
@@ -57,16 +49,11 @@ class StudentProgressReportController extends Controller
     }
 
     /**
-     * Handle the authorize requested student action for student progress report records.
+     * Authorize the requested student filter for progress reports.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $actor, $studentId.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  mixed  $studentId
-     * @return void
+     * Admins, staff, and teachers may request a specific student filter.
+     * Students can request only their own user id. Non-student ids fail
+     * validation, and students requesting another user are denied.
      */
     private function authorizeRequestedStudent(User $actor, mixed $studentId): void
     {

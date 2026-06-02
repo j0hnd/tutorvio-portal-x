@@ -21,8 +21,6 @@ class ProfileController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  AuditLogService  $auditLogService
      */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
@@ -33,9 +31,6 @@ class ProfileController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a user resource payload.
-     *
-     * @param  Request  $request
-     * @return UserResource
      */
     public function show(Request $request): UserResource
     {
@@ -53,10 +48,6 @@ class ProfileController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a user resource payload.
-     *
-     * @param  Request  $request
-     * @param  User  $user
-     * @return UserResource|JsonResponse
      */
     public function showUser(Request $request, User $user): UserResource|JsonResponse
     {
@@ -80,9 +71,6 @@ class ProfileController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The UpdateProfileRequest handles authorization and validation before the controller action runs.
      * Returns a user resource payload.
-     *
-     * @param  UpdateProfileRequest  $request
-     * @return UserResource
      */
     public function update(UpdateProfileRequest $request): UserResource
     {
@@ -98,10 +86,6 @@ class ProfileController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
      * The UpdateProfileRequest handles authorization and validation before the controller action runs.
      * Returns a user resource payload.
-     *
-     * @param  UpdateProfileRequest  $request
-     * @param  User  $user
-     * @return UserResource
      */
     public function updateUser(UpdateProfileRequest $request, User $user): UserResource
     {
@@ -112,8 +96,6 @@ class ProfileController extends Controller
 
     /**
      * @return array<int, string>
-     *
-     * @param  User  $actor
      */
     private function profileRelationsFor(User $actor): array
     {
@@ -136,17 +118,12 @@ class ProfileController extends Controller
     }
 
     /**
-     * Handle the authorize user profile access action for profile records.
+     * Authorize profile view or update access.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $actor, $target, $operation.
-     * The method can return a forbidden response when authorization or ownership checks fail.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  User  $target
-     * @param  string  $operation
-     * @return void
+     * Admins can access any profile. Staff need `users.view` for reads and
+     * `users.update` for writes. Users can update their own profile. Teachers
+     * can view assigned student profiles; unassigned student profiles are
+     * hidden with 404. Other access is denied with 403.
      */
     private function authorizeUserProfileAccess(User $actor, User $target, string $operation): void
     {
@@ -185,10 +162,6 @@ class ProfileController extends Controller
      * Route model parameters include $user, $data.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a user resource payload.
-     *
-     * @param  User  $user
-     * @param  array  $data
-     * @return UserResource
      */
     private function updateProfileData(User $user, array $data): UserResource
     {
@@ -226,12 +199,6 @@ class ProfileController extends Controller
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $originalUser
      * @param  array<string, mixed>  $originalStudentProfile
-     *
-     * @param  User  $user
-     * @param  array  $data
-     * @param  array  $originalUser
-     * @param  array  $originalStudentProfile
-     * @return void
      */
     private function logStudentProfileUpdate(
         User $user,

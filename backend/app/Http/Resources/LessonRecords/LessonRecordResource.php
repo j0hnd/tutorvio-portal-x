@@ -113,6 +113,13 @@ class LessonRecordResource extends JsonResource
         return $data;
     }
 
+    /**
+     * Determine whether the internal lesson note can be serialized.
+     *
+     * Admins can view the internal note. Staff need `lesson_notes.view`.
+     * Teachers can view it only for lesson records assigned to them. Students,
+     * guests, and unrelated teachers are denied.
+     */
     private function canViewInternalLessonNote(Request $request): bool
     {
         $user = $request->user();

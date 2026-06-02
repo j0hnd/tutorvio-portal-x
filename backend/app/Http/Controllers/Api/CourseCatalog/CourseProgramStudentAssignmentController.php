@@ -24,10 +24,6 @@ class CourseProgramStudentAssignmentController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function courseStudents(Request $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -56,10 +52,6 @@ class CourseProgramStudentAssignmentController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  CourseProgram  $courseProgram
-     * @return JsonResponse
      */
     public function assignStudents(Request $request, CourseProgram $courseProgram): JsonResponse
     {
@@ -115,10 +107,6 @@ class CourseProgramStudentAssignmentController extends Controller
      * Route model parameters include $courseProgram, $student.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  CourseProgram  $courseProgram
-     * @param  User  $student
-     * @return JsonResponse
      */
     public function removeStudent(CourseProgram $courseProgram, User $student): JsonResponse
     {
@@ -150,10 +138,6 @@ class CourseProgramStudentAssignmentController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $student
-     * @return JsonResponse
      */
     public function studentCourses(Request $request, User $student): JsonResponse
     {
@@ -187,9 +171,6 @@ class CourseProgramStudentAssignmentController extends Controller
 
     /**
      * @param  array<int, int>  $studentIds
-     *
-     * @param  array  $studentIds
-     * @return void
      */
     private function assertStudentUsers(array $studentIds): void
     {
@@ -207,10 +188,6 @@ class CourseProgramStudentAssignmentController extends Controller
 
     /**
      * @param  array<int, int>  $studentIds
-     *
-     * @param  CourseProgram  $courseProgram
-     * @param  array  $studentIds
-     * @return void
      */
     private function assertNoActiveAssignments(CourseProgram $courseProgram, array $studentIds): void
     {
@@ -222,16 +199,11 @@ class CourseProgramStudentAssignmentController extends Controller
     }
 
     /**
-     * Handle the authorize student courses action for course program student assignment records.
+     * Authorize viewing course assignments for a student.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user, $student.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @param  User  $student
-     * @return void
+     * Admins and staff with `course_programs.view` can view any student's
+     * courses. Students can view their own courses. Teachers can view courses
+     * for students assigned to them. All other access is denied.
      */
     private function authorizeStudentCourses(User $user, User $student): void
     {

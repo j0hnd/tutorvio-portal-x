@@ -69,6 +69,13 @@ class LessonNoteResource extends JsonResource
         ];
     }
 
+    /**
+     * Determine whether internal lesson-note fields can be serialized.
+     *
+     * Admins can view internal notes. Staff need `lesson_notes.view`.
+     * Teachers can view internal notes only for notes assigned to them.
+     * Students, guests, and unrelated teachers are denied.
+     */
     private function canViewInternalNote(?User $user): bool
     {
         if ($user === null) {

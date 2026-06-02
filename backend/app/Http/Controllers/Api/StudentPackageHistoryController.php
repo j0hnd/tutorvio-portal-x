@@ -19,10 +19,6 @@ class StudentPackageHistoryController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
      * Inline validation rejects missing or invalid request data before processing. The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $student
-     * @return JsonResponse
      */
     public function __invoke(Request $request, User $student): JsonResponse
     {
@@ -51,16 +47,12 @@ class StudentPackageHistoryController extends Controller
     }
 
     /**
-     * Handle the can view package history action for student package history records.
+     * Determine whether the user can view a student's package history.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user, $student.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @param  User  $student
-     * @return bool
+     * Students can view only their own history, and only when
+     * `billing.package_history.student_visibility_enabled` is enabled. Admins
+     * can view any history. Staff need `subscriptions.view`. Teachers are
+     * denied.
      */
     private function canViewPackageHistory(User $user, User $student): bool
     {
@@ -74,15 +66,11 @@ class StudentPackageHistoryController extends Controller
     }
 
     /**
-     * Handle the requires safe history action for student package history records.
+     * Determine whether billing-sensitive history fields must be hidden.
      *
-     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
-     * Route model parameters include $user.
-     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
-     * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return bool
+     * Admins and staff with `subscriptions.view` can receive full package
+     * history. Students, teachers, and staff without that permission receive
+     * the safe history shape.
      */
     private function requiresSafeHistory(User $user): bool
     {

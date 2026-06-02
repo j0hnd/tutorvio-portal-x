@@ -72,8 +72,9 @@ class AnnouncementRecipientResolver
     /**
      * Determine whether a user can see an announcement through recipient scope.
      *
-     * Staff users must also have operational-notice visibility before recipient
-     * membership is considered.
+     * The user must be a stored announcement recipient. Staff users must also
+     * have `dashboard.operational_notices.view`; staff without that permission
+     * are denied even when a recipient row exists.
      */
     public function canView(Announcement $announcement, User $user): bool
     {
@@ -186,6 +187,12 @@ class AnnouncementRecipientResolver
         return is_string($group) && $group !== '' ? $group : null;
     }
 
+    /**
+     * Determine whether staff announcement visibility is allowed.
+     *
+     * Non-staff users pass through to recipient checks. Staff must have the
+     * Spatie permission `dashboard.operational_notices.view`.
+     */
     private function staffHasAnnouncementVisibility(User $user): bool
     {
         return ! $user->hasRole('staff')

@@ -192,6 +192,13 @@ class ScheduleChangeRequestService
         ]);
     }
 
+    /**
+     * Validate requester ownership for a schedule-change target.
+     *
+     * Students can request changes only for classes where they are the student.
+     * Teachers can request changes only for classes assigned to them. Admin and
+     * staff callers are not restricted by this ownership check here.
+     */
     private function assertCanRequestForTarget(User $actor, Lesson|ClassSchedule $target): void
     {
         if ($actor->hasRole('student') && (int) $target->student_id !== (int) $actor->id) {

@@ -124,6 +124,13 @@ class PackageUsageReport
         return $row;
     }
 
+    /**
+     * Determine whether package-usage billing references can be included.
+     *
+     * Admins can view billing references. Staff need `invoices.view`.
+     * Teachers, students, and staff without permission receive rows without
+     * payment status or invoice references.
+     */
     private function canViewBillingReferences(User $viewer): bool
     {
         return $viewer->hasRole('admin')

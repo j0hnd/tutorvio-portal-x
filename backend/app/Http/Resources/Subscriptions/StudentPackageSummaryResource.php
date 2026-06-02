@@ -72,6 +72,14 @@ class StudentPackageSummaryResource extends JsonResource
         ];
     }
 
+    /**
+     * Determine whether package-summary billing references can be serialized.
+     *
+     * Students can view billing references only when
+     * `billing.invoice.student_visibility_enabled` is enabled. Admins can view
+     * them. Staff need `invoices.view`. Teachers and staff without permission
+     * are denied.
+     */
     private function canViewBillingReferences(Request $request): bool
     {
         $user = $request->user();
