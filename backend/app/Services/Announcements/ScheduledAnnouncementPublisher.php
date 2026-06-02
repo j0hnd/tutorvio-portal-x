@@ -22,6 +22,12 @@ class ScheduledAnnouncementPublisher
     }
 
     /**
+     * Publish scheduled announcements that are due.
+     *
+     * Each claimed announcement has recipients synchronized, a portal
+     * notification created or updated, and its status moved to published.
+     * Publication failures are logged and counted without stopping the batch.
+     *
      * @return array{published: int, failed: int, notifications: int, recipients: int}
      */
     public function publishDue(?CarbonImmutable $now = null, int $limit = 100): array

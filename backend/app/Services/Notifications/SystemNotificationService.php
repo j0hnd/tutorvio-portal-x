@@ -15,6 +15,12 @@ use Throwable;
 class SystemNotificationService
 {
     /**
+     * Create a class reminder notification for portal and optional email delivery.
+     *
+     * Recipients may be user models, user IDs, or iterables of either. Options
+     * are forwarded to the generic notification creator for scheduling,
+     * deduplication, source metadata, and email dispatch behavior.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -25,6 +31,11 @@ class SystemNotificationService
     }
 
     /**
+     * Create a reschedule alert notification.
+     *
+     * Recipients are synchronized to portal notification rows, and email
+     * delivery is attempted when the options request it.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -35,6 +46,11 @@ class SystemNotificationService
     }
 
     /**
+     * Create a homework reminder notification.
+     *
+     * Recipients are synchronized to portal notification rows, and email
+     * delivery is attempted when enabled through options.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -45,6 +61,12 @@ class SystemNotificationService
     }
 
     /**
+     * Create an administrative announcement notification.
+     *
+     * The method delegates to the generic notification creator, preserving
+     * source metadata and recipient-specific matched-target metadata when
+     * supplied.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -55,6 +77,11 @@ class SystemNotificationService
     }
 
     /**
+     * Create a general system notice notification.
+     *
+     * Recipients are synchronized to portal notification rows, with optional
+     * scheduling, deduplication, and email delivery controlled by options.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -65,6 +92,12 @@ class SystemNotificationService
     }
 
     /**
+     * Create or update a portal notification and synchronize its recipients.
+     *
+     * The method normalizes recipient inputs, applies source and deduplication
+     * metadata, writes notification and recipient rows in a transaction, and
+     * attempts email delivery when requested.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options

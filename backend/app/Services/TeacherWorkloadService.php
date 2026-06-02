@@ -37,6 +37,12 @@ class TeacherWorkloadService
     private const DEFAULT_SLOT_MINUTES = 60;
 
     /**
+     * Build workload summaries for teachers visible to a viewer.
+     *
+     * The filters may constrain teacher identity, teacher status, and capacity
+     * status. This method only reads workload data and returns one summary per
+     * matching teacher.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<int, array<string, mixed>>
      */
@@ -59,6 +65,12 @@ class TeacherWorkloadService
     }
 
     /**
+     * Build a workload summary for one teacher.
+     *
+     * The filters define the reporting period, slot length, course, and lesson
+     * type. The summary combines assignments, availability, bookings,
+     * unavailable blocks, lesson counts, and capacity status.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */

@@ -11,7 +11,15 @@ use RuntimeException;
 class LearningResourceStorage
 {
     /**
+     * Store an uploaded learning resource file in protected storage.
+     *
+     * The uploaded file is written to the configured learning-resource disk and
+     * directory, and the returned metadata is ready to persist on the resource
+     * model.
+     *
      * @return array{storage_disk: string, file_path: string, original_filename: string, mime_type: string|null, file_size: int}
+     *
+     * @throws RuntimeException
      */
     public function store(UploadedFile $file): array
     {
@@ -27,6 +35,12 @@ class LearningResourceStorage
         ];
     }
 
+    /**
+     * Delete the stored file for a learning resource.
+     *
+     * Resources without a stored file are treated as already deleted; otherwise
+     * the configured storage disk is asked to remove the file path.
+     */
     public function delete(LearningResource $resource): bool
     {
         if (! $resource->hasStoredFile()) {

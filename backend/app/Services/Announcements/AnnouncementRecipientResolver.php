@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\DB;
 class AnnouncementRecipientResolver
 {
     /**
+     * Resolve the active users targeted by an announcement.
+     *
+     * The announcement model is loaded with its targets, and the returned
+     * payload preserves which target rules matched each recipient.
+     *
      * @return Collection<int, array{user_id: int, matched_targets: array<int, array<string, mixed>>}>
      */
     public function resolve(Announcement $announcement): Collection
@@ -43,6 +48,12 @@ class AnnouncementRecipientResolver
         return $recipients->values();
     }
 
+    /**
+     * Synchronize the stored recipient rows for an announcement.
+     *
+     * This deletes existing recipient rows and recreates them from the current
+     * announcement targets inside a transaction.
+     */
     public function syncRecipients(Announcement $announcement): int
     {
         $resolved = $this->resolve($announcement);
@@ -58,6 +69,12 @@ class AnnouncementRecipientResolver
         return $resolved->count();
     }
 
+    /**
+     * Determine whether a user can see an announcement through recipient scope.
+     *
+     * Staff users must also have operational-notice visibility before recipient
+     * membership is considered.
+     */
     public function canView(Announcement $announcement, User $user): bool
     {
         if (! $this->staffHasAnnouncementVisibility($user)) {

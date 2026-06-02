@@ -17,6 +17,11 @@ class SubscriptionRenewalReminderService
     public function __construct(private readonly SystemNotificationService $notifications) {}
 
     /**
+     * Calculate the renewal reminder state for a subscription.
+     *
+     * The method evaluates eligibility and reminder signals without persisting
+     * changes, returning due timing, window key, reasons, and send readiness.
+     *
      * @return array<string, mixed>
      */
     public function reminderState(Subscription $subscription, ?CarbonImmutable $now = null): array
@@ -67,6 +72,12 @@ class SubscriptionRenewalReminderService
         ];
     }
 
+    /**
+     * Refresh the stored renewal reminder state for a subscription.
+     *
+     * The subscription's due timestamp, status, and reminder window key are
+     * updated from the current calculated state.
+     */
     public function refreshReminderState(Subscription $subscription, ?CarbonImmutable $now = null): Subscription
     {
         $state = $this->reminderState($subscription, $now);
@@ -80,6 +91,12 @@ class SubscriptionRenewalReminderService
         return $subscription->refresh();
     }
 
+    /**
+     * Refresh renewal reminder state for subscriptions likely to be due.
+     *
+     * Matching subscriptions are processed in chunks, and the return value is
+     * the number whose due timestamp, status, or window key changed.
+     */
     public function refreshDueCandidates(?CarbonImmutable $now = null): int
     {
         $now = ($now ?? CarbonImmutable::now('UTC'))->utc();
@@ -124,6 +141,13 @@ class SubscriptionRenewalReminderService
         return $updated;
     }
 
+    /**
+     * Send due subscription renewal reminders.
+     *
+     * Pending subscriptions are claimed, portal reminders are created for the
+     * student, and last-sent reminder fields are updated to prevent duplicate
+     * sends within the same reminder window.
+     */
     public function sendDue(?CarbonImmutable $now = null, int $limit = 100): int
     {
         $now = ($now ?? CarbonImmutable::now('UTC'))->utc();

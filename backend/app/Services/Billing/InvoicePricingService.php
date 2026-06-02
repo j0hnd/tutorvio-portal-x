@@ -4,6 +4,12 @@ namespace App\Services\Billing;
 
 class InvoicePricingService
 {
+    /**
+     * Resolve the billing currency code for invoice pricing.
+     *
+     * A provided currency overrides configured defaults, and the returned code
+     * is normalized to uppercase.
+     */
     public function currency(?string $currency = null): string
     {
         $value = $currency
@@ -15,6 +21,11 @@ class InvoicePricingService
     }
 
     /**
+     * Resolve the configured tax profile for an optional country code.
+     *
+     * Country-specific billing config is preferred when present; otherwise the
+     * service falls back to the default tax label, country, and rate.
+     *
      * @return array{country: string|null, label: string, rate: float}
      */
     public function taxProfile(?string $country = null): array
@@ -37,6 +48,11 @@ class InvoicePricingService
         ];
     }
 
+    /**
+     * Calculate the tax amount for a subtotal and tax rate.
+     *
+     * The result is rounded to two decimal places for invoice storage.
+     */
     public function taxAmount(float $subtotal, float $rate): float
     {
         return round($subtotal * $rate, 2);

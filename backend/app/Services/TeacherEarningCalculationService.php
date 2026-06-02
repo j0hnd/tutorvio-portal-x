@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\DB;
 class TeacherEarningCalculationService
 {
     /**
+     * Calculate pending earnings for a teacher over an optional date range.
+     *
+     * Completed lesson records are scanned in chunks, and each eligible lesson
+     * record is passed through idempotent earning calculation.
+     *
      * @return SupportCollection<int, TeacherEarning>
      */
     public function calculateForTeacher(User|int $teacher, ?string $dateFrom = null, ?string $dateTo = null): SupportCollection
@@ -44,6 +49,13 @@ class TeacherEarningCalculationService
     }
 
     /**
+     * Calculate or retrieve the teacher earning for a completed lesson record.
+     *
+     * The lesson must be eligible and tied to a paid consumed subscription.
+     * When no existing earning exists, the method resolves compensation rules,
+     * creates a pending earning in a transaction, and records calculation
+     * metadata.
+     *
      * @param  array<string, mixed>  $context
      */
     public function calculateForLessonRecord(LessonRecord $lessonRecord, array $context = []): ?TeacherEarning
@@ -118,6 +130,12 @@ class TeacherEarningCalculationService
         });
     }
 
+    /**
+     * Determine whether a lesson record is eligible for teacher earning creation.
+     *
+     * Eligibility requires completed lesson status, a consumed subscription
+     * balance marker, and a paid source subscription.
+     */
     public function isEligibleLessonRecord(LessonRecord $lessonRecord): bool
     {
         $lessonRecord->loadMissing('lessonBalanceConsumedSubscription');

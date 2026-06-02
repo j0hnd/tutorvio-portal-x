@@ -237,6 +237,11 @@ class PortalSettingsService
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
     /**
+     * Return configured portal settings with stored or default values.
+     *
+     * When public-only mode is enabled, private settings and administrative
+     * metadata are omitted from the returned payload.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function all(bool $publicOnly = false): array
@@ -262,8 +267,15 @@ class PortalSettingsService
     }
 
     /**
+     * Update portal settings from validated administrative input.
+     *
+     * Each value is validated against its setting definition, persisted in a
+     * transaction, and summarized in a portal-settings audit log entry.
+     *
      * @param  array<string, mixed>  $settings
      * @return array<int, array<string, mixed>>
+     *
+     * @throws ValidationException
      */
     public function update(array $settings, User $actor): array
     {
@@ -321,6 +333,8 @@ class PortalSettingsService
     }
 
     /**
+     * Return the list of supported portal setting keys.
+     *
      * @return array<int, string>
      */
     public function allowedKeys(): array
@@ -328,6 +342,14 @@ class PortalSettingsService
         return array_keys(self::DEFINITIONS);
     }
 
+    /**
+     * Resolve a single portal setting value.
+     *
+     * Stored values are preferred, with the definition default returned when no
+     * row exists for the key.
+     *
+     * @throws ValidationException
+     */
     public function value(string $key): mixed
     {
         if (! array_key_exists($key, self::DEFINITIONS)) {

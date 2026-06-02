@@ -7,6 +7,12 @@ use Illuminate\Support\Str;
 
 class InvoicePdfService
 {
+    /**
+     * Render an invoice into a PDF document string.
+     *
+     * The invoice is loaded with its billing relationships and converted into a
+     * simple PDF payload; no file is written by this method.
+     */
     public function render(Invoice $invoice): string
     {
         $invoice->loadMissing(['student', 'subscription', 'courseProgram']);
@@ -17,6 +23,12 @@ class InvoicePdfService
         return $this->pdfDocument($stream);
     }
 
+    /**
+     * Build the download filename for an invoice PDF.
+     *
+     * The invoice number is sanitized for filesystem-safe use, with the numeric
+     * invoice ID as a fallback reference.
+     */
     public function filename(Invoice $invoice): string
     {
         $reference = Str::of($invoice->invoice_number)

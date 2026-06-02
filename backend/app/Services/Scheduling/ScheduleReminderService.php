@@ -25,6 +25,11 @@ class ScheduleReminderService
     public function __construct(private readonly SystemNotificationService $notificationService) {}
 
     /**
+     * Create a schedule reminder row.
+     *
+     * The payload is expected to be validated upstream. The reminder send time
+     * is parsed in the supplied timezone and stored in UTC.
+     *
      * @param  array<string, mixed>  $payload
      */
     public function create(array $payload): ScheduleReminder
@@ -36,6 +41,11 @@ class ScheduleReminderService
     }
 
     /**
+     * Update a schedule reminder row.
+     *
+     * Mutable reminder fields are filled from the payload, and scheduled time is
+     * re-parsed to UTC when present.
+     *
      * @param  array<string, mixed>  $payload
      */
     public function update(ScheduleReminder $reminder, array $payload): ScheduleReminder
@@ -51,6 +61,12 @@ class ScheduleReminderService
         return $reminder->refresh();
     }
 
+    /**
+     * Queue reminder rows for upcoming scheduled classes.
+     *
+     * The method scans scheduled classes within the lookahead window and creates
+     * missing email reminders for eligible student and teacher participants.
+     */
     public function queueUpcoming(int $lookaheadHours = 48, ?CarbonImmutable $now = null): int
     {
         $now = ($now ?? CarbonImmutable::now('UTC'))->utc();
@@ -72,6 +88,13 @@ class ScheduleReminderService
         return $queued;
     }
 
+    /**
+     * Queue reminder rows for one class schedule.
+     *
+     * The schedule is skipped when it is no longer scheduled or starts in the
+     * past. New reminder rows are created for participants with email addresses
+     * at the configured offsets.
+     */
     public function queueForSchedule(ClassSchedule $schedule, ?CarbonImmutable $now = null): int
     {
         $now = ($now ?? CarbonImmutable::now('UTC'))->utc();
@@ -114,6 +137,12 @@ class ScheduleReminderService
         return $queued;
     }
 
+    /**
+     * Send due schedule reminder emails.
+     *
+     * Pending reminders are claimed, portal notifications are attempted, email
+     * delivery is recorded, and ineligible reminders are cancelled.
+     */
     public function sendDue(?CarbonImmutable $now = null, int $limit = 100): int
     {
         $now = ($now ?? CarbonImmutable::now('UTC'))->utc();

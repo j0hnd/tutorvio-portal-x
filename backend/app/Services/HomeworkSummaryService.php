@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\DB;
 class HomeworkSummaryService
 {
     /**
+     * Summarize homework status counts and trends for filtered assignments.
+     *
+     * The filters are expected to be validated before this service is called.
+     * This method only reads homework data and does not update overdue status.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */

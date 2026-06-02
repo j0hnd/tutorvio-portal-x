@@ -20,7 +20,16 @@ class LessonRecordService
     ) {}
 
     /**
+     * Create a lesson record for a student and teacher.
+     *
+     * The payload is expected to come from validated request data. The method
+     * verifies student and teacher roles, consumes subscription lesson balance
+     * when the lesson is completed, syncs attached materials, and writes audit
+     * entries for creation and attendance state.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function create(array $payload, User $actor): LessonRecord
     {
@@ -45,7 +54,16 @@ class LessonRecordService
     }
 
     /**
+     * Update a lesson record and its related lesson materials.
+     *
+     * The payload is expected to be validated before this service is called.
+     * The method verifies role changes, may consume subscription lesson balance
+     * when a lesson becomes completed, syncs materials, and records schedule,
+     * attendance, and general update audit entries.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function update(LessonRecord $lessonRecord, array $payload, User $actor): LessonRecord
     {
@@ -75,6 +93,12 @@ class LessonRecordService
         });
     }
 
+    /**
+     * Cancel a lesson record.
+     *
+     * The cancellation clears completion fields, optionally appends a reason to
+     * lesson notes, and records the update through the audit log service.
+     */
     public function cancel(LessonRecord $lessonRecord, User $actor, ?string $reason = null): LessonRecord
     {
         $notes = $lessonRecord->lesson_notes;

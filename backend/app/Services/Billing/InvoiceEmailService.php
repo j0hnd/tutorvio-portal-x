@@ -18,6 +18,13 @@ class InvoiceEmailService
 
     public const MODE_MANUAL = 'manual';
 
+    /**
+     * Send an invoice email when automatic invoice delivery is enabled.
+     *
+     * The method skips invoices already marked as automatically sent, creates
+     * notification history for attempts, updates invoice email metadata, and
+     * records failed delivery details instead of throwing mail exceptions.
+     */
     public function sendAutomatically(Invoice $invoice): bool
     {
         if (! (bool) config('billing.invoice.email.automatic_enabled', false)) {
@@ -31,6 +38,13 @@ class InvoiceEmailService
         return $this->send($invoice, self::MODE_AUTOMATIC);
     }
 
+    /**
+     * Resend an invoice email as a manual staff action.
+     *
+     * The method records the sender on notification history when provided,
+     * updates invoice email metadata, and records missing-recipient or delivery
+     * failures as failed notification recipients.
+     */
     public function resendManually(Invoice $invoice, ?User $sender = null): bool
     {
         return $this->send($invoice, self::MODE_MANUAL, $sender);

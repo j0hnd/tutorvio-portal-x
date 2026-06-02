@@ -13,8 +13,16 @@ use Throwable;
 class AuditLogService
 {
     /**
+     * Record a sanitized audit event for a user action.
+     *
+     * The method resolves request context when not provided, strips sensitive
+     * metadata before persistence, and logs write failures unless configured to
+     * rethrow them.
+     *
      * @param  array<string, mixed>|null  $metadata
      * @param  array{ip_address?: string|null, user_agent?: string|null}|null  $requestContext
+     *
+     * @throws Throwable
      */
     public function record(
         ?int $actorUserId,
@@ -59,6 +67,8 @@ class AuditLogService
     }
 
     /**
+     * Return the audit action type values supported by the system.
+     *
      * @return array<int, string>
      */
     public function supportedActionTypes(): array
@@ -67,6 +77,8 @@ class AuditLogService
     }
 
     /**
+     * Return the audit module values supported by the system.
+     *
      * @return array<int, string>
      */
     public function supportedModules(): array

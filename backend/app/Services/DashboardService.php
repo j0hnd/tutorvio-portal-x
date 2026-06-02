@@ -16,6 +16,11 @@ class DashboardService
     private const MANAGED_ROLES = ['admin', 'staff', 'teacher', 'student'];
 
     /**
+     * Build the dashboard payload for the authenticated user.
+     *
+     * The response is shaped by the user's managed role and includes permission
+     * names, summary metrics, and the dashboard sections visible to that role.
+     *
      * @return array<string, mixed>
      */
     public function forUser(User $user): array

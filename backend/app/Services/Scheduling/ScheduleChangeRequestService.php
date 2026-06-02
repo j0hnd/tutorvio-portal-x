@@ -22,7 +22,15 @@ class ScheduleChangeRequestService
     ) {}
 
     /**
+     * Request a schedule change for a lesson or class schedule.
+     *
+     * The payload is expected to identify exactly one target and provide the
+     * requested range. The method stores a pending request or immediately
+     * approves it when portal settings disable approval.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function request(array $payload, User $actor): ScheduleChangeRequest
     {
@@ -60,6 +68,15 @@ class ScheduleChangeRequestService
         return $scheduleChangeRequest->refresh();
     }
 
+    /**
+     * Approve and apply a pending schedule change request.
+     *
+     * The request row is locked, the target is verified unchanged, and the
+     * associated class schedule or lesson time is updated before the request is
+     * marked approved.
+     *
+     * @throws ValidationException
+     */
     public function approve(ScheduleChangeRequest $scheduleChangeRequest, User $reviewer, ?string $notes = null): ScheduleChangeRequest
     {
         return DB::transaction(function () use ($scheduleChangeRequest, $reviewer, $notes): ScheduleChangeRequest {
@@ -108,6 +125,14 @@ class ScheduleChangeRequestService
         });
     }
 
+    /**
+     * Reject a pending schedule change request.
+     *
+     * The request status, reviewer, review timestamp, and optional notes are
+     * persisted. The underlying lesson or class schedule is not changed.
+     *
+     * @throws ValidationException
+     */
     public function reject(ScheduleChangeRequest $scheduleChangeRequest, User $reviewer, ?string $notes = null): ScheduleChangeRequest
     {
         $this->assertPending($scheduleChangeRequest);
@@ -122,6 +147,14 @@ class ScheduleChangeRequestService
         return $scheduleChangeRequest->refresh();
     }
 
+    /**
+     * Cancel a pending schedule change request.
+     *
+     * The request is marked cancelled with an optional note and no schedule or
+     * lesson time is updated.
+     *
+     * @throws ValidationException
+     */
     public function cancel(ScheduleChangeRequest $scheduleChangeRequest, ?string $notes = null): ScheduleChangeRequest
     {
         $this->assertPending($scheduleChangeRequest);

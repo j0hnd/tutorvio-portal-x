@@ -15,6 +15,16 @@ class SubscriptionLessonBalanceService
 {
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
+    /**
+     * Consume one lesson from a student's active subscription for a completed lesson.
+     *
+     * The lesson record is returned unchanged when it is not completed, already
+     * consumed, or no active consumable subscription exists. When consumed, the
+     * subscription balance, lesson record markers, subscription history, and
+     * audit log are updated in a transaction.
+     *
+     * @throws ValidationException
+     */
     public function consumeForCompletedLesson(LessonRecord $lessonRecord, User $actor): LessonRecord
     {
         if (! $lessonRecord->is_completed || $lessonRecord->lesson_status !== LessonRecord::STATUS_COMPLETED) {
@@ -72,7 +82,15 @@ class SubscriptionLessonBalanceService
     }
 
     /**
+     * Manually adjust a subscription lesson balance.
+     *
+     * The payload is expected to be validated upstream and must preserve the
+     * total, consumed, and remaining balance invariant. The update writes
+     * subscription history and an audit log when values change.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function manuallyAdjust(Subscription $subscription, array $payload, User $actor): Subscription
     {

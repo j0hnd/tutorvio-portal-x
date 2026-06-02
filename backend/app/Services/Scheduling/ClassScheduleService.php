@@ -25,7 +25,15 @@ class ClassScheduleService
     ) {}
 
     /**
+     * Create a scheduled class for a student and teacher.
+     *
+     * The payload is expected to be validated before this service is called.
+     * The method verifies student role and teacher availability, calculates the
+     * teacher booking block, creates the schedule, and records an audit log.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function create(array $payload, User $actor): ClassSchedule
     {
@@ -66,8 +74,16 @@ class ClassScheduleService
     }
 
     /**
+     * Create a series of recurring class schedules.
+     *
+     * The payload supplies the recurrence pattern and class details. Eligible
+     * occurrences are created in a transaction and audited, while occurrences
+     * that fail availability validation are returned in the skipped list.
+     *
      * @param  array<string, mixed>  $payload
      * @return array{created: array<int, ClassSchedule>, skipped: array<int, array<string, string>>, requested_occurrences: int}
+     *
+     * @throws ValidationException
      */
     public function createRecurring(array $payload, User $actor): array
     {
@@ -141,7 +157,15 @@ class ClassScheduleService
     }
 
     /**
+     * Book a one-time lesson for a student with their assigned teacher.
+     *
+     * The method verifies the actor is a student, enforces assigned-teacher
+     * booking, checks availability, creates the schedule, and records the
+     * creation audit entry.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function bookOneTimeLesson(array $payload, User $student): ClassSchedule
     {
@@ -199,7 +223,15 @@ class ClassScheduleService
     }
 
     /**
+     * Update an existing class schedule.
+     *
+     * Booking-window changes trigger role and availability validation. The
+     * method persists schedule changes, updates the actor stamp, and records
+     * auditable changed fields.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function update(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
@@ -246,7 +278,15 @@ class ClassScheduleService
     }
 
     /**
+     * Reschedule a class by closing the existing schedule and creating a new one.
+     *
+     * The old schedule is marked rescheduled, the replacement schedule is
+     * created and audited, and a reschedule notification is attempted for the
+     * participants.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function reschedule(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
@@ -323,6 +363,12 @@ class ClassScheduleService
             ->format('M j, Y g:i A T');
     }
 
+    /**
+     * Cancel a class schedule.
+     *
+     * The schedule status, cancellation actor, timestamp, and reason are
+     * persisted, then the status change is recorded in audit logs.
+     */
     public function cancel(ClassSchedule $schedule, User $actor, ?string $reason = null): ClassSchedule
     {
         $before = clone $schedule;
@@ -341,6 +387,12 @@ class ClassScheduleService
         return $updatedSchedule;
     }
 
+    /**
+     * Update only the status of a class schedule.
+     *
+     * The method stamps the actor as the updater and records the status change
+     * through the schedule audit logging path.
+     */
     public function updateStatus(ClassSchedule $schedule, string $status, User $actor): ClassSchedule
     {
         $before = clone $schedule;
