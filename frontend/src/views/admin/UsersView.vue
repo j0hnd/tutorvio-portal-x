@@ -292,7 +292,7 @@ onMounted(() => {
 .users-clear-btn {
   font-size: var(--tv-text-sm); color: var(--tv-text-muted); background: none;
   border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
-  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  padding: 0 var(--tv-space-3); min-height: 42px; min-width: 72px; display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
 }
 .users-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
@@ -361,34 +361,25 @@ onMounted(() => {
 }
 
 .icon-btn--edit {
-  background: var(--tv-primary-soft);
-  border-color: var(--tv-primary-muted);
-  color: var(--tv-primary);
+  background: var(--tv-info-soft);
+  border-color: var(--tv-info-border);
+  color: var(--tv-info-fg);
 }
-
-.icon-btn--edit:hover {
-  filter: brightness(0.92);
-}
+.icon-btn--edit:hover { background: hsl(199, 89%, 88%); }
 
 .icon-btn--deactivate {
-  background: hsl(0, 72%, 96%);
-  border-color: hsl(0, 72%, 85%);
-  color: var(--tv-danger);
+  background: var(--tv-danger-soft);
+  border-color: var(--tv-danger-border);
+  color: var(--tv-danger-fg);
 }
-
-.icon-btn--deactivate:hover {
-  filter: brightness(0.92);
-}
+.icon-btn--deactivate:hover { background: hsl(0, 72%, 88%); }
 
 .icon-btn--activate {
-  background: hsl(142, 70%, 94%);
-  border-color: hsl(142, 70%, 75%);
-  color: var(--tv-success);
+  background: var(--tv-success-soft);
+  border-color: var(--tv-success-border);
+  color: var(--tv-success-fg);
 }
-
-.icon-btn--activate:hover {
-  filter: brightness(0.92);
-}
+.icon-btn--activate:hover { background: hsl(142, 70%, 87%); }
 
 .tv-dt-muted {
   color: var(--tv-text-muted);

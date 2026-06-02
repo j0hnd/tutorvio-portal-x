@@ -27,6 +27,13 @@
       <TVSelect v-model="filterLevel" class="cv-filter-ctrl" :options="levelOptions" placeholder="All Levels" />
       <TVSelect v-if="canAdmin" v-model="filterStatus" class="cv-filter-ctrl" :options="statusOptions" placeholder="All Statuses" />
       <button v-if="hasFilters" class="cv-clear-btn" type="button" @click="clearFilters">Clear</button>
+      <TVPagination
+        v-if="filtered.length > CV_PAGE_SIZE"
+        v-model="cvPage"
+        :total="filtered.length"
+        :page-size="CV_PAGE_SIZE"
+        class="cv-pagination"
+      />
     </div>
 
     <!-- Course list -->
@@ -158,16 +165,8 @@
       </article>
     </div>
 
-    <!-- Pagination -->
-    <TVPagination
-      v-if="filtered.length > CV_PAGE_SIZE"
-      v-model="cvPage"
-      :total="filtered.length"
-      :page-size="CV_PAGE_SIZE"
-    />
-
     <!-- Empty -->
-    <div v-else-if="!filtered.length" class="cv-empty">
+    <div v-if="!filtered.length" class="cv-empty">
       <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <rect x="5" y="5" width="30" height="30" rx="4" stroke="currentColor" stroke-width="1.6"/>
         <path d="M12 15h16M12 21h16M12 27h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -603,10 +602,11 @@ function doAttach() {
 }
 .cv-search:focus { border-color: var(--tv-primary); }
 .cv-filter-ctrl { width: 160px; flex-shrink: 0; }
+.cv-pagination { margin-left: auto; flex-shrink: 0; }
 .cv-clear-btn {
   font-size: var(--tv-text-sm); color: var(--tv-text-muted); background: none;
   border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
-  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  padding: 0 var(--tv-space-3); min-height: 42px; min-width: 72px; display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
 }
 .cv-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
@@ -645,7 +645,7 @@ function doAttach() {
 .cv-level-badge--advanced           { background: hsl(30,90%,92%);  color: hsl(30,70%,32%); }
 .cv-level-badge--all                { background: var(--tv-bg-soft); color: var(--tv-text-muted); }
 
-.cv-archived-pill { font-size: 10px; font-weight: var(--tv-font-bold); padding: 1px 8px; border-radius: var(--tv-radius-full); background: var(--tv-bg-soft); color: var(--tv-text-muted); border: 1px solid var(--tv-border); }
+.cv-archived-pill { font-size: 10px; font-weight: var(--tv-font-bold); padding: 1px 8px; border-radius: var(--tv-radius-full); text-transform: uppercase; letter-spacing: .05em; background: var(--tv-bg-soft); color: var(--tv-text-muted); border: 1px solid var(--tv-border); }
 
 /* Right side */
 .cv-card__right { display: flex; flex-direction: row; align-items: center; gap: var(--tv-space-4); flex-shrink: 0; }

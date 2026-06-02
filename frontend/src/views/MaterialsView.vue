@@ -440,7 +440,7 @@ function formatDate(iso: string): string {
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius);
   padding: 0 var(--tv-space-3);
-  min-height: 42px; display: inline-flex; align-items: center;
+  min-height: 42px; min-width: 72px; display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.15s, background 0.15s;
@@ -596,27 +596,23 @@ function formatDate(iso: string): string {
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .ml-icon-btn--download {
-  background: var(--tv-primary-soft);
-  color: hsl(var(--tv-primary-h), var(--tv-primary-s), 38%);
-  border-color: var(--tv-primary-muted);
+  background: var(--tv-success-soft);
+  color: var(--tv-success-fg);
+  border-color: var(--tv-success-border);
 }
-.ml-icon-btn--download:hover { background: hsl(var(--tv-primary-h), 70%, 90%); }
+.ml-icon-btn--download:hover { background: hsl(142, 70%, 87%); }
 .ml-icon-btn--link {
-  background: hsl(195, 80%, 95%);
-  color: hsl(195, 65%, 35%);
-  border-color: hsl(195, 65%, 78%);
+  background: var(--tv-success-soft);
+  color: var(--tv-success-fg);
+  border-color: var(--tv-success-border);
 }
-.ml-icon-btn--link:hover { background: hsl(195, 80%, 90%); }
+.ml-icon-btn--link:hover { background: hsl(142, 70%, 87%); }
 .ml-icon-btn--delete {
-  background: transparent;
-  color: var(--tv-text-muted);
-  border-color: var(--tv-border);
-}
-.ml-icon-btn--delete:hover {
   background: var(--tv-danger-soft);
   color: var(--tv-danger-fg);
   border-color: var(--tv-danger-border);
 }
+.ml-icon-btn--delete:hover { background: hsl(0, 72%, 88%); }
 
 /* Empty */
 .ml-empty {

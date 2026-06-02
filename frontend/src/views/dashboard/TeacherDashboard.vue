@@ -251,10 +251,14 @@ onMounted(async () => {
 const firstName = computed(() => auth.user?.firstName ?? 'there')
 
 const icons = {
+  // Today's classes — calendar with circle
+  calendar: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5v3M13 1.5v3M1 7.5h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/></svg>`,
+  // Students — group
   users:    `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 16c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="14" cy="6" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M14 12c1.657 0 3 1.343 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  calendar: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5v3M13 1.5v3M1 7.5h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  doc:      `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 2h7l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11 2v4h4M6 9h6M6 12h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  alert:    `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l7.5 13H1.5L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 8v3M9 13.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  // Lessons completed — checkmark circle
+  doc:      `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 9l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  // Pending notes — doc with clock
+  alert:    `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M10 2H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 2v5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="12" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M9 11v1.5l1 .5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>`,
 }
 
 const todayStr = computed(() => new Date().toLocaleDateString('sv-SE'))
@@ -379,9 +383,9 @@ const thisMonthLessons = computed(() => {
 const uniqueStudents = computed(() => new Set(schedule.myLessons.map(l => l.studentId)).size)
 
 const stats = computed((): StatItem[] => [
-  { label: 'Classes Today',       value: String(todayClasses.value.length), sub: liveClass.value ? '1 in progress' : 'Scheduled', trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--teal'    },
-  { label: 'Students Assigned',   value: String(uniqueStudents.value),      sub: 'Unique students',                               trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--primary'  },
-  { label: 'Lessons This Month',  value: String(thisMonthLessons.value),    sub: 'Completed',                                     trendUp: true,  icon: icons.doc,      iconClass: 'icon-badge--success'  },
+  { label: 'Classes Today',       value: String(todayClasses.value.length), sub: liveClass.value ? '1 in progress' : 'Scheduled', trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--success'  },
+  { label: 'Students Assigned',   value: String(uniqueStudents.value),      sub: 'Unique students',                               trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--teal'     },
+  { label: 'Lessons This Month',  value: String(thisMonthLessons.value),    sub: 'Completed',                                     trendUp: true,  icon: icons.doc,      iconClass: 'icon-badge--blue'     },
   { label: 'Pending Notes',       value: String(pendingNoteLessons.value.length), sub: 'Needs documentation',                      trendUp: false, icon: icons.alert,    iconClass: 'icon-badge--warning'  },
 ])
 </script>

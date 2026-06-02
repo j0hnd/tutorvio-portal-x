@@ -1,40 +1,35 @@
 <template>
   <div class="cefr-track">
+    <!-- Progress line behind the dots -->
+    <div class="cefr-track__line">
+      <div class="cefr-track__line-fill" :style="{ width: fillWidth }" />
+    </div>
+
     <div
       v-for="lvl in LEVELS"
       :key="lvl.code"
       :class="[
-        'cefr-card',
-        lvl.order < currentOrder ? 'cefr-card--done' :
-        lvl.code === currentLevel ? 'cefr-card--active' :
-        'cefr-card--future'
+        'cefr-step',
+        lvl.order < currentOrder ? 'cefr-step--done' :
+        lvl.code === currentLevel ? 'cefr-step--active' :
+        'cefr-step--future'
       ]"
     >
-      <!-- Status icon -->
-      <div class="cefr-card__icon">
-        <svg v-if="lvl.order < currentOrder" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path d="M2.5 7l3 3 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Dot -->
+      <div class="cefr-step__dot">
+        <svg v-if="lvl.order < currentOrder" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path d="M2 5l2.5 2.5 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <svg v-else-if="lvl.code === currentLevel" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <circle cx="7" cy="7" r="3" fill="currentColor"/>
-        </svg>
-        <svg v-else width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.3"/>
-          <path d="M5.5 5.5c0-1 .8-1.5 1.5-1.5s1.5.5 1.5 1.5c0 .8-.7 1.2-1.5 1.5v.5M7 10v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-        </svg>
+        <div v-else-if="lvl.code === currentLevel" class="cefr-step__dot-inner" />
       </div>
 
-      <!-- Code + label -->
-      <div class="cefr-card__body">
-        <span class="cefr-card__code">{{ lvl.code }}</span>
-        <span class="cefr-card__label">{{ lvl.label }}</span>
-      </div>
+      <!-- Labels -->
+      <span class="cefr-step__code">{{ lvl.code }}</span>
+      <span class="cefr-step__label">{{ lvl.short }}</span>
 
       <!-- Badges -->
-      <div class="cefr-card__badges">
-        <span v-if="lvl.code === currentLevel" class="cefr-badge cefr-badge--current">Your Level</span>
-        <span v-if="lvl.code === startLevel && lvl.code !== currentLevel" class="cefr-badge cefr-badge--start">Started</span>
-      </div>
+      <span v-if="lvl.code === currentLevel" class="cefr-badge cefr-badge--current">Your Level</span>
+      <span v-else-if="lvl.code === startLevel" class="cefr-badge cefr-badge--start">Started</span>
     </div>
   </div>
 </template>
@@ -43,94 +38,134 @@
 import { computed } from 'vue'
 
 const LEVELS = [
-  { code: 'A1', label: 'Beginner',          order: 1 },
-  { code: 'A2', label: 'Elementary',         order: 2 },
-  { code: 'B1', label: 'Intermediate',       order: 3 },
-  { code: 'B2', label: 'Upper-Intermediate', order: 4 },
-  { code: 'C1', label: 'Advanced',           order: 5 },
-  { code: 'C2', label: 'Proficiency',        order: 6 },
+  { code: 'A1', short: 'Beginner',    order: 1 },
+  { code: 'A2', short: 'Elementary',  order: 2 },
+  { code: 'B1', short: 'Intermed.',   order: 3 },
+  { code: 'B2', short: 'Upper-Int.',  order: 4 },
+  { code: 'C1', short: 'Advanced',    order: 5 },
+  { code: 'C2', short: 'Proficiency', order: 6 },
 ]
 
 const props = defineProps<{
-  currentLevel: string   // e.g. 'B1'
-  startLevel?: string    // e.g. 'A2'
+  currentLevel: string
+  startLevel?: string
 }>()
 
 const currentOrder = computed(() =>
   LEVELS.find(l => l.code === props.currentLevel)?.order ?? 0
 )
+
+// Fill line from 0% to position of current level dot
+const fillWidth = computed(() => {
+  const idx = currentOrder.value - 1  // 0-based
+  if (idx <= 0) return '0%'
+  const total = LEVELS.length - 1     // 5 gaps
+  return `${(idx / total) * 100}%`
+})
 </script>
 
 <style scoped>
 .cefr-track {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--tv-space-2);
-}
-
-.cefr-card {
   display: flex;
   align-items: flex-start;
-  gap: var(--tv-space-2);
-  padding: var(--tv-space-3);
-  border-radius: var(--tv-radius-md);
-  border: 1.5px solid var(--tv-border);
-  background: var(--tv-bg-card);
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-  min-height: 72px;
+  justify-content: space-between;
+  position: relative;
+  padding-top: 20px;   /* room for dot above labels */
+  padding-bottom: 4px;
+  gap: 0;
 }
 
-/* Done */
-.cefr-card--done {
-  background: var(--tv-success-soft);
-  border-color: var(--tv-success-border);
+/* Background line sits behind dots, spans full width */
+.cefr-track__line {
+  position: absolute;
+  top: 28px;   /* vertically centered on dot */
+  left: calc(100% / 12);   /* start at center of first dot */
+  right: calc(100% / 12);  /* end at center of last dot */
+  height: 2px;
+  background: var(--tv-border);
+  border-radius: 9999px;
 }
-.cefr-card--done .cefr-card__icon { color: var(--tv-success-fg); background: white; border-color: var(--tv-success-border); }
-.cefr-card--done .cefr-card__code { color: var(--tv-success-fg); }
-.cefr-card--done .cefr-card__label { color: var(--tv-success-fg); opacity: 0.85; }
-
-/* Active / Current */
-.cefr-card--active {
-  background: var(--tv-primary-soft);
-  border-color: var(--tv-primary);
-  box-shadow: 0 0 0 3px hsla(var(--tv-primary-h), var(--tv-primary-s), 50%, 0.12);
+.cefr-track__line-fill {
+  height: 100%;
+  background: var(--tv-primary);
+  border-radius: 9999px;
+  transition: width 0.4s ease;
 }
-.cefr-card--active .cefr-card__icon { color: var(--tv-primary); background: white; border-color: var(--tv-primary-muted); }
-.cefr-card--active .cefr-card__code { color: var(--tv-primary); }
-.cefr-card--active .cefr-card__label { color: var(--tv-primary); opacity: 0.85; }
 
-/* Future / locked */
-.cefr-card--future { opacity: 0.45; }
-.cefr-card--future .cefr-card__icon { color: var(--tv-text-muted); }
-.cefr-card--future .cefr-card__code { color: var(--tv-text-muted); }
-.cefr-card--future .cefr-card__label { color: var(--tv-text-muted); }
+/* Each step */
+.cefr-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
 
-/* Icon circle */
-.cefr-card__icon {
-  width: 26px; height: 26px; flex-shrink: 0;
+/* Dot */
+.cefr-step__dot {
+  width: 22px; height: 22px;
   border-radius: 50%;
-  border: 1.5px solid var(--tv-border);
-  background: var(--tv-bg-soft);
+  border: 2px solid var(--tv-border);
+  background: var(--tv-bg-card);
   display: flex; align-items: center; justify-content: center;
-  color: var(--tv-text-muted);
+  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
-/* Body */
-.cefr-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.cefr-card__code  { font-size: var(--tv-text-sm); font-weight: var(--tv-font-bold); color: var(--tv-text); line-height: 1; }
-.cefr-card__label { font-size: 10px; color: var(--tv-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cefr-step--done .cefr-step__dot {
+  background: var(--tv-success-fg);
+  border-color: var(--tv-success-fg);
+  color: white;
+}
+
+.cefr-step--active .cefr-step__dot {
+  background: var(--tv-primary);
+  border-color: var(--tv-primary);
+  box-shadow: 0 0 0 4px var(--tv-primary-soft);
+}
+
+.cefr-step--future .cefr-step__dot {
+  opacity: 0.45;
+}
+
+.cefr-step__dot-inner {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+/* Code + label */
+.cefr-step__code {
+  font-size: var(--tv-text-xs);
+  font-weight: var(--tv-font-bold);
+  color: var(--tv-text-muted);
+  line-height: 1;
+}
+.cefr-step--done .cefr-step__code   { color: var(--tv-success-fg); }
+.cefr-step--active .cefr-step__code { color: var(--tv-primary); }
+.cefr-step--future .cefr-step__code { opacity: 0.5; }
+
+.cefr-step__label {
+  font-size: 9px;
+  color: var(--tv-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60px;
+  text-align: center;
+}
+.cefr-step--active .cefr-step__label { color: var(--tv-primary); font-weight: var(--tv-font-semibold); }
 
 /* Badges */
-.cefr-card__badges { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
 .cefr-badge {
-  font-size: 9px; font-weight: var(--tv-font-bold);
-  padding: 2px 6px; border-radius: var(--tv-radius-full);
+  font-size: 8px; font-weight: var(--tv-font-bold);
+  padding: 1px 5px; border-radius: var(--tv-radius-full);
   white-space: nowrap; text-transform: uppercase; letter-spacing: .04em;
+  max-width: 60px; overflow: hidden; text-overflow: ellipsis;
 }
 .cefr-badge--current { background: var(--tv-primary); color: var(--tv-text-inverse); }
 .cefr-badge--start   { background: var(--tv-bg-soft); color: var(--tv-text-muted); border: 1px solid var(--tv-border); }
-
-@media (max-width: 640px) {
-  .cefr-track { grid-template-columns: repeat(2, 1fr); }
-}
 </style>

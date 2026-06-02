@@ -60,7 +60,7 @@
       <div class="pg-row3">
 
         <!-- Skills — Radar chart -->
-        <section class="pg-card pg-card--scroll">
+        <section class="pg-card">
           <div class="pg-card__header">
             <h2 class="pg-card__title">Skill Progress</h2>
             <button v-if="canUpdate" class="pg-edit-btn" type="button" @click="openEditSkills">Edit</button>
@@ -69,7 +69,7 @@
             :labels="progress.skills.map(s => s.label)"
             :data="progress.skills.map(s => s.score)"
             :max="10"
-            :size="260"
+            :size="210"
           />
           <div class="pg-confidence-box">
             <div class="pg-confidence-box__icon">
