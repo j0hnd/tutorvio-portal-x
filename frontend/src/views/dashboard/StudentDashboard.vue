@@ -170,16 +170,22 @@
           <p class="sd-note-date">After lesson on May 15, 2026</p>
         </div>
 
-        <!-- Reminders -->
+        <!-- Reminders (from notifications store) -->
         <div class="sd-card">
-          <h3 class="sd-card__title">Reminders</h3>
+          <div class="sd-card-header-row">
+            <h3 class="sd-card__title">Reminders</h3>
+            <router-link to="/announcements" class="sd-view-all-link">View all</router-link>
+          </div>
           <ul class="sd-remind-list">
-            <li v-for="r in MOCK_REMINDERS" :key="r.id" class="sd-remind-item">
-              <span class="sd-remind-dot" :class="`sd-remind-dot--${r.type}`" />
+            <li v-for="r in dashboardReminders" :key="r.id" class="sd-remind-item" @click="markAndNavigate(r)">
+              <span class="sd-remind-dot" :class="remindDotClass(r.type)" />
               <div>
-                <p class="sd-remind-text">{{ r.text }}</p>
-                <p class="sd-remind-time">{{ r.time }}</p>
+                <p class="sd-remind-text">{{ r.title }}</p>
+                <p class="sd-remind-time">{{ timeAgo(r.createdAt) }}</p>
               </div>
+            </li>
+            <li v-if="!dashboardReminders.length" class="sd-remind-item">
+              <p class="sd-remind-text" style="color: var(--tv-text-muted);">No reminders right now.</p>
             </li>
           </ul>
         </div>
@@ -192,6 +198,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useAuthStore }     from '@/stores/auth'
 import { useUsersStore }    from '@/stores/users'
 import { useScheduleStore } from '@/stores/schedule'
@@ -239,10 +246,14 @@ const LEVEL_LONG: Record<string, string> = {
 }
 
 const icons = {
-  book:   `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 2h10a1 1 0 0 1 1 1v12l-5-2.5L5 15V3a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+  // Completed lessons — checkmark circle (green)
+  book:   `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 9l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  // Hours learned — clock (orange)
   clock:  `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M9 5.5V9l2.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  credit: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="4" width="16" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 7.5h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="5" cy="11" r="1" fill="currentColor"/></svg>`,
-  target: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="9" r="4" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/></svg>`,
+  // Upcoming lessons — calendar (primary blue)
+  credit: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5v3M13 1.5v3M1 7.5h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M6 12h2M10 12h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  // My level — star/achievement (purple)
+  target: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l2 5h5.5l-4.5 3.3 1.8 5.5L9 13l-4.8 2.8 1.8-5.5L1.5 7H7L9 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
 }
 
 const todayStr = computed(() => new Date().toLocaleDateString('sv-SE'))
@@ -284,15 +295,15 @@ const hoursLearned = computed(() => {
 })
 
 const stats = computed((): StatItem[] => [
-  { label: 'Completed Lessons', value: String(completedLessons.value), sub: 'All time', trendUp: true, icon: icons.book, iconClass: 'icon-badge--teal' },
-  { label: 'Upcoming Lessons',  value: String(upcomingLessons.value.length), sub: 'Scheduled', trendUp: false, icon: icons.credit, iconClass: 'icon-badge--success' },
+  { label: 'Completed Lessons', value: String(completedLessons.value), sub: 'All time', trendUp: true, icon: icons.book, iconClass: 'icon-badge--success' },
+  { label: 'Upcoming Lessons',  value: String(upcomingLessons.value.length), sub: 'Scheduled', trendUp: false, icon: icons.credit, iconClass: 'icon-badge--primary' },
   {
     label: 'My Level',
     value: LEVEL_SHORT[studentProfile.value?.englishLevel ?? ''] ?? '—',
     sub:   `${LEVEL_LONG[studentProfile.value?.englishLevel ?? ''] ?? 'No level'} · ${studentProfile.value?.program ?? 'No program'}`,
-    trendUp: false, icon: icons.target, iconClass: 'icon-badge--warning',
+    trendUp: false, icon: icons.target, iconClass: 'icon-badge--purple',
   },
-  { label: 'Hours Learned', value: hoursLearned.value, sub: 'Total study time', trendUp: false, icon: icons.clock, iconClass: 'icon-badge--teal' },
+  { label: 'Hours Learned', value: hoursLearned.value, sub: 'Total study time', trendUp: false, icon: icons.clock, iconClass: 'icon-badge--orange' },
 ])
 
 const studentHomework = computed(() =>
@@ -306,11 +317,35 @@ const MOCK_MATERIALS = [
   { id: 'm4', title: 'Professional Email Templates',    type: 'DOCX', lesson: 'Email Writing',        accessed: 'May 6' },
 ]
 
-const MOCK_REMINDERS = [
-  { id: 'r1', text: 'Business English at 2:00 PM today',        time: 'In 3 hours', type: 'lesson'  },
-  { id: 'r2', text: 'Homework due — submit before next class',  time: 'Due today',  type: 'warning' },
-  { id: 'r3', text: 'Platform maintenance on May 25, 2–4 AM',  time: 'May 25',     type: 'info'    },
-]
+const notifStore = useNotificationsStore()
+
+const dashboardReminders = computed(() =>
+  notifStore.getNotificationsForUser(auth.user?.id ?? '', auth.user?.role ?? 'STUDENT')
+    .filter(n => !n.isRead)
+    .slice(0, 4)
+)
+
+function remindDotClass(type: string): string {
+  if (type === 'class_reminder') return 'sd-remind-dot--lesson'
+  if (type === 'homework')       return 'sd-remind-dot--warning'
+  if (type === 'reschedule')     return 'sd-remind-dot--reschedule'
+  return 'sd-remind-dot--info'
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1)  return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function markAndNavigate(n: { id: string; link?: string }) {
+  notifStore.markAsRead(n.id)
+  if (n.link) router.push(n.link)
+}
 
 const pendingCount = computed(() => studentHomework.value.filter(h => ['PENDING', 'IN_PROGRESS', 'OVERDUE'].includes(h.status)).length)
 
@@ -516,13 +551,20 @@ const formattedStartDate = computed(() => {
 .sd-note { font-size: var(--tv-text-sm); color: var(--tv-text-secondary); font-style: italic; line-height: var(--tv-leading-relaxed); border-left: 3px solid var(--tv-primary-muted); padding-left: var(--tv-space-3); margin: 0; }
 .sd-note-date { font-size: var(--tv-text-xs); color: var(--tv-text-muted); }
 
+/* Reminders header */
+.sd-card-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--tv-space-2); }
+.sd-view-all-link { font-size: var(--tv-text-xs); color: var(--tv-primary); text-decoration: none; }
+.sd-view-all-link:hover { text-decoration: underline; }
+
 /* Reminders */
 .sd-remind-list { list-style: none; display: flex; flex-direction: column; gap: 0; }
-.sd-remind-item { display: flex; align-items: flex-start; gap: var(--tv-space-2); padding: var(--tv-space-2) 0; border-bottom: 1px solid var(--tv-bg-soft); }
+.sd-remind-item { display: flex; align-items: center; gap: var(--tv-space-2); padding: var(--tv-space-2) 0; border-bottom: 1px solid var(--tv-bg-soft); cursor: pointer; }
 .sd-remind-item:last-child { border-bottom: none; }
-.sd-remind-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
-.sd-remind-dot--lesson  { background: var(--tv-primary); }
-.sd-remind-dot--warning { background: var(--tv-warning); }
+.sd-remind-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sd-remind-dot--lesson     { background: var(--tv-primary); }
+.sd-remind-dot--warning    { background: var(--tv-warning); }
+.sd-remind-dot--reschedule { background: hsl(270,65%,55%); }
+.sd-remind-dot--info       { background: var(--tv-info); }
 .sd-remind-dot--info    { background: var(--tv-info); }
 .sd-remind-text { font-size: var(--tv-text-sm); color: var(--tv-text); margin: 0; line-height: 1.4; }
 .sd-remind-time { font-size: var(--tv-text-xs); color: var(--tv-text-muted); margin: 0; }

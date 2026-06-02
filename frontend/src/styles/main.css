@@ -70,6 +70,18 @@
   --tv-teal-soft: hsl(186, 70%, 92%);
   --tv-teal-fg: hsl(186, 75%, 32%);
 
+  /* Orange — time, hours, energy */
+  --tv-orange: hsl(28, 92%, 52%);
+  --tv-orange-soft: hsl(28, 92%, 94%);
+  --tv-orange-fg: hsl(28, 85%, 36%);
+  --tv-orange-border: hsl(28, 85%, 80%);
+
+  /* Indigo — teachers, education, roles */
+  --tv-indigo: hsl(243, 75%, 58%);
+  --tv-indigo-soft: hsl(243, 75%, 95%);
+  --tv-indigo-fg: hsl(243, 60%, 40%);
+  --tv-indigo-border: hsl(243, 65%, 82%);
+
   /* --- Spacing Scale --- */
   --tv-space-1: 0.25rem;
   --tv-space-2: 0.5rem;
@@ -333,6 +345,61 @@ textarea:focus {
 .icon-badge--primary {
   background: var(--tv-primary-soft);
   color: var(--tv-primary);
+}
+
+.icon-badge--danger {
+  background: var(--tv-danger-soft);
+  color: var(--tv-danger-fg);
+}
+
+.icon-badge--purple {
+  background: var(--tv-purple-soft);
+  color: var(--tv-purple);
+}
+
+.icon-badge--orange {
+  background: var(--tv-orange-soft);
+  color: var(--tv-orange-fg);
+}
+
+.icon-badge--indigo {
+  background: var(--tv-indigo-soft);
+  color: var(--tv-indigo-fg);
+}
+
+.icon-badge--blue {
+  background: hsl(210, 80%, 94%);
+  color: hsl(210, 70%, 35%);
+}
+
+.icon-badge--red {
+  background: var(--tv-danger-soft);
+  color: var(--tv-danger-fg);
+}
+
+.icon-badge--green {
+  background: var(--tv-success-soft);
+  color: var(--tv-success-fg);
+}
+
+/* ============================================================
+   Global badge/pill uppercase rule
+   ============================================================ */
+/* Apply to all small pill badges across the app */
+.hw-status, .hw-status--pending, .hw-status--in-progress,
+.hw-status--submitted, .hw-status--reviewed, .hw-status--overdue,
+.sd-hw-badge,
+.cv-level-badge, .cv-archived-pill,
+.lv-status,
+.an-type-badge, .an-status-pill,
+.pg-goal__badge, .pg-level-node__current, .pg-level-node__started,
+.cefr-badge,
+.ld-note-status,
+.ld-hw-status,
+.sd-status-chip,
+.att-override-pill {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* ============================================================

@@ -238,10 +238,14 @@ const activeStudentCount = computed(() => store.users.filter(u => u.role === 'ST
 const activeTeacherCount = computed(() => store.users.filter(u => u.role === 'TEACHER' && u.isActive).length)
 
 const icons = {
+  // Students — group of people
   users:    `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 16c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="14" cy="6" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M14 12c1.657 0 3 1.343 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  teachers: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="9" width="16" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M9 1v8M5 5l4-4 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  calendar: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5v3M13 1.5v3M1 7.5h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  missed:   `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l7.5 13H1.5L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 8v3M9 13.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  // Teachers — graduation cap
+  teachers: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3L1 7l8 4 8-4-8-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 9v4c0 1.657 1.79 3 4 3s4-1.343 4-3V9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M15 7v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  // Today's classes — calendar with play dot
+  calendar: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5v3M13 1.5v3M1 7.5h16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/></svg>`,
+  // No-shows — person with X
+  missed:   `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M1 16c0-3.314 2.686-5 6-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 11l4 4M16 11l-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 }
 
 const todayStr = computed(() => new Date().toLocaleDateString('sv-SE'))
@@ -319,9 +323,9 @@ const liveCount = computed(() => MOCK_TODAY_CLASSES.value.filter(c => c.status =
 
 const stats = computed((): StatItem[] => [
   { label: 'Active Students', value: String(activeStudentCount.value),          sub: 'Currently enrolled',                          trendUp: true,  icon: icons.users,    iconClass: 'icon-badge--teal'    },
-  { label: 'Active Teachers', value: String(activeTeacherCount.value),          sub: 'Available this week',                         trendUp: false, icon: icons.teachers, iconClass: 'icon-badge--primary'  },
+  { label: 'Active Teachers', value: String(activeTeacherCount.value),          sub: 'Available this week',                         trendUp: false, icon: icons.teachers, iconClass: 'icon-badge--indigo'  },
   { label: "Today's Classes", value: String(MOCK_TODAY_CLASSES.value.length),   sub: liveCount.value ? `${liveCount.value} live now` : 'Scheduled', trendUp: false, icon: icons.calendar, iconClass: 'icon-badge--success' },
-  { label: 'No-shows Today',  value: String(MOCK_MISSED.value.length),          sub: 'Requires follow-up',                          trendUp: false, icon: icons.missed,   iconClass: 'icon-badge--warning'  },
+  { label: 'No-shows Today',  value: String(MOCK_MISSED.value.length),          sub: 'Requires follow-up',                          trendUp: false, icon: icons.missed,   iconClass: 'icon-badge--danger'  },
 ])
 </script>
 

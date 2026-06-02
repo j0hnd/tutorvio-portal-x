@@ -101,15 +101,7 @@
       </div>
 
       <!-- Notifications -->
-      <button class="app-header__icon-btn" :aria-label="`${notificationCount} notifications`">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path d="M10 2a5.5 5.5 0 0 0-5.5 5.5c0 3.2-1.5 4.8-1.5 4.8h14s-1.5-1.6-1.5-4.8A5.5 5.5 0 0 0 10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-          <path d="M11.8 16a2 2 0 0 1-3.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>
-        <span v-if="notificationCount > 0" class="app-header__notif-badge" aria-hidden="true">
-          {{ notificationCount > 9 ? '9+' : notificationCount }}
-        </span>
-      </button>
+      <TVNotificationBell />
 
       <!-- User menu -->
       <div class="app-header__user-wrap" ref="userMenuRef">
@@ -181,6 +173,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { UserRole } from '@/types'
+import TVNotificationBell from '@/components/ui/TVNotificationBell.vue'
 
 interface HeaderUser {
   name: string

@@ -475,7 +475,7 @@ function submitCreate(): void {
 .lv-clear-btn {
   font-size: var(--tv-text-sm); color: var(--tv-text-muted);
   background: none; border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
-  padding: 0 var(--tv-space-3); min-height: 42px; display: inline-flex; align-items: center;
+  padding: 0 var(--tv-space-3); min-height: 42px; min-width: 72px; display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s;
 }
 .lv-clear-btn:hover { background: var(--tv-bg-soft); color: var(--tv-text); }
