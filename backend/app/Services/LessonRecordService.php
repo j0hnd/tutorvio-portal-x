@@ -1,0 +1,380 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\AuditActionType;
+use App\Enums\AuditModule;
+use App\Models\LessonRecord;
+use App\Models\User;
+use App\Repositories\LessonRecordRepository;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class LessonRecordService
+{
+    public function __construct(
+        private readonly LessonRecordRepository $lessonRecords,
+        private readonly SubscriptionLessonBalanceService $lessonBalances,
+        private readonly AuditLogService $auditLogService,
+    ) {}
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function create(array $payload, User $actor): LessonRecord
+    {
+        $this->assertStudentAndTeacherRoles($payload['student_id'], $payload['teacher_id']);
+
+        return DB::transaction(function () use ($payload, $actor): LessonRecord {
+            $lessonRecord = $this->lessonRecords->create([
+                ...Arr::only($payload, $this->mutableFields()),
+                ...$this->completionFields($payload, $actor),
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ]);
+
+            $this->lessonBalances->consumeForCompletedLesson($lessonRecord, $actor);
+
+            $syncedLessonRecord = $this->syncMaterials($lessonRecord, $payload);
+            $this->logLessonCreated($syncedLessonRecord, $actor);
+            $this->logAttendanceChange($syncedLessonRecord, $actor, null, $syncedLessonRecord->attendance_status);
+
+            return $syncedLessonRecord;
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function update(LessonRecord $lessonRecord, array $payload, User $actor): LessonRecord
+    {
+        $studentId = $payload['student_id'] ?? $lessonRecord->student_id;
+        $teacherId = $payload['teacher_id'] ?? $lessonRecord->teacher_id;
+        $this->assertStudentAndTeacherRoles($studentId, $teacherId);
+
+        return DB::transaction(function () use ($lessonRecord, $payload, $actor): LessonRecord {
+            $before = clone $lessonRecord;
+            $wasCompleted = $lessonRecord->is_completed && $lessonRecord->lesson_status === LessonRecord::STATUS_COMPLETED;
+            $updatedLessonRecord = $this->lessonRecords->update($lessonRecord, [
+                ...Arr::only($payload, $this->mutableFields()),
+                ...$this->completionFields($payload, $actor, $lessonRecord),
+                'updated_by' => $actor->id,
+            ]);
+
+            if (! $wasCompleted) {
+                $this->lessonBalances->consumeForCompletedLesson($updatedLessonRecord, $actor);
+            }
+
+            $syncedLessonRecord = $this->syncMaterials($updatedLessonRecord, $payload);
+            $this->logLessonScheduleUpdate($before, $syncedLessonRecord, $actor, $payload);
+            $this->logAttendanceChange($syncedLessonRecord, $actor, $before->attendance_status, $syncedLessonRecord->attendance_status);
+            $this->logLessonUpdated($before, $syncedLessonRecord, $actor, $payload);
+
+            return $syncedLessonRecord;
+        });
+    }
+
+    public function cancel(LessonRecord $lessonRecord, User $actor, ?string $reason = null): LessonRecord
+    {
+        $notes = $lessonRecord->lesson_notes;
+
+        if ($reason !== null && $reason !== '') {
+            $notes = trim((string) $notes);
+            $notes = $notes === '' ? 'Cancellation reason: '.$reason : $notes."\n\nCancellation reason: ".$reason;
+        }
+
+        $before = clone $lessonRecord;
+        $updatedLessonRecord = $this->lessonRecords->update($lessonRecord, [
+            'lesson_status' => LessonRecord::STATUS_CANCELLED,
+            'is_completed' => false,
+            'completed_at' => null,
+            'completed_by' => null,
+            'lesson_notes' => $notes,
+            'updated_by' => $actor->id,
+        ]);
+        $this->logLessonUpdated($before, $updatedLessonRecord, $actor, [
+            'lesson_status' => LessonRecord::STATUS_CANCELLED,
+            'is_completed' => false,
+        ]);
+
+        return $updatedLessonRecord;
+    }
+
+    private function assertStudentAndTeacherRoles(int $studentId, int $teacherId): void
+    {
+        $student = User::findOrFail($studentId);
+        $teacher = User::findOrFail($teacherId);
+
+        if (! $student->hasRole('student')) {
+            throw ValidationException::withMessages([
+                'student_id' => 'The selected user must have the student role.',
+            ]);
+        }
+
+        if (! $teacher->hasRole('teacher')) {
+            throw ValidationException::withMessages([
+                'teacher_id' => 'The selected user must have the teacher role.',
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function completionFields(array $payload, User $actor, ?LessonRecord $lessonRecord = null): array
+    {
+        $hasCompletion = array_key_exists('is_completed', $payload);
+        $hasStatus = array_key_exists('lesson_status', $payload);
+        $isCompleted = $hasCompletion ? (bool) $payload['is_completed'] : null;
+        $status = $hasStatus ? $payload['lesson_status'] : null;
+
+        if (! $hasCompletion && $status !== LessonRecord::STATUS_COMPLETED) {
+            if ($lessonRecord === null) {
+                return ['is_completed' => false];
+            }
+
+            return [];
+        }
+
+        $completed = $isCompleted ?? $status === LessonRecord::STATUS_COMPLETED;
+
+        if (! $completed) {
+            $fields = [
+                'is_completed' => false,
+                'completed_at' => null,
+                'completed_by' => null,
+            ];
+
+            if ($status === LessonRecord::STATUS_COMPLETED || (! $hasStatus && $lessonRecord?->lesson_status === LessonRecord::STATUS_COMPLETED)) {
+                $fields['lesson_status'] = LessonRecord::STATUS_SCHEDULED;
+            }
+
+            return $fields;
+        }
+
+        return [
+            'is_completed' => true,
+            'lesson_status' => LessonRecord::STATUS_COMPLETED,
+            'completed_at' => $lessonRecord?->completed_at ?? now(),
+            'completed_by' => $lessonRecord?->completed_by ?? $actor->id,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function mutableFields(): array
+    {
+        return [
+            'student_id',
+            'teacher_id',
+            'scheduled_date',
+            'start_time',
+            'end_time',
+            'meeting_link',
+            'meeting_provider',
+            'meeting_metadata',
+            'join_available_from',
+            'join_available_until',
+            'lesson_type',
+            'lesson_status',
+            'lesson_notes',
+            'homework_details',
+            'homework_due_date',
+            'attendance_status',
+            'is_completed',
+            'internal_remarks',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function syncMaterials(LessonRecord $lessonRecord, array $payload): LessonRecord
+    {
+        if (array_key_exists('material_ids', $payload)) {
+            $lessonRecord->materials()->sync($payload['material_ids'] ?? []);
+        }
+
+        return $lessonRecord->refresh()->load([
+            'student:id,public_id,name,email,timezone',
+            'teacher:id,public_id,name,email,timezone',
+            'completedBy:id,public_id,name,email',
+            'createdBy:id,public_id,name,email',
+            'updatedBy:id,public_id,name,email',
+            'materials:id,title,description,url',
+            'lessonNote:id,public_id,lesson_id,lesson_record_id,lesson_objective,topics_covered,vocabulary_learned,grammar_focus,pronunciation_issues,student_speaking_confidence_observation,homework_assignment,recommendation_for_next_lesson,internal_note,submitted_at',
+            'lessonNote.lesson:id,public_id',
+        ]);
+    }
+
+    private function logLessonCreated(LessonRecord $lessonRecord, User $actor): void
+    {
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::LESSON_CREATED,
+            module: AuditModule::LESSONS,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $lessonRecord->id,
+            metadata: [
+                'lesson_id' => $lessonRecord->id,
+                'student_id' => $lessonRecord->student_id,
+                'teacher_id' => $lessonRecord->teacher_id,
+                'new_status' => $lessonRecord->lesson_status,
+                'schedule_after' => $this->lessonScheduleSnapshot($lessonRecord),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function logLessonScheduleUpdate(LessonRecord $before, LessonRecord $after, User $actor, array $payload): void
+    {
+        if (! $this->payloadContainsScheduleChange($payload)) {
+            return;
+        }
+
+        $changedFields = [];
+        foreach (['scheduled_date', 'start_time', 'end_time'] as $field) {
+            if (array_key_exists($field, $payload) && $before->{$field} !== $after->{$field}) {
+                $changedFields[] = $field;
+            }
+        }
+
+        if ($changedFields === []) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::SCHEDULE_UPDATED,
+            module: AuditModule::SCHEDULING,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $after->id,
+            metadata: [
+                'lesson_id' => $after->id,
+                'student_id' => $after->student_id,
+                'teacher_id' => $after->teacher_id,
+                'previous_status' => $before->lesson_status,
+                'new_status' => $after->lesson_status,
+                'changed_fields' => array_fill_keys($changedFields, true),
+                'schedule_before' => $this->lessonScheduleSnapshot($before),
+                'schedule_after' => $this->lessonScheduleSnapshot($after),
+            ],
+        );
+    }
+
+    private function logAttendanceChange(LessonRecord $lessonRecord, User $actor, ?string $previousStatus, ?string $newStatus): void
+    {
+        if ($previousStatus === $newStatus || $newStatus === null) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::ATTENDANCE_MARKED,
+            module: AuditModule::ATTENDANCE,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $lessonRecord->id,
+            metadata: [
+                'lesson_id' => $lessonRecord->id,
+                'student_id' => $lessonRecord->student_id,
+                'teacher_id' => $lessonRecord->teacher_id,
+                'previous_status' => $previousStatus,
+                'new_status' => $newStatus,
+                'changed_fields' => [
+                    'attendance_status' => true,
+                ],
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function logLessonUpdated(LessonRecord $before, LessonRecord $after, User $actor, array $payload): void
+    {
+        $fields = array_values(array_diff($this->auditableLessonUpdateFields(), [
+            'scheduled_date',
+            'start_time',
+            'end_time',
+            'attendance_status',
+        ]));
+        $changedFields = [];
+
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $payload) && $before->{$field} !== $after->{$field}) {
+                $changedFields[] = $field;
+            }
+        }
+
+        if (array_key_exists('material_ids', $payload)) {
+            $changedFields[] = 'material_ids';
+        }
+
+        $changedFields = array_values(array_unique($changedFields));
+
+        if ($changedFields === []) {
+            return;
+        }
+
+        $this->auditLogService->record(
+            actorUserId: $actor->id,
+            actionType: AuditActionType::LESSON_UPDATED,
+            module: AuditModule::LESSONS,
+            targetEntityType: 'lesson_record',
+            targetEntityId: $after->id,
+            metadata: [
+                'lesson_id' => $after->id,
+                'student_id' => $after->student_id,
+                'teacher_id' => $after->teacher_id,
+                'previous_status' => $before->lesson_status,
+                'new_status' => $after->lesson_status,
+                'changed_fields' => array_fill_keys($changedFields, true),
+            ],
+        );
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function lessonScheduleSnapshot(LessonRecord $lessonRecord): array
+    {
+        return [
+            'scheduled_date' => $lessonRecord->scheduled_date?->toDateString(),
+            'start_time' => $lessonRecord->start_time,
+            'end_time' => $lessonRecord->end_time,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function payloadContainsScheduleChange(array $payload): bool
+    {
+        return array_intersect(array_keys($payload), ['scheduled_date', 'start_time', 'end_time']) !== [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function auditableLessonUpdateFields(): array
+    {
+        return [
+            'student_id',
+            'teacher_id',
+            'scheduled_date',
+            'start_time',
+            'end_time',
+            'meeting_provider',
+            'lesson_type',
+            'lesson_status',
+            'homework_due_date',
+            'attendance_status',
+            'is_completed',
+        ];
+    }
+}
