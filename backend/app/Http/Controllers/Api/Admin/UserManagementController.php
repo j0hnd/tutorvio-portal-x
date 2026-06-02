@@ -286,8 +286,26 @@ class UserManagementController extends Controller
             'password' => ['sometimes', 'string', 'min:8'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'timezone' => ['sometimes', 'nullable', 'string', Rule::in(timezone_identifiers_list())],
-            'profile_photo_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'signed_document_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'profile_photo_path' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:2048',
+                ...$this->safeStoragePathRules(
+                    ['users/profile-photos/', 'profiles/'],
+                    ['jpg', 'jpeg', 'png', 'webp', 'gif']
+                ),
+            ],
+            'signed_document_path' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:2048',
+                ...$this->safeStoragePathRules(
+                    ['contracts/'],
+                    ['pdf', 'doc', 'docx']
+                ),
+            ],
             'status' => ['sometimes', 'string', Rule::in(User::STATUSES)],
             'status_reason' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'role' => [$creating ? 'required' : 'sometimes', 'string', Rule::in(self::MANAGED_ROLES)],
@@ -322,6 +340,55 @@ class UserManagementController extends Controller
         $this->validateStaffPermissions($role, $validated['permissions'] ?? null);
 
         return $validated;
+    }
+
+    /**
+     * @param  array<int, string>  $allowedPrefixes
+     * @param  array<int, string>  $allowedExtensions
+     * @return array<int, \Closure>
+     */
+    private function safeStoragePathRules(array $allowedPrefixes, array $allowedExtensions): array
+    {
+        return [
+            function (string $attribute, mixed $value, \Closure $fail) use ($allowedPrefixes, $allowedExtensions): void {
+                if ($value === null || $value === '') {
+                    return;
+                }
+
+                $path = str_replace('\\', '/', (string) $value);
+
+                if ($path !== (string) $value || str_starts_with($path, '/') || preg_match('/^[a-z][a-z0-9+.-]*:/i', $path)) {
+                    $fail("The {$attribute} must be a relative storage path.");
+
+                    return;
+                }
+
+                $segments = explode('/', $path);
+
+                if (
+                    in_array('', $segments, true)
+                    || in_array('.', $segments, true)
+                    || in_array('..', $segments, true)
+                    || ! preg_match('/^[A-Za-z0-9._\/-]+$/', $path)
+                ) {
+                    $fail("The {$attribute} contains an invalid path segment.");
+
+                    return;
+                }
+
+                if (! Str::startsWith($path, $allowedPrefixes)) {
+                    $fail("The {$attribute} must use an allowed storage prefix.");
+
+                    return;
+                }
+
+                $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+                if (! in_array($extension, $allowedExtensions, true)) {
+                    $fail("The {$attribute} must use an allowed file extension.");
+                }
+            },
+        ];
     }
 
     /**

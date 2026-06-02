@@ -53,6 +53,44 @@ class UserResponseSecurityTest extends TestCase
             ->assertJsonMissingPath('data.student_profile.internal_notes');
     }
 
+    public function test_user_file_path_fields_reject_unsafe_storage_paths(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/users', [
+            'name' => 'Unsafe Paths',
+            'email' => 'unsafe-paths@example.test',
+            'role' => 'student',
+            'profile_photo_path' => '../private/avatar.jpg',
+            'signed_document_path' => 'https://example.test/contract.pdf',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'profile_photo_path',
+                'signed_document_path',
+            ]);
+    }
+
+    public function test_user_file_path_fields_accept_expected_storage_keys(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/users', [
+            'name' => 'Safe Paths',
+            'email' => 'safe-paths@example.test',
+            'role' => 'student',
+            'profile_photo_path' => 'users/profile-photos/student-avatar.webp',
+            'signed_document_path' => 'contracts/student-agreement.pdf',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.profile_photo_path', 'users/profile-photos/student-avatar.webp')
+            ->assertJsonPath('data.signed_document_path', 'contracts/student-agreement.pdf');
+    }
+
     public function test_student_learning_resource_response_hides_internal_metadata(): void
     {
         $student = $this->userWithRole('student');
