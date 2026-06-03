@@ -139,7 +139,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/issue-reports', [IssueReportController::class, 'store'])
             ->middleware('throttle:api-action');
         Route::get('/issue-reports/{issueReport:public_id}', [IssueReportController::class, 'show']);
-        Route::get('/lessons/{lesson:public_id}/join', LessonJoinController::class);
+        Route::get('/lessons/{lesson:public_id}/join', LessonJoinController::class)
+            ->middleware('throttle:api-lesson-join');
         Route::get('/lessons/{lesson:public_id}/lesson-notes', [LessonNoteController::class, 'byLesson']);
         Route::get('/students/{student:public_id}/lesson-notes', [LessonNoteController::class, 'byStudent']);
         Route::get('/students/{student:public_id}/progress-summary', [StudentProgressRecordController::class, 'summary']);

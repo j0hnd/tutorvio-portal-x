@@ -205,6 +205,26 @@ class LessonJoinApiTest extends TestCase
         ]);
     }
 
+    public function test_join_endpoint_is_rate_limited(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-01 08:50:00'));
+        $lesson = $this->createJoinableLesson();
+
+        Sanctum::actingAs($this->student);
+
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')->assertOk();
+        }
+
+        $this->getJson('/api/v1/lessons/'.$lesson->public_id.'/join')
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Too many requests.',
+            ])
+            ->assertJsonMissingPath('data.meeting_link')
+            ->assertHeader('Retry-After');
+    }
+
     public function test_default_join_window_opens_before_start_and_closes_after_end(): void
     {
         $lesson = $this->createJoinableLesson([

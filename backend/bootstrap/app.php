@@ -22,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands()
     ->withMiddleware(function (Middleware $middleware): void {
+        if (env('RATE_LIMITER_STORE', env('CACHE_STORE')) === 'redis') {
+            $middleware->throttleWithRedis();
+        }
+
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

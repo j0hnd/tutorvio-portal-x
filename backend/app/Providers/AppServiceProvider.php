@@ -130,6 +130,12 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('api-lesson-join', function (Request $request): array {
+            return [
+                Limit::perMinute(20)->by($this->rateLimitKey($request)),
+            ];
+        });
+
         RateLimiter::for('api-report', function (Request $request): array {
             return [
                 Limit::perMinute(30)->by($this->rateLimitKey($request)),

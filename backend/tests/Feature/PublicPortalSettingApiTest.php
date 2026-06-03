@@ -118,4 +118,18 @@ class PublicPortalSettingApiTest extends TestCase
             ->assertJsonPath('data.locale.default', 'en')
             ->assertJsonPath('data.timezone.value', 'Asia/Manila');
     }
+
+    public function test_public_settings_endpoint_is_rate_limited(): void
+    {
+        for ($attempt = 0; $attempt < 60; $attempt++) {
+            $this->getJson('/api/settings/public')->assertOk();
+        }
+
+        $this->getJson('/api/settings/public')
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Too many requests.',
+            ])
+            ->assertHeader('Retry-After');
+    }
 }

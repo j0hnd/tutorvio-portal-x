@@ -123,7 +123,13 @@ class AuthSecurityTest extends TestCase
         $this->postJson('/api/v1/auth/login', [
             'email' => 'rate-limit@example.com',
             'password' => 'wrong-password',
-        ])->assertStatus(429);
+        ])
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Too many requests.',
+            ])
+            ->assertJsonMissingPath('email')
+            ->assertHeader('Retry-After');
     }
 
     public function test_forgot_password_returns_generic_response(): void
@@ -135,5 +141,46 @@ class AuthSecurityTest extends TestCase
             ->assertJson([
                 'message' => 'If the account exists, a reset link has been sent.',
             ]);
+    }
+
+    public function test_forgot_password_is_rate_limited_without_revealing_account_existence(): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/v1/auth/forgot-password', [
+                'email' => 'unknown-rate-limit@example.com',
+            ])->assertOk();
+        }
+
+        $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'unknown-rate-limit@example.com',
+        ])
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Too many requests.',
+            ])
+            ->assertJsonMissingPath('email')
+            ->assertJsonMissingPath('account');
+    }
+
+    public function test_reset_password_is_rate_limited_without_revealing_account_existence(): void
+    {
+        $payload = [
+            'token' => 'invalid-token',
+            'email' => 'unknown-reset-rate-limit@example.com',
+            'password' => 'new-password',
+            'password_confirmation' => 'new-password',
+        ];
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/v1/auth/reset-password', $payload)->assertStatus(400);
+        }
+
+        $this->postJson('/api/v1/auth/reset-password', $payload)
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Too many requests.',
+            ])
+            ->assertJsonMissingPath('email')
+            ->assertJsonMissingPath('account');
     }
 }
