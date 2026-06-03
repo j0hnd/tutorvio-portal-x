@@ -11,7 +11,7 @@ Laravel API backend for the Tutorvio Portal monorepo.
 - PHPUnit for backend tests
 - Laravel Pint for PHP formatting
 - L5 Swagger for OpenAPI generation and Swagger UI
-- MariaDB in the local Docker stack
+- MariaDB and Redis in the local Docker stack
 
 ## Local Setup
 
@@ -43,10 +43,11 @@ The default `.env.example` is configured for the Docker MariaDB service:
 - `DB_USERNAME=tutorvio`
 - `DB_PASSWORD=tutorvio_password`
 
-Redis is optional in local development. The backend keeps `CACHE_STORE=database` and `QUEUE_CONNECTION=database` by default so the app can run without Redis. When Redis is available, enable it with:
+Redis is optional outside configured environments. The application queue config falls back to the database driver when `QUEUE_CONNECTION` is not set, so deployments that have not provisioned Redis are not forced onto it.
+
+The example environment uses Redis for queue processing in the Docker stack:
 
 ```env
-CACHE_STORE=redis
 QUEUE_CONNECTION=redis
 ```
 
@@ -56,11 +57,13 @@ The Docker stack includes a Redis service:
 docker compose up -d redis
 ```
 
+Keep `CACHE_STORE=database` unless Redis-backed caching is also required.
+
 Redis-backed cache locks use `REDIS_CACHE_LOCK_CONNECTION`, which defaults to the dedicated `lock` Redis connection.
 
 The Docker backend image installs the `phpredis` extension for `REDIS_CLIENT=phpredis`. Non-Docker Redis use requires the same PHP extension in the local PHP runtime.
 
-Required Redis environment variables:
+Redis environment variables:
 
 - `REDIS_CLIENT`: Redis client, usually `phpredis`.
 - `REDIS_HOST`: Redis host or Docker service name.
@@ -78,6 +81,22 @@ Required Redis environment variables:
 - `REDIS_QUEUE_RETRY_AFTER`: Seconds before a Redis job is retried.
 - `REDIS_QUEUE_BLOCK_FOR`: Optional seconds for Redis queue blocking pop; use `null` to disable blocking.
 
+### Queue Worker
+
+Run a queue worker whenever background jobs should be processed. With the Docker Redis service and `QUEUE_CONNECTION=redis`:
+
+```bash
+docker compose exec backend php artisan queue:work redis --queue=default --tries=3
+```
+
+For a host PHP runtime from `backend/`:
+
+```bash
+php artisan queue:work redis --queue=default --tries=3
+```
+
+Use the same commands with `database` instead of `redis` if the local `.env` keeps `QUEUE_CONNECTION=database`. If `REDIS_QUEUE` is changed from `default`, pass that queue name to `--queue`.
+
 ## Common Commands
 
 Run from `backend/` unless using `docker compose exec backend`.
@@ -88,6 +107,7 @@ composer test
 vendor/bin/pint
 php artisan migrate
 php artisan migrate:fresh --seed
+php artisan queue:work redis --queue=default --tries=3
 php artisan route:list --path=api --json
 php artisan l5-swagger:generate
 ```
