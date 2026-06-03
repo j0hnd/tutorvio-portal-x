@@ -18,6 +18,7 @@ use App\Services\Scheduling\ScheduleReminderService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
@@ -36,6 +37,8 @@ class SchedulingApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        config(['lessons.booking_locks.store' => 'array']);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->seed(RolesAndPermissionsSeeder::class);
@@ -432,6 +435,85 @@ class SchedulingApiTest extends TestCase
             ->assertJsonValidationErrors('starts_at');
 
         $this->assertDatabaseCount('class_schedules', 1);
+    }
+
+    public function test_student_booking_returns_clear_error_when_teacher_slot_is_locked(): void
+    {
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        $availability = TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        $lock = Cache::store('array')->lock(
+            "tvio:lesson_booking:teacher_availability:{$this->teacher->id}:{$availability->id}:2026-06-01",
+            60
+        );
+
+        $this->assertTrue($lock->get());
+
+        try {
+            Sanctum::actingAs($this->student);
+
+            $this->postJson('/api/v1/scheduling/lesson-bookings', [
+                'teacher_id' => $this->teacher->id,
+                'timezone' => 'Asia/Manila',
+                'starts_at' => '2026-06-01T10:00:00+08:00',
+                'ends_at' => '2026-06-01T11:00:00+08:00',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('starts_at')
+                ->assertJsonPath('errors.starts_at.0', 'This lesson slot is already being booked. Please try another time or retry shortly.');
+
+            $this->assertDatabaseCount('class_schedules', 0);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function test_student_booking_releases_locks_after_success(): void
+    {
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        $availability = TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:00:00+08:00',
+            'ends_at' => '2026-06-01T11:00:00+08:00',
+        ])->assertCreated();
+
+        $teacherLock = Cache::store('array')->lock(
+            "tvio:lesson_booking:teacher_availability:{$this->teacher->id}:{$availability->id}:2026-06-01",
+            60
+        );
+        $studentLock = Cache::store('array')->lock(
+            "tvio:lesson_booking:student:{$this->student->id}:1780279200:1780282800",
+            60
+        );
+
+        $this->assertTrue($teacherLock->get());
+        $this->assertTrue($studentLock->get());
+
+        $teacherLock->release();
+        $studentLock->release();
     }
 
     public function test_student_booking_respects_unavailable_dates_and_holidays(): void

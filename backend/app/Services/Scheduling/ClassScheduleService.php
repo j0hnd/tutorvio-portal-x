@@ -5,12 +5,16 @@ namespace App\Services\Scheduling;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Models\Scheduling\ClassSchedule;
+use App\Models\Scheduling\TeacherAvailability;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Notifications\SystemNotificationService;
 use Carbon\CarbonImmutable;
+use Closure;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -194,32 +198,156 @@ class ClassScheduleService
         $classType = $this->classType($payload, $student);
         $teacherBlockedUntilUtc = $this->teacherBlockedUntil($classType, $startsAtUtc, $endsAtUtc, $payload['timezone']);
 
-        return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
-            $this->availabilityService->assertTeacherCanBeBooked(
-                $teacher,
-                $startsAtUtc,
-                $endsAtUtc,
-                $payload['timezone'],
-                student: $student,
-                teacherBlockedUntilUtc: $teacherBlockedUntilUtc
+        return $this->withLessonBookingLocks(
+            $student,
+            $teacher,
+            $startsAtUtc,
+            $endsAtUtc,
+            $teacherBlockedUntilUtc,
+            $payload['timezone'],
+            function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
+                return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
+                    $this->availabilityService->assertTeacherCanBeBooked(
+                        $teacher,
+                        $startsAtUtc,
+                        $endsAtUtc,
+                        $payload['timezone'],
+                        student: $student,
+                        teacherBlockedUntilUtc: $teacherBlockedUntilUtc
+                    );
+
+                    $schedule = ClassSchedule::create([
+                        ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
+                        'student_id' => $student->id,
+                        'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
+                        'class_type' => $classType,
+                        'starts_at' => $startsAtUtc,
+                        'ends_at' => $endsAtUtc,
+                        'teacher_blocked_until' => $teacherBlockedUntilUtc,
+                        'created_by' => $student->id,
+                        'updated_by' => $student->id,
+                    ]);
+
+                    $this->logLessonCreated($schedule, $student);
+
+                    return $schedule;
+                });
+            }
+        );
+    }
+
+    /**
+     * Serialize student-initiated bookings around the student attempt and the
+     * teacher availability day to close the gap between validation and insert.
+     */
+    private function withLessonBookingLocks(
+        User $student,
+        User $teacher,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $endsAtUtc,
+        CarbonImmutable $teacherBlockedUntilUtc,
+        string $timezone,
+        Closure $callback
+    ): ClassSchedule {
+        $locks = [];
+
+        try {
+            $locks[] = $this->acquireLessonBookingLock(
+                $this->studentBookingLockKey($student, $startsAtUtc, $endsAtUtc),
+                'starts_at',
+                'A booking attempt is already in progress for this student and time slot.'
             );
 
-            $schedule = ClassSchedule::create([
-                ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
-                'student_id' => $student->id,
-                'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
-                'class_type' => $classType,
-                'starts_at' => $startsAtUtc,
-                'ends_at' => $endsAtUtc,
-                'teacher_blocked_until' => $teacherBlockedUntilUtc,
-                'created_by' => $student->id,
-                'updated_by' => $student->id,
+            $locks[] = $this->acquireLessonBookingLock(
+                $this->teacherAvailabilitySlotLockKey($teacher, $startsAtUtc, $teacherBlockedUntilUtc, $timezone),
+                'starts_at',
+                'This lesson slot is already being booked. Please try another time or retry shortly.'
+            );
+
+            return $callback();
+        } finally {
+            foreach (array_reverse($locks) as $lock) {
+                try {
+                    $lock->release();
+                } catch (Throwable $exception) {
+                    Log::warning('Lesson booking lock release failed.', [
+                        'failure_type' => $exception::class,
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function acquireLessonBookingLock(string $key, string $field, string $message): Lock
+    {
+        $lock = Cache::store($this->bookingLockStore())->lock($key, $this->bookingLockTtlSeconds());
+
+        if (! $lock->get()) {
+            throw ValidationException::withMessages([
+                $field => $message,
             ]);
+        }
 
-            $this->logLessonCreated($schedule, $student);
+        return $lock;
+    }
 
-            return $schedule;
-        });
+    private function studentBookingLockKey(User $student, CarbonImmutable $startsAtUtc, CarbonImmutable $endsAtUtc): string
+    {
+        return implode(':', [
+            'tvio',
+            'lesson_booking',
+            'student',
+            $student->id,
+            $startsAtUtc->timestamp,
+            $endsAtUtc->timestamp,
+        ]);
+    }
+
+    private function teacherAvailabilitySlotLockKey(
+        User $teacher,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $teacherBlockedUntilUtc,
+        string $timezone
+    ): string {
+        $localStart = $startsAtUtc->setTimezone($timezone);
+        $localEnd = $teacherBlockedUntilUtc->setTimezone($timezone);
+
+        $availabilityId = TeacherAvailability::query()
+            ->where('teacher_id', $teacher->id)
+            ->where('is_active', true)
+            ->where('day_of_week', $localStart->dayOfWeek)
+            ->where('timezone', $timezone)
+            ->whereTime('start_time', '<=', $localStart->format('H:i:s'))
+            ->whereTime('end_time', '>=', $localEnd->format('H:i:s'))
+            ->where(function ($query) use ($localStart) {
+                $query->whereNull('effective_from')
+                    ->orWhereDate('effective_from', '<=', $localStart->toDateString());
+            })
+            ->where(function ($query) use ($localStart) {
+                $query->whereNull('effective_until')
+                    ->orWhereDate('effective_until', '>=', $localStart->toDateString());
+            })
+            ->orderBy('id')
+            ->value('id');
+
+        return implode(':', [
+            'tvio',
+            'lesson_booking',
+            'teacher_availability',
+            $teacher->id,
+            $availabilityId ?: 'none',
+            $localStart->toDateString(),
+        ]);
+    }
+
+    private function bookingLockStore(): string
+    {
+        return (string) config('lessons.booking_locks.store', 'redis');
+    }
+
+    private function bookingLockTtlSeconds(): int
+    {
+        return max(1, (int) config('lessons.booking_locks.ttl_seconds', 60));
     }
 
     /**
