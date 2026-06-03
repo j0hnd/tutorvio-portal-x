@@ -2,6 +2,7 @@
 
 namespace App\Services\Billing;
 
+use App\Jobs\Billing\SendInvoiceEmail;
 use App\Models\Invoice;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
@@ -42,6 +43,21 @@ class InvoiceEmailService
         return $this->send($invoice, self::MODE_AUTOMATIC);
     }
 
+    public function queueAutomatically(Invoice $invoice): bool
+    {
+        if (! (bool) config('billing.invoice.email.automatic_enabled', false)) {
+            return false;
+        }
+
+        if ($this->automaticEmailAlreadySent($invoice)) {
+            return false;
+        }
+
+        SendInvoiceEmail::dispatch($invoice->id, self::MODE_AUTOMATIC)->afterCommit();
+
+        return true;
+    }
+
     /**
      * Resend an invoice email as a manual staff action.
      *
@@ -55,6 +71,28 @@ class InvoiceEmailService
     public function resendManually(Invoice $invoice, ?User $sender = null): bool
     {
         return $this->send($invoice, self::MODE_MANUAL, $sender);
+    }
+
+    public function queueManualResend(Invoice $invoice, ?User $sender = null): bool
+    {
+        SendInvoiceEmail::dispatch($invoice->id, self::MODE_MANUAL, $sender?->id)->afterCommit();
+
+        return true;
+    }
+
+    public function sendQueued(int $invoiceId, string $mode, ?User $sender = null): bool
+    {
+        $invoice = Invoice::query()->find($invoiceId);
+
+        if ($invoice === null) {
+            return false;
+        }
+
+        if ($mode === self::MODE_AUTOMATIC) {
+            return $this->sendAutomatically($invoice);
+        }
+
+        return $this->resendManually($invoice, $sender);
     }
 
     private function send(Invoice $invoice, string $mode, ?User $sender = null): bool

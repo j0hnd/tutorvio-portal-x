@@ -24,7 +24,7 @@ class InvoiceGenerationService
      * The payload is expected to come from validated request data. The method
      * creates the invoice in a transaction, calculates configured tax and
      * currency values, prevents duplicate source invoices unless allowed, and
-     * attempts automatic email delivery after creation.
+     * queues automatic email delivery after creation.
      *
      * @param  array<string, mixed>  $payload
      *
@@ -82,7 +82,7 @@ class InvoiceGenerationService
             return $invoice->load(['student:id,public_id,name,email,status', 'subscription', 'courseProgram']);
         });
 
-        $this->invoiceEmails->sendAutomatically($invoice);
+        $this->invoiceEmails->queueAutomatically($invoice);
 
         return $invoice->refresh()->load(['student:id,public_id,name,email,status', 'subscription', 'courseProgram']);
     }

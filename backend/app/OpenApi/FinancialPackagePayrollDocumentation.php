@@ -323,6 +323,25 @@ use OpenApi\Attributes as OA;
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
 )]
+#[OA\Post(
+    path: '/invoices/{invoice}/send-email',
+    operationId: 'billingInvoiceEmailQueue',
+    summary: 'Queue invoice email',
+    description: 'Access: admin or staff with `invoices.create`. Queues a background job to email the invoice PDF to the student and returns the current invoice resource. Delivery history and invoice email metadata are updated by the queued job.',
+    security: [['sanctum' => []]],
+    tags: ['Billing'],
+    parameters: [
+        new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'inv_01J0INVOICE000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 202, description: 'Invoice email queued.', content: new OA\JsonContent(type: 'object', properties: [
+            new OA\Property(property: 'data', ref: '#/components/schemas/BillingInvoice'),
+            new OA\Property(property: 'email_queued', type: 'boolean', example: true),
+        ])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
 #[OA\Patch(
     path: '/invoices/{invoice}/payment-status',
     operationId: 'billingInvoicePaymentStatusUpdate',

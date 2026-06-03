@@ -7,20 +7,18 @@ use App\Http\Requests\Homeworks\ReviewHomeworkRequest;
 use App\Http\Requests\Homeworks\StoreHomeworkRequest;
 use App\Http\Requests\Homeworks\UpdateHomeworkProgressRequest;
 use App\Http\Resources\Homeworks\HomeworkResource;
+use App\Jobs\Notifications\SendHomeworkReminderNotification;
 use App\Models\Homework;
 use App\Models\LearningResource;
 use App\Models\Lesson;
 use App\Models\User;
-use App\Services\Notifications\SystemNotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class HomeworkController extends Controller
 {
@@ -29,10 +27,8 @@ class HomeworkController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  SystemNotificationService  $notificationService
      */
-    public function __construct(private readonly SystemNotificationService $notificationService) {}
+    public function __construct() {}
 
     /**
      * Display a filtered list of homework records.
@@ -41,9 +37,6 @@ class HomeworkController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -78,9 +71,6 @@ class HomeworkController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreHomeworkRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreHomeworkRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreHomeworkRequest $request): JsonResponse
     {
@@ -143,9 +133,6 @@ class HomeworkController extends Controller
      * Route model parameters include $homework.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Homework  $homework
-     * @return JsonResponse
      */
     public function show(Homework $homework): JsonResponse
     {
@@ -163,10 +150,6 @@ class HomeworkController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $homework.
      * The UpdateHomeworkProgressRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  UpdateHomeworkProgressRequest  $request
-     * @param  Homework  $homework
-     * @return JsonResponse
      */
     public function updateProgress(UpdateHomeworkProgressRequest $request, Homework $homework): JsonResponse
     {
@@ -191,10 +174,6 @@ class HomeworkController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $homework.
      * The ReviewHomeworkRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  ReviewHomeworkRequest  $request
-     * @param  Homework  $homework
-     * @return JsonResponse
      */
     public function review(ReviewHomeworkRequest $request, Homework $homework): JsonResponse
     {
@@ -218,9 +197,6 @@ class HomeworkController extends Controller
      * Route model parameters include $student.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $student
-     * @return void
      */
     private function assertStudentUser(User $student): void
     {
@@ -238,42 +214,10 @@ class HomeworkController extends Controller
      * Route model parameters include $homework.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Homework  $homework
-     * @return void
      */
     private function notifyHomeworkAssigned(Homework $homework): void
     {
-        try {
-            $homework->loadMissing(['student:id,name,email,timezone', 'teacher:id,name,email,timezone']);
-
-            $this->notificationService->homeworkReminder(
-                $homework->student,
-                'Homework assigned: '.$homework->title,
-                $homework->due_date
-                    ? 'Your homework is due on '.$homework->due_date->format('M j, Y').'.'
-                    : 'New homework has been assigned.',
-                [
-                    'homework_id' => $homework->id,
-                    'lesson_id' => $homework->lesson_id,
-                    'teacher_id' => $homework->teacher_id,
-                ],
-                [
-                    'email' => true,
-                    'sender_id' => $homework->teacher_id,
-                    'source_type' => 'homework',
-                    'source_id' => $homework->id,
-                    'dedupe_key' => 'homework_assigned:'.$homework->id,
-                ]
-            );
-        } catch (Throwable $exception) {
-            Log::warning('Homework reminder notification delivery failed.', [
-                'homework_id' => $homework->id,
-                'student_id' => $homework->student_id,
-                'teacher_id' => $homework->teacher_id,
-                'failure_type' => $exception::class,
-            ]);
-        }
+        SendHomeworkReminderNotification::dispatch($homework->id)->afterCommit();
     }
 
     /**
@@ -283,10 +227,6 @@ class HomeworkController extends Controller
      * Route model parameters include $lesson, $student.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Lesson  $lesson
-     * @param  User  $student
-     * @return void
      */
     private function assertLessonStudentRelationship(Lesson $lesson, User $student): void
     {
@@ -304,9 +244,6 @@ class HomeworkController extends Controller
      * Route model parameters include $lesson.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Lesson  $lesson
-     * @return void
      */
     private function assertLessonTeacherUser(Lesson $lesson): void
     {
@@ -324,11 +261,6 @@ class HomeworkController extends Controller
      * Route model parameters include $actor, $lesson, $student.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  Lesson  $lesson
-     * @param  User  $student
-     * @return void
      */
     private function assertTeacherCanAssignHomework(User $actor, Lesson $lesson, User $student): void
     {
@@ -351,10 +283,6 @@ class HomeworkController extends Controller
 
     /**
      * @param  array<int, int>  $documentIds
-     *
-     * @param  array  $documentIds
-     * @param  User  $actor
-     * @return void
      */
     private function assertDocumentAccessForUser(array $documentIds, User $actor): void
     {
@@ -392,8 +320,6 @@ class HomeworkController extends Controller
 
     /**
      * @return Builder<Homework>
-     *
-     * @param  User  $user
      */
     private function queryForUser(User $user): Builder
     {

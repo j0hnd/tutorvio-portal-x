@@ -88,7 +88,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'metadata', type: 'object', example: ['announcement_id' => 'ann_01J0ANNOUNCEMENT000000001']),
         new OA\Property(property: 'recipient_user_id', description: 'Admin history field. Recipient user public ID.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
         new OA\Property(property: 'channel', description: 'Admin history field. Email notifications are represented as recipients with `channel=email`; no standalone email notification settings API is currently implemented.', type: 'string', enum: ['in_portal', 'email'], example: 'in_portal'),
-        new OA\Property(property: 'delivery_status', description: 'Admin history field.', type: 'string', enum: ['pending', 'sent', 'delivered', 'failed'], example: 'delivered'),
+        new OA\Property(property: 'delivery_status', description: 'Admin history field.', type: 'string', enum: ['pending', 'sending', 'sent', 'delivered', 'failed'], example: 'delivered'),
     ],
     type: 'object'
 )]

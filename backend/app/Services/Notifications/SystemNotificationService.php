@@ -2,6 +2,7 @@
 
 namespace App\Services\Notifications;
 
+use App\Jobs\Notifications\SendSystemNotificationEmail;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use App\Models\User;
@@ -159,7 +160,7 @@ class SystemNotificationService
         });
 
         if ($options['email'] ?? false) {
-            $this->dispatchEmails($notification, $recipientUsers, $metadata);
+            $this->dispatchEmails($notification, $recipientUsers, $metadata, $options);
         }
 
         return $notification->refresh();
@@ -211,11 +212,11 @@ class SystemNotificationService
      * @param  Collection<int, User>  $recipients
      * @param  array<string, mixed>  $metadata
      */
-    private function dispatchEmails(Notification $notification, Collection $recipients, array $metadata): void
+    private function dispatchEmails(Notification $notification, Collection $recipients, array $metadata, array $options): void
     {
         $recipients
             ->filter(fn (User $recipient) => (bool) $recipient->email)
-            ->each(function (User $recipient) use ($notification, $metadata): void {
+            ->each(function (User $recipient) use ($notification, $metadata, $options): void {
                 $delivery = NotificationRecipient::firstOrCreate([
                     'notification_id' => $notification->id,
                     'user_id' => $recipient->id,
@@ -225,36 +226,84 @@ class SystemNotificationService
                     'metadata' => $metadata,
                 ]);
 
-                if (in_array($delivery->delivery_status, [NotificationRecipient::STATUS_SENT, NotificationRecipient::STATUS_DELIVERED], true)) {
+                if (in_array($delivery->delivery_status, [
+                    NotificationRecipient::STATUS_SENDING,
+                    NotificationRecipient::STATUS_SENT,
+                    NotificationRecipient::STATUS_DELIVERED,
+                ], true)) {
                     return;
                 }
 
-                try {
-                    $recipient->notify(new SystemNotificationEmail($notification));
+                if ($options['queue_email'] ?? false) {
+                    SendSystemNotificationEmail::dispatch($delivery->id);
 
-                    $delivery->forceFill([
-                        'delivery_status' => NotificationRecipient::STATUS_SENT,
-                        'sent_at' => now(),
-                        'metadata' => $metadata,
-                    ])->save();
-                } catch (Throwable $exception) {
-                    $delivery->forceFill([
-                        'delivery_status' => NotificationRecipient::STATUS_FAILED,
-                        'metadata' => [
-                            ...$metadata,
-                            'failure_type' => $exception::class,
-                        ],
-                    ])->save();
-
-                    Log::warning('Notification email delivery failed.', [
-                        'notification_id' => $notification->id,
-                        'notification_type' => $notification->type,
-                        'user_id' => $recipient->id,
-                        'delivery_id' => $delivery->id,
-                        'failure_type' => $exception::class,
-                    ]);
+                    return;
                 }
+
+                $this->sendDelivery($delivery->id);
             });
+    }
+
+    public function sendQueuedEmail(int $deliveryId): void
+    {
+        $this->sendDelivery($deliveryId);
+    }
+
+    private function sendDelivery(int $deliveryId): void
+    {
+        $delivery = NotificationRecipient::query()
+            ->with(['notification', 'user'])
+            ->find($deliveryId);
+
+        if ($delivery === null || $delivery->notification === null || $delivery->user === null) {
+            return;
+        }
+
+        if ($delivery->channel !== NotificationRecipient::CHANNEL_EMAIL) {
+            return;
+        }
+
+        if (in_array($delivery->delivery_status, [NotificationRecipient::STATUS_SENT, NotificationRecipient::STATUS_DELIVERED], true)) {
+            return;
+        }
+
+        $claimed = NotificationRecipient::query()
+            ->whereKey($delivery->id)
+            ->whereIn('delivery_status', [NotificationRecipient::STATUS_PENDING, NotificationRecipient::STATUS_FAILED])
+            ->update(['delivery_status' => NotificationRecipient::STATUS_SENDING]);
+
+        if ($claimed === 0) {
+            return;
+        }
+
+        $delivery->refresh();
+        $metadata = $delivery->metadata ?? [];
+
+        try {
+            $delivery->user->notify(new SystemNotificationEmail($delivery->notification));
+
+            $delivery->forceFill([
+                'delivery_status' => NotificationRecipient::STATUS_SENT,
+                'sent_at' => now(),
+                'metadata' => $metadata,
+            ])->save();
+        } catch (Throwable $exception) {
+            $delivery->forceFill([
+                'delivery_status' => NotificationRecipient::STATUS_FAILED,
+                'metadata' => [
+                    ...$metadata,
+                    'failure_type' => $exception::class,
+                ],
+            ])->save();
+
+            Log::warning('Notification email delivery failed.', [
+                'notification_id' => $delivery->notification_id,
+                'notification_type' => $delivery->notification->type,
+                'user_id' => $delivery->user_id,
+                'delivery_id' => $delivery->id,
+                'failure_type' => $exception::class,
+            ]);
+        }
     }
 
     private function findDuplicate(string $type, array $metadata): ?Notification

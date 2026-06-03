@@ -1366,7 +1366,7 @@ class SchedulingApiTest extends TestCase
             'scheduled_for' => '2026-06-01 01:00:00',
         ]);
 
-        $this->assertSame(0, $service->sendDue(CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC')));
+        $this->assertSame(1, $service->sendDue(CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC')));
 
         Notification::assertNothingSent();
         $this->assertDatabaseHas('schedule_reminders', [

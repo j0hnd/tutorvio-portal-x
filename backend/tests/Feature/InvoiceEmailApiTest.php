@@ -62,14 +62,14 @@ class InvoiceEmailApiTest extends TestCase
         Sanctum::actingAs($this->admin);
 
         $this->postJson("/api/v1/invoices/{$invoice->public_id}/send-email")
-            ->assertOk()
-            ->assertJsonPath('email_sent', true)
+            ->assertAccepted()
+            ->assertJsonPath('email_queued', true)
             ->assertJsonPath('data.metadata.email.last_status', NotificationRecipient::STATUS_SENT)
             ->assertJsonPath('data.metadata.email.last_mode', InvoiceEmailService::MODE_MANUAL);
 
         $this->postJson("/api/v1/invoices/{$invoice->public_id}/send-email")
-            ->assertOk()
-            ->assertJsonPath('email_sent', true)
+            ->assertAccepted()
+            ->assertJsonPath('email_queued', true)
             ->assertJsonPath('data.metadata.email.last_mode', InvoiceEmailService::MODE_MANUAL);
 
         Notification::assertSentTo($student, InvoiceEmailNotification::class);

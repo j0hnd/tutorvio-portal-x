@@ -116,12 +116,12 @@ class InvoiceController extends Controller
     {
         Gate::authorize('sendEmail', $invoice);
 
-        $sent = $emails->resendManually($invoice, $request->user());
+        $queued = $emails->queueManualResend($invoice, $request->user());
 
         return response()->json([
             'data' => new InvoiceResource($invoice->refresh()->load(['student', 'subscription', 'courseProgram'])),
-            'email_sent' => $sent,
-        ], $sent ? 200 : 422);
+            'email_queued' => $queued,
+        ], 202);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Services\Scheduling;
 
+use App\Jobs\Scheduling\SendClassReminderNotification;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use App\Models\Scheduling\ClassSchedule;
@@ -145,97 +146,103 @@ class ScheduleReminderService
     }
 
     /**
-     * Send due schedule reminder emails.
+     * Queue due schedule reminder email jobs.
      *
      * This scheduled-task handler runs for pending reminder rows whose send time
-     * has passed. It claims each reminder, validates that the class and
-     * recipient are still eligible, creates a portal notification, sends the
-     * reminder email, records email delivery, and moves reminder rows to sent,
-     * failed, or cancelled. Portal creation and email failures are logged as
-     * warnings. It is safe to retry at the batch level because only pending rows
-     * are claimed; failed reminders are not retried by this method unless their
-     * status is reset.
+     * has passed and dispatches background jobs for delivery. The job claims the
+     * pending row before sending, so duplicate jobs cannot send duplicate email.
      */
     public function sendDue(?CarbonImmutable $now = null, int $limit = 100): int
     {
         $now = ($now ?? CarbonImmutable::now('UTC'))->utc();
-        $sent = 0;
 
-        ScheduleReminder::query()
-            ->with(['classSchedule.student:id,name,email,timezone', 'classSchedule.teacher:id,name,email,timezone', 'user:id,name,email,timezone'])
+        $reminders = ScheduleReminder::query()
             ->where('channel', 'email')
             ->where('status', ScheduleReminder::STATUS_PENDING)
             ->where('scheduled_for', '<=', $now)
             ->orderBy('scheduled_for')
             ->limit($limit)
-            ->get()
-            ->each(function (ScheduleReminder $reminder) use ($now, &$sent): void {
-                $claimed = ScheduleReminder::query()
-                    ->whereKey($reminder->id)
-                    ->where('status', ScheduleReminder::STATUS_PENDING)
-                    ->update(['status' => ScheduleReminder::STATUS_SENDING]);
+            ->pluck('id');
 
-                if ($claimed === 0) {
-                    return;
-                }
+        $reminders->each(fn (int $reminderId) => SendClassReminderNotification::dispatch($reminderId, $now->toIso8601String()));
 
-                $reminder->refresh();
+        return $reminders->count();
+    }
 
-                if (! $this->canSend($reminder, $now)) {
-                    $this->cancelReminder($reminder, 'Class is no longer eligible for reminders.');
+    /**
+     * Send one claimed schedule reminder from a queued job.
+     */
+    public function sendReminder(int $reminderId, ?CarbonImmutable $now = null): bool
+    {
+        $now = ($now ?? CarbonImmutable::now('UTC'))->utc();
 
-                    return;
-                }
+        $claimed = ScheduleReminder::query()
+            ->whereKey($reminderId)
+            ->where('status', ScheduleReminder::STATUS_PENDING)
+            ->update(['status' => ScheduleReminder::STATUS_SENDING]);
 
-                $portalNotification = null;
+        if ($claimed === 0) {
+            return false;
+        }
 
-                try {
-                    $portalNotification = $this->createPortalReminder($reminder, $now);
-                } catch (Throwable $exception) {
-                    Log::warning('Class reminder portal notification creation failed.', [
-                        'schedule_reminder_id' => $reminder->id,
-                        'class_schedule_id' => $reminder->class_schedule_id,
-                        'user_id' => $reminder->user_id,
-                        'failure_type' => $exception::class,
-                    ]);
-                }
+        $reminder = ScheduleReminder::query()
+            ->with(['classSchedule.student:id,name,email,timezone', 'classSchedule.teacher:id,name,email,timezone', 'user:id,name,email,timezone'])
+            ->findOrFail($reminderId);
 
-                try {
-                    $reminder->user->notify(new ClassScheduleReminderNotification($reminder));
+        if (! $this->canSend($reminder, $now)) {
+            $this->cancelReminder($reminder, 'Class is no longer eligible for reminders.');
 
-                    $reminder->forceFill([
-                        'status' => ScheduleReminder::STATUS_SENT,
-                        'sent_at' => $now,
-                        'metadata' => [
-                            ...($reminder->metadata ?? []),
-                            'sent_timezone' => $reminder->user->timezone ?: $reminder->classSchedule->timezone,
-                        ],
-                    ])->save();
+            return false;
+        }
 
-                    $this->recordEmailDelivery($portalNotification, $reminder, true);
+        $portalNotification = null;
 
-                    $sent++;
-                } catch (Throwable $exception) {
-                    $reminder->forceFill([
-                        'status' => ScheduleReminder::STATUS_FAILED,
-                        'metadata' => [
-                            ...($reminder->metadata ?? []),
-                            'failure_type' => $exception::class,
-                        ],
-                    ])->save();
+        try {
+            $portalNotification = $this->createPortalReminder($reminder, $now);
+        } catch (Throwable $exception) {
+            Log::warning('Class reminder portal notification creation failed.', [
+                'schedule_reminder_id' => $reminder->id,
+                'class_schedule_id' => $reminder->class_schedule_id,
+                'user_id' => $reminder->user_id,
+                'failure_type' => $exception::class,
+            ]);
+        }
 
-                    $this->recordEmailDelivery($portalNotification, $reminder, false, $exception);
+        try {
+            $reminder->user->notify(new ClassScheduleReminderNotification($reminder));
 
-                    Log::warning('Class reminder email delivery failed.', [
-                        'schedule_reminder_id' => $reminder->id,
-                        'class_schedule_id' => $reminder->class_schedule_id,
-                        'user_id' => $reminder->user_id,
-                        'failure_type' => $exception::class,
-                    ]);
-                }
-            });
+            $reminder->forceFill([
+                'status' => ScheduleReminder::STATUS_SENT,
+                'sent_at' => $now,
+                'metadata' => [
+                    ...($reminder->metadata ?? []),
+                    'sent_timezone' => $reminder->user->timezone ?: $reminder->classSchedule->timezone,
+                ],
+            ])->save();
 
-        return $sent;
+            $this->recordEmailDelivery($portalNotification, $reminder, true);
+
+            return true;
+        } catch (Throwable $exception) {
+            $reminder->forceFill([
+                'status' => ScheduleReminder::STATUS_FAILED,
+                'metadata' => [
+                    ...($reminder->metadata ?? []),
+                    'failure_type' => $exception::class,
+                ],
+            ])->save();
+
+            $this->recordEmailDelivery($portalNotification, $reminder, false, $exception);
+
+            Log::warning('Class reminder email delivery failed.', [
+                'schedule_reminder_id' => $reminder->id,
+                'class_schedule_id' => $reminder->class_schedule_id,
+                'user_id' => $reminder->user_id,
+                'failure_type' => $exception::class,
+            ]);
+
+            return false;
+        }
     }
 
     private function createPortalReminder(ScheduleReminder $reminder, CarbonImmutable $now): Notification
