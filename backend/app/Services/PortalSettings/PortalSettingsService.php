@@ -7,6 +7,7 @@ use App\Enums\AuditModule;
 use App\Models\PortalSetting;
 use App\Models\User;
 use App\Services\AuditLogService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,14 @@ use Illuminate\Validation\ValidationException;
 
 class PortalSettingsService
 {
+    public const CACHE_KEY_ALL = 'tvio:portal_settings:all:v1';
+
+    public const CACHE_KEY_PUBLIC = 'tvio:portal_settings:public:v1';
+
+    public const CACHE_TTL_ALL_MINUTES = 15;
+
+    public const CACHE_TTL_PUBLIC_MINUTES = 30;
+
     /**
      * @var array<string, array{category: string, value_type: string, description: string, is_public: bool, default: mixed}>
      */
@@ -246,6 +255,29 @@ class PortalSettingsService
      */
     public function all(bool $publicOnly = false): array
     {
+        return Cache::remember(
+            $publicOnly ? self::CACHE_KEY_PUBLIC : self::CACHE_KEY_ALL,
+            now()->addMinutes($publicOnly ? self::CACHE_TTL_PUBLIC_MINUTES : self::CACHE_TTL_ALL_MINUTES),
+            fn (): array => $this->loadAll($publicOnly)
+        );
+    }
+
+    /**
+     * Clear cached portal setting payloads.
+     */
+    public function forgetCachedSettings(): void
+    {
+        Cache::forget(self::CACHE_KEY_ALL);
+        Cache::forget(self::CACHE_KEY_PUBLIC);
+    }
+
+    /**
+     * Return configured portal settings with stored or default values.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadAll(bool $publicOnly = false): array
+    {
         $definitions = collect(self::DEFINITIONS)
             ->when($publicOnly, fn ($items) => $items->filter(fn (array $definition) => $definition['is_public']));
 
@@ -328,6 +360,8 @@ class PortalSettingsService
 
             return $updated;
         });
+
+        $this->forgetCachedSettings();
 
         return $updated;
     }

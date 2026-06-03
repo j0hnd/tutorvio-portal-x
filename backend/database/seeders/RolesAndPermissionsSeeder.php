@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\PortalMetadataService;
 use App\Support\PermissionNames;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
@@ -102,5 +103,6 @@ class RolesAndPermissionsSeeder extends Seeder
         $staffRole->syncPermissions([]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PortalMetadataService::class)->forgetRolePermissionMetadata();
     }
 }

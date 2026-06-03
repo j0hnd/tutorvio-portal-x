@@ -50,6 +50,7 @@ use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
+use App\Http\Controllers\Api\PortalMetadataController;
 use App\Http\Controllers\Api\PortalSettingController;
 use App\Http\Controllers\Api\Profile\ProfileController;
 use App\Http\Controllers\Api\PublicPortalSettingController;
@@ -104,6 +105,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user:public_id}/profile', [ProfileController::class, 'showUser']);
         Route::patch('/users/{user:public_id}/profile', [ProfileController::class, 'updateUser']);
         Route::get('/dashboard', DashboardController::class);
+        Route::get('/metadata', PortalMetadataController::class);
         Route::get('/portal-settings', [PortalSettingController::class, 'index']);
         Route::get('/form-templates', [FormTemplateController::class, 'index']);
         Route::get('/form-templates/{formTemplate:public_id}', [FormTemplateController::class, 'show']);

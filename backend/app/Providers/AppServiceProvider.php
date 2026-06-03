@@ -12,6 +12,7 @@ use App\Models\LearningResource;
 use App\Models\LessonNote;
 use App\Models\LessonRecord;
 use App\Models\PayoutPeriod;
+use App\Models\PortalSetting;
 use App\Models\ScheduleChangeRequest;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\Holiday;
@@ -46,11 +47,15 @@ use App\Policies\TeacherChangeRequestPolicy;
 use App\Policies\TeacherCompensationPolicy;
 use App\Policies\TeacherEarningPolicy;
 use App\Policies\TeacherStudentAssignmentPolicy;
+use App\Services\PortalMetadataService;
+use App\Services\PortalSettings\PortalSettingsService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -174,6 +179,41 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasRole('admin')
                 || ($user->hasRole('staff') && $user->can('teacher_workloads.view'))
                 || ($user->hasRole('teacher') && (int) $user->id === (int) $teacher->id);
+        });
+
+        PortalSetting::saved(function (PortalSetting $setting): void {
+            app(PortalSettingsService::class)->forgetCachedSettings();
+
+            if ($setting->key === 'attendance.status_options') {
+                app(PortalMetadataService::class)->forgetAttendanceStatusOptions();
+            }
+        });
+        PortalSetting::deleted(function (PortalSetting $setting): void {
+            app(PortalSettingsService::class)->forgetCachedSettings();
+
+            if ($setting->key === 'attendance.status_options') {
+                app(PortalMetadataService::class)->forgetAttendanceStatusOptions();
+            }
+        });
+
+        CourseType::saved(function (): void {
+            app(PortalMetadataService::class)->forgetCourseTypes();
+        });
+        CourseType::deleted(function (): void {
+            app(PortalMetadataService::class)->forgetCourseTypes();
+        });
+
+        Role::saved(function (): void {
+            app(PortalMetadataService::class)->forgetRolePermissionMetadata();
+        });
+        Role::deleted(function (): void {
+            app(PortalMetadataService::class)->forgetRolePermissionMetadata();
+        });
+        Permission::saved(function (): void {
+            app(PortalMetadataService::class)->forgetRolePermissionMetadata();
+        });
+        Permission::deleted(function (): void {
+            app(PortalMetadataService::class)->forgetRolePermissionMetadata();
         });
     }
 
