@@ -15,6 +15,8 @@ class DashboardService
 {
     private const MANAGED_ROLES = ['admin', 'staff', 'teacher', 'student'];
 
+    public function __construct(private readonly DashboardCacheService $cache) {}
+
     /**
      * Build the dashboard payload for the authenticated user.
      *
@@ -36,13 +38,17 @@ class DashboardService
                 'email' => $user->email,
             ],
             'permissions' => $permissions,
-            'summary' => match ($role) {
-                'admin' => $this->adminSummary(),
-                'staff' => $this->staffSummary($user),
-                'teacher' => $this->teacherSummary($user),
-                'student' => $this->studentSummary($user),
-                default => [],
-            },
+            'summary' => $this->cache->rememberSummary(
+                $user,
+                $role,
+                fn (): array => match ($role) {
+                    'admin' => $this->adminSummary(),
+                    'staff' => $this->staffSummary($user),
+                    'teacher' => $this->teacherSummary($user),
+                    'student' => $this->studentSummary($user),
+                    default => [],
+                },
+            ),
             'sections' => match ($role) {
                 'admin' => ['users', 'students', 'classes'],
                 'staff' => $this->staffSections($user),

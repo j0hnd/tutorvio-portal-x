@@ -2,13 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Models\Announcement;
+use App\Models\Homework;
+use App\Models\IssueReport;
 use App\Models\Lesson;
 use App\Models\Material;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\DashboardCacheService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -22,6 +27,7 @@ class DashboardApiTest extends TestCase
         parent::setUp();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Cache::flush();
         $this->seed(RolesAndPermissionsSeeder::class);
     }
 
@@ -564,5 +570,139 @@ class DashboardApiTest extends TestCase
                 'announcements',
             ])
             ->assertJsonPath('data.sections', ['users', 'students', 'classes']);
+    }
+
+    public function test_student_dashboard_cache_is_scoped_to_the_authenticated_student(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $otherStudent = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $otherStudent->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDay()->addHour(),
+            'status' => 'scheduled',
+        ]);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.classes.total', 1);
+
+        Sanctum::actingAs($otherStudent);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.classes.total', 0)
+            ->assertJsonPath('data.summary.next_lesson', null);
+    }
+
+    public function test_staff_dashboard_cache_is_scoped_to_current_permissions(): void
+    {
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+
+        User::factory()->create(['status' => User::STATUS_ACTIVE])->assignRole('student');
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary', []);
+
+        $staff->givePermissionTo('users.view');
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.users.total', 2)
+            ->assertJsonPath('data.summary.dashboard_widgets.0.key', 'users');
+    }
+
+    public function test_dashboard_summary_cache_refreshes_when_lessons_change(): void
+    {
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.classes.total', 0);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDay()->addHour(),
+            'status' => 'scheduled',
+        ]);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.classes.total', 1)
+            ->assertJsonPath('data.summary.learning_progress.scheduled_lessons', 1);
+    }
+
+    public function test_dashboard_summary_cache_version_refreshes_when_source_models_change(): void
+    {
+        Cache::forever(DashboardCacheService::VERSION_KEY, 1);
+
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
+
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+
+        $lesson = Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDay()->addHour(),
+            'status' => 'scheduled',
+        ]);
+
+        $this->assertSame(2, Cache::get(DashboardCacheService::VERSION_KEY));
+
+        Homework::create([
+            'lesson_id' => $lesson->id,
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'title' => 'Dashboard cache homework',
+            'status' => Homework::STATUS_ASSIGNED,
+        ]);
+
+        $this->assertSame(3, Cache::get(DashboardCacheService::VERSION_KEY));
+
+        Announcement::create([
+            'title' => 'Dashboard cache announcement',
+            'body' => 'Announcement body.',
+            'status' => Announcement::STATUS_DRAFT,
+            'type' => Announcement::TYPE_ADMIN_ANNOUNCEMENT,
+            'author_id' => $teacher->id,
+        ]);
+
+        $this->assertSame(4, Cache::get(DashboardCacheService::VERSION_KEY));
+
+        IssueReport::create([
+            'issue_type' => IssueReport::TYPE_TECHNICAL_ISSUE,
+            'status' => IssueReport::STATUS_OPEN,
+            'priority' => IssueReport::PRIORITY_NORMAL,
+            'reporter_id' => $student->id,
+            'title' => 'Dashboard cache issue',
+            'description' => 'Issue details.',
+        ]);
+
+        $this->assertSame(5, Cache::get(DashboardCacheService::VERSION_KEY));
     }
 }

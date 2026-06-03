@@ -3,12 +3,15 @@
 namespace App\Providers;
 
 use App\Models\AcademicRecord;
+use App\Models\Announcement;
 use App\Models\AuditLog;
 use App\Models\CourseProgram;
 use App\Models\CourseType;
 use App\Models\Homework;
 use App\Models\Invoice;
+use App\Models\IssueReport;
 use App\Models\LearningResource;
+use App\Models\Lesson;
 use App\Models\LessonNote;
 use App\Models\LessonRecord;
 use App\Models\PayoutPeriod;
@@ -47,6 +50,7 @@ use App\Policies\TeacherChangeRequestPolicy;
 use App\Policies\TeacherCompensationPolicy;
 use App\Policies\TeacherEarningPolicy;
 use App\Policies\TeacherStudentAssignmentPolicy;
+use App\Services\DashboardCacheService;
 use App\Services\PortalMetadataService;
 use App\Services\PortalSettings\PortalSettingsService;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -215,6 +219,17 @@ class AppServiceProvider extends ServiceProvider
         Permission::deleted(function (): void {
             app(PortalMetadataService::class)->forgetRolePermissionMetadata();
         });
+
+        $refreshDashboardSummary = fn (): mixed => app(DashboardCacheService::class)->refreshSummaryVersion();
+
+        foreach ([Lesson::class, Homework::class, Announcement::class, IssueReport::class] as $model) {
+            $model::saved($refreshDashboardSummary);
+            $model::deleted($refreshDashboardSummary);
+
+            if (method_exists($model, 'restored')) {
+                $model::restored($refreshDashboardSummary);
+            }
+        }
     }
 
     private function rateLimitKey(Request $request): string
