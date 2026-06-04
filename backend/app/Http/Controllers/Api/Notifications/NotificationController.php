@@ -23,9 +23,6 @@ class NotificationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -46,16 +43,13 @@ class NotificationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function history(Request $request): JsonResponse
     {
         $validated = $this->validateFilters($request);
 
         return response()->json(
-            $this->applyFilters($this->historyRecipients(), $validated)
+            $this->applyFilters($this->historyRecipientsFor($request->user()), $validated)
                 ->tap(fn (Builder $query) => $this->orderNewestFirst($query))
                 ->paginate($validated['per_page'] ?? 25)
                 ->through(fn (NotificationRecipient $recipient) => new NotificationResource($recipient))
@@ -69,9 +63,6 @@ class NotificationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function unreadCount(Request $request): JsonResponse
     {
@@ -91,10 +82,6 @@ class NotificationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $notification.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  Notification  $notification
-     * @return JsonResponse
      */
     public function show(Request $request, Notification $notification): JsonResponse
     {
@@ -110,10 +97,6 @@ class NotificationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $notification.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  Notification  $notification
-     * @return JsonResponse
      */
     public function markRead(Request $request, Notification $notification): JsonResponse
     {
@@ -135,9 +118,6 @@ class NotificationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function markAllRead(Request $request): JsonResponse
     {
@@ -157,8 +137,6 @@ class NotificationController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
      */
     private function validateFilters(Request $request): array
     {
@@ -197,9 +175,6 @@ class NotificationController extends Controller
      * @param  Builder<NotificationRecipient>  $query
      * @param  array<string, mixed>  $filters
      * @return Builder<NotificationRecipient>
-     *
-     * @param  Builder  $query
-     * @param  array  $filters
      */
     private function applyFilters(Builder $query, array $filters): Builder
     {
@@ -235,8 +210,6 @@ class NotificationController extends Controller
 
     /**
      * @return Builder<NotificationRecipient>
-     *
-     * @param  User  $user
      */
     private function visibleRecipientsFor(User $user): Builder
     {
@@ -256,10 +229,14 @@ class NotificationController extends Controller
     /**
      * @return Builder<NotificationRecipient>
      */
-    private function historyRecipients(): Builder
+    private function historyRecipientsFor(User $user): Builder
     {
         return NotificationRecipient::query()
             ->with('notification')
+            ->when(
+                ! $user->hasRole('admin'),
+                fn (Builder $query) => $query->where('user_id', $user->id)
+            )
             ->whereNull('archived_at')
             ->whereHas('notification', function (Builder $query) {
                 $query->where('is_archived', false);
@@ -268,9 +245,6 @@ class NotificationController extends Controller
 
     /**
      * @param  Builder<NotificationRecipient>  $query
-     *
-     * @param  Builder  $query
-     * @return void
      */
     private function orderNewestFirst(Builder $query): void
     {
@@ -291,10 +265,6 @@ class NotificationController extends Controller
      * Route model parameters include $user, $notification.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @param  Notification  $notification
-     * @return NotificationRecipient
      */
     private function recipientForNotification(User $user, Notification $notification): NotificationRecipient
     {

@@ -6,7 +6,7 @@ use OpenApi\Attributes as OA;
 
 #[OA\Tag(
     name: 'Communication',
-    description: 'Notifications, announcements, announcement targeting, scheduled publication, archive behavior, and student-teacher messaging. All operations require Sanctum bearer authentication. Notification and announcement list/read endpoints are scoped to records visible to the authenticated user. Announcement management requires admin/staff access with `announcements.manage`; notification history requires `notifications.history.view`; message thread access requires `messages.view` or `messages.manage`.'
+    description: 'Notifications, announcements, announcement targeting, scheduled publication, archive behavior, and student-teacher messaging. All operations require Sanctum bearer authentication. Notification and announcement list/read endpoints are scoped to records visible to the authenticated user. Announcement management requires admin/staff access with `announcements.manage`; notification history requires `notifications.history.view` and is full-history for admins only; message thread access requires `messages.view` or `messages.manage`.'
 )]
 #[OA\Schema(
     schema: 'CommunicationTargetType',
@@ -72,7 +72,7 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'CommunicationNotification',
-    description: 'Notification recipient response. User-facing notification endpoints return in-portal recipients for the authenticated user only, excluding archived notifications and future unpublished notifications. Admin history includes all non-archived recipients and adds recipient/channel/delivery fields when the actor has `notifications.history.view`.',
+    description: 'Notification recipient response. User-facing notification endpoints return in-portal recipients for the authenticated user only, excluding archived notifications and future unpublished notifications. Admin history includes all non-archived recipients. Staff history is scoped to the authenticated staff user. History responses add recipient/channel/delivery fields when the actor has `notifications.history.view`.',
     required: ['id', 'title', 'body', 'message', 'type', 'is_read', 'read_status', 'read_at', 'created_at', 'published_at', 'metadata'],
     properties: [
         new OA\Property(property: 'id', type: 'string', example: 'ntf_01J0NOTIFICATION0000001'),
@@ -160,7 +160,7 @@ use OpenApi\Attributes as OA;
     path: '/notifications/history',
     operationId: 'communicationNotificationHistory',
     summary: 'Notification delivery history',
-    description: 'Access: admin, or staff with `notifications.history.view`. Visibility: all non-archived notification recipients, including `in_portal` and `email` channels. Email notification settings endpoints are not implemented; email delivery appears here as channel and delivery status history.',
+    description: 'Access: admin, or staff with `notifications.history.view`. Visibility: admins see all non-archived notification recipients; staff see only notification recipients addressed to themselves. Includes `in_portal` and `email` channels. Email notification settings endpoints are not implemented; email delivery appears here as channel and delivery status history.',
     security: [['sanctum' => []]],
     tags: ['Communication', 'Authorization'],
     parameters: [
