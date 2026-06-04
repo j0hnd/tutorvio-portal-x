@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Announcements\StoreAnnouncementRequest;
 use App\Http\Requests\Announcements\UpdateAnnouncementRequest;
@@ -30,7 +31,8 @@ class AnnouncementController extends Controller
      */
     public function __construct(
         private readonly AnnouncementRecipientResolver $recipientResolver,
-        private readonly SystemNotificationService $notificationService
+        private readonly SystemNotificationService $notificationService,
+        private readonly SearchService $search,
     ) {}
 
     /**
@@ -69,7 +71,7 @@ class AnnouncementController extends Controller
             ->when(! $includeArchived, fn (Builder $query) => $query->where('is_archived', false))
             ->when($request->boolean('only_archived'), fn (Builder $query) => $query->where('is_archived', true))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
-            ->search($validated['search'] ?? null)
+            ->tap(fn (Builder $query) => $this->search->announcements($query, $validated['search'] ?? null))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 25);

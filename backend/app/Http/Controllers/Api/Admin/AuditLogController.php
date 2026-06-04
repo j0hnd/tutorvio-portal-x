@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AuditLogs\ListAuditLogsRequest;
 use App\Http\Resources\AuditLogs\AuditLogResource;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Gate;
 
 class AuditLogController extends Controller
 {
+    public function __construct(private readonly SearchService $search) {}
+
     /**
      * Display a filtered list of audit log records.
      *
@@ -36,17 +39,7 @@ class AuditLogController extends Controller
             ->when($validated['target_entity_id'] ?? null, fn (Builder $query, int $id) => $query->where('target_entity_id', $id))
             ->when($validated['date_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '>=', $date))
             ->when($validated['date_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '<=', $date))
-            ->when($validated['search'] ?? null, function (Builder $query, string $search): void {
-                $query->where(function (Builder $query) use ($search): void {
-                    $query
-                        ->search($search)
-                        ->orWhereHas('actor', fn (Builder $query) => $query->searchIdentity($search));
-
-                    if (is_numeric($search)) {
-                        $query->orWhere('target_entity_id', (int) $search);
-                    }
-                });
-            })
+            ->tap(fn (Builder $query) => $this->search->auditLogs($query, $validated['search'] ?? null))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 15);

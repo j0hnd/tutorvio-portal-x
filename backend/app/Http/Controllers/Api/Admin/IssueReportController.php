@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
@@ -25,7 +26,10 @@ class IssueReportController extends Controller
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
      */
-    public function __construct(private readonly AuditLogService $auditLogService) {}
+    public function __construct(
+        private readonly AuditLogService $auditLogService,
+        private readonly SearchService $search,
+    ) {}
 
     /**
      * Display a filtered list of issue report records.
@@ -69,7 +73,7 @@ class IssueReportController extends Controller
             ->when($validated['class_schedule_id'] ?? null, fn (Builder $query, int $id) => $query->where('class_schedule_id', $id))
             ->when($validated['date_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '>=', $date))
             ->when($validated['date_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '<=', $date))
-            ->search($validated['search'] ?? null)
+            ->tap(fn (Builder $query) => $this->search->issues($query, $validated['search'] ?? null))
             ->latest()
             ->paginate($validated['per_page'] ?? 15);
 

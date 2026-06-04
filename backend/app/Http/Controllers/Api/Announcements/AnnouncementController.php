@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Announcements;
 
+use App\Contracts\Search\SearchService;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
@@ -21,7 +22,10 @@ class AnnouncementController extends Controller
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
      */
-    public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
+    public function __construct(
+        private readonly AnnouncementRecipientResolver $recipientResolver,
+        private readonly SearchService $search,
+    ) {}
 
     /**
      * Display a filtered list of announcement records.
@@ -68,7 +72,7 @@ class AnnouncementController extends Controller
             ->active()
             ->visibleTo($request->user())
             ->tap(fn (Builder $query) => $this->applyReadFilter($query, $validated, $request->user()->id))
-            ->search($validated['search'] ?? null)
+            ->tap(fn (Builder $query) => $this->search->announcements($query, $validated['search'] ?? null))
             ->orderByDesc('published_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 25);

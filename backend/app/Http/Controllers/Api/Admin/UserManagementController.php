@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
@@ -9,6 +10,7 @@ use App\Models\StudentProfile;
 use App\Models\User;
 use App\Models\UserStatusHistory;
 use App\Services\AuditLogService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -31,7 +33,10 @@ class UserManagementController extends Controller
 
      * middleware, permissions, validation, and authorization are applied.
      */
-    public function __construct(private readonly AuditLogService $auditLogService) {}
+    public function __construct(
+        private readonly AuditLogService $auditLogService,
+        private readonly SearchService $search,
+    ) {}
 
     /**
      * Display a filtered list of user management records.
@@ -52,13 +57,25 @@ class UserManagementController extends Controller
 
         $users = User::query()
             ->with(['roles', 'permissions', 'studentProfile.assignedTeacher', 'teacherProfile', 'staffProfile'])
-            ->when($validated['role'] ?? null, fn ($query, string $role) => $query->role($role))
+            ->when(
+                ($validated['role'] ?? null) && ! in_array($validated['role'], ['student', 'teacher'], true),
+                fn ($query) => $query->role($validated['role'])
+            )
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->searchIdentity($validated['search'] ?? null)
+            ->tap(fn ($query) => $this->searchUsers($query, $validated['search'] ?? null, $validated['role'] ?? null))
             ->latest()
             ->paginate($validated['per_page'] ?? 25);
 
         return response()->json($users->through(fn (User $user) => $this->serializeUser($user)));
+    }
+
+    private function searchUsers(Builder $query, ?string $term, ?string $role): void
+    {
+        match ($role) {
+            'student' => $this->search->students($query, $term),
+            'teacher' => $this->search->teachers($query, $term),
+            default => $query->searchIdentity($term),
+        };
     }
 
     /**

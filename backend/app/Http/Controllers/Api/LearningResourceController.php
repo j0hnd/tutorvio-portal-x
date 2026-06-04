@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Contracts\Search\SearchService;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
@@ -54,6 +55,7 @@ class LearningResourceController extends Controller
     public function __construct(
         private readonly LearningResourceStorage $storage,
         private readonly AuditLogService $auditLogService,
+        private readonly SearchService $search,
     ) {}
 
     /**
@@ -87,7 +89,7 @@ class LearningResourceController extends Controller
         $resources = LearningResource::query()
             ->with('createdBy')
             ->visibleTo($request->user())
-            ->search($validated['search'] ?? null)
+            ->tap(fn (Builder $query) => $this->search->resources($query, $validated['search'] ?? null))
             ->when($validated['resource_type'] ?? null, fn ($query, $type) => $query->where('resource_type', $type))
             ->when($validated['course'] ?? null, fn ($query, $course) => $query->where('course', $course))
             ->when($validated['level'] ?? null, fn ($query, $level) => $query->where('level', $level))
