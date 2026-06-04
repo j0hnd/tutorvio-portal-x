@@ -340,6 +340,7 @@ use OpenApi\Attributes as OA;
         ])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
     ]
 )]
 #[OA\Patch(

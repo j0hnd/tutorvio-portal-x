@@ -446,6 +446,7 @@ use OpenApi\Attributes as OA;
     tags: ['Admin Operations'],
     responses: [
         new OA\Response(response: 200, description: 'Public-safe portal settings.', content: new OA\JsonContent(type: 'object', properties: [new OA\Property(property: 'data', ref: '#/components/schemas/PublicPortalSettings')])),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
     ]
 )]
 class AdminOperationsDocumentation {}

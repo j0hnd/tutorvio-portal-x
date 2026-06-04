@@ -81,6 +81,23 @@ use OpenApi\Attributes as OA;
     type: 'object'
 )]
 #[OA\Schema(
+    schema: 'LessonBookingRequest',
+    required: ['teacher_id', 'timezone', 'starts_at', 'ends_at'],
+    properties: [
+        new OA\Property(property: 'teacher_id', description: 'Internal numeric user ID for the student assigned teacher.', type: 'integer', example: 17),
+        new OA\Property(property: 'title', nullable: true, type: 'string', maxLength: 255, example: 'Business English coaching'),
+        new OA\Property(property: 'description', nullable: true, type: 'string', example: 'Presentation practice and feedback'),
+        new OA\Property(property: 'status', type: 'string', enum: ['scheduled', 'pending_confirmation'], example: 'pending_confirmation'),
+        new OA\Property(property: 'class_type', type: 'string', enum: ['regular', 'trial'], example: 'regular'),
+        new OA\Property(property: 'timezone', description: 'IANA timezone used to interpret the requested lesson time.', type: 'string', example: 'Asia/Manila'),
+        new OA\Property(property: 'starts_at', type: 'string', format: 'date-time', example: '2026-06-03T10:00:00+08:00'),
+        new OA\Property(property: 'ends_at', type: 'string', format: 'date-time', example: '2026-06-03T10:50:00+08:00'),
+        new OA\Property(property: 'meeting_url', nullable: true, type: 'string', format: 'uri', maxLength: 2048, example: 'https://meet.google.com/abc-defg-hij'),
+        new OA\Property(property: 'notes', nullable: true, type: 'string', example: 'Focus on interview answers.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
     schema: 'LessonRecord',
     required: ['id', 'scheduled_date', 'start_time', 'end_time', 'lesson_type', 'lesson_status', 'is_completed', 'is_join_available'],
     properties: [
@@ -166,6 +183,34 @@ use OpenApi\Attributes as OA;
         ),
     ],
     type: 'object'
+)]
+#[OA\Post(
+    path: '/scheduling/lesson-bookings',
+    operationId: 'lessonBookingCreate',
+    summary: 'Book one-time lesson',
+    description: 'Student-only endpoint. Creates a pending or scheduled one-time class with the authenticated student assigned to their teacher. Booking uses short-lived cache locks around the student/time slot and teacher availability slot; lock conflicts return the normal 422 validation error format on `starts_at`.',
+    security: [['sanctum' => []]],
+    tags: ['Scheduling', 'Student'],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LessonBookingRequest')),
+    responses: [
+        new OA\Response(response: 201, description: 'Lesson booking created.', content: new OA\JsonContent(ref: '#/components/schemas/ClassScheduleResponse')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(
+            response: 422,
+            description: 'Validation error. Includes booking lock conflicts such as another in-progress booking for the same student/time slot or teacher availability slot.',
+            content: new OA\JsonContent(
+                ref: '#/components/schemas/ValidationErrorResponse',
+                example: [
+                    'message' => 'This lesson slot is already being booked. Please try another time or retry shortly.',
+                    'errors' => [
+                        'starts_at' => ['This lesson slot is already being booked. Please try another time or retry shortly.'],
+                    ],
+                ]
+            )
+        ),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
 )]
 #[OA\Get(
     path: '/scheduling/calendar',
@@ -445,6 +490,7 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
     ]
 )]
 #[OA\Get(
