@@ -441,8 +441,9 @@ use OpenApi\Attributes as OA;
     path: '/settings/public',
     operationId: 'publicPortalSettings',
     summary: 'Public-safe portal settings',
-    description: 'Public root endpoint `/settings/public` (outside `/api/v1`). Returns only public-safe school name, branding tokens/assets, locale, timezone, and calendar colors. It excludes internal notification rules, email templates, user defaults, issue tracking configuration, and audit/update metadata.',
+    description: 'Public endpoint `/api/settings/public` outside `/api/v1`. Returns only public-safe school name, branding tokens/assets, locale, timezone, and calendar colors. It excludes internal notification rules, email templates, user defaults, issue tracking configuration, and audit/update metadata.',
     security: [],
+    servers: [new OA\Server(url: L5_SWAGGER_CONST_HOST.'/api', description: 'Tutorvio public API root')],
     tags: ['Admin Operations'],
     responses: [
         new OA\Response(response: 200, description: 'Public-safe portal settings.', content: new OA\JsonContent(type: 'object', properties: [new OA\Property(property: 'data', ref: '#/components/schemas/PublicPortalSettings')])),

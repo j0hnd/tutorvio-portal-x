@@ -44,7 +44,7 @@ use OpenApi\Attributes as OA;
     schema: 'ForbiddenResponse',
     required: ['message'],
     properties: [
-        new OA\Property(property: 'message', type: 'string', example: 'This action is unauthorized.'),
+        new OA\Property(property: 'message', type: 'string', example: 'Forbidden.'),
     ],
     type: 'object'
 )]
@@ -52,7 +52,7 @@ use OpenApi\Attributes as OA;
     schema: 'ServerErrorResponse',
     required: ['message'],
     properties: [
-        new OA\Property(property: 'message', type: 'string', example: 'Server Error'),
+        new OA\Property(property: 'message', type: 'string', example: 'Server error.'),
     ],
     type: 'object'
 )]
@@ -75,7 +75,7 @@ use OpenApi\Attributes as OA;
             required: ['role', 'user', 'permissions', 'summary', 'sections'],
             properties: [
                 new OA\Property(property: 'role', nullable: true, type: 'string', enum: ['admin', 'staff', 'teacher', 'student'], example: 'student'),
-                new OA\Property(property: 'user', type: 'object', example: ['id' => 23, 'name' => 'Alex Student', 'email' => 'alex.student@example.com']),
+                new OA\Property(property: 'user', type: 'object', example: ['id' => 'usr_01J0STUDENT000000000000001', 'name' => 'Alex Student', 'email' => 'alex.student@example.com']),
                 new OA\Property(property: 'permissions', type: 'array', items: new OA\Items(type: 'string'), example: ['classes.view', 'homeworks.view']),
                 new OA\Property(property: 'summary', type: 'object', example: ['classes' => ['total' => 2, 'upcoming' => 1, 'completed' => 1], 'learning_progress' => ['completed_lessons' => 1, 'scheduled_lessons' => 1], 'next_lesson' => null]),
                 new OA\Property(property: 'sections', type: 'array', items: new OA\Items(type: 'string'), example: ['classes', 'materials', 'subscription']),
