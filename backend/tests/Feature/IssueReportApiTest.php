@@ -207,6 +207,29 @@ class IssueReportApiTest extends TestCase
             ->assertJsonPath('data.0.description', 'Issue details.');
     }
 
+    public function test_admin_can_search_issue_report_text(): void
+    {
+        [$student] = $this->createStudentAndTeacher();
+        $admin = $this->createRoleUser('admin');
+
+        $match = $this->createIssueReport($student, [
+            'title' => 'Audio dropout during lesson',
+            'description' => 'The connection dropped repeatedly.',
+        ]);
+        $this->createIssueReport($student, [
+            'title' => 'Billing question',
+            'description' => 'Parent asked about invoice timing.',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/admin/issue-reports?search=dropout&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('per_page', 10)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->public_id);
+    }
+
     public function test_admin_can_assign_resolve_close_and_audit_issue_report(): void
     {
         [$student] = $this->createStudentAndTeacher();

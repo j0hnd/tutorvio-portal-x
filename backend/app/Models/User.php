@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Concerns\AppliesFullTextSearch;
 use App\Models\Concerns\HasPublicId;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\ScheduleReminder;
@@ -10,6 +11,7 @@ use App\Models\Scheduling\TeacherAvailability;
 use App\Models\Scheduling\TeacherUnavailableDate;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -24,7 +26,7 @@ use Spatie\Permission\Traits\HasRoles;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, HasPublicId, HasRoles, Notifiable;
+    use AppliesFullTextSearch, HasApiTokens, HasFactory, HasPublicId, HasRoles, Notifiable;
 
     public const STATUS_ACTIVE = 'active';
 
@@ -40,6 +42,14 @@ class User extends Authenticatable
         self::STATUS_INVITED,
         self::STATUS_SUSPENDED,
     ];
+
+    /**
+     * Scope the query to searchable user identity fields.
+     */
+    public function scopeSearchIdentity(Builder $query, ?string $term): Builder
+    {
+        return $this->applyFullTextSearch($query, ['name', 'email'], $term);
+    }
 
     /**
      * Get the attributes that should be cast.

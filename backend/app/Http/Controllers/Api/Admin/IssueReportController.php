@@ -24,8 +24,6 @@ class IssueReportController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  AuditLogService  $auditLogService
      */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
@@ -36,9 +34,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -55,6 +50,7 @@ class IssueReportController extends Controller
             'class_schedule_id' => ['sometimes', 'integer', 'exists:class_schedules,id'],
             'date_from' => ['sometimes', 'date_format:Y-m-d'],
             'date_to' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -73,6 +69,7 @@ class IssueReportController extends Controller
             ->when($validated['class_schedule_id'] ?? null, fn (Builder $query, int $id) => $query->where('class_schedule_id', $id))
             ->when($validated['date_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '>=', $date))
             ->when($validated['date_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '<=', $date))
+            ->search($validated['search'] ?? null)
             ->latest()
             ->paginate($validated['per_page'] ?? 15);
 
@@ -86,9 +83,6 @@ class IssueReportController extends Controller
      * Route model parameters include $issueReport.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     public function show(IssueReport $issueReport): JsonResponse
     {
@@ -106,10 +100,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     public function updateStatus(Request $request, IssueReport $issueReport): JsonResponse
     {
@@ -155,10 +145,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     public function assign(Request $request, IssueReport $issueReport): JsonResponse
     {
@@ -226,10 +212,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     public function addResolutionNote(Request $request, IssueReport $issueReport): JsonResponse
     {
@@ -267,10 +249,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     public function close(Request $request, IssueReport $issueReport): JsonResponse
     {
@@ -284,10 +262,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     public function cancel(Request $request, IssueReport $issueReport): JsonResponse
     {
@@ -301,11 +275,6 @@ class IssueReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport, $status.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  IssueReport  $issueReport
-     * @param  string  $status
-     * @return JsonResponse
      */
     private function finish(Request $request, IssueReport $issueReport, string $status): JsonResponse
     {
@@ -355,9 +324,6 @@ class IssueReportController extends Controller
      * Route model parameters include $issueReport.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  IssueReport  $issueReport
-     * @return JsonResponse
      */
     private function issueResponse(IssueReport $issueReport): JsonResponse
     {
@@ -375,13 +341,6 @@ class IssueReportController extends Controller
      * Route model parameters include $issueReport, $author, $type, $body, $isInternal.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  IssueReport  $issueReport
-     * @param  ?User  $author
-     * @param  string  $type
-     * @param  string  $body
-     * @param  bool  $isInternal
-     * @return void
      */
     private function recordHistory(IssueReport $issueReport, ?User $author, string $type, string $body, bool $isInternal = true): void
     {
@@ -400,13 +359,6 @@ class IssueReportController extends Controller
      * Route model parameters include $issueReport, $actor, $previousStatus, $newStatus, $notePresent.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  IssueReport  $issueReport
-     * @param  ?User  $actor
-     * @param  string  $previousStatus
-     * @param  string  $newStatus
-     * @param  bool  $notePresent
-     * @return void
      */
     private function logIssueStatusChanged(IssueReport $issueReport, ?User $actor, string $previousStatus, string $newStatus, bool $notePresent): void
     {
@@ -442,11 +394,6 @@ class IssueReportController extends Controller
      * Route model parameters include $issueReport, $actor, $notePresent.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  IssueReport  $issueReport
-     * @param  ?User  $actor
-     * @param  bool  $notePresent
-     * @return void
      */
     private function logIssueResolutionUpdated(IssueReport $issueReport, ?User $actor, bool $notePresent): void
     {

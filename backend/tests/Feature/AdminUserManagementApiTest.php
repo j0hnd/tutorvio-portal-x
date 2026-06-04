@@ -122,6 +122,30 @@ class AdminUserManagementApiTest extends TestCase
         $this->assertTrue($staff->hasDirectPermission('users.update'));
     }
 
+    public function test_admin_can_search_users_by_name_or_email_with_pagination(): void
+    {
+        $match = User::factory()->create([
+            'name' => 'Searchable Student',
+            'email' => 'searchable-student@example.com',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $match->assignRole('student');
+
+        $other = User::factory()->create([
+            'name' => 'Unrelated Teacher',
+            'email' => 'teacher@example.com',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $other->assignRole('teacher');
+
+        $this->getJson('/api/v1/users?search=searchable&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('per_page', 10)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $match->public_id)
+            ->assertJsonPath('data.0.email', 'searchable-student@example.com');
+    }
+
     public function test_admin_can_edit_user(): void
     {
         $student = User::factory()->create(['status' => User::STATUS_INVITED]);

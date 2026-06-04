@@ -20,8 +20,6 @@ class AnnouncementController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  AnnouncementRecipientResolver  $recipientResolver
      */
     public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
 
@@ -32,9 +30,6 @@ class AnnouncementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -73,13 +68,7 @@ class AnnouncementController extends Controller
             ->active()
             ->visibleTo($request->user())
             ->tap(fn (Builder $query) => $this->applyReadFilter($query, $validated, $request->user()->id))
-            ->when($validated['search'] ?? null, function (Builder $query, string $search) {
-                $query->where(function (Builder $query) use ($search) {
-                    $query
-                        ->where('title', 'like', "%{$search}%")
-                        ->orWhere('body', 'like', "%{$search}%");
-                });
-            })
+            ->search($validated['search'] ?? null)
             ->orderByDesc('published_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 25);
@@ -94,9 +83,6 @@ class AnnouncementController extends Controller
      * Route model parameters include $announcement.
      * The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Announcement  $announcement
-     * @return JsonResponse
      */
     public function show(Announcement $announcement): JsonResponse
     {
@@ -123,9 +109,6 @@ class AnnouncementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function unreadCount(Request $request): JsonResponse
     {
@@ -157,10 +140,6 @@ class AnnouncementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  Announcement  $announcement
-     * @return JsonResponse
      */
     public function markRead(Request $request, Announcement $announcement): JsonResponse
     {
@@ -190,10 +169,6 @@ class AnnouncementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  Announcement  $announcement
-     * @return JsonResponse
      */
     public function markUnread(Request $request, Announcement $announcement): JsonResponse
     {
@@ -223,9 +198,6 @@ class AnnouncementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function markAllRead(Request $request): JsonResponse
     {
@@ -276,11 +248,6 @@ class AnnouncementController extends Controller
 
     /**
      * @param  array<string, mixed>  $filters
-     *
-     * @param  Builder  $query
-     * @param  array  $filters
-     * @param  int  $userId
-     * @return void
      */
     private function applyReadFilter(Builder $query, array $filters, int $userId): void
     {
@@ -314,10 +281,6 @@ class AnnouncementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
      * The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Announcement  $announcement
-     * @param  Request  $request
-     * @return void
      */
     private function abortUnlessVisible(Announcement $announcement, Request $request): void
     {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AppliesFullTextSearch;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class LearningResource extends Model
 {
-    use HasFactory, HasPublicId;
+    use AppliesFullTextSearch, HasFactory, HasPublicId;
 
     public const TYPE_FILE = 'file';
 
@@ -172,17 +173,14 @@ class LearningResource extends Model
             return $query;
         }
 
-        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term).'%';
-
-        return $query->where(function (Builder $query) use ($like) {
-            $query
-                ->where('title', 'like', $like)
-                ->orWhere('description', 'like', $like)
-                ->orWhere('resource_type', 'like', $like)
-                ->orWhere('course', 'like', $like)
-                ->orWhere('level', 'like', $like)
-                ->orWhere('original_filename', 'like', $like);
-        });
+        return $this->applyFullTextSearch($query, [
+            'title',
+            'description',
+            'resource_type',
+            'course',
+            'level',
+            'original_filename',
+        ], $term);
     }
 
     /**

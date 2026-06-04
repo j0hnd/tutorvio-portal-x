@@ -19,9 +19,6 @@ class AuditLogController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The ListAuditLogsRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ListAuditLogsRequest  $request
-     * @return JsonResponse
      */
     public function index(ListAuditLogsRequest $request): JsonResponse
     {
@@ -42,15 +39,8 @@ class AuditLogController extends Controller
             ->when($validated['search'] ?? null, function (Builder $query, string $search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query
-                        ->where('action_type', 'like', '%'.$search.'%')
-                        ->orWhere('module', 'like', '%'.$search.'%')
-                        ->orWhere('target_entity_type', 'like', '%'.$search.'%')
-                        ->orWhere('ip_address', 'like', '%'.$search.'%')
-                        ->orWhere('user_agent', 'like', '%'.$search.'%')
-                        ->orWhere('metadata', 'like', '%'.$search.'%')
-                        ->orWhereHas('actor', fn (Builder $query) => $query
-                            ->where('name', 'like', '%'.$search.'%')
-                            ->orWhere('email', 'like', '%'.$search.'%'));
+                        ->search($search)
+                        ->orWhereHas('actor', fn (Builder $query) => $query->searchIdentity($search));
 
                     if (is_numeric($search)) {
                         $query->orWhere('target_entity_id', (int) $search);

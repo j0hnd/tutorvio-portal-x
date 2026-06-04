@@ -30,8 +30,6 @@ class UserManagementController extends Controller
      * The framework resolves this constructor before action-specific route
 
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  AuditLogService  $auditLogService
      */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
@@ -42,9 +40,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -59,13 +54,7 @@ class UserManagementController extends Controller
             ->with(['roles', 'permissions', 'studentProfile.assignedTeacher', 'teacherProfile', 'staffProfile'])
             ->when($validated['role'] ?? null, fn ($query, string $role) => $query->role($role))
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($validated['search'] ?? null, function ($query, string $search) {
-                $query->where(function ($query) use ($search) {
-                    $query
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
+            ->searchIdentity($validated['search'] ?? null)
             ->latest()
             ->paginate($validated['per_page'] ?? 25);
 
@@ -79,9 +68,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -133,9 +119,6 @@ class UserManagementController extends Controller
      * Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return JsonResponse
      */
     public function show(User $user): JsonResponse
     {
@@ -151,10 +134,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  User  $user
-     * @return JsonResponse
      */
     public function update(Request $request, User $user): JsonResponse
     {
@@ -234,10 +213,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $user
-     * @return JsonResponse
      */
     public function activate(Request $request, User $user): JsonResponse
     {
@@ -251,10 +226,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $user
-     * @return JsonResponse
      */
     public function deactivate(Request $request, User $user): JsonResponse
     {
@@ -268,10 +239,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $user
-     * @return JsonResponse
      */
     public function syncRoles(Request $request, User $user): JsonResponse
     {
@@ -320,9 +287,6 @@ class UserManagementController extends Controller
      * Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return JsonResponse
      */
     public function statusHistory(User $user): JsonResponse
     {
@@ -356,11 +320,6 @@ class UserManagementController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user, $status.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $user
-     * @param  string  $status
-     * @return JsonResponse
      */
     private function changeStatus(Request $request, User $user, string $status): JsonResponse
     {
@@ -393,10 +352,6 @@ class UserManagementController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
-     * @param  bool  $creating
-     * @param  ?User  $user
      */
     private function validateUserPayload(Request $request, bool $creating, ?User $user = null): array
     {
@@ -466,9 +421,6 @@ class UserManagementController extends Controller
      * @param  array<int, string>  $allowedPrefixes
      * @param  array<int, string>  $allowedExtensions
      * @return array<int, \Closure>
-     *
-     * @param  array  $allowedPrefixes
-     * @param  array  $allowedExtensions
      */
     private function safeStoragePathRules(array $allowedPrefixes, array $allowedExtensions): array
     {
@@ -516,10 +468,6 @@ class UserManagementController extends Controller
 
     /**
      * @param  array<string, mixed>  $validated
-     *
-     * @param  ?string  $role
-     * @param  array  $validated
-     * @return void
      */
     private function validateProfilePayload(?string $role, array $validated): void
     {
@@ -560,11 +508,6 @@ class UserManagementController extends Controller
 
     /**
      * @param  array<string, mixed>  $validated
-     *
-     * @param  User  $user
-     * @param  string  $role
-     * @param  array  $validated
-     * @return void
      */
     private function syncRoleProfile(User $user, string $role, array $validated): void
     {
@@ -626,10 +569,6 @@ class UserManagementController extends Controller
 
     /**
      * @param  array<int, string>|null  $permissions
-     *
-     * @param  ?string  $role
-     * @param  ?array  $permissions
-     * @return void
      */
     private function validateStaffPermissions(?string $role, ?array $permissions): void
     {
@@ -642,11 +581,6 @@ class UserManagementController extends Controller
 
     /**
      * @param  array<int, string>|null  $permissions
-     *
-     * @param  User  $user
-     * @param  string  $role
-     * @param  ?array  $permissions
-     * @return void
      */
     private function syncStaffPermissions(User $user, string $role, ?array $permissions): void
     {
@@ -668,9 +602,6 @@ class UserManagementController extends Controller
      * Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ?User  $user
-     * @return ?string
      */
     private function primaryRole(?User $user): ?string
     {
@@ -683,8 +614,6 @@ class UserManagementController extends Controller
 
     /**
      * @return array<int, string>
-     *
-     * @param  User  $user
      */
     private function directPermissionNames(User $user): array
     {
@@ -694,16 +623,6 @@ class UserManagementController extends Controller
     /**
      * @param  array<int, string>  $oldPermissions
      * @param  array<int, string>  $newPermissions
-     *
-     * @param  int  $actorUserId
-     * @param  User  $targetUser
-     * @param  ?string  $oldRole
-     * @param  ?string  $newRole
-     * @param  array  $oldPermissions
-     * @param  array  $newPermissions
-     * @param  ?string  $oldStaffAccessLevel
-     * @param  ?string  $newStaffAccessLevel
-     * @return void
      */
     private function auditAccessControlChanges(
         int $actorUserId,
@@ -785,8 +704,6 @@ class UserManagementController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  User  $user
      */
     private function serializeUser(User $user): array
     {
@@ -822,9 +739,6 @@ class UserManagementController extends Controller
      * Route model parameters include $id.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  mixed  $id
-     * @return ?string
      */
     private function userPublicId(mixed $id): ?string
     {
@@ -841,8 +755,6 @@ class UserManagementController extends Controller
 
     /**
      * @return array<string, mixed>|null
-     *
-     * @param  User  $user
      */
     private function studentProfilePayload(User $user): ?array
     {
@@ -871,8 +783,6 @@ class UserManagementController extends Controller
 
     /**
      * @return array<string, mixed>|null
-     *
-     * @param  User  $user
      */
     private function teacherProfilePayload(User $user): ?array
     {
@@ -899,8 +809,6 @@ class UserManagementController extends Controller
 
     /**
      * @return array<string, mixed>|null
-     *
-     * @param  User  $user
      */
     private function staffProfilePayload(User $user): ?array
     {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AppliesFullTextSearch;
 use App\Models\Concerns\HasPublicId;
 use App\Models\Scheduling\ClassSchedule;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class IssueReport extends Model
 {
-    use HasFactory, HasPublicId, SoftDeletes;
+    use AppliesFullTextSearch, HasFactory, HasPublicId, SoftDeletes;
 
     public const TYPE_TECHNICAL_ISSUE = 'technical_issue';
 
@@ -105,6 +106,14 @@ class IssueReport extends Model
         return [
             'resolved_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Scope the query to searchable issue report text.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        return $this->applyFullTextSearch($query, ['title', 'description', 'resolution_notes'], $term);
     }
 
     /**

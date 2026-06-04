@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AppliesFullTextSearch;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Announcement extends Model
 {
-    use HasFactory, HasPublicId, SoftDeletes;
+    use AppliesFullTextSearch, HasFactory, HasPublicId, SoftDeletes;
 
     public const TYPE_ADMIN_ANNOUNCEMENT = 'admin_announcement';
 
@@ -120,6 +121,14 @@ class Announcement extends Model
             ->where('is_archived', false)
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now());
+    }
+
+    /**
+     * Scope the query to searchable announcement text.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        return $this->applyFullTextSearch($query, ['title', 'body'], $term);
     }
 
     /**

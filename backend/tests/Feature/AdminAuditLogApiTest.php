@@ -209,6 +209,53 @@ class AdminAuditLogApiTest extends TestCase
             ->assertJsonPath('data.2.id', $oldest->public_id);
     }
 
+    public function test_search_matches_audit_text_and_actor_identity(): void
+    {
+        $this->actingAsUserWithRole('admin');
+
+        $actor = User::factory()->create([
+            'name' => 'Operations Searcher',
+            'email' => 'operations-searcher@example.com',
+        ]);
+        $actor->assignRole('staff');
+
+        $textMatch = AuditLog::factory()->create([
+            'action_type' => 'lesson.material_uploaded',
+            'module' => 'learning_resources',
+            'target_entity_type' => 'learning_resource',
+        ]);
+        AuditLog::factory()->create([
+            'actor_user_id' => $actor->id,
+            'action_type' => 'users.updated',
+            'module' => 'users',
+        ]);
+        AuditLog::factory()->create([
+            'action_type' => 'billing.invoice_created',
+            'module' => 'billing',
+            'metadata' => ['context' => 'plain'],
+        ]);
+        $metadataMatch = AuditLog::factory()->create([
+            'action_type' => 'users.updated',
+            'module' => 'users',
+            'metadata' => ['context' => 'metadata-search-token'],
+        ]);
+
+        $this->getJson('/api/v1/admin/audit-logs?search=material')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $textMatch->public_id);
+
+        $this->getJson('/api/v1/admin/audit-logs?search=operations')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.actor_user.id', $actor->public_id);
+
+        $this->getJson('/api/v1/admin/audit-logs?search=metadata-search-token')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $metadataMatch->public_id);
+    }
+
     public function test_sensitive_metadata_fields_are_not_returned_in_audit_log_api_responses(): void
     {
         Carbon::setTestNow('2026-05-28 12:00:00');
