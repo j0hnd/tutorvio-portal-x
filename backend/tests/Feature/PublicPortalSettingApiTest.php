@@ -4,11 +4,25 @@ namespace Tests\Feature;
 
 use App\Models\PortalSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class PublicPortalSettingApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $key = md5('api-public127.0.0.1');
+
+        try {
+            Redis::del($key);
+        } catch (\Throwable) {
+            //
+        }
+    }
 
     public function test_public_settings_endpoint_returns_minimal_safe_portal_configuration(): void
     {

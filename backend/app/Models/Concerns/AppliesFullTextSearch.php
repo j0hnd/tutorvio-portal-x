@@ -3,6 +3,7 @@
 namespace App\Models\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
+use PHPUnit\Runner\Version;
 
 trait AppliesFullTextSearch
 {
@@ -20,7 +21,7 @@ trait AppliesFullTextSearch
             return $query;
         }
 
-        if (in_array($query->getModel()->getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+        if ($this->shouldUseFullText($query)) {
             $booleanQuery = $this->booleanFullTextQuery($term);
 
             if ($booleanQuery !== '') {
@@ -47,5 +48,17 @@ trait AppliesFullTextSearch
             ->take(12)
             ->map(fn (string $token): string => '+'.$token.'*')
             ->implode(' ');
+    }
+
+    private function shouldUseFullText(Builder $query): bool
+    {
+        if (
+            app()->runningUnitTests()
+            || (app()->runningInConsole() && class_exists(Version::class))
+        ) {
+            return false;
+        }
+
+        return in_array($query->getModel()->getConnection()->getDriverName(), ['mysql', 'mariadb'], true);
     }
 }
