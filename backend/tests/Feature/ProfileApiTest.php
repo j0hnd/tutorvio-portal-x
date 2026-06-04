@@ -164,6 +164,191 @@ class ProfileApiTest extends TestCase
         $response2->assertStatus(200);
     }
 
+    public function test_assigned_teacher_can_update_only_teacher_notes_on_student_profile(): void
+    {
+        $teacher = User::factory()->create();
+        $teacher->assignRole('teacher');
+
+        $student = User::factory()->create();
+        $student->assignRole('student');
+        StudentProfile::create([
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $teacher->id,
+            'english_level' => 'A1',
+            'preferences' => 'Morning classes',
+            'teacher_notes' => 'Old teacher note',
+        ]);
+
+        $response = $this->actingAs($teacher)->patchJson('/api/v1/users/'.$student->public_id.'/profile', [
+            'student_profile' => [
+                'teacher_notes' => 'Needs speaking practice',
+            ],
+        ]);
+
+        $response
+            ->assertStatus(200)
+            ->assertJsonPath('data.student_profile.teacher_notes', 'Needs speaking practice');
+
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $teacher->id,
+            'english_level' => 'A1',
+            'preferences' => 'Morning classes',
+            'teacher_notes' => 'Needs speaking practice',
+        ]);
+    }
+
+    public function test_unassigned_teacher_cannot_update_student_profile(): void
+    {
+        $teacher = User::factory()->create();
+        $teacher->assignRole('teacher');
+
+        $assignedTeacher = User::factory()->create();
+        $assignedTeacher->assignRole('teacher');
+
+        $student = User::factory()->create();
+        $student->assignRole('student');
+        StudentProfile::create([
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $assignedTeacher->id,
+            'teacher_notes' => 'Original note',
+        ]);
+
+        $response = $this->actingAs($teacher)->patchJson('/api/v1/users/'.$student->public_id.'/profile', [
+            'student_profile' => [
+                'teacher_notes' => 'Unauthorized note',
+            ],
+        ]);
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $assignedTeacher->id,
+            'teacher_notes' => 'Original note',
+        ]);
+    }
+
+    public function test_assigned_teacher_cannot_update_student_owned_or_admin_student_profile_fields(): void
+    {
+        $teacher = User::factory()->create();
+        $teacher->assignRole('teacher');
+
+        $replacementTeacher = User::factory()->create();
+        $replacementTeacher->assignRole('teacher');
+
+        $student = User::factory()->create();
+        $student->assignRole('student');
+        StudentProfile::create([
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $teacher->id,
+            'english_level' => 'A1',
+            'notes' => 'Admin note',
+            'internal_notes' => 'Internal note',
+            'preferences' => 'Morning classes',
+            'goals' => 'Conversation',
+            'learning_concerns' => 'Grammar',
+        ]);
+
+        $response = $this->actingAs($teacher)->patchJson('/api/v1/users/'.$student->public_id.'/profile', [
+            'student_profile' => [
+                'assigned_teacher_id' => $replacementTeacher->id,
+                'english_level' => 'C2',
+                'notes' => 'Changed admin note',
+                'internal_notes' => 'Changed internal note',
+                'preferences' => 'Evening classes',
+                'goals' => 'Business English',
+                'learning_concerns' => 'Pronunciation',
+            ],
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'student_profile.assigned_teacher_id',
+                'student_profile.english_level',
+                'student_profile.notes',
+                'student_profile.internal_notes',
+                'student_profile.preferences',
+                'student_profile.goals',
+                'student_profile.learning_concerns',
+            ]);
+
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $teacher->id,
+            'english_level' => 'A1',
+            'notes' => 'Admin note',
+            'internal_notes' => 'Internal note',
+            'preferences' => 'Morning classes',
+            'goals' => 'Conversation',
+            'learning_concerns' => 'Grammar',
+        ]);
+    }
+
+    public function test_admin_can_fully_update_student_profile(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $teacher = User::factory()->create();
+        $teacher->assignRole('teacher');
+
+        $student = User::factory()->create([
+            'name' => 'Original Student',
+            'phone' => '555-1000',
+            'timezone' => 'UTC',
+        ]);
+        $student->assignRole('student');
+        StudentProfile::create([
+            'user_id' => $student->id,
+            'english_level' => 'A1',
+            'teacher_notes' => 'Old teacher note',
+        ]);
+
+        $response = $this->actingAs($admin)->patchJson('/api/v1/users/'.$student->public_id.'/profile', [
+            'name' => 'Updated Student',
+            'phone' => '555-2000',
+            'timezone' => 'Asia/Manila',
+            'student_profile' => [
+                'assigned_teacher_id' => $teacher->id,
+                'english_level' => 'B2',
+                'current_level' => 'Intermediate',
+                'course' => 'General English',
+                'class_type' => 'One-on-one',
+                'start_date' => '2026-06-01',
+                'notes' => 'Admin note',
+                'teacher_notes' => 'Teacher-visible note',
+                'internal_notes' => 'Internal admin note',
+            ],
+        ]);
+
+        $response
+            ->assertStatus(200)
+            ->assertJsonPath('data.name', 'Updated Student')
+            ->assertJsonPath('data.student_profile.assigned_teacher_id', $teacher->public_id)
+            ->assertJsonPath('data.student_profile.teacher_notes', 'Teacher-visible note')
+            ->assertJsonPath('data.student_profile.internal_notes', 'Internal admin note');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $student->id,
+            'name' => 'Updated Student',
+            'phone' => '555-2000',
+            'timezone' => 'Asia/Manila',
+        ]);
+        $this->assertDatabaseHas('student_profiles', [
+            'user_id' => $student->id,
+            'assigned_teacher_id' => $teacher->id,
+            'english_level' => 'B2',
+            'current_level' => 'Intermediate',
+            'course' => 'General English',
+            'class_type' => 'One-on-one',
+            'notes' => 'Admin note',
+            'teacher_notes' => 'Teacher-visible note',
+            'internal_notes' => 'Internal admin note',
+        ]);
+    }
+
     public function test_restricted_fields_are_rejected_for_unauthorized_users()
     {
         $student = User::factory()->create();

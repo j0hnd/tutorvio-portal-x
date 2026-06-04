@@ -110,10 +110,9 @@ class UpdateProfileRequest extends FormRequest
                 $rules['student_profile.assigned_teacher_id'] = ['sometimes', 'integer', 'exists:users,id', 'nullable'];
             } elseif ($isTeacherAssigned) {
                 // Teacher updating assigned student profile
-                $rules['student_profile'] = ['sometimes', 'array'];
+                $rules['student_profile'] = ['sometimes', 'array:teacher_notes,assigned_teacher_id,english_level,current_level,course,class_type,start_date,notes,internal_notes,preferences,goals,learning_concerns'];
                 $rules['student_profile.teacher_notes'] = ['sometimes', 'string', 'nullable'];
-                $rules['student_profile.assigned_teacher_id'] = ['prohibited'];
-                $rules['student_profile.internal_notes'] = ['prohibited'];
+                $rules += $this->protectedAssignedTeacherStudentProfileRules();
             }
         } elseif ($targetUser->hasRole('teacher')) {
             if ($user->id === $targetUser->id) {
@@ -181,6 +180,30 @@ class UpdateProfileRequest extends FormRequest
             'student_profile.notes' => ['prohibited'],
             'student_profile.internal_notes' => ['prohibited'],
             'student_profile.teacher_notes' => ['prohibited'],
+        ];
+    }
+
+    /**
+     * Return protected student profile rules for assigned teacher updates.
+     *
+     * Assigned teachers own only the teacher notes field on student profiles.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function protectedAssignedTeacherStudentProfileRules(): array
+    {
+        return [
+            'student_profile.assigned_teacher_id' => ['prohibited'],
+            'student_profile.english_level' => ['prohibited'],
+            'student_profile.current_level' => ['prohibited'],
+            'student_profile.course' => ['prohibited'],
+            'student_profile.class_type' => ['prohibited'],
+            'student_profile.start_date' => ['prohibited'],
+            'student_profile.notes' => ['prohibited'],
+            'student_profile.internal_notes' => ['prohibited'],
+            'student_profile.preferences' => ['prohibited'],
+            'student_profile.goals' => ['prohibited'],
+            'student_profile.learning_concerns' => ['prohibited'],
         ];
     }
 
