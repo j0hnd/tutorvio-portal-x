@@ -69,7 +69,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->addDay(),
             'end_time' => now()->addDay()->addHour(),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
             'notes' => 'Internal lesson preparation note.',
         ]);
 
@@ -78,7 +78,23 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->subDay(),
             'end_time' => now()->subDay()->addHour(),
-            'status' => 'completed',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->subDays(2),
+            'end_time' => now()->subDays(2)->addHour(),
+            'status' => Lesson::STATUS_MISSED_BY_STUDENT,
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->subDays(3),
+            'end_time' => now()->subDays(3)->addHour(),
+            'status' => Lesson::STATUS_MISSED_BY_TEACHER,
         ]);
 
         Lesson::create([
@@ -86,7 +102,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->addDays(2),
             'end_time' => now()->addDays(2)->addHour(),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
         ]);
 
         $material = Material::create(['title' => 'Placement Prep']);
@@ -126,7 +142,7 @@ class DashboardApiTest extends TestCase
                 'teacher_id' => $teacher->id,
                 'start_time' => now()->addDays(4),
                 'end_time' => now()->addDays(4)->addHour(),
-                'status' => 'scheduled',
+                'status' => Lesson::STATUS_SCHEDULED,
             ])->id,
             'student_id' => $otherStudent->id,
             'teacher_id' => $teacher->id,
@@ -153,7 +169,12 @@ class DashboardApiTest extends TestCase
         $this->getJson('/api/v1/dashboard')
             ->assertOk()
             ->assertJsonPath('data.role', 'student')
-            ->assertJsonPath('data.summary.classes.total', 2)
+            ->assertJsonPath('data.summary.classes.total', 4)
+            ->assertJsonPath('data.summary.classes.scheduled', 1)
+            ->assertJsonPath('data.summary.classes.completed', 1)
+            ->assertJsonPath('data.summary.classes.missed', 2)
+            ->assertJsonPath('data.summary.classes.missed_by_student', 1)
+            ->assertJsonPath('data.summary.classes.missed_by_teacher', 1)
             ->assertJsonPath('data.summary.materials.assigned', 1)
             ->assertJsonPath('data.summary.materials.completed', 1)
             ->assertJsonPath('data.summary.subscription.plan_name', 'Starter')
@@ -300,7 +321,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->setTime(10, 0),
             'end_time' => now()->setTime(11, 0),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
             'notes' => 'Today teacher preparation note.',
         ]);
 
@@ -309,7 +330,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->addDay()->setTime(10, 0),
             'end_time' => now()->addDay()->setTime(11, 0),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
         ]);
 
         $completedLesson = Lesson::create([
@@ -317,7 +338,23 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->subDay(),
             'end_time' => now()->subDay()->addHour(),
-            'status' => 'completed',
+            'status' => Lesson::STATUS_COMPLETED,
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->subDays(2),
+            'end_time' => now()->subDays(2)->addHour(),
+            'status' => Lesson::STATUS_MISSED_BY_STUDENT,
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->subDays(3),
+            'end_time' => now()->subDays(3)->addHour(),
+            'status' => Lesson::STATUS_MISSED_BY_TEACHER,
         ]);
 
         $homework = Homework::create([
@@ -347,7 +384,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->addDay()->setTime(14, 0),
             'end_time' => now()->addDay()->setTime(15, 0),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
             'notes' => 'Should not be visible because student is not assigned.',
         ]);
 
@@ -356,7 +393,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $otherTeacher->id,
             'start_time' => now()->subDay(),
             'end_time' => now()->subDay()->addHour(),
-            'status' => 'completed',
+            'status' => Lesson::STATUS_COMPLETED,
         ]);
 
         Sanctum::actingAs($teacher);
@@ -365,7 +402,12 @@ class DashboardApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.role', 'teacher')
             ->assertJsonPath('data.summary.students.assigned', 1)
-            ->assertJsonPath('data.summary.classes.total', 3)
+            ->assertJsonPath('data.summary.classes.total', 5)
+            ->assertJsonPath('data.summary.classes.scheduled', 2)
+            ->assertJsonPath('data.summary.classes.completed', 1)
+            ->assertJsonPath('data.summary.classes.missed', 2)
+            ->assertJsonPath('data.summary.classes.missed_by_student', 1)
+            ->assertJsonPath('data.summary.classes.missed_by_teacher', 1)
             ->assertJsonCount(1, 'data.summary.todays_schedule')
             ->assertJsonCount(1, 'data.summary.upcoming_classes')
             ->assertJsonCount(1, 'data.summary.students_needing_notes_or_follow_up')
@@ -603,7 +645,7 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->setTime(9, 0),
             'end_time' => now()->setTime(10, 0),
-            'status' => 'scheduled',
+            'status' => Lesson::STATUS_SCHEDULED,
         ]);
 
         $todaysLesson->attendances()->create([
@@ -616,7 +658,15 @@ class DashboardApiTest extends TestCase
             'teacher_id' => $teacher->id,
             'start_time' => now()->addDay()->setTime(11, 0),
             'end_time' => now()->addDay()->setTime(12, 0),
-            'status' => 'no_show',
+            'status' => Lesson::STATUS_MISSED_BY_STUDENT,
+        ]);
+
+        Lesson::create([
+            'student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => now()->subDay()->setTime(11, 0),
+            'end_time' => now()->subDay()->setTime(12, 0),
+            'status' => Lesson::STATUS_MISSED_BY_TEACHER,
         ]);
 
         Subscription::create([
@@ -659,6 +709,10 @@ class DashboardApiTest extends TestCase
             ->assertJsonPath('data.summary.students.total', 3)
             ->assertJsonPath('data.summary.students.active', 2)
             ->assertJsonPath('data.summary.teachers.active', 1)
+            ->assertJsonPath('data.summary.classes.total', 3)
+            ->assertJsonPath('data.summary.classes.missed', 2)
+            ->assertJsonPath('data.summary.classes.missed_by_student', 1)
+            ->assertJsonPath('data.summary.classes.missed_by_teacher', 1)
             ->assertJsonPath('data.summary.enrollments.total_students', 3)
             ->assertJsonPath('data.summary.enrollments.active_students', 2)
             ->assertJsonPath('data.summary.enrollments.invited_students', 1)

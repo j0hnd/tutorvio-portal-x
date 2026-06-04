@@ -92,10 +92,7 @@ class DashboardService
             ->count();
         $todaysClasses = Lesson::whereBetween('start_time', [$todayStart, $todayEnd])->count();
         $missedClasses = Lesson::query()
-            ->where(function (Builder $query) {
-                $query->whereIn('status', ['missed', 'no_show'])
-                    ->orWhereHas('attendances', fn (Builder $query) => $query->whereIn('status', ['absent', 'no_show']));
-            })
+            ->whereIn('status', $this->missedLessonStatuses())
             ->count();
         $pendingTeacherNotes = StudentProfile::query()
             ->whereHas('user', fn (Builder $query) => $query->where('status', User::STATUS_ACTIVE))
@@ -301,7 +298,7 @@ class DashboardService
 
         $documentationShortcuts = (clone $teacherLessons)
             ->with('student.studentProfile')
-            ->where('status', 'completed')
+            ->where('status', Lesson::STATUS_COMPLETED)
             ->orderByDesc('start_time')
             ->limit(10)
             ->get();
@@ -419,8 +416,8 @@ class DashboardService
                 : null,
             'latest_teacher_note' => $profile?->teacher_notes,
             'learning_progress' => [
-                'completed_lessons' => Lesson::where('student_id', $user->id)->where('status', 'completed')->count(),
-                'scheduled_lessons' => Lesson::where('student_id', $user->id)->where('status', 'scheduled')->count(),
+                'completed_lessons' => Lesson::where('student_id', $user->id)->where('status', Lesson::STATUS_COMPLETED)->count(),
+                'scheduled_lessons' => Lesson::where('student_id', $user->id)->where('status', Lesson::STATUS_SCHEDULED)->count(),
                 'completed_materials' => $completedMaterials,
                 'assigned_materials' => $assignedMaterials,
             ],
@@ -485,10 +482,24 @@ class DashboardService
     {
         return [
             'total' => (clone $query)->count(),
-            'scheduled' => (clone $query)->where('status', 'scheduled')->count(),
-            'completed' => (clone $query)->where('status', 'completed')->count(),
-            'cancelled' => (clone $query)->where('status', 'cancelled')->count(),
+            'scheduled' => (clone $query)->where('status', Lesson::STATUS_SCHEDULED)->count(),
+            'completed' => (clone $query)->where('status', Lesson::STATUS_COMPLETED)->count(),
+            'cancelled' => (clone $query)->where('status', Lesson::STATUS_CANCELLED)->count(),
+            'missed' => (clone $query)->whereIn('status', $this->missedLessonStatuses())->count(),
+            'missed_by_student' => (clone $query)->where('status', Lesson::STATUS_MISSED_BY_STUDENT)->count(),
+            'missed_by_teacher' => (clone $query)->where('status', Lesson::STATUS_MISSED_BY_TEACHER)->count(),
             'upcoming' => (clone $query)->where('start_time', '>=', now())->count(),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function missedLessonStatuses(): array
+    {
+        return [
+            Lesson::STATUS_MISSED_BY_STUDENT,
+            Lesson::STATUS_MISSED_BY_TEACHER,
         ];
     }
 
