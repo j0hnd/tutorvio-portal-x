@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CourseProgram;
 use App\Models\LessonRecord;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
 use App\Services\TeacherWorkloadService;
+use App\Support\PublicIdResolver;
 use App\Support\Reports\ReportResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,8 +24,6 @@ class TeacherLoadReportController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  TeacherWorkloadService  $workloads
      */
     public function __construct(private readonly TeacherWorkloadService $workloads) {}
 
@@ -34,9 +34,6 @@ class TeacherLoadReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function __invoke(Request $request): JsonResponse
     {
@@ -64,12 +61,17 @@ class TeacherLoadReportController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
      */
     private function validatedFilters(Request $request): array
     {
         $input = $request->all();
+        $input = [
+            ...$input,
+            ...PublicIdResolver::resolveFields($input, [
+                'teacher_id' => User::class,
+                'course_id' => CourseProgram::class,
+            ]),
+        ];
 
         foreach (['date_from' => 'from', 'date_to' => 'to'] as $source => $target) {
             if (! array_key_exists($source, $input) || array_key_exists($target, $input)) {
@@ -114,8 +116,6 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return array<string, int|float>
-     *
-     * @param  Collection  $rows
      */
     private function summary(Collection $rows): array
     {
@@ -133,8 +133,6 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  array<string, mixed>  $summary
      * @return array<string, mixed>
-     *
-     * @param  array  $summary
      */
     private function reportRow(array $summary): array
     {
@@ -154,8 +152,6 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
-     *
-     * @param  array  $filters
      */
     private function reportFilters(array $filters): array
     {
@@ -176,8 +172,6 @@ class TeacherLoadReportController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return array{page: int, per_page: int}
-     *
-     * @param  array  $filters
      */
     private function pagination(array $filters): array
     {

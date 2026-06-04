@@ -9,8 +9,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\IssueReports\IssueReportResource;
 use App\Models\IssueComment;
 use App\Models\IssueReport;
+use App\Models\Lesson;
+use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,6 +44,15 @@ class IssueReportController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'reporter_id' => User::class,
+            'assigned_to_id' => User::class,
+            'related_student_id' => User::class,
+            'related_teacher_id' => User::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+        ]));
+
         $validated = $request->validate([
             'status' => ['sometimes', 'string', Rule::in(IssueReport::STATUSES)],
             'issue_type' => ['sometimes', 'string', Rule::in(IssueReport::ISSUE_TYPES)],
@@ -152,6 +164,10 @@ class IssueReportController extends Controller
      */
     public function assign(Request $request, IssueReport $issueReport): JsonResponse
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'assigned_to_id' => User::class,
+        ]));
+
         $validated = $request->validate([
             'assigned_to_id' => ['required', 'integer', 'exists:users,id'],
             'note' => ['sometimes', 'nullable', 'string', 'max:10000'],

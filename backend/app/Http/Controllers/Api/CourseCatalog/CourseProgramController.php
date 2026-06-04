@@ -7,7 +7,9 @@ use App\Http\Requests\CourseCatalog\StoreCourseProgramRequest;
 use App\Http\Requests\CourseCatalog\UpdateCourseProgramRequest;
 use App\Http\Resources\CourseCatalog\CourseProgramResource;
 use App\Models\CourseProgram;
+use App\Models\CourseType;
 use App\Models\LearningResource;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +40,9 @@ class CourseProgramController extends Controller
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', CourseProgram::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'course_type_id' => CourseType::class,
+        ]));
 
         $validated = $request->validate([
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -159,6 +164,11 @@ class CourseProgramController extends Controller
     public function attachLearningResources(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
+        $request->merge([
+            'learning_resource_ids' => collect($request->input('learning_resource_ids', []))
+                ->map(fn (mixed $id) => PublicIdResolver::toKey($id, LearningResource::class))
+                ->all(),
+        ]);
 
         $validated = $request->validate([
             'learning_resource_ids' => ['required', 'array', 'min:1'],

@@ -11,6 +11,7 @@ use App\Http\Resources\StudentProgressRecords\StudentProgressRecordResource;
 use App\Models\StudentProgressRecord;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,8 +27,6 @@ class StudentProgressRecordController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  AuditLogService  $auditLogService
      */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
@@ -38,13 +37,14 @@ class StudentProgressRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', StudentProgressRecord::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -90,9 +90,6 @@ class StudentProgressRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreStudentProgressRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreStudentProgressRecordRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreStudentProgressRecordRequest $request): JsonResponse
     {
@@ -120,9 +117,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $studentProgressRecord.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  StudentProgressRecord  $studentProgressRecord
-     * @return JsonResponse
      */
     public function show(StudentProgressRecord $studentProgressRecord): JsonResponse
     {
@@ -140,10 +134,6 @@ class StudentProgressRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $student
-     * @return JsonResponse
      */
     public function summary(Request $request, User $student): JsonResponse
     {
@@ -190,10 +180,6 @@ class StudentProgressRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $student
-     * @return JsonResponse
      */
     public function timeline(Request $request, User $student): JsonResponse
     {
@@ -240,10 +226,6 @@ class StudentProgressRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $studentProgressRecord.
      * The UpdateStudentProgressRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  UpdateStudentProgressRecordRequest  $request
-     * @param  StudentProgressRecord  $studentProgressRecord
-     * @return JsonResponse
      */
     public function update(UpdateStudentProgressRecordRequest $request, StudentProgressRecord $studentProgressRecord): JsonResponse
     {
@@ -293,9 +275,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $studentProgressRecord.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON confirmation after deletion.
-     *
-     * @param  StudentProgressRecord  $studentProgressRecord
-     * @return JsonResponse
      */
     public function destroy(StudentProgressRecord $studentProgressRecord): JsonResponse
     {
@@ -309,8 +288,6 @@ class StudentProgressRecordController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
-     *
-     * @param  array  $payload
      */
     private function normalizePayload(array $payload): array
     {
@@ -330,10 +307,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $studentId, $teacherId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  int  $studentId
-     * @param  int  $teacherId
-     * @return void
      */
     private function assertValidStudentAndTeacher(int $studentId, int $teacherId): void
     {
@@ -361,10 +334,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $studentId, $teacherId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ?int  $studentId
-     * @param  ?int  $teacherId
-     * @return void
      */
     private function assertFilterUsers(?int $studentId, ?int $teacherId): void
     {
@@ -390,10 +359,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $actor, $studentId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  ?int  $studentId
-     * @return void
      */
     private function assertFiltersVisibleToUser(User $actor, ?int $studentId): void
     {
@@ -425,10 +390,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $actor, $student.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  User  $student
-     * @return void
      */
     private function assertStudentVisibleToUser(User $actor, User $student): void
     {
@@ -468,11 +429,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $actor, $studentId, $teacherId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  int  $studentId
-     * @param  int  $teacherId
-     * @return void
      */
     private function assertTeacherCanManageStudent(User $actor, int $studentId, int $teacherId): void
     {
@@ -497,8 +453,6 @@ class StudentProgressRecordController extends Controller
 
     /**
      * @return Builder<StudentProgressRecord>
-     *
-     * @param  User  $user
      */
     private function queryForUser(User $user): Builder
     {
@@ -513,9 +467,6 @@ class StudentProgressRecordController extends Controller
 
     /**
      * @return Builder<StudentProgressRecord>
-     *
-     * @param  User  $actor
-     * @param  User  $student
      */
     private function recordsForStudent(User $actor, User $student): Builder
     {
@@ -525,8 +476,6 @@ class StudentProgressRecordController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  User  $student
      */
     private function studentPayload(User $student): array
     {
@@ -547,9 +496,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $student.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $student
-     * @return ?string
      */
     private function previousLevel(User $student): ?string
     {
@@ -562,8 +508,6 @@ class StudentProgressRecordController extends Controller
     /**
      * @param  Collection<int, StudentProgressRecord>  $records
      * @return array<string, array<string, mixed>|null>
-     *
-     * @param  Collection  $records
      */
     private function latestSkillSummaries(Collection $records): array
     {
@@ -592,10 +536,6 @@ class StudentProgressRecordController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  StudentProgressRecord  $record
-     * @param  string  $skillArea
-     * @param  string  $summary
      */
     private function skillSummaryPayload(StudentProgressRecord $record, string $skillArea, string $summary): array
     {
@@ -611,10 +551,6 @@ class StudentProgressRecordController extends Controller
 
     /**
      * @param  Collection<int, StudentProgressRecord>  $records
-     *
-     * @param  Collection  $records
-     * @param  string  $field
-     * @return mixed
      */
     private function latestRecordValue(Collection $records, string $field): mixed
     {
@@ -628,9 +564,6 @@ class StudentProgressRecordController extends Controller
      * Route model parameters include $value.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  mixed  $value
-     * @return bool
      */
     private function hasDisplayValue(mixed $value): bool
     {
@@ -652,9 +585,6 @@ class StudentProgressRecordController extends Controller
     /**
      * @param  Collection<int, StudentProgressRecord>  $records
      * @return Collection<int, string>
-     *
-     * @param  Collection  $records
-     * @param  string  $field
      */
     private function uniqueValuesFromRecords(Collection $records, string $field): Collection
     {
@@ -668,10 +598,6 @@ class StudentProgressRecordController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      * @return array<int, string>
-     *
-     * @param  StudentProgressRecord  $before
-     * @param  StudentProgressRecord  $after
-     * @param  array  $payload
      */
     private function changedProgressFields(
         StudentProgressRecord $before,
@@ -699,8 +625,6 @@ class StudentProgressRecordController extends Controller
     /**
      * @param  Collection<int, StudentProgressRecord>  $records
      * @return Collection<int, array<string, mixed>>
-     *
-     * @param  Collection  $records
      */
     private function milestoneAchievements(Collection $records): Collection
     {
@@ -719,8 +643,6 @@ class StudentProgressRecordController extends Controller
     /**
      * @param  Collection<int, StudentProgressRecord>  $records
      * @return Collection<int, array<string, mixed>>
-     *
-     * @param  Collection  $records
      */
     private function levelMovementHistory(Collection $records): Collection
     {
@@ -737,8 +659,6 @@ class StudentProgressRecordController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  StudentProgressRecord  $record
      */
     private function timelineRecord(StudentProgressRecord $record): array
     {

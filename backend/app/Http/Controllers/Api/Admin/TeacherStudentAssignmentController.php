@@ -12,6 +12,7 @@ use App\Models\TeacherStudentAssignment;
 use App\Models\User;
 use App\Services\TeacherSlotDiscoveryService;
 use App\Services\TeacherStudentAssignmentService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,10 @@ class TeacherStudentAssignmentController extends Controller
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherStudentAssignment::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],

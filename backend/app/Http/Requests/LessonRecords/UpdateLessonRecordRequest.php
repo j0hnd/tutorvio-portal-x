@@ -3,6 +3,8 @@
 namespace App\Http\Requests\LessonRecords;
 
 use App\Models\LessonRecord;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -28,6 +30,11 @@ class UpdateLessonRecordRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+
         if ($this->has('homework_instructions') && ! $this->has('homework_details')) {
             $this->merge([
                 'homework_details' => $this->input('homework_instructions'),

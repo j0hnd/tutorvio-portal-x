@@ -3,6 +3,8 @@
 namespace App\Http\Requests\StudentProgressRecords;
 
 use App\Models\StudentProgressRecord;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +16,17 @@ use Illuminate\Validation\Rule;
  */
 class StoreStudentProgressRecordRequest extends FormRequest
 {
+    /**
+     * Resolve public user IDs to internal keys for persistence.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+    }
+
     /**
      * Get validation rules for create student progress record requests.
      *

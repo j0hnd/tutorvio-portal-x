@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\TeacherCompensations;
 
+use App\Models\CourseProgram;
+use App\Models\CourseType;
 use App\Models\TeacherCompensation;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +17,17 @@ use Illuminate\Validation\Rule;
  */
 class StoreTeacherCompensationRateRuleRequest extends FormRequest
 {
+    /**
+     * Resolve public course references to internal keys for rate matching.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'course_type_id' => CourseType::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+    }
+
     /**
      * Determine whether the authenticated user can submit create teacher compensation rate rule requests. This request adds no request-local authorization beyond route middleware, controller gates, or policies.
      */

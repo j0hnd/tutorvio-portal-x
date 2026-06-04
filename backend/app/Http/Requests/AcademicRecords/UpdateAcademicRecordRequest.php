@@ -3,6 +3,11 @@
 namespace App\Http\Requests\AcademicRecords;
 
 use App\Models\AcademicRecord;
+use App\Models\CourseProgram;
+use App\Models\Lesson;
+use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +19,21 @@ use Illuminate\Validation\Rule;
  */
 class UpdateAcademicRecordRequest extends FormRequest
 {
+    /**
+     * Resolve public references to internal keys for record persistence.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+            'approved_by' => User::class,
+        ]));
+    }
+
     /**
      * Get validation rules for update academic record requests.
      *

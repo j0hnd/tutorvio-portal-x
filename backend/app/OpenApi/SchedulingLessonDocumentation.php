@@ -66,8 +66,8 @@ use OpenApi\Attributes as OA;
     schema: 'ClassScheduleRequest',
     required: ['student_id', 'teacher_id', 'timezone', 'starts_at', 'ends_at'],
     properties: [
-        new OA\Property(property: 'student_id', description: 'Internal numeric user ID for the student.', type: 'integer', example: 23),
-        new OA\Property(property: 'teacher_id', description: 'Internal numeric user ID for the teacher.', type: 'integer', example: 17),
+        new OA\Property(property: 'student_id', description: 'Student user public ID.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', description: 'Teacher user public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'title', nullable: true, type: 'string', example: 'Business English coaching'),
         new OA\Property(property: 'description', nullable: true, type: 'string', example: 'Presentation practice and feedback'),
         new OA\Property(property: 'status', ref: '#/components/schemas/ClassStatus'),
@@ -84,7 +84,7 @@ use OpenApi\Attributes as OA;
     schema: 'LessonBookingRequest',
     required: ['teacher_id', 'timezone', 'starts_at', 'ends_at'],
     properties: [
-        new OA\Property(property: 'teacher_id', description: 'Internal numeric user ID for the student assigned teacher.', type: 'integer', example: 17),
+        new OA\Property(property: 'teacher_id', description: 'Assigned teacher user public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'title', nullable: true, type: 'string', maxLength: 255, example: 'Business English coaching'),
         new OA\Property(property: 'description', nullable: true, type: 'string', example: 'Presentation practice and feedback'),
         new OA\Property(property: 'status', type: 'string', enum: ['scheduled', 'pending_confirmation'], example: 'pending_confirmation'),
@@ -137,8 +137,8 @@ use OpenApi\Attributes as OA;
     schema: 'LessonRecordRequest',
     required: ['student_id', 'teacher_id', 'scheduled_date', 'start_time', 'end_time', 'lesson_type', 'lesson_status'],
     properties: [
-        new OA\Property(property: 'student_id', type: 'integer', example: 23),
-        new OA\Property(property: 'teacher_id', type: 'integer', example: 17),
+        new OA\Property(property: 'student_id', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'scheduled_date', description: 'Date-only local lesson date in `YYYY-MM-DD`.', type: 'string', format: 'date', example: '2026-06-03'),
         new OA\Property(property: 'start_time', description: '24-hour local time in `HH:mm`.', type: 'string', example: '10:00'),
         new OA\Property(property: 'end_time', description: '24-hour local time in `HH:mm`; must be after `start_time`.', type: 'string', example: '10:50'),
@@ -340,7 +340,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Scheduling', 'Teacher'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
     ],
     responses: [
         new OA\Response(
@@ -363,7 +363,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Scheduling', 'Teacher'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
     ],
     responses: [
         new OA\Response(
@@ -522,8 +522,8 @@ use OpenApi\Attributes as OA;
         content: new OA\JsonContent(
             required: ['lesson_id'],
             properties: [
-                new OA\Property(property: 'lesson_id', description: 'Internal numeric lesson ID.', type: 'integer', example: 101),
-                new OA\Property(property: 'lesson_record_id', description: 'Optional internal numeric lesson record ID that must match the lesson.', nullable: true, type: 'integer', example: 501),
+                new OA\Property(property: 'lesson_id', description: 'Lesson public ID.', type: 'string', example: 'les_01J0LESSON000000000000001'),
+                new OA\Property(property: 'lesson_record_id', description: 'Optional lesson record public ID that must match the lesson.', nullable: true, type: 'string', example: 'lrc_01J0LESSONRECORD00000001'),
                 new OA\Property(property: 'lesson_objective', nullable: true, type: 'string', example: 'Practice interview answers.'),
                 new OA\Property(property: 'topics_covered', nullable: true, type: 'string', example: 'Introductions, STAR answers, follow-up questions.'),
                 new OA\Property(property: 'homework_assignment', nullable: true, type: 'string', example: 'Write five STAR answers.'),

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Scheduling;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Scheduling\TeacherAvailabilityResource;
 use App\Models\Scheduling\TeacherAvailability;
+use App\Models\User;
 use App\Services\Scheduling\TeacherAvailabilityService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -19,8 +21,6 @@ class TeacherAvailabilityController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  TeacherAvailabilityService  $availabilityService
      */
     public function __construct(private readonly TeacherAvailabilityService $availabilityService) {}
 
@@ -31,13 +31,13 @@ class TeacherAvailabilityController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherAvailability::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -68,9 +68,6 @@ class TeacherAvailabilityController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -91,9 +88,6 @@ class TeacherAvailabilityController extends Controller
      * Route model parameters include $teacherAvailability.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  TeacherAvailability  $teacherAvailability
-     * @return JsonResponse
      */
     public function show(TeacherAvailability $teacherAvailability): JsonResponse
     {
@@ -109,10 +103,6 @@ class TeacherAvailabilityController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherAvailability.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  TeacherAvailability  $teacherAvailability
-     * @return JsonResponse
      */
     public function update(Request $request, TeacherAvailability $teacherAvailability): JsonResponse
     {
@@ -133,9 +123,6 @@ class TeacherAvailabilityController extends Controller
      * Route model parameters include $teacherAvailability.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON confirmation after deletion.
-     *
-     * @param  TeacherAvailability  $teacherAvailability
-     * @return JsonResponse
      */
     public function destroy(TeacherAvailability $teacherAvailability): JsonResponse
     {
@@ -150,12 +137,13 @@ class TeacherAvailabilityController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
-     * @param  bool  $creating
      */
     private function validatePayload(Request $request, bool $creating): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+        ]));
+
         return $request->validate([
             'teacher_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],
             'day_of_week' => [$creating ? 'required' : 'sometimes', 'integer', 'min:0', 'max:6'],
@@ -177,10 +165,6 @@ class TeacherAvailabilityController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  int  $teacherId
-     * @return void
      */
     private function assertTeacherCanManage(Request $request, int $teacherId): void
     {

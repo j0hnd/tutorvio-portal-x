@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Billing;
 
+use App\Models\CourseProgram;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -12,6 +15,17 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class GenerateInvoiceRequest extends FormRequest
 {
+    /**
+     * Resolve public student and course IDs before invoice services run.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+    }
+
     /**
      * Get validation rules for generate invoice requests.
      *

@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Payroll;
 
+use App\Models\PayoutPeriod;
 use App\Models\TeacherPayoutAdjustment;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +17,17 @@ use Illuminate\Validation\Rule;
  */
 class StoreTeacherPayoutAdjustmentRequest extends FormRequest
 {
+    /**
+     * Resolve public IDs to internal keys before payroll validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'teacher_id' => User::class,
+            'payout_period_id' => PayoutPeriod::class,
+        ]));
+    }
+
     /**
      * Get validation rules for create teacher payout adjustment requests.
      *

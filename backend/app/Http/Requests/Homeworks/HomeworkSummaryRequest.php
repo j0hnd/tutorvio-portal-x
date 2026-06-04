@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Homeworks;
 
 use App\Models\Homework;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +16,17 @@ use Illuminate\Validation\Rule;
  */
 class HomeworkSummaryRequest extends FormRequest
 {
+    /**
+     * Resolve public user IDs to internal keys for the summary service.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'teacher_id' => User::class,
+            'student_id' => User::class,
+        ]));
+    }
+
     /**
      * Get validation rules for homework summary requests.
      *

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Payroll\StoreTeacherPayoutAdjustmentRequest;
 use App\Http\Resources\Payroll\TeacherPayoutAdjustmentResource;
+use App\Models\PayoutPeriod;
 use App\Models\TeacherPayoutAdjustment;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,13 +24,14 @@ class TeacherPayoutAdjustmentController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherPayoutAdjustment::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'payout_period_id' => PayoutPeriod::class,
+        ]));
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -56,9 +59,6 @@ class TeacherPayoutAdjustmentController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreTeacherPayoutAdjustmentRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreTeacherPayoutAdjustmentRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreTeacherPayoutAdjustmentRequest $request): JsonResponse
     {
@@ -88,10 +88,6 @@ class TeacherPayoutAdjustmentController extends Controller
      * Route model parameters include $type, $amount.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  string  $type
-     * @param  float  $amount
-     * @return float
      */
     private function normalizedAmount(string $type, float $amount): float
     {

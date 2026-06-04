@@ -4,6 +4,8 @@ namespace App\Http\Requests\Subscriptions;
 
 use App\Http\Requests\Subscriptions\Concerns\ValidatesSubscriptionPayload;
 use App\Models\Subscription;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,6 +18,16 @@ use Illuminate\Validation\Rule;
 class StoreSubscriptionRequest extends FormRequest
 {
     use ValidatesSubscriptionPayload;
+
+    /**
+     * Resolve public student IDs to internal keys before subscription validation runs.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+        ]));
+    }
 
     /**
      * Get validation rules for create subscription requests.

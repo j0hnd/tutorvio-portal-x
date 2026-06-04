@@ -7,10 +7,12 @@ use App\Http\Requests\AcademicRecords\StoreAcademicRecordRequest;
 use App\Http\Requests\AcademicRecords\UpdateAcademicRecordRequest;
 use App\Http\Resources\AcademicRecords\AcademicRecordResource;
 use App\Models\AcademicRecord;
+use App\Models\CourseProgram;
 use App\Models\Lesson;
 use App\Models\PortalSetting;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,14 +29,18 @@ class AcademicRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', AcademicRecord::class);
         $this->assertStudentPortalVisibility($request->user());
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -83,9 +89,6 @@ class AcademicRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreAcademicRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreAcademicRecordRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreAcademicRecordRequest $request): JsonResponse
     {
@@ -111,10 +114,6 @@ class AcademicRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $academicRecord.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  AcademicRecord  $academicRecord
-     * @return JsonResponse
      */
     public function show(Request $request, AcademicRecord $academicRecord): JsonResponse
     {
@@ -133,10 +132,6 @@ class AcademicRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $academicRecord.
      * The UpdateAcademicRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  UpdateAcademicRecordRequest  $request
-     * @param  AcademicRecord  $academicRecord
-     * @return JsonResponse
      */
     public function update(UpdateAcademicRecordRequest $request, AcademicRecord $academicRecord): JsonResponse
     {
@@ -162,10 +157,6 @@ class AcademicRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $academicRecord.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  AcademicRecord  $academicRecord
-     * @return JsonResponse
      */
     public function archive(Request $request, AcademicRecord $academicRecord): JsonResponse
     {
@@ -186,10 +177,6 @@ class AcademicRecordController extends Controller
      * @param  array<string, mixed>  $payload
      * @param  array<string, mixed>  $existingData
      * @return array<string, mixed>
-     *
-     * @param  array  $payload
-     * @param  array  $existingData
-     * @param  bool  $defaultStatus
      */
     private function normalizePayload(array $payload, array $existingData = [], bool $defaultStatus = false): array
     {
@@ -224,9 +211,6 @@ class AcademicRecordController extends Controller
 
     /**
      * @param  array<string, mixed>  $payload
-     *
-     * @param  array  $payload
-     * @return void
      */
     private function assertValidLinkedEntities(array $payload): void
     {
@@ -278,10 +262,6 @@ class AcademicRecordController extends Controller
      * Route model parameters include $studentId, $teacherId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ?int  $studentId
-     * @param  ?int  $teacherId
-     * @return void
      */
     private function assertFilterUsers(?int $studentId, ?int $teacherId): void
     {
@@ -307,10 +287,6 @@ class AcademicRecordController extends Controller
      * Route model parameters include $actor, $studentId.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $actor
-     * @param  ?int  $studentId
-     * @return void
      */
     private function assertFiltersVisibleToUser(User $actor, ?int $studentId): void
     {
@@ -342,9 +318,6 @@ class AcademicRecordController extends Controller
      * Route model parameters include $user.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $user
-     * @return void
      */
     private function assertStudentPortalVisibility(User $user): void
     {
@@ -362,8 +335,6 @@ class AcademicRecordController extends Controller
      * This action does not require additional request parameters beyond the route context.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @return bool
      */
     private function studentRecordsVisible(): bool
     {
@@ -376,8 +347,6 @@ class AcademicRecordController extends Controller
 
     /**
      * @return Builder<AcademicRecord>
-     *
-     * @param  User  $user
      */
     private function queryForUser(User $user): Builder
     {

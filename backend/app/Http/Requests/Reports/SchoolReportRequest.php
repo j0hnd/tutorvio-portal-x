@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Reports;
 
+use App\Models\CourseProgram;
+use App\Models\User;
 use App\Reports\SchoolReportFilters;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 
@@ -19,7 +22,14 @@ class SchoolReportRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $this->merge($this->normalizedDateInput());
+        $this->merge([
+            ...$this->normalizedDateInput(),
+            ...PublicIdResolver::resolveFields($this->all(), [
+                'teacher_id' => User::class,
+                'student_id' => User::class,
+                'course_id' => CourseProgram::class,
+            ]),
+        ]);
     }
 
     /**

@@ -8,8 +8,10 @@ use App\Http\Requests\LessonRecords\StoreLessonRecordRequest;
 use App\Http\Requests\LessonRecords\UpdateLessonRecordRequest;
 use App\Http\Resources\LessonRecords\LessonRecordResource;
 use App\Models\LessonRecord;
+use App\Models\User;
 use App\Repositories\LessonRecordRepository;
 use App\Services\LessonRecordService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -22,9 +24,6 @@ class LessonRecordController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  LessonRecordRepository  $lessonRecords
-     * @param  LessonRecordService  $lessonRecordService
      */
     public function __construct(
         private readonly LessonRecordRepository $lessonRecords,
@@ -38,13 +37,14 @@ class LessonRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', LessonRecord::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -71,9 +71,6 @@ class LessonRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreLessonRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreLessonRecordRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreLessonRecordRequest $request): JsonResponse
     {
@@ -93,9 +90,6 @@ class LessonRecordController extends Controller
      * Route model parameters include $lessonRecord.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  LessonRecord  $lessonRecord
-     * @return JsonResponse
      */
     public function show(LessonRecord $lessonRecord): JsonResponse
     {
@@ -113,10 +107,6 @@ class LessonRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonRecord.
      * The UpdateLessonRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  UpdateLessonRecordRequest  $request
-     * @param  LessonRecord  $lessonRecord
-     * @return JsonResponse
      */
     public function update(UpdateLessonRecordRequest $request, LessonRecord $lessonRecord): JsonResponse
     {
@@ -136,9 +126,6 @@ class LessonRecordController extends Controller
      * Route model parameters include $lessonRecord.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON confirmation after deletion.
-     *
-     * @param  LessonRecord  $lessonRecord
-     * @return JsonResponse
      */
     public function destroy(LessonRecord $lessonRecord): JsonResponse
     {
@@ -156,10 +143,6 @@ class LessonRecordController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonRecord.
      * The CancelLessonRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  CancelLessonRecordRequest  $request
-     * @param  LessonRecord  $lessonRecord
-     * @return JsonResponse
      */
     public function cancel(CancelLessonRecordRequest $request, LessonRecord $lessonRecord): JsonResponse
     {

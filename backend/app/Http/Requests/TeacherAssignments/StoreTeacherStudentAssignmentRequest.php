@@ -3,6 +3,7 @@
 namespace App\Http\Requests\TeacherAssignments;
 
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -13,6 +14,17 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class StoreTeacherStudentAssignmentRequest extends FormRequest
 {
+    /**
+     * Resolve public user IDs to internal keys for assignment creation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+    }
+
     /**
      * Determine whether the authenticated user can manage teacher-student assignments. Admins pass, and staff must have assignment management access.
      */

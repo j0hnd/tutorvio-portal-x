@@ -12,6 +12,7 @@ use App\Models\Homework;
 use App\Models\LearningResource;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,6 +42,11 @@ class HomeworkController extends Controller
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Homework::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'lesson_id' => Lesson::class,
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'lesson_id' => ['sometimes', 'integer', 'exists:lessons,id'],

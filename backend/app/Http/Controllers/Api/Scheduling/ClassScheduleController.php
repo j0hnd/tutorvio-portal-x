@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Scheduling;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Scheduling\ClassScheduleResource;
 use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
 use App\Services\Scheduling\ClassScheduleService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,8 +20,6 @@ class ClassScheduleController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  ClassScheduleService  $scheduleService
      */
     public function __construct(private readonly ClassScheduleService $scheduleService) {}
 
@@ -30,13 +30,14 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', ClassSchedule::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'student_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -73,9 +74,6 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -95,13 +93,14 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function recurring(Request $request): JsonResponse
     {
         Gate::authorize('create', ClassSchedule::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['required', 'integer', 'exists:users,id'],
@@ -163,9 +162,6 @@ class ClassScheduleController extends Controller
      * Route model parameters include $classSchedule.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ClassSchedule  $classSchedule
-     * @return JsonResponse
      */
     public function show(ClassSchedule $classSchedule): JsonResponse
     {
@@ -183,10 +179,6 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  ClassSchedule  $classSchedule
-     * @return JsonResponse
      */
     public function update(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
@@ -206,9 +198,6 @@ class ClassScheduleController extends Controller
      * Route model parameters include $classSchedule.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON confirmation after deletion.
-     *
-     * @param  ClassSchedule  $classSchedule
-     * @return JsonResponse
      */
     public function destroy(ClassSchedule $classSchedule): JsonResponse
     {
@@ -226,10 +215,6 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  ClassSchedule  $classSchedule
-     * @return JsonResponse
      */
     public function cancel(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
@@ -254,14 +239,14 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  ClassSchedule  $classSchedule
-     * @return JsonResponse
      */
     public function reschedule(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('reschedule', $classSchedule);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'student_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'starts_at' => ['required', 'date'],
@@ -292,10 +277,6 @@ class ClassScheduleController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  ClassSchedule  $classSchedule
-     * @return JsonResponse
      */
     public function status(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
@@ -315,12 +296,14 @@ class ClassScheduleController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
-     * @param  bool  $creating
      */
     private function validatePayload(Request $request, bool $creating): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+
         return $request->validate([
             'student_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],
             'teacher_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],

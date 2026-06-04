@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ScheduleChangeRequests\ScheduleChangeRequestResource;
+use App\Models\Lesson;
 use App\Models\ScheduleChangeRequest;
+use App\Models\Scheduling\ClassSchedule;
 use App\Services\Scheduling\ScheduleChangeRequestService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,8 +22,6 @@ class ScheduleChangeRequestController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  ScheduleChangeRequestService  $scheduleChangeRequests
      */
     public function __construct(private readonly ScheduleChangeRequestService $scheduleChangeRequests) {}
 
@@ -31,9 +32,6 @@ class ScheduleChangeRequestController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -65,13 +63,14 @@ class ScheduleChangeRequestController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', ScheduleChangeRequest::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+        ]));
 
         $validated = $request->validate([
             'lesson_id' => ['required_without:class_schedule_id', 'integer', 'exists:lessons,id', 'prohibits:class_schedule_id'],
@@ -98,9 +97,6 @@ class ScheduleChangeRequestController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The ScheduleChangeRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ScheduleChangeRequest  $scheduleChangeRequest
-     * @return JsonResponse
      */
     public function show(ScheduleChangeRequest $scheduleChangeRequest): JsonResponse
     {
@@ -120,10 +116,6 @@ class ScheduleChangeRequestController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The ScheduleChangeRequest handles authorization and validation before the controller action runs. Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  ScheduleChangeRequest  $scheduleChangeRequest
-     * @return JsonResponse
      */
     public function cancel(Request $request, ScheduleChangeRequest $scheduleChangeRequest): JsonResponse
     {

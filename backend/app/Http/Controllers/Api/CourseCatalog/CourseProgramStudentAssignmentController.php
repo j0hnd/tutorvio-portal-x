@@ -7,6 +7,7 @@ use App\Http\Resources\CourseCatalog\CourseProgramStudentAssignmentResource;
 use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -56,6 +57,11 @@ class CourseProgramStudentAssignmentController extends Controller
     public function assignStudents(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
+        $request->merge([
+            'student_ids' => collect($request->input('student_ids', []))
+                ->map(fn (mixed $id) => PublicIdResolver::toKey($id, User::class))
+                ->all(),
+        ]);
 
         $validated = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],

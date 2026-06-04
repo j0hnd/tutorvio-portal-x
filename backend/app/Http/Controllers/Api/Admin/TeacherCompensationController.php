@@ -8,6 +8,7 @@ use App\Http\Requests\TeacherCompensations\UpdateTeacherCompensationRequest;
 use App\Http\Resources\TeacherCompensations\TeacherCompensationResource;
 use App\Models\TeacherCompensation;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,13 +33,13 @@ class TeacherCompensationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherCompensation::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -74,9 +75,6 @@ class TeacherCompensationController extends Controller
      * Route model parameters include $teacher.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  User  $teacher
-     * @return JsonResponse
      */
     public function teacher(User $teacher): JsonResponse
     {
@@ -101,9 +99,6 @@ class TeacherCompensationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * The StoreTeacherCompensationRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  StoreTeacherCompensationRequest  $request
-     * @return JsonResponse
      */
     public function store(StoreTeacherCompensationRequest $request): JsonResponse
     {
@@ -123,9 +118,6 @@ class TeacherCompensationController extends Controller
      * Route model parameters include $teacherCompensation.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  TeacherCompensation  $teacherCompensation
-     * @return JsonResponse
      */
     public function show(TeacherCompensation $teacherCompensation): JsonResponse
     {
@@ -147,10 +139,6 @@ class TeacherCompensationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherCompensation.
      * The UpdateTeacherCompensationRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  UpdateTeacherCompensationRequest  $request
-     * @param  TeacherCompensation  $teacherCompensation
-     * @return JsonResponse
      */
     public function update(UpdateTeacherCompensationRequest $request, TeacherCompensation $teacherCompensation): JsonResponse
     {
@@ -170,10 +158,6 @@ class TeacherCompensationController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherCompensation.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  TeacherCompensation  $teacherCompensation
-     * @return JsonResponse
      */
     public function archive(Request $request, TeacherCompensation $teacherCompensation): JsonResponse
     {
@@ -192,8 +176,6 @@ class TeacherCompensationController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
-     *
-     * @param  array  $validated
      */
     private function payload(array $validated): array
     {

@@ -4,6 +4,8 @@ namespace App\Http\Requests\TeacherCompensations;
 
 use App\Http\Requests\TeacherCompensations\Concerns\ValidatesTeacherCompensationPayload;
 use App\Models\TeacherCompensation;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,6 +18,16 @@ use Illuminate\Validation\Rule;
 class UpdateTeacherCompensationRequest extends FormRequest
 {
     use ValidatesTeacherCompensationPayload;
+
+    /**
+     * Resolve public teacher IDs to internal keys before validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'teacher_id' => User::class,
+        ]));
+    }
 
     /**
      * Get validation rules for update teacher compensation requests.

@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\MessageThread;
 use App\Models\MessageThreadParticipant;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,10 @@ class MessageThreadController extends Controller
     public function index(Request $request): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'status' => ['sometimes', 'string', 'in:active,closed'],
@@ -66,6 +71,11 @@ class MessageThreadController extends Controller
     public function store(Request $request): JsonResponse
     {
         $this->assertCanAccessMessages($request->user());
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'recipient_id' => User::class,
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'recipient_id' => ['sometimes', 'integer', 'exists:users,id'],

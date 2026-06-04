@@ -10,6 +10,7 @@ use App\Models\Material;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,6 +48,16 @@ class StoreIssueReportRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'target_user_id' => User::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+            'related_student_id' => User::class,
+            'related_teacher_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+            'learning_resource_id' => LearningResource::class,
+        ]));
+
         $issueType = $this->input('issue_type', $this->input('type'));
 
         if (is_string($issueType)) {

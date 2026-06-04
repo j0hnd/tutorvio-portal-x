@@ -6,12 +6,14 @@ use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Billing\InvoiceResource;
+use App\Models\CourseProgram;
 use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Billing\InvoiceEmailService;
 use App\Services\Billing\InvoicePdfService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -229,6 +231,13 @@ class InvoiceController extends Controller
      */
     private function validatedFilters(Request $request): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student' => User::class,
+            'student_id' => User::class,
+            'package_id' => CourseProgram::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+
         $validated = $request->validate([
             'student' => ['sometimes', 'integer', 'exists:users,id'],
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],

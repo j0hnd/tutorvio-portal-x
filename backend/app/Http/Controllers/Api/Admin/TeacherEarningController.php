@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TeacherEarnings\TeacherEarningResource;
+use App\Models\CourseProgram;
 use App\Models\LessonRecord;
 use App\Models\TeacherCompensation;
 use App\Models\TeacherEarning;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,9 +25,6 @@ class TeacherEarningController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -48,10 +47,6 @@ class TeacherEarningController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacher.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @param  User  $teacher
-     * @return JsonResponse
      */
     public function teacher(Request $request, User $teacher): JsonResponse
     {
@@ -72,11 +67,16 @@ class TeacherEarningController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
      */
     private function validatedFilters(Request $request): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'teacher' => User::class,
+            'course' => CourseProgram::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+
         return $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
             'teacher' => ['sometimes', 'integer', 'exists:users,id'],
@@ -95,8 +95,6 @@ class TeacherEarningController extends Controller
     /**
      * @param  array<string, mixed>  $filters
      * @return Builder<TeacherEarning>
-     *
-     * @param  array  $filters
      */
     private function filteredQuery(array $filters): Builder
     {
@@ -128,11 +126,6 @@ class TeacherEarningController extends Controller
      * Route model parameters include $query, $operator, $date.
      * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Builder  $query
-     * @param  string  $operator
-     * @param  string  $date
-     * @return void
      */
     private function whereEarningDate(Builder $query, string $operator, string $date): void
     {

@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\CourseCatalog;
 
+use App\Models\CourseType;
+use App\Models\LearningResource;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,6 +29,18 @@ class StoreCourseProgramRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $resolved = PublicIdResolver::resolveFields($this->all(), [
+            'course_type_id' => CourseType::class,
+        ]);
+
+        if ($this->has('learning_resource_ids')) {
+            $resolved['learning_resource_ids'] = collect($this->input('learning_resource_ids', []))
+                ->map(fn (mixed $id) => PublicIdResolver::toKey($id, LearningResource::class))
+                ->all();
+        }
+
+        $this->merge($resolved);
+
         if (! $this->has('title') && $this->has('name')) {
             $this->merge(['title' => $this->input('name')]);
         }

@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Scheduling\ScheduleReminderResource;
+use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\ScheduleReminder;
+use App\Models\User;
 use App\Services\Scheduling\ScheduleReminderService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,8 +21,6 @@ class ScheduleReminderController extends Controller
      *
      * The framework resolves this constructor before action-specific route
      * middleware, permissions, validation, and authorization are applied.
-     *
-     * @param  ScheduleReminderService  $reminderService
      */
     public function __construct(private readonly ScheduleReminderService $reminderService) {}
 
@@ -30,13 +31,14 @@ class ScheduleReminderController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', ScheduleReminder::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'class_schedule_id' => ClassSchedule::class,
+            'user_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'class_schedule_id' => ['sometimes', 'integer', 'exists:class_schedules,id'],
@@ -68,9 +70,6 @@ class ScheduleReminderController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the created resource or action result.
-     *
-     * @param  Request  $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -88,9 +87,6 @@ class ScheduleReminderController extends Controller
      * Route model parameters include $scheduleReminder.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  ScheduleReminder  $scheduleReminder
-     * @return JsonResponse
      */
     public function show(ScheduleReminder $scheduleReminder): JsonResponse
     {
@@ -106,10 +102,6 @@ class ScheduleReminderController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $scheduleReminder.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON payload with the updated resource or status result.
-     *
-     * @param  Request  $request
-     * @param  ScheduleReminder  $scheduleReminder
-     * @return JsonResponse
      */
     public function update(Request $request, ScheduleReminder $scheduleReminder): JsonResponse
     {
@@ -127,9 +119,6 @@ class ScheduleReminderController extends Controller
      * Route model parameters include $scheduleReminder.
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a JSON confirmation after deletion.
-     *
-     * @param  ScheduleReminder  $scheduleReminder
-     * @return JsonResponse
      */
     public function destroy(ScheduleReminder $scheduleReminder): JsonResponse
     {
@@ -142,12 +131,14 @@ class ScheduleReminderController extends Controller
 
     /**
      * @return array<string, mixed>
-     *
-     * @param  Request  $request
-     * @param  bool  $creating
      */
     private function validatePayload(Request $request, bool $creating): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'class_schedule_id' => ClassSchedule::class,
+            'user_id' => User::class,
+        ]));
+
         return $request->validate([
             'class_schedule_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:class_schedules,id'],
             'user_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],
