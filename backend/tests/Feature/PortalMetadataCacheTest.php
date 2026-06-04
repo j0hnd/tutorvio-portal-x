@@ -65,6 +65,59 @@ class PortalMetadataCacheTest extends TestCase
             ->assertJsonPath('data.lesson_types.1.key', 'first_official_lesson');
     }
 
+    public function test_course_type_metadata_is_returned_from_cache_on_subsequent_reads(): void
+    {
+        CourseType::factory()->create([
+            'name' => 'Cached English',
+            'slug' => 'cached-english',
+        ]);
+
+        $metadata = app(PortalMetadataService::class);
+
+        $this->assertSame('Cached English', $metadata->courseTypes()[0]['name']);
+        $this->assertTrue(Cache::has(PortalMetadataService::CACHE_KEY_COURSE_TYPES));
+
+        CourseType::withoutEvents(fn () => CourseType::query()->delete());
+
+        $this->assertSame('Cached English', $metadata->courseTypes()[0]['name']);
+
+        $metadata->forgetCourseTypes();
+
+        $this->assertSame([], $metadata->courseTypes());
+    }
+
+    public function test_public_portal_settings_are_returned_from_cache_on_subsequent_reads(): void
+    {
+        $settings = app(PortalSettingsService::class);
+
+        $this->assertSame(
+            'Asia/Manila',
+            collect($settings->all(publicOnly: true))->firstWhere('key', 'portal.default_timezone')['value']
+        );
+        $this->assertTrue(Cache::has(PortalSettingsService::CACHE_KEY_PUBLIC));
+
+        PortalSetting::withoutEvents(fn () => PortalSetting::query()->create([
+            'key' => 'portal.default_timezone',
+            'category' => 'portal',
+            'value' => 'UTC',
+            'value_type' => PortalSetting::TYPE_STRING,
+            'description' => 'Default timezone',
+            'is_public' => true,
+        ]));
+
+        $this->assertSame(
+            'Asia/Manila',
+            collect($settings->all(publicOnly: true))->firstWhere('key', 'portal.default_timezone')['value']
+        );
+
+        $settings->forgetCachedSettings();
+
+        $this->assertSame(
+            'UTC',
+            collect($settings->all(publicOnly: true))->firstWhere('key', 'portal.default_timezone')['value']
+        );
+    }
+
     public function test_course_type_metadata_cache_is_invalidated_when_course_types_change(): void
     {
         CourseType::factory()->create(['name' => 'General English', 'slug' => 'general-english']);

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
+use App\Jobs\Scheduling\SendClassReminderNotification;
 use App\Models\AuditLog;
 use App\Models\Notification as PortalNotification;
 use App\Models\NotificationRecipient;
@@ -20,6 +21,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -1373,7 +1375,45 @@ class SchedulingApiTest extends TestCase
         $this->assertDatabaseCount('schedule_reminders', 4);
     }
 
-    public function test_reminder_service_sends_due_email_and_tracks_status(): void
+    public function test_reminder_service_dispatches_due_reminder_jobs(): void
+    {
+        Queue::fake();
+
+        $service = app(ScheduleReminderService::class);
+        $schedule = ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Grammar review',
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        $reminder = ScheduleReminder::create([
+            'class_schedule_id' => $schedule->id,
+            'user_id' => $this->student->id,
+            'channel' => 'email',
+            'status' => ScheduleReminder::STATUS_PENDING,
+            'scheduled_for' => '2026-06-01 01:00:00',
+        ]);
+
+        $now = CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC');
+
+        $this->assertSame(1, $service->sendDue($now));
+
+        Queue::assertPushed(SendClassReminderNotification::class, function (SendClassReminderNotification $job) use ($reminder, $now): bool {
+            return $job->scheduleReminderId === $reminder->id
+                && $job->dueAt === $now->toIso8601String();
+        });
+
+        $this->assertDatabaseHas('schedule_reminders', [
+            'id' => $reminder->id,
+            'status' => ScheduleReminder::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_reminder_job_sends_due_email_and_tracks_status(): void
     {
         Notification::fake();
 
@@ -1398,7 +1438,7 @@ class SchedulingApiTest extends TestCase
 
         $now = CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC');
 
-        $this->assertSame(1, $service->sendDue($now));
+        $this->assertTrue($service->sendReminder($reminder->id, $now));
 
         Notification::assertSentTo($this->student, ClassScheduleReminderNotification::class);
         $portalNotification = PortalNotification::query()

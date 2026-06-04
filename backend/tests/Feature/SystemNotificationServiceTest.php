@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\Notifications\SendSystemNotificationEmail;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use App\Models\User;
@@ -10,6 +11,7 @@ use App\Services\Notifications\SystemNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use Illuminate\Support\Facades\Queue;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -147,6 +149,47 @@ class SystemNotificationServiceTest extends TestCase
             'channel' => NotificationRecipient::CHANNEL_EMAIL,
             'delivery_status' => NotificationRecipient::STATUS_SENT,
         ]);
+    }
+
+    public function test_it_queues_email_notifications_when_requested(): void
+    {
+        Queue::fake();
+        NotificationFacade::fake();
+
+        $student = User::factory()->create([
+            'email' => 'student@example.test',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $teacher = User::factory()->create([
+            'email' => 'teacher@example.test',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $service = app(SystemNotificationService::class);
+
+        $service->homeworkReminder(
+            [$student, $teacher],
+            'Homework due soon',
+            'Please submit your homework before the deadline.',
+            ['homework_id' => 456],
+            [
+                'email' => true,
+                'queue_email' => true,
+                'source_type' => 'homework',
+                'source_id' => 456,
+            ]
+        );
+        Queue::assertPushed(SendSystemNotificationEmail::class, 2);
+        NotificationFacade::assertNothingSent();
+
+        $this->assertDatabaseCount('notifications', 1);
+        $this->assertDatabaseCount('notification_recipients', 4);
+        $this->assertSame(
+            2,
+            NotificationRecipient::query()
+                ->where('channel', NotificationRecipient::CHANNEL_EMAIL)
+                ->where('delivery_status', NotificationRecipient::STATUS_PENDING)
+                ->count()
+        );
     }
 
     public function test_email_failure_does_not_prevent_in_portal_notification_creation(): void

@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\Billing\SendInvoiceEmail;
 use App\Models\CourseProgram;
 use App\Models\Invoice;
 use App\Models\Notification as PortalNotification;
-use App\Models\NotificationRecipient;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Notifications\Billing\InvoiceEmailNotification;
@@ -14,6 +14,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -51,6 +52,7 @@ class InvoiceEmailApiTest extends TestCase
 
     public function test_admin_can_manually_send_invoice_email_to_student(): void
     {
+        Queue::fake();
         Notification::fake();
 
         $student = $this->student();
@@ -63,28 +65,21 @@ class InvoiceEmailApiTest extends TestCase
 
         $this->postJson("/api/v1/invoices/{$invoice->public_id}/send-email")
             ->assertAccepted()
-            ->assertJsonPath('email_queued', true)
-            ->assertJsonPath('data.metadata.email.last_status', NotificationRecipient::STATUS_SENT)
-            ->assertJsonPath('data.metadata.email.last_mode', InvoiceEmailService::MODE_MANUAL);
+            ->assertJsonPath('email_queued', true);
 
         $this->postJson("/api/v1/invoices/{$invoice->public_id}/send-email")
             ->assertAccepted()
-            ->assertJsonPath('email_queued', true)
-            ->assertJsonPath('data.metadata.email.last_mode', InvoiceEmailService::MODE_MANUAL);
+            ->assertJsonPath('email_queued', true);
 
-        Notification::assertSentTo($student, InvoiceEmailNotification::class);
+        Queue::assertPushed(SendInvoiceEmail::class, 2);
+        Queue::assertPushed(SendInvoiceEmail::class, function (SendInvoiceEmail $job) use ($invoice): bool {
+            return $job->invoiceId === $invoice->id
+                && $job->mode === InvoiceEmailService::MODE_MANUAL
+                && $job->senderId === $this->admin->id;
+        });
+        Notification::assertNothingSent();
 
-        $this->assertDatabaseHas('notifications', [
-            'type' => PortalNotification::TYPE_EMAIL,
-            'sender_id' => $this->admin->id,
-        ]);
-
-        $this->assertDatabaseHas('notification_recipients', [
-            'user_id' => $student->id,
-            'channel' => NotificationRecipient::CHANNEL_EMAIL,
-            'delivery_status' => NotificationRecipient::STATUS_SENT,
-        ]);
-        $this->assertSame(2, PortalNotification::where('type', PortalNotification::TYPE_EMAIL)->count());
+        $this->assertSame(0, PortalNotification::where('type', PortalNotification::TYPE_EMAIL)->count());
     }
 
     public function test_invoice_email_notification_attaches_pdf_invoice(): void
@@ -103,8 +98,9 @@ class InvoiceEmailApiTest extends TestCase
         $this->assertStringStartsWith('%PDF-', $mail->rawAttachments[0]['data']);
     }
 
-    public function test_automatic_invoice_email_is_sent_after_generation_when_enabled_once(): void
+    public function test_automatic_invoice_email_is_queued_after_generation_when_enabled(): void
     {
+        Queue::fake();
         Notification::fake();
         config(['billing.invoice.email.automatic_enabled' => true]);
 
@@ -121,16 +117,16 @@ class InvoiceEmailApiTest extends TestCase
 
         $invoice = Invoice::query()->where('public_id', $response->json('data.id'))->firstOrFail();
 
-        Notification::assertSentTo($student, InvoiceEmailNotification::class);
-        $this->assertSame(NotificationRecipient::STATUS_SENT, data_get($invoice->metadata, 'email.last_status'));
-        $this->assertSame(InvoiceEmailService::MODE_AUTOMATIC, data_get($invoice->metadata, 'email.last_mode'));
-        $this->assertNotNull(data_get($invoice->metadata, 'email.automatic_sent_at'));
-        $this->assertSame(1, PortalNotification::where('type', PortalNotification::TYPE_EMAIL)->count());
+        Queue::assertPushed(SendInvoiceEmail::class, function (SendInvoiceEmail $job) use ($invoice): bool {
+            return $job->invoiceId === $invoice->id
+                && $job->mode === InvoiceEmailService::MODE_AUTOMATIC
+                && $job->senderId === null;
+        });
+        Notification::assertNothingSent();
+        $this->assertNull(data_get($invoice->metadata, 'email.last_status'));
+        $this->assertSame(0, PortalNotification::where('type', PortalNotification::TYPE_EMAIL)->count());
 
-        $sentAgain = app(InvoiceEmailService::class)->sendAutomatically($invoice->refresh());
-
-        $this->assertFalse($sentAgain);
-        $this->assertSame(1, PortalNotification::where('type', PortalNotification::TYPE_EMAIL)->count());
+        Queue::assertPushed(SendInvoiceEmail::class, 1);
     }
 
     public function test_automatic_invoice_email_is_not_sent_when_disabled(): void
