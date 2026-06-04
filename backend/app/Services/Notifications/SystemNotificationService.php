@@ -34,8 +34,8 @@ class SystemNotificationService
     /**
      * Create a reschedule alert notification.
      *
-     * Recipients are synchronized to portal notification rows, and email
-     * delivery is attempted when the options request it.
+     * Recipients are synchronized to portal notification rows, and email rows
+     * are sent immediately or queued when the options request it.
      *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
@@ -49,8 +49,8 @@ class SystemNotificationService
     /**
      * Create a homework reminder notification.
      *
-     * Recipients are synchronized to portal notification rows, and email
-     * delivery is attempted when enabled through options.
+     * Recipients are synchronized to portal notification rows, and email rows
+     * are sent immediately or queued when enabled through options.
      *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
@@ -81,7 +81,8 @@ class SystemNotificationService
      * Create a general system notice notification.
      *
      * Recipients are synchronized to portal notification rows, with optional
-     * scheduling, deduplication, and email delivery controlled by options.
+     * scheduling, deduplication, and immediate or queued email delivery
+     * controlled by options.
      *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
@@ -98,11 +99,12 @@ class SystemNotificationService
      * This shared system-level handler runs when application services need to
      * publish a portal notification. It normalizes recipient inputs, applies
      * source and deduplication metadata, writes notification and in-portal
-     * recipient rows in a transaction, and attempts email delivery when
-     * requested. Email delivery rows are marked sent or failed, and delivery
-     * failures are logged as warnings. It is safe to retry when callers provide
-     * `source_type` plus `source_id` or a `dedupe_key`; otherwise each call
-     * creates a new notification.
+     * recipient rows in a transaction, and creates email delivery rows when
+     * requested. Email delivery is queued when `queue_email` is true; otherwise
+     * it is attempted synchronously. Delivery rows are claimed before sending,
+     * then marked sent or failed, with failures logged as warnings. It is safe
+     * to retry when callers provide `source_type` plus `source_id` or a
+     * `dedupe_key`; otherwise each call creates a new notification.
      *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
@@ -167,6 +169,11 @@ class SystemNotificationService
     }
 
     /**
+     * Create email recipient rows and dispatch or send each eligible delivery.
+     *
+     * Already sending or delivered rows are skipped so repeated calls do not
+     * enqueue duplicate email work for the same notification recipient.
+     *
      * @param  Collection<int, User>  $recipients
      * @param  array<string, mixed>  $metadata
      */
@@ -244,11 +251,17 @@ class SystemNotificationService
             });
     }
 
+    /**
+     * Send an email delivery requested by a queued notification job.
+     */
     public function sendQueuedEmail(int $deliveryId): void
     {
         $this->sendDelivery($deliveryId);
     }
 
+    /**
+     * Claim one email delivery row and attempt notification email delivery.
+     */
     private function sendDelivery(int $deliveryId): void
     {
         $delivery = NotificationRecipient::query()

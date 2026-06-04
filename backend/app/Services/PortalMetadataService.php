@@ -30,6 +30,9 @@ class PortalMetadataService
     /**
      * Return stable portal metadata used by common app screens.
      *
+     * Individual metadata groups are cached by their dedicated methods, and
+     * role/permission metadata is included only for authorized callers.
+     *
      * @return array<string, mixed>
      */
     public function portalMetadata(bool $includeAccessMetadata = false): array
@@ -49,6 +52,8 @@ class PortalMetadataService
     }
 
     /**
+     * Return cached course-type metadata for portal selectors.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function courseTypes(): array
@@ -74,6 +79,8 @@ class PortalMetadataService
     }
 
     /**
+     * Return cached static lesson-type options.
+     *
      * @return array<int, array{key: string, label: string}>
      */
     public function lessonTypes(): array
@@ -92,6 +99,8 @@ class PortalMetadataService
     }
 
     /**
+     * Return cached attendance-status options from portal settings or defaults.
+     *
      * @return array<string, mixed>
      */
     public function attendanceStatusOptions(): array
@@ -128,6 +137,8 @@ class PortalMetadataService
     }
 
     /**
+     * Return cached role and permission metadata for access-management screens.
+     *
      * @return array{roles: array<int, array<string, mixed>>, permissions: array<int, array<string, string>>}
      */
     public function rolePermissionMetadata(): array
@@ -164,21 +175,33 @@ class PortalMetadataService
         );
     }
 
+    /**
+     * Clear cached course-type metadata after catalog changes.
+     */
     public function forgetCourseTypes(): void
     {
         Cache::forget(self::CACHE_KEY_COURSE_TYPES);
     }
 
+    /**
+     * Clear cached attendance options after the backing portal setting changes.
+     */
     public function forgetAttendanceStatusOptions(): void
     {
         Cache::forget(self::CACHE_KEY_ATTENDANCE_STATUSES);
     }
 
+    /**
+     * Clear cached access metadata after role or permission changes.
+     */
     public function forgetRolePermissionMetadata(): void
     {
         Cache::forget(self::CACHE_KEY_ROLES_PERMISSIONS);
     }
 
+    /**
+     * Clear all portal metadata cache entries owned by this service.
+     */
     public function forgetAll(): void
     {
         $this->forgetCourseTypes();

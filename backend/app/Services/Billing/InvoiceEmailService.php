@@ -43,6 +43,13 @@ class InvoiceEmailService
         return $this->send($invoice, self::MODE_AUTOMATIC);
     }
 
+    /**
+     * Queue automatic invoice email delivery after the surrounding transaction.
+     *
+     * The queued job re-checks automatic delivery settings and the
+     * `automatic_sent_at` marker before sending, so stale or duplicate jobs do
+     * not send a second automatic invoice email.
+     */
     public function queueAutomatically(Invoice $invoice): bool
     {
         if (! (bool) config('billing.invoice.email.automatic_enabled', false)) {
@@ -73,6 +80,12 @@ class InvoiceEmailService
         return $this->send($invoice, self::MODE_MANUAL, $sender);
     }
 
+    /**
+     * Queue a manual staff invoice email resend after commit.
+     *
+     * Manual resends intentionally create a new delivery attempt when the job
+     * runs, preserving the same semantics as the synchronous resend path.
+     */
     public function queueManualResend(Invoice $invoice, ?User $sender = null): bool
     {
         SendInvoiceEmail::dispatch($invoice->id, self::MODE_MANUAL, $sender?->id)->afterCommit();
@@ -80,6 +93,9 @@ class InvoiceEmailService
         return true;
     }
 
+    /**
+     * Run invoice email delivery from a queued job.
+     */
     public function sendQueued(int $invoiceId, string $mode, ?User $sender = null): bool
     {
         $invoice = Invoice::query()->find($invoiceId);

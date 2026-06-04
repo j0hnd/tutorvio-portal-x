@@ -16,6 +16,9 @@ class DashboardCacheService
     /**
      * Cache role-scoped dashboard summary data for a short interval.
      *
+     * Keys include the dashboard version, role, user ID, and permission hash so
+     * Redis-backed cache entries stay isolated per effective dashboard view.
+     *
      * @param  callable(): array<string, mixed>  $callback
      * @return array<string, mixed>
      */
@@ -28,6 +31,9 @@ class DashboardCacheService
         );
     }
 
+    /**
+     * Bump the shared dashboard summary version used by subsequent cache keys.
+     */
     public function refreshSummaryVersion(): void
     {
         Cache::forever(self::VERSION_KEY, $this->summaryVersion() + 1);

@@ -249,7 +249,8 @@ class PortalSettingsService
      * Return configured portal settings with stored or default values.
      *
      * When public-only mode is enabled, private settings and administrative
-     * metadata are omitted from the returned payload.
+     * metadata are omitted from the returned payload. Admin and public payloads
+     * are cached separately so Redis-backed reads keep the two contracts apart.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -264,6 +265,9 @@ class PortalSettingsService
 
     /**
      * Clear cached portal setting payloads.
+     *
+     * Both admin and public variants are forgotten after setting writes or
+     * model events so later reads rebuild from the database/default definitions.
      */
     public function forgetCachedSettings(): void
     {

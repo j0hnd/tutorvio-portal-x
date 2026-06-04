@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands()
     ->withMiddleware(function (Middleware $middleware): void {
+        // Use Laravel's Redis throttle middleware only when the limiter/cache
+        // store is explicitly Redis; array/database stores remain valid
+        // fallbacks for tests and non-Redis environments.
         if (env('RATE_LIMITER_STORE', env('CACHE_STORE')) === 'redis') {
             $middleware->throttleWithRedis();
         }

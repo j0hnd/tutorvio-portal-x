@@ -164,8 +164,9 @@ class ClassScheduleService
      * Book a one-time lesson for a student with their assigned teacher.
      *
      * The method verifies the actor is a student, enforces assigned-teacher
-     * booking, checks availability, creates the schedule, and records the
-     * creation audit entry.
+     * booking, acquires configured cache locks for the student attempt and
+     * teacher availability day, checks availability, creates the schedule, and
+     * records the creation audit entry.
      *
      * @param  array<string, mixed>  $payload
      *
@@ -239,6 +240,9 @@ class ClassScheduleService
     /**
      * Serialize student-initiated bookings around the student attempt and the
      * teacher availability day to close the gap between validation and insert.
+     * The cache store is configurable so tests or non-Redis environments can
+     * use another lock-capable store while local production-like paths use
+     * Redis.
      */
     private function withLessonBookingLocks(
         User $student,
@@ -278,6 +282,12 @@ class ClassScheduleService
         }
     }
 
+    /**
+     * Acquire a fail-fast lesson-booking lock from the configured cache store.
+     *
+     * Lock contention is returned as validation feedback instead of waiting or
+     * surfacing a generic server error.
+     */
     private function acquireLessonBookingLock(string $key, string $field, string $message): Lock
     {
         $lock = Cache::store($this->bookingLockStore())->lock($key, $this->bookingLockTtlSeconds());
