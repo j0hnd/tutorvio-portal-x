@@ -2,13 +2,18 @@
 
 namespace App\Services;
 
+use App\Models\Announcement;
+use App\Models\Homework;
 use App\Models\Invoice;
+use App\Models\IssueReport;
 use App\Models\Lesson;
 use App\Models\Material;
+use App\Models\Scheduling\ScheduleReminder;
 use App\Models\StudentProfile;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -33,7 +38,7 @@ class DashboardService
         return [
             'role' => $role,
             'user' => [
-                'id' => $user->id,
+                'id' => $this->publicId($user),
                 'name' => $user->name,
                 'email' => $user->email,
             ],
@@ -152,10 +157,15 @@ class DashboardService
                     ->count(),
                 'inactive_subscriptions' => Subscription::where('status', '!=', 'active')->count(),
                 'unpaid_invoices' => Invoice::whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_OVERDUE])->count(),
-                'low_lesson_balance' => 0,
+                'low_lesson_balance' => Subscription::where('status', Subscription::STATUS_ACTIVE)
+                    ->where('remaining_lesson_count', '<=', 2)
+                    ->count(),
             ],
-            // TODO: Return persisted operational announcements when an announcements table exists.
-            'operational_announcements' => [],
+            'operational_announcements' => $this->activeAnnouncements()
+                ->limit(5)
+                ->get()
+                ->map(fn (Announcement $announcement) => $this->announcementPayload($announcement))
+                ->all(),
             'quick_links' => [
                 'user_management',
                 'student_management',
@@ -219,13 +229,25 @@ class DashboardService
         }
 
         if ($user->can('dashboard.tasks.view')) {
-            // TODO: Return persisted staff tasks when a task table exists.
-            $summary['assigned_tasks'] = [];
+            $summary['assigned_tasks'] = IssueReport::query()
+                ->with(['reporter:id,public_id,name,email'])
+                ->open()
+                ->where('assigned_to_id', $user->id)
+                ->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")
+                ->orderBy('created_at')
+                ->limit(10)
+                ->get()
+                ->map(fn (IssueReport $issueReport) => $this->issueTaskPayload($issueReport))
+                ->all();
         }
 
         if ($user->can('dashboard.operational_notices.view')) {
-            // TODO: Return persisted operational notices when a notice table exists.
-            $summary['operational_notices'] = [];
+            $summary['operational_notices'] = $this->activeAnnouncements()
+                ->visibleTo($user)
+                ->limit(5)
+                ->get()
+                ->map(fn (Announcement $announcement) => $this->announcementPayload($announcement))
+                ->all();
         }
 
         return $summary;
@@ -260,7 +282,7 @@ class DashboardService
             ->get();
 
         $studentsNeedingNotes = StudentProfile::query()
-            ->with('user:id,name,email,status')
+            ->with('user:id,public_id,name,email,status')
             ->where('assigned_teacher_id', $user->id)
             ->where(function (Builder $query) {
                 $query->whereNull('teacher_notes')
@@ -271,7 +293,7 @@ class DashboardService
             ->get();
 
         $assignedStudents = StudentProfile::query()
-            ->with('user:id,name,email,status')
+            ->with('user:id,public_id,name,email,status')
             ->where('assigned_teacher_id', $user->id)
             ->orderBy('id')
             ->limit(20)
@@ -281,6 +303,19 @@ class DashboardService
             ->with('student.studentProfile')
             ->where('status', 'completed')
             ->orderByDesc('start_time')
+            ->limit(10)
+            ->get();
+
+        $recentLessonSubmissions = Homework::query()
+            ->with([
+                'lesson:id,public_id,student_id,teacher_id,status,start_time,end_time',
+                'student:id,public_id,name,email,status',
+            ])
+            ->where('teacher_id', $user->id)
+            ->whereIn('student_id', $assignedStudentIds)
+            ->whereIn('status', [Homework::STATUS_COMPLETED, Homework::STATUS_REVIEWED])
+            ->orderByDesc('completed_at')
+            ->orderByDesc('updated_at')
             ->limit(10)
             ->get();
 
@@ -298,14 +333,18 @@ class DashboardService
             'students_needing_notes_or_follow_up' => $studentsNeedingNotes
                 ->map(fn (StudentProfile $profile) => $this->teacherStudentProfilePayload($profile))
                 ->all(),
-            // TODO: Return teacher-visible lesson submissions when a submissions/homework table exists.
-            'recent_lesson_submissions' => [],
-            // TODO: Return teacher-targeted admin announcements when an announcements table exists.
-            'admin_announcements' => [],
+            'recent_lesson_submissions' => $recentLessonSubmissions
+                ->map(fn (Homework $homework) => $this->homeworkPayload($homework))
+                ->all(),
+            'admin_announcements' => $this->activeAnnouncements()
+                ->visibleTo($user)
+                ->limit(5)
+                ->get()
+                ->map(fn (Announcement $announcement) => $this->announcementPayload($announcement))
+                ->all(),
             'assigned_student_profiles' => $assignedStudents
                 ->map(fn (StudentProfile $profile) => $this->teacherStudentProfilePayload($profile))
                 ->all(),
-            // TODO: Replace with lesson documentation records when a dedicated documentation table exists.
             'lesson_documentation_shortcuts' => $documentationShortcuts
                 ->map(fn (Lesson $lesson) => [
                     ...$this->teacherLessonPayload($lesson),
@@ -313,6 +352,9 @@ class DashboardService
                     'needs_documentation' => blank($lesson->notes),
                 ])
                 ->all(),
+            'unsupported_sections' => [
+                'lesson_documentation_records' => 'No dedicated lesson documentation model exists; completed lessons are returned as documentation shortcuts instead.',
+            ],
         ];
     }
 
@@ -327,7 +369,7 @@ class DashboardService
             ->latest()
             ->first();
 
-        $upcomingLessons = Lesson::with('teacher:id,name')
+        $upcomingLessons = Lesson::with('teacher:id,public_id,name')
             ->where('student_id', $user->id)
             ->where('start_time', '>=', now())
             ->orderBy('start_time')
@@ -339,6 +381,25 @@ class DashboardService
             ->join('student_materials', 'materials.id', '=', 'student_materials.material_id')
             ->where('student_materials.student_id', $user->id)
             ->orderByDesc('student_materials.assigned_at')
+            ->limit(5)
+            ->get();
+
+        $homework = Homework::query()
+            ->with([
+                'lesson:id,public_id,student_id,teacher_id,status,start_time,end_time',
+                'teacher:id,public_id,name,email',
+            ])
+            ->where('student_id', $user->id)
+            ->orderByRaw("case status when 'overdue' then 0 when 'assigned' then 1 when 'in_progress' then 2 when 'completed' then 3 else 4 end")
+            ->orderBy('due_date')
+            ->limit(5)
+            ->get();
+
+        $reminders = ScheduleReminder::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', [ScheduleReminder::STATUS_PENDING, ScheduleReminder::STATUS_SENDING])
+            ->where('scheduled_for', '>=', now())
+            ->orderBy('scheduled_for')
             ->limit(5)
             ->get();
 
@@ -369,15 +430,22 @@ class DashboardService
                 'current_level' => $profile?->current_level,
                 'class_type' => $profile?->class_type,
                 'assigned_teacher' => $profile?->assignedTeacher ? [
-                    'id' => $profile->assignedTeacher->id,
+                    'id' => $this->publicId($profile->assignedTeacher),
                     'name' => $profile->assignedTeacher->name,
                 ] : null,
             ],
-            // TODO: Return student-scoped reminders/announcements when those tables are added.
-            'reminders' => [],
-            'announcements' => [],
-            'lesson_balance' => null, // TODO: Populate when lesson credit/balance tracking exists.
+            'reminders' => $reminders
+                ->map(fn (ScheduleReminder $reminder) => $this->reminderPayload($reminder))
+                ->all(),
+            'announcements' => $this->activeAnnouncements()
+                ->visibleTo($user)
+                ->limit(5)
+                ->get()
+                ->map(fn (Announcement $announcement) => $this->announcementPayload($announcement))
+                ->all(),
+            'lesson_balance' => $subscription ? $this->lessonBalancePayload($subscription) : null,
             'active_plan' => $subscription ? [
+                'id' => $this->publicId($subscription),
                 'status' => $subscription->status,
                 'plan_name' => $subscription->plan_name,
                 'starts_at' => $subscription->starts_at,
@@ -390,7 +458,6 @@ class DashboardService
             ],
             'recent_materials' => $materials
                 ->map(fn (Material $material) => [
-                    'id' => $material->id,
                     'title' => $material->title,
                     'description' => $material->description,
                     'url' => $material->url,
@@ -398,8 +465,11 @@ class DashboardService
                     'completed_at' => $material->completed_at,
                 ])
                 ->all(),
-            'homework' => [], // TODO: Return student-scoped homework when a homework table exists.
+            'homework' => $homework
+                ->map(fn (Homework $homework) => $this->homeworkPayload($homework))
+                ->all(),
             'subscription' => [
+                'id' => $subscription ? $this->publicId($subscription) : null,
                 'status' => $subscription?->status,
                 'plan_name' => $subscription?->plan_name,
                 'ends_at' => $subscription?->ends_at,
@@ -428,7 +498,7 @@ class DashboardService
     private function studentLessonPayload(Lesson $lesson): array
     {
         return [
-            'id' => $lesson->id,
+            'id' => $this->publicId($lesson),
             'start_time' => $lesson->start_time,
             'end_time' => $lesson->end_time,
             'status' => $lesson->status,
@@ -437,7 +507,7 @@ class DashboardService
             'join_available_until' => $lesson->joinAvailableUntil(),
             'is_join_available' => $lesson->isJoinAvailable(),
             'teacher' => $lesson->teacher ? [
-                'id' => $lesson->teacher->id,
+                'id' => $this->publicId($lesson->teacher),
                 'name' => $lesson->teacher->name,
             ] : null,
         ];
@@ -449,7 +519,7 @@ class DashboardService
     private function teacherLessonPayload(Lesson $lesson): array
     {
         return [
-            'id' => $lesson->id,
+            'id' => $this->publicId($lesson),
             'start_time' => $lesson->start_time,
             'end_time' => $lesson->end_time,
             'status' => $lesson->status,
@@ -458,7 +528,7 @@ class DashboardService
             'join_available_until' => $lesson->joinAvailableUntil(),
             'is_join_available' => $lesson->isJoinAvailable(),
             'student' => $lesson->student ? [
-                'id' => $lesson->student->id,
+                'id' => $this->publicId($lesson->student),
                 'name' => $lesson->student->name,
                 'email' => $lesson->student->email,
                 'profile' => $lesson->student->studentProfile
@@ -474,8 +544,7 @@ class DashboardService
     private function teacherStudentProfilePayload(StudentProfile $profile, bool $includeUser = true): array
     {
         $payload = [
-            'profile_id' => $profile->id,
-            'student_id' => $profile->user_id,
+            'student_id' => $profile->user ? $this->publicId($profile->user) : User::whereKey($profile->user_id)->value('public_id'),
             'course' => $profile->course,
             'english_level' => $profile->english_level,
             'current_level' => $profile->current_level,
@@ -489,7 +558,7 @@ class DashboardService
 
         if ($includeUser) {
             $payload['student'] = $profile->user ? [
-                'id' => $profile->user->id,
+                'id' => $this->publicId($profile->user),
                 'name' => $profile->user->name,
                 'email' => $profile->user->email,
                 'status' => $profile->user->status,
@@ -497,6 +566,120 @@ class DashboardService
         }
 
         return $payload;
+    }
+
+    private function activeAnnouncements(): Builder
+    {
+        return Announcement::query()
+            ->with(['author:id,public_id,name,email'])
+            ->active()
+            ->where(function (Builder $query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->orderByDesc('published_at')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function announcementPayload(Announcement $announcement): array
+    {
+        return [
+            'id' => $this->publicId($announcement),
+            'title' => $announcement->title,
+            'body' => $announcement->body,
+            'type' => $announcement->type,
+            'published_at' => $announcement->published_at,
+            'author' => $announcement->author ? $this->userPayload($announcement->author) : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function homeworkPayload(Homework $homework): array
+    {
+        return [
+            'id' => $this->publicId($homework),
+            'title' => $homework->title,
+            'instructions' => $homework->instructions,
+            'due_date' => $homework->due_date?->toDateString(),
+            'status' => $homework->status,
+            'teacher_feedback' => $homework->teacher_feedback,
+            'completed_at' => $homework->completed_at,
+            'reviewed_at' => $homework->reviewed_at,
+            'lesson' => $homework->lesson ? [
+                'id' => $this->publicId($homework->lesson),
+                'status' => $homework->lesson->status,
+                'start_time' => $homework->lesson->start_time,
+                'end_time' => $homework->lesson->end_time,
+            ] : null,
+            'student' => $homework->student ? $this->userPayload($homework->student) : null,
+            'teacher' => $homework->teacher ? $this->userPayload($homework->teacher) : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function issueTaskPayload(IssueReport $issueReport): array
+    {
+        return [
+            'id' => $this->publicId($issueReport),
+            'type' => $issueReport->issue_type,
+            'status' => $issueReport->status,
+            'priority' => $issueReport->priority,
+            'title' => $issueReport->title,
+            'reporter' => $issueReport->reporter ? $this->userPayload($issueReport->reporter) : null,
+            'created_at' => $issueReport->created_at,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reminderPayload(ScheduleReminder $reminder): array
+    {
+        return [
+            'id' => $this->publicId($reminder),
+            'channel' => $reminder->channel,
+            'status' => $reminder->status,
+            'scheduled_for' => $reminder->scheduled_for,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lessonBalancePayload(Subscription $subscription): array
+    {
+        return [
+            'subscription_id' => $this->publicId($subscription),
+            'total_lessons' => $subscription->total_lesson_count,
+            'consumed_lessons' => $subscription->consumed_lesson_count,
+            'remaining_lessons' => $subscription->remaining_lesson_count,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userPayload(User $user): array
+    {
+        return [
+            'id' => $this->publicId($user),
+            'name' => $user->name,
+            'email' => $user->email,
+        ];
+    }
+
+    private function publicId(?Model $model): ?string
+    {
+        $publicId = $model?->getAttribute('public_id');
+
+        return $publicId === null ? null : (string) $publicId;
     }
 
     /**
