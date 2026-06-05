@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
+use App\Http\Controllers\Api\Messages\ConversationController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\PortalMetadataController;
@@ -119,6 +120,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/{notification:public_id}/read', [NotificationController::class, 'markRead'])
             ->middleware('throttle:api-action');
         Route::get('/message-threads/unread-count', [MessageThreadController::class, 'unreadCount']);
+        Route::post('/conversations', [ConversationController::class, 'store'])
+            ->middleware('throttle:api-action');
         Route::get('/message-threads', [MessageThreadController::class, 'index']);
         Route::post('/message-threads', [MessageThreadController::class, 'store'])
             ->middleware('throttle:api-action');
