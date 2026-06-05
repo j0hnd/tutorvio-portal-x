@@ -169,6 +169,11 @@ class Conversation extends Model
         return $this->hasMany(ConversationMessagePin::class);
     }
 
+    public function escalations(): HasMany
+    {
+        return $this->hasMany(ConversationEscalation::class);
+    }
+
     /**
      * Get the users many-to-many relationship for this conversation.
      *

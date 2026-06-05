@@ -100,6 +100,11 @@ class ConversationMessage extends Model
         return $this->hasOne(ConversationMessagePin::class);
     }
 
+    public function escalations(): HasMany
+    {
+        return $this->hasMany(ConversationEscalation::class);
+    }
+
     public function messageType(): string
     {
         return (string) data_get($this->metadata, 'message_type', self::MESSAGE_TYPE_TEXT);

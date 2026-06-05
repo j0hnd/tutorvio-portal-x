@@ -50,6 +50,7 @@ use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Messages\ConversationController;
+use App\Http\Controllers\Api\Messages\ConversationEscalationController;
 use App\Http\Controllers\Api\Messages\ConversationMessageController;
 use App\Http\Controllers\Api\Messages\MessageTemplateController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
@@ -136,6 +137,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:api-download');
         Route::get('/conversations/{conversation:public_id}/messages/{message:public_id}/attachments/{conversationAttachment:public_id}/preview', [ConversationMessageController::class, 'preview'])
             ->middleware('throttle:api-download');
+        Route::post('/conversations/{conversation:public_id}/escalations', [ConversationEscalationController::class, 'store'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/messages/{message:public_id}/escalations', [ConversationEscalationController::class, 'storeMessage'])
+            ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/messages/read', [ConversationMessageController::class, 'markMessagesRead'])
@@ -321,6 +326,12 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:message_templates.manage');
             Route::delete('/message-templates/{messageTemplate:public_id}', [AdminMessageTemplateController::class, 'destroy'])
                 ->middleware('permission:message_templates.manage');
+            Route::get('/chat-escalations', [ConversationEscalationController::class, 'index'])
+                ->middleware('permission:chat_escalations.view');
+            Route::get('/chat-escalations/{conversationEscalation:public_id}', [ConversationEscalationController::class, 'show'])
+                ->middleware('permission:chat_escalations.view');
+            Route::patch('/chat-escalations/{conversationEscalation:public_id}/status', [ConversationEscalationController::class, 'updateStatus'])
+                ->middleware('permission:chat_escalations.manage');
             Route::get('/issue-reports', [AdminIssueReportController::class, 'index'])
                 ->middleware('permission:issue_reports.view');
             Route::get('/issue-reports/{issueReport:public_id}', [AdminIssueReportController::class, 'show'])

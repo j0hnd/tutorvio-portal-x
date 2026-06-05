@@ -36,6 +36,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'holidays.view', 'holidays.manage',
             'reminders.view', 'reminders.manage',
             'messages.view', 'messages.manage',
+            'chat_escalations.view', 'chat_escalations.manage',
             'message_templates.view', 'message_templates.manage',
             'invoices.view', 'invoices.create', 'invoices.update',
             'teacher_assignments.view', 'teacher_assignments.manage',
