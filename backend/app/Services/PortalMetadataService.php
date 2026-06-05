@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\CourseType;
 use App\Models\LessonRecord;
 use App\Services\PortalSettings\PortalSettingsService;
-use Illuminate\Support\Facades\Cache;
+use App\Support\SafeCache;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -25,7 +25,10 @@ class PortalMetadataService
 
     public const CACHE_TTL_ACCESS_METADATA_HOURS = 12;
 
-    public function __construct(private readonly PortalSettingsService $portalSettingsService) {}
+    public function __construct(
+        private readonly PortalSettingsService $portalSettingsService,
+        private readonly SafeCache $cache,
+    ) {}
 
     /**
      * Return stable portal metadata used by common app screens.
@@ -58,7 +61,7 @@ class PortalMetadataService
      */
     public function courseTypes(): array
     {
-        return Cache::remember(
+        return $this->cache->remember(
             self::CACHE_KEY_COURSE_TYPES,
             now()->addMinutes(self::CACHE_TTL_COURSE_TYPES_MINUTES),
             fn (): array => CourseType::query()
@@ -74,7 +77,8 @@ class PortalMetadataService
                     'sort_order' => $courseType->sort_order,
                 ])
                 ->values()
-                ->all()
+                ->all(),
+            ['cache_area' => 'portal_metadata_course_types']
         );
     }
 
@@ -85,7 +89,7 @@ class PortalMetadataService
      */
     public function lessonTypes(): array
     {
-        return Cache::remember(
+        return $this->cache->remember(
             self::CACHE_KEY_LESSON_TYPES,
             now()->addHours(self::CACHE_TTL_STATIC_OPTIONS_HOURS),
             fn (): array => collect(LessonRecord::LESSON_TYPES)
@@ -94,7 +98,8 @@ class PortalMetadataService
                     'label' => $this->label($type),
                 ])
                 ->values()
-                ->all()
+                ->all(),
+            ['cache_area' => 'portal_metadata_lesson_types']
         );
     }
 
@@ -105,7 +110,7 @@ class PortalMetadataService
      */
     public function attendanceStatusOptions(): array
     {
-        return Cache::remember(
+        return $this->cache->remember(
             self::CACHE_KEY_ATTENDANCE_STATUSES,
             now()->addHours(self::CACHE_TTL_STATIC_OPTIONS_HOURS),
             function (): array {
@@ -132,7 +137,8 @@ class PortalMetadataService
                         ->values()
                         ->all(),
                 ];
-            }
+            },
+            ['cache_area' => 'portal_metadata_attendance_statuses']
         );
     }
 
@@ -143,7 +149,7 @@ class PortalMetadataService
      */
     public function rolePermissionMetadata(): array
     {
-        return Cache::remember(
+        return $this->cache->remember(
             self::CACHE_KEY_ROLES_PERMISSIONS,
             now()->addHours(self::CACHE_TTL_ACCESS_METADATA_HOURS),
             fn (): array => [
@@ -171,7 +177,8 @@ class PortalMetadataService
                     ])
                     ->values()
                     ->all(),
-            ]
+            ],
+            ['cache_area' => 'portal_metadata_roles_permissions']
         );
     }
 
@@ -180,7 +187,7 @@ class PortalMetadataService
      */
     public function forgetCourseTypes(): void
     {
-        Cache::forget(self::CACHE_KEY_COURSE_TYPES);
+        $this->cache->forget(self::CACHE_KEY_COURSE_TYPES, ['cache_area' => 'portal_metadata_course_types']);
     }
 
     /**
@@ -188,7 +195,7 @@ class PortalMetadataService
      */
     public function forgetAttendanceStatusOptions(): void
     {
-        Cache::forget(self::CACHE_KEY_ATTENDANCE_STATUSES);
+        $this->cache->forget(self::CACHE_KEY_ATTENDANCE_STATUSES, ['cache_area' => 'portal_metadata_attendance_statuses']);
     }
 
     /**
@@ -196,7 +203,7 @@ class PortalMetadataService
      */
     public function forgetRolePermissionMetadata(): void
     {
-        Cache::forget(self::CACHE_KEY_ROLES_PERMISSIONS);
+        $this->cache->forget(self::CACHE_KEY_ROLES_PERMISSIONS, ['cache_area' => 'portal_metadata_roles_permissions']);
     }
 
     /**
@@ -207,7 +214,7 @@ class PortalMetadataService
         $this->forgetCourseTypes();
         $this->forgetAttendanceStatusOptions();
         $this->forgetRolePermissionMetadata();
-        Cache::forget(self::CACHE_KEY_LESSON_TYPES);
+        $this->cache->forget(self::CACHE_KEY_LESSON_TYPES, ['cache_area' => 'portal_metadata_lesson_types']);
     }
 
     private function label(string $value): string

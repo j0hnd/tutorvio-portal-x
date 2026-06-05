@@ -7,7 +7,7 @@ use App\Enums\AuditModule;
 use App\Models\PortalSetting;
 use App\Models\User;
 use App\Services\AuditLogService;
-use Illuminate\Support\Facades\Cache;
+use App\Support\SafeCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -243,7 +243,10 @@ class PortalSettingsService
         ],
     ];
 
-    public function __construct(private readonly AuditLogService $auditLogService) {}
+    public function __construct(
+        private readonly AuditLogService $auditLogService,
+        private readonly SafeCache $cache,
+    ) {}
 
     /**
      * Return configured portal settings with stored or default values.
@@ -256,10 +259,11 @@ class PortalSettingsService
      */
     public function all(bool $publicOnly = false): array
     {
-        return Cache::remember(
+        return $this->cache->remember(
             $publicOnly ? self::CACHE_KEY_PUBLIC : self::CACHE_KEY_ALL,
             now()->addMinutes($publicOnly ? self::CACHE_TTL_PUBLIC_MINUTES : self::CACHE_TTL_ALL_MINUTES),
-            fn (): array => $this->loadAll($publicOnly)
+            fn (): array => $this->loadAll($publicOnly),
+            ['cache_area' => $publicOnly ? 'portal_settings_public' : 'portal_settings_all']
         );
     }
 
@@ -271,8 +275,8 @@ class PortalSettingsService
      */
     public function forgetCachedSettings(): void
     {
-        Cache::forget(self::CACHE_KEY_ALL);
-        Cache::forget(self::CACHE_KEY_PUBLIC);
+        $this->cache->forget(self::CACHE_KEY_ALL, ['cache_area' => 'portal_settings_all']);
+        $this->cache->forget(self::CACHE_KEY_PUBLIC, ['cache_area' => 'portal_settings_public']);
     }
 
     /**

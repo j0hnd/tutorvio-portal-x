@@ -479,6 +479,36 @@ class SchedulingApiTest extends TestCase
         }
     }
 
+    public function test_student_booking_returns_service_unavailable_when_lock_store_fails(): void
+    {
+        config(['lessons.booking_locks.store' => 'missing-lock-store']);
+
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:00:00+08:00',
+            'ends_at' => '2026-06-01T11:00:00+08:00',
+        ])
+            ->assertServiceUnavailable()
+            ->assertJsonPath('message', 'Service temporarily unavailable.');
+
+        $this->assertDatabaseCount('class_schedules', 0);
+    }
+
     public function test_student_booking_releases_locks_after_success(): void
     {
         $this->student->studentProfile()->create([

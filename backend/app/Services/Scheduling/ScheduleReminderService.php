@@ -164,9 +164,21 @@ class ScheduleReminderService
             ->limit($limit)
             ->pluck('id');
 
-        $reminders->each(fn (int $reminderId) => SendClassReminderNotification::dispatch($reminderId, $now->toIso8601String()));
+        $dispatched = 0;
 
-        return $reminders->count();
+        $reminders->each(function (int $reminderId) use ($now, &$dispatched): void {
+            try {
+                SendClassReminderNotification::dispatch($reminderId, $now->toIso8601String());
+                $dispatched++;
+            } catch (Throwable $exception) {
+                Log::warning('Class reminder queue dispatch failed.', [
+                    'reminder_id' => $reminderId,
+                    'failure_type' => $exception::class,
+                ]);
+            }
+        });
+
+        return $dispatched;
     }
 
     /**

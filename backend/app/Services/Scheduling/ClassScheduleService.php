@@ -4,6 +4,7 @@ namespace App\Services\Scheduling;
 
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
+use App\Exceptions\ServiceUnavailableException;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\TeacherAvailability;
 use App\Models\User;
@@ -290,15 +291,26 @@ class ClassScheduleService
      */
     private function acquireLessonBookingLock(string $key, string $field, string $message): Lock
     {
-        $lock = Cache::store($this->bookingLockStore())->lock($key, $this->bookingLockTtlSeconds());
+        try {
+            $lock = Cache::store($this->bookingLockStore())->lock($key, $this->bookingLockTtlSeconds());
 
-        if (! $lock->get()) {
-            throw ValidationException::withMessages([
-                $field => $message,
+            if (! $lock->get()) {
+                throw ValidationException::withMessages([
+                    $field => $message,
+                ]);
+            }
+
+            return $lock;
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::warning('Lesson booking lock acquisition failed.', [
+                'store' => $this->bookingLockStore(),
+                'failure_type' => $exception::class,
             ]);
-        }
 
-        return $lock;
+            throw new ServiceUnavailableException;
+        }
     }
 
     private function studentBookingLockKey(User $student, CarbonImmutable $startsAtUtc, CarbonImmutable $endsAtUtc): string

@@ -10,6 +10,7 @@ use App\Services\PortalSettings\PortalSettingsService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -116,6 +117,40 @@ class PortalMetadataCacheTest extends TestCase
             'UTC',
             collect($settings->all(publicOnly: true))->firstWhere('key', 'portal.default_timezone')['value']
         );
+    }
+
+    public function test_portal_settings_fall_back_to_source_when_cache_read_fails(): void
+    {
+        PortalSetting::query()->create([
+            'key' => 'portal.default_timezone',
+            'category' => 'portal',
+            'value' => 'UTC',
+            'value_type' => PortalSetting::TYPE_STRING,
+            'description' => 'Default timezone',
+            'is_public' => true,
+        ]);
+
+        Log::shouldReceive('warning')->once();
+        Cache::shouldReceive('get')->once()->andThrow(new \RuntimeException('cache unavailable'));
+
+        $settings = app(PortalSettingsService::class)->all(publicOnly: true);
+
+        $this->assertSame('UTC', collect($settings)->firstWhere('key', 'portal.default_timezone')['value']);
+    }
+
+    public function test_course_type_metadata_falls_back_to_database_when_cache_read_fails(): void
+    {
+        CourseType::factory()->create([
+            'name' => 'Direct DB English',
+            'slug' => 'direct-db-english',
+        ]);
+
+        Log::shouldReceive('warning')->once();
+        Cache::shouldReceive('get')->once()->andThrow(new \RuntimeException('cache unavailable'));
+
+        $metadata = app(PortalMetadataService::class)->courseTypes();
+
+        $this->assertSame('Direct DB English', $metadata[0]['name']);
     }
 
     public function test_course_type_metadata_cache_is_invalidated_when_course_types_change(): void

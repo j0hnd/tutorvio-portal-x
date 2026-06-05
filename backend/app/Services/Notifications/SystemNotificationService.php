@@ -242,7 +242,14 @@ class SystemNotificationService
                 }
 
                 if ($options['queue_email'] ?? false) {
-                    SendSystemNotificationEmail::dispatch($delivery->id);
+                    try {
+                        SendSystemNotificationEmail::dispatch($delivery->id);
+                    } catch (Throwable $exception) {
+                        Log::warning('Notification email queue dispatch failed.', [
+                            'delivery_id' => $delivery->id,
+                            'failure_type' => $exception::class,
+                        ]);
+                    }
 
                     return;
                 }

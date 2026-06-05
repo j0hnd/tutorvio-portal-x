@@ -18,8 +18,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class HomeworkController extends Controller
 {
@@ -223,7 +225,14 @@ class HomeworkController extends Controller
      */
     private function notifyHomeworkAssigned(Homework $homework): void
     {
-        SendHomeworkReminderNotification::dispatch($homework->id)->afterCommit();
+        try {
+            SendHomeworkReminderNotification::dispatch($homework->id)->afterCommit();
+        } catch (Throwable $exception) {
+            Log::warning('Homework reminder queue dispatch failed.', [
+                'homework_id' => $homework->id,
+                'failure_type' => $exception::class,
+            ]);
+        }
     }
 
     /**

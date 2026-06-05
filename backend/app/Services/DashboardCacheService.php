@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
+use App\Support\SafeCache;
 
 class DashboardCacheService
 {
@@ -12,6 +12,8 @@ class DashboardCacheService
     private const KEY_PREFIX = 'dashboard.summary';
 
     private const SUMMARY_TTL_SECONDS = 30;
+
+    public function __construct(private readonly SafeCache $cache) {}
 
     /**
      * Cache role-scoped dashboard summary data for a short interval.
@@ -24,10 +26,11 @@ class DashboardCacheService
      */
     public function rememberSummary(User $user, ?string $role, callable $callback): array
     {
-        return Cache::remember(
+        return $this->cache->remember(
             $this->summaryKey($user, $role),
             self::SUMMARY_TTL_SECONDS,
-            $callback
+            $callback,
+            ['cache_area' => 'dashboard_summary']
         );
     }
 
@@ -36,7 +39,11 @@ class DashboardCacheService
      */
     public function refreshSummaryVersion(): void
     {
-        Cache::forever(self::VERSION_KEY, $this->summaryVersion() + 1);
+        $this->cache->forever(
+            self::VERSION_KEY,
+            $this->summaryVersion() + 1,
+            ['cache_area' => 'dashboard_summary_version']
+        );
     }
 
     private function summaryKey(User $user, ?string $role): string
@@ -54,6 +61,10 @@ class DashboardCacheService
 
     private function summaryVersion(): int
     {
-        return (int) Cache::get(self::VERSION_KEY, 1);
+        return (int) $this->cache->get(
+            self::VERSION_KEY,
+            1,
+            ['cache_area' => 'dashboard_summary_version']
+        );
     }
 }

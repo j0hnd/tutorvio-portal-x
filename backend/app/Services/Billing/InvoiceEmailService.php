@@ -2,6 +2,7 @@
 
 namespace App\Services\Billing;
 
+use App\Exceptions\ServiceUnavailableException;
 use App\Jobs\Billing\SendInvoiceEmail;
 use App\Models\Invoice;
 use App\Models\Notification;
@@ -60,7 +61,16 @@ class InvoiceEmailService
             return false;
         }
 
-        SendInvoiceEmail::dispatch($invoice->id, self::MODE_AUTOMATIC)->afterCommit();
+        try {
+            SendInvoiceEmail::dispatch($invoice->id, self::MODE_AUTOMATIC)->afterCommit();
+        } catch (Throwable $exception) {
+            Log::warning('Automatic invoice email queue dispatch failed.', [
+                'invoice_id' => $invoice->id,
+                'failure_type' => $exception::class,
+            ]);
+
+            return false;
+        }
 
         return true;
     }
@@ -88,7 +98,17 @@ class InvoiceEmailService
      */
     public function queueManualResend(Invoice $invoice, ?User $sender = null): bool
     {
-        SendInvoiceEmail::dispatch($invoice->id, self::MODE_MANUAL, $sender?->id)->afterCommit();
+        try {
+            SendInvoiceEmail::dispatch($invoice->id, self::MODE_MANUAL, $sender?->id)->afterCommit();
+        } catch (Throwable $exception) {
+            Log::warning('Manual invoice email queue dispatch failed.', [
+                'invoice_id' => $invoice->id,
+                'sender_id' => $sender?->id,
+                'failure_type' => $exception::class,
+            ]);
+
+            throw new ServiceUnavailableException;
+        }
 
         return true;
     }
