@@ -184,43 +184,21 @@ class ConversationEscalationController extends Controller
 
     private function assertCanEscalate(User $actor, Conversation $conversation): void
     {
-        if ($actor->status !== User::STATUS_ACTIVE) {
+        if (! $actor->can('escalate', $conversation)) {
             abort(403);
         }
-
-        if ($actor->hasRole('student') && ! $actor->hasAnyRole(['admin', 'staff'])) {
-            if ((int) $conversation->student_id === (int) $actor->id) {
-                return;
-            }
-
-            abort(403);
-        }
-
-        if ($actor->hasRole('teacher') && ! $actor->hasAnyRole(['admin', 'staff'])) {
-            $conversation->loadMissing('student.studentProfile');
-
-            if ((int) $conversation->teacher_id === (int) $actor->id
-                && $conversation->student_id !== null
-                && (int) $conversation->student?->studentProfile?->assigned_teacher_id === (int) $actor->id) {
-                return;
-            }
-
-            abort(403);
-        }
-
-        abort(403);
     }
 
     private function assertCanViewQueue(User $actor): void
     {
-        if (! ($actor->hasRole('admin') || ($actor->hasRole('staff') && $actor->can('chat_escalations.view')))) {
+        if (! $actor->can('viewEscalationQueue', Conversation::class)) {
             abort(403);
         }
     }
 
     private function assertCanManageQueue(User $actor): void
     {
-        if (! ($actor->hasRole('admin') || ($actor->hasRole('staff') && $actor->can('chat_escalations.manage')))) {
+        if (! $actor->can('manageEscalationQueue', Conversation::class)) {
             abort(403);
         }
     }

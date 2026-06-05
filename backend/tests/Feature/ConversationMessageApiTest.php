@@ -145,6 +145,12 @@ class ConversationMessageApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.unread_count', 0);
 
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1);
+
         $this->assertNotNull($second->public_id);
     }
 
@@ -189,6 +195,20 @@ class ConversationMessageApiTest extends TestCase
         $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages?order=oldest")
             ->assertOk()
             ->assertJsonPath('data.0.id', $oldest->public_id);
+    }
+
+    public function test_unauthorized_users_cannot_read_conversation_message_history(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $this->createMessage($conversation, $this->teacher, 'Private lesson note', now());
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages")
+            ->assertUnauthorized();
+
+        Sanctum::actingAs($this->otherStudent);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages")
+            ->assertNotFound();
     }
 
     public function test_empty_messages_are_rejected_unless_attachments_are_attached(): void
@@ -344,6 +364,29 @@ class ConversationMessageApiTest extends TestCase
         $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
             'body' => 'Inactive users cannot send.',
         ])->assertForbidden();
+    }
+
+    public function test_staff_message_sending_follows_message_permissions(): void
+    {
+        $staff = $this->userWithRole('staff');
+        $conversation = $this->createConversation([$this->student, $staff], [
+            'type' => Conversation::TYPE_ADMIN_STUDENT,
+            'teacher_id' => null,
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Staff participant needs a message permission.',
+        ])->assertForbidden();
+
+        $staff->givePermissionTo('messages.view');
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Staff participant can reply after permission grant.',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.sender_id', $staff->public_id);
     }
 
     private function userWithRole(string $role, string $status = User::STATUS_ACTIVE): User

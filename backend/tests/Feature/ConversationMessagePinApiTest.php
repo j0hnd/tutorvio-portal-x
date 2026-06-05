@@ -111,6 +111,22 @@ class ConversationMessagePinApiTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_pinned_messages_are_only_visible_inside_allowed_conversations(): void
+    {
+        $conversation = $this->createConversation();
+        $message = $this->createMessage($conversation, $this->student);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/pin")
+            ->assertCreated();
+
+        Sanctum::actingAs($this->otherStudent);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/pinned-messages")
+            ->assertNotFound();
+    }
+
     public function test_message_must_belong_to_the_conversation_being_pinned(): void
     {
         $conversation = $this->createConversation();

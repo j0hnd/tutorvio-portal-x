@@ -423,11 +423,9 @@ class ConversationMessageController extends Controller
     private function visibleAttachmentFor(User $user, Conversation $conversation, ConversationMessage $message, ConversationAttachment $attachment): ConversationAttachment
     {
         $conversation = $this->visibleConversationFor($user, $conversation);
-
         $message = $this->visibleMessageFor($conversation, $message);
 
-        if ((int) $attachment->conversation_id !== (int) $conversation->id
-            || (int) $attachment->conversation_message_id !== (int) $message->id) {
+        if (! $user->can('downloadAttachment', [$conversation, $message, $attachment])) {
             abort(404);
         }
 
@@ -507,25 +505,11 @@ class ConversationMessageController extends Controller
 
     private function assertCanSendMessage(User $actor, Conversation $conversation): void
     {
-        if ($actor->status !== User::STATUS_ACTIVE) {
-            abort(403);
-        }
-
-        if (! ($actor->can('messages.view') || $actor->can('messages.manage'))) {
-            abort(403);
-        }
-
         if ($conversation->status !== Conversation::STATUS_ACTIVE) {
             abort(403, 'Closed or archived conversations cannot receive new messages.');
         }
 
-        $isActiveParticipant = $conversation->participants()
-            ->where('user_id', $actor->id)
-            ->whereNull('archived_at')
-            ->whereNull('deleted_at')
-            ->exists();
-
-        if (! $isActiveParticipant) {
+        if (! $actor->can('sendMessage', $conversation)) {
             abort(403);
         }
     }
