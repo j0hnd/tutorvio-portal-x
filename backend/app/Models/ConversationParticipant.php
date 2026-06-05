@@ -20,6 +20,7 @@ class ConversationParticipant extends Model
         'participant_roles_snapshot',
         'joined_at',
         'last_read_at',
+        'last_read_message_id',
         'muted_at',
         'archived_at',
         'metadata',
@@ -55,6 +56,14 @@ class ConversationParticipant extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the last read message inverse relationship for this participant.
+     */
+    public function lastReadMessage(): BelongsTo
+    {
+        return $this->belongsTo(ConversationMessage::class, 'last_read_message_id');
     }
 
     /**

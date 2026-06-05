@@ -3,6 +3,9 @@
 namespace App\Http\Resources\Messages;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
+use App\Models\ConversationMessage;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,6 +20,8 @@ class ConversationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $unreadMessageCount = $this->unreadMessageCount($request);
+
         $data = [
             'id' => $this->publicId($this->resource),
             'type' => $this->resource->type,
@@ -33,7 +38,8 @@ class ConversationResource extends JsonResource
             'last_message_preview' => $this->resource->last_message_preview,
             'last_message_metadata' => $this->resource->last_message_metadata ?? [],
             'metadata' => $this->resource->metadata ?? [],
-            'unread_message_count' => $this->unreadMessageCount($request),
+            'unread_count' => $unreadMessageCount,
+            'unread_message_count' => $unreadMessageCount,
             'is_pinned' => $this->isPinned($request),
             'participant_summary' => $this->participantSummary($request),
             'participants' => $this->whenLoaded('participants', fn () => $this->resource->participants->map(fn ($participant) => [
@@ -43,6 +49,7 @@ class ConversationResource extends JsonResource
                 'participant_roles_snapshot' => $participant->participant_roles_snapshot ?? [],
                 'joined_at' => $participant->joined_at,
                 'last_read_at' => $participant->last_read_at,
+                'last_read_message_id' => $participant->relationLoaded('lastReadMessage') ? $this->publicId($participant->lastReadMessage) : null,
                 'muted_at' => $participant->muted_at,
                 'archived_at' => $participant->archived_at,
                 'user' => $participant->relationLoaded('user') ? [
@@ -126,19 +133,45 @@ class ConversationResource extends JsonResource
         $user = $request->user();
         $participant = $this->currentParticipant($request);
 
-        if ($user === null || $participant === null || $this->resource->last_message_at === null) {
+        if (! $user instanceof User || $participant === null || $this->resource->last_message_at === null) {
             return 0;
         }
 
-        if ((int) $this->resource->last_message_by === (int) $user->id) {
-            return 0;
+        return ConversationMessage::query()
+            ->where('conversation_id', $this->resource->id)
+            ->where('sender_id', '!=', $user->id)
+            ->when(
+                $participant->last_read_message_id !== null,
+                fn (Builder $query) => $this->afterLastReadMessage($query, $participant),
+                fn (Builder $query) => $query->when(
+                    $participant->last_read_at !== null,
+                    fn (Builder $query) => $query->where('created_at', '>', $participant->last_read_at)
+                )
+            )
+            ->count();
+    }
+
+    private function afterLastReadMessage(Builder $query, mixed $participant): Builder
+    {
+        $lastReadMessage = $participant->relationLoaded('lastReadMessage')
+            ? $participant->lastReadMessage
+            : ConversationMessage::query()
+                ->select(['id', 'created_at'])
+                ->find($participant->last_read_message_id);
+
+        if ($lastReadMessage === null) {
+            return $query;
         }
 
-        if ($participant->last_read_at === null || $this->resource->last_message_at->greaterThan($participant->last_read_at)) {
-            return 1;
-        }
-
-        return 0;
+        return $query->where(function (Builder $query) use ($lastReadMessage, $participant): void {
+            $query
+                ->where('created_at', '>', $lastReadMessage->created_at)
+                ->orWhere(function (Builder $query) use ($lastReadMessage, $participant): void {
+                    $query
+                        ->where('created_at', $lastReadMessage->created_at)
+                        ->where('id', '>', $participant->last_read_message_id);
+                });
+        });
     }
 
     private function isPinned(Request $request): bool
@@ -167,6 +200,8 @@ class ConversationResource extends JsonResource
             'participant_role' => $participant?->participant_role,
             'participant_role_snapshot' => $participant?->participant_role_snapshot,
             'participant_roles_snapshot' => $participant?->participant_roles_snapshot ?? [],
+            'last_read_at' => $participant?->last_read_at,
+            'last_read_message_id' => $participant !== null && $participant->relationLoaded('lastReadMessage') ? $this->publicId($participant->lastReadMessage) : null,
             'muted_at' => $participant?->muted_at,
             'archived_at' => $participant?->archived_at,
             'can_send_messages' => $canWrite,

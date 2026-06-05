@@ -64,6 +64,11 @@ class ConversationMessageApiTest extends TestCase
             'last_message_by' => $this->student->id,
             'last_message_preview' => 'Please review this practice answer.',
         ]);
+        $this->assertDatabaseHas('conversation_participants', [
+            'conversation_id' => $conversation->id,
+            'user_id' => $this->student->id,
+            'last_read_message_id' => ConversationMessage::query()->firstOrFail()->id,
+        ]);
 
         $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages")
             ->assertOk()
@@ -71,6 +76,87 @@ class ConversationMessageApiTest extends TestCase
             ->assertJsonPath('data.0.conversation_id', $conversation->public_id)
             ->assertJsonPath('data.0.sender.id', $this->student->public_id)
             ->assertJsonMissingPath('data.0.conversation_id.id');
+    }
+
+    public function test_conversation_unread_counts_ignore_sender_messages_and_mark_conversation_read(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $first = $this->createMessage($conversation, $this->teacher, 'First unread', now()->subMinutes(2));
+        $second = $this->createMessage($conversation, $this->teacher, 'Second unread', now()->subMinute());
+        $ownMessage = $this->createMessage($conversation, $this->student, 'My own message', now());
+
+        $conversation->forceFill([
+            'last_message_at' => $ownMessage->created_at,
+            'last_message_by' => $this->student->id,
+            'last_message_preview' => $ownMessage->body,
+            'last_message_metadata' => ['message_id' => $ownMessage->public_id],
+        ])->save();
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $conversation->public_id)
+            ->assertJsonPath('data.0.unread_count', 2)
+            ->assertJsonPath('data.0.unread_message_count', 2);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 2);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/read", [
+            'message_id' => $first->public_id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.conversation_id', $conversation->public_id)
+            ->assertJsonPath('data.last_read_message_id', $first->public_id)
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/read")
+            ->assertOk()
+            ->assertJsonPath('data.conversation_id', $conversation->public_id)
+            ->assertJsonPath('data.last_read_message_id', $ownMessage->public_id)
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->assertDatabaseHas('conversation_participants', [
+            'conversation_id' => $conversation->id,
+            'user_id' => $this->student->id,
+            'last_read_message_id' => $ownMessage->id,
+        ]);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->assertNotNull($second->public_id);
+    }
+
+    public function test_only_active_participants_can_mark_conversation_messages_read(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->teacher, 'Private message', now());
+
+        Sanctum::actingAs($this->otherStudent);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/read")
+            ->assertNotFound();
+
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/read")
+            ->assertNotFound();
+
+        $conversation->participants()->where('user_id', $this->student->id)->update(['archived_at' => now()]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/read", [
+            'message_id' => $message->public_id,
+        ])->assertNotFound();
     }
 
     public function test_message_history_supports_pagination_and_newest_ordering(): void

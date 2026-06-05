@@ -524,6 +524,7 @@ class ConversationController extends Controller
             'courseProgram:id,public_id,title',
             'createdBy:id,public_id,name,email',
             'lastMessageBy:id,public_id,name,email',
+            'participants.lastReadMessage:id,public_id',
             'participants.user:id,public_id,name,email',
         ];
     }

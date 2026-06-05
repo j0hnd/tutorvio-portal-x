@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Conversation;
+use App\Models\ConversationMessage;
 use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\User;
@@ -55,7 +56,7 @@ class ConversationCreationApiTest extends TestCase
             ->assertJsonPath('data.type', Conversation::TYPE_STUDENT_TEACHER)
             ->assertJsonPath('data.student_id', $this->student->public_id)
             ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
-            ->assertJsonPath('data.participants.0.user_id', $this->student->public_id)
+            ->assertJsonFragment(['user_id' => $this->student->public_id])
             ->assertJsonMissingPath('data.created_by');
 
         $this->postJson('/api/v1/conversations', [
@@ -222,12 +223,21 @@ class ConversationCreationApiTest extends TestCase
 
     public function test_participants_can_view_their_conversation_list_and_detail(): void
     {
+        $sentAt = now();
         $conversation = $this->createConversation([$this->student, $this->teacher], [
             'last_message_by' => $this->teacher->id,
-            'last_message_at' => now(),
+            'last_message_at' => $sentAt,
             'last_message_preview' => 'Please review the practice notes.',
             'last_message_metadata' => ['message_type' => 'text'],
             'metadata' => ['topic' => 'homework'],
+        ]);
+        ConversationMessage::query()->create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $this->teacher->id,
+            'body' => 'Please review the practice notes.',
+            'status' => ConversationMessage::STATUS_SENT,
+            'created_at' => $sentAt,
+            'updated_at' => $sentAt,
         ]);
 
         Sanctum::actingAs($this->student);
@@ -259,7 +269,7 @@ class ConversationCreationApiTest extends TestCase
             ->assertJsonPath('data.student_id', $this->student->public_id)
             ->assertJsonPath('data.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.last_message_by', $this->teacher->public_id)
-            ->assertJsonPath('data.participants.0.user_id', $this->student->public_id)
+            ->assertJsonFragment(['user_id' => $this->student->public_id])
             ->assertJsonPath('data.permission_metadata.current_user_id', $this->student->public_id)
             ->assertJsonPath('data.permission_metadata.is_participant', true);
 

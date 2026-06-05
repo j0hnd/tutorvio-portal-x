@@ -174,6 +174,7 @@ class Conversation extends Model
                 'participant_roles_snapshot',
                 'joined_at',
                 'last_read_at',
+                'last_read_message_id',
                 'muted_at',
                 'archived_at',
                 'metadata',

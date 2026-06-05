@@ -99,7 +99,10 @@ class ConversationMessageController extends Controller
             ConversationParticipant::query()
                 ->where('conversation_id', $conversation->id)
                 ->where('user_id', $actor->id)
-                ->update(['last_read_at' => $now]);
+                ->update([
+                    'last_read_at' => $now,
+                    'last_read_message_id' => $message->id,
+                ]);
 
             return $message;
         });
@@ -107,6 +110,120 @@ class ConversationMessageController extends Controller
         return response()->json([
             'data' => new ConversationMessageResource($message->load(['conversation:id,public_id', 'sender:id,public_id,name,email'])),
         ], 201);
+    }
+
+    /**
+     * Mark the actor participant read through the latest visible message.
+     */
+    public function markRead(Request $request, Conversation $conversation): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $participant = $this->activeParticipantFor($conversation, $actor);
+
+        $message = $conversation->messages()
+            ->latest('created_at')
+            ->latest('id')
+            ->first();
+
+        $readAt = now();
+        $participant->forceFill([
+            'last_read_at' => $readAt,
+            'last_read_message_id' => $message?->id,
+        ])->save();
+
+        return response()->json([
+            'data' => [
+                'conversation_id' => $conversation->public_id,
+                'read_at' => $readAt,
+                'last_read_message_id' => $message?->public_id,
+                'unread_count' => 0,
+            ],
+        ]);
+    }
+
+    /**
+     * Mark the actor participant read through a specific message boundary.
+     */
+    public function markMessagesRead(Request $request, Conversation $conversation): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $participant = $this->activeParticipantFor($conversation, $actor);
+
+        $validated = $request->validate([
+            'message_id' => ['sometimes', 'string', 'exists:conversation_messages,public_id'],
+            'message_ids' => ['sometimes', 'array', 'min:1', 'max:100'],
+            'message_ids.*' => ['required', 'string', 'distinct', 'exists:conversation_messages,public_id'],
+        ]);
+
+        $messageIds = collect($validated['message_ids'] ?? [])
+            ->when(isset($validated['message_id']), fn ($ids) => $ids->push($validated['message_id']))
+            ->unique()
+            ->values();
+
+        if ($messageIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'message_id' => 'A message_id or message_ids value is required.',
+            ]);
+        }
+
+        $messageCount = $conversation->messages()
+            ->whereIn('public_id', $messageIds)
+            ->count();
+
+        if ($messageCount !== $messageIds->count()) {
+            throw ValidationException::withMessages([
+                'message_ids' => 'One or more selected messages do not belong to this conversation.',
+            ]);
+        }
+
+        $message = $conversation->messages()
+            ->whereIn('public_id', $messageIds)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->firstOrFail();
+
+        $readAt = now();
+        $participant->forceFill([
+            'last_read_at' => $readAt,
+            'last_read_message_id' => $message->id,
+        ])->save();
+
+        return response()->json([
+            'data' => [
+                'conversation_id' => $conversation->public_id,
+                'read_at' => $readAt,
+                'last_read_message_id' => $message->public_id,
+                'unread_count' => $this->unreadCountFor($participant->refresh(), $actor),
+            ],
+        ]);
+    }
+
+    /**
+     * Return the total unread conversation message count for the actor.
+     */
+    public function unreadCount(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+
+        if (! $actor->can('viewAny', Conversation::class)) {
+            abort(403);
+        }
+
+        $count = ConversationParticipant::query()
+            ->where('user_id', $actor->id)
+            ->whereNull('archived_at')
+            ->whereNull('deleted_at')
+            ->with('lastReadMessage:id,conversation_id,created_at')
+            ->get()
+            ->sum(fn (ConversationParticipant $participant) => $this->unreadCountFor($participant, $actor));
+
+        return response()->json([
+            'data' => [
+                'unread_count' => $count,
+            ],
+        ]);
     }
 
     private function visibleConversationFor(User $user, Conversation $conversation): Conversation
@@ -122,6 +239,47 @@ class ConversationMessageController extends Controller
                 });
             })
             ->firstOrFail();
+    }
+
+    private function activeParticipantFor(Conversation $conversation, User $actor): ConversationParticipant
+    {
+        return $conversation->participants()
+            ->where('user_id', $actor->id)
+            ->whereNull('archived_at')
+            ->whereNull('deleted_at')
+            ->firstOrFail();
+    }
+
+    private function unreadCountFor(ConversationParticipant $participant, User $actor): int
+    {
+        $lastReadMessage = $participant->last_read_message_id !== null
+            ? ($participant->relationLoaded('lastReadMessage')
+                ? $participant->lastReadMessage
+                : ConversationMessage::query()
+                    ->select(['id', 'conversation_id', 'created_at'])
+                    ->find($participant->last_read_message_id))
+            : null;
+
+        return ConversationMessage::query()
+            ->where('conversation_id', $participant->conversation_id)
+            ->where('sender_id', '!=', $actor->id)
+            ->when(
+                $lastReadMessage !== null,
+                fn (Builder $query) => $query->where(function (Builder $query) use ($participant, $lastReadMessage): void {
+                    $query
+                        ->where('created_at', '>', $lastReadMessage->created_at)
+                        ->orWhere(function (Builder $query) use ($participant, $lastReadMessage): void {
+                            $query
+                                ->where('created_at', $lastReadMessage->created_at)
+                                ->where('id', '>', $participant->last_read_message_id);
+                        });
+                }),
+                fn (Builder $query) => $query->when(
+                    $participant->last_read_at !== null,
+                    fn (Builder $query) => $query->where('created_at', '>', $participant->last_read_at)
+                )
+            )
+            ->count();
     }
 
     private function assertCanSendMessage(User $actor, Conversation $conversation): void
