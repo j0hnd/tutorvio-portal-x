@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Messages\ConversationController;
 use App\Http\Controllers\Api\Messages\ConversationEscalationController;
 use App\Http\Controllers\Api\Messages\ConversationMessageController;
+use App\Http\Controllers\Api\Messages\ConversationTypingController;
 use App\Http\Controllers\Api\Messages\MessageTemplateController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
@@ -142,6 +143,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/conversations/{conversation:public_id}/messages/{message:public_id}/escalations', [ConversationEscalationController::class, 'storeMessage'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/typing/start', [ConversationTypingController::class, 'start'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/typing/stop', [ConversationTypingController::class, 'stop'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/messages/read', [ConversationMessageController::class, 'markMessagesRead'])
             ->middleware('throttle:api-action');
