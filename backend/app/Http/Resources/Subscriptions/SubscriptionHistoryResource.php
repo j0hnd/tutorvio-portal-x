@@ -13,6 +13,12 @@ class SubscriptionHistoryResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a subscription history entry into a role-aware API response.
+     *
+     * Public fields expose subscription, student, plan, lesson counts, status, and
+     * effective timing using public IDs. Payment status is billing-gated, while
+     * previous/new value diffs, notes, and creator references are admin-only.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -43,6 +49,12 @@ class SubscriptionHistoryResource extends JsonResource
         ];
     }
 
+    /**
+     * Determine whether subscription-history admin fields can be serialized.
+     *
+     * Admins can view admin fields. Staff need `subscriptions.view`.
+     * Teachers, students, guests, and staff without permission are denied.
+     */
     private function canViewAdminFields(Request $request): bool
     {
         $user = $request->user();
@@ -51,6 +63,12 @@ class SubscriptionHistoryResource extends JsonResource
             || ($user?->hasRole('staff') === true && $user?->can('subscriptions.view') === true);
     }
 
+    /**
+     * Determine whether subscription-history billing fields can be serialized.
+     *
+     * Billing fields follow the admin-field rule: admins are allowed and staff
+     * require `subscriptions.view`. Other roles are denied.
+     */
     private function canViewBillingFields(Request $request): bool
     {
         return $this->canViewAdminFields($request);

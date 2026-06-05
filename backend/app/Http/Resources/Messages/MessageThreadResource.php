@@ -12,6 +12,12 @@ class MessageThreadResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a message thread into a public-safe API response.
+     *
+     * Public fields expose the thread public ID, subject/status, participant
+     * summaries, last-message state, unread counts, and loaded messages. User and
+     * message references use public IDs, and private database keys remain internal.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

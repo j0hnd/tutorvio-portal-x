@@ -131,52 +131,100 @@ class LessonRecord extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this lesson record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this lesson record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the completed by inverse relationship for this lesson record.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function completedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'completed_by');
     }
 
+    /**
+     * Get the lesson balance consumed subscription inverse relationship for this lesson record.
+     *
+     * This user-facing relationship resolves one Subscription model.
+     */
     public function lessonBalanceConsumedSubscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class, 'lesson_balance_consumed_subscription_id');
     }
 
+    /**
+     * Get the created by inverse relationship for this lesson record.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this lesson record.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /**
+     * Get the materials many-to-many relationship for this lesson record.
+     *
+     * This user-facing relationship resolves multiple Material models.
+     */
     public function materials(): BelongsToMany
     {
         return $this->belongsToMany(Material::class, 'lesson_record_materials')
             ->withTimestamps();
     }
 
+    /**
+     * Get the lesson note one-to-one relationship for this lesson record.
+     *
+     * This user-facing relationship resolves one LessonNote model.
+     */
     public function lessonNote(): HasOne
     {
         return $this->hasOne(LessonNote::class);
     }
 
+    /**
+     * Get the teacher earning one-to-one relationship for this lesson record.
+     *
+     * This admin/internal relationship resolves one TeacherEarning model.
+     */
     public function teacherEarning(): HasOne
     {
         return $this->hasOne(TeacherEarning::class);
     }
 
+    /**
+     * Determine whether this lesson record is join available.
+     */
     public function isJoinAvailable(?CarbonInterface $now = null): bool
     {
         if (! $this->meeting_link || ! in_array($this->lesson_status, [self::STATUS_SCHEDULED, self::STATUS_PENDING_CONFIRMATION], true)) {
@@ -193,6 +241,9 @@ class LessonRecord extends Model
             && $now->lessThanOrEqualTo($availableUntil);
     }
 
+    /**
+     * Determine whether this lesson record user can join meeting.
+     */
     public function userCanJoinMeeting(?User $user, ?CarbonInterface $now = null): bool
     {
         if (! $user || ! $this->isJoinAvailable($now)) {
@@ -204,12 +255,18 @@ class LessonRecord extends Model
             || (int) $this->teacher_id === (int) $user->id;
     }
 
+    /**
+     * Return the join available from value for this lesson record.
+     */
     public function joinAvailableFrom(): ?CarbonInterface
     {
         return $this->join_available_from
             ?? $this->scheduledDateTime($this->start_time)?->subMinutes((int) config('lessons.join_window.lead_minutes', 15));
     }
 
+    /**
+     * Return the join available until value for this lesson record.
+     */
     public function joinAvailableUntil(): ?CarbonInterface
     {
         return $this->join_available_until

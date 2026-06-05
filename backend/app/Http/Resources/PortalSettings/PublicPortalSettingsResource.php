@@ -7,6 +7,15 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class PublicPortalSettingsResource extends JsonResource
 {
+    /**
+     * Transform portal settings into the public settings response.
+     *
+     * This resource exposes only frontend-safe branding, scheduling, support, and
+     * catalog status settings. Private operational settings, internal identifiers,
+     * and admin-only configuration should not be added to this public response.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         $settings = collect($this->resource)->keyBy('key');

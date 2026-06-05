@@ -46,16 +46,31 @@ class TeacherPayoutAdjustment extends Model
         ];
     }
 
+    /**
+     * Get the teacher inverse relationship for this teacher payout adjustment.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the payout period inverse relationship for this teacher payout adjustment.
+     *
+     * This admin/internal relationship resolves one PayoutPeriod model.
+     */
     public function payoutPeriod(): BelongsTo
     {
         return $this->belongsTo(PayoutPeriod::class);
     }
 
+    /**
+     * Get the created by inverse relationship for this teacher payout adjustment.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

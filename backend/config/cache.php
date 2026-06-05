@@ -19,6 +19,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rate Limiter Store
+    |--------------------------------------------------------------------------
+    |
+    | HTTP throttles use Redis when the application cache is backed by Redis.
+    | Test and fallback environments can keep this null so the limiter follows
+    | the default cache store without requiring an external service.
+    |
+    */
+
+    'limiter' => env('RATE_LIMITER_STORE', env('CACHE_STORE') === 'redis' ? 'redis' : null),
+
+    /*
+    |--------------------------------------------------------------------------
     | Cache Stores
     |--------------------------------------------------------------------------
     |
@@ -75,7 +88,7 @@ return [
         'redis' => [
             'driver' => 'redis',
             'connection' => env('REDIS_CACHE_CONNECTION', 'cache'),
-            'lock_connection' => env('REDIS_CACHE_LOCK_CONNECTION', 'default'),
+            'lock_connection' => env('REDIS_CACHE_LOCK_CONNECTION', 'lock'),
         ],
 
         'dynamodb' => [

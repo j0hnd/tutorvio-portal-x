@@ -11,6 +11,12 @@ class TeacherAvailabilityResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform teacher availability into a public-safe scheduling response.
+     *
+     * Public fields expose availability windows, timezone, recurrence details, and
+     * loaded teacher summary using public IDs. Database primary keys and private
+     * teacher internals should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

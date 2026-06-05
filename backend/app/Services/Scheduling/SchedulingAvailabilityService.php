@@ -12,6 +12,15 @@ use Illuminate\Validation\ValidationException;
 
 class SchedulingAvailabilityService
 {
+    /**
+     * Assert that a teacher can be booked for a class time.
+     *
+     * The method validates teacher role, time ordering, teacher availability,
+     * holidays, unavailable dates, teacher conflicts, and optional student
+     * schedule conflicts. It does not persist any scheduling changes.
+     *
+     * @throws ValidationException
+     */
     public function assertTeacherCanBeBooked(
         User $teacher,
         CarbonImmutable $startsAtUtc,

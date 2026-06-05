@@ -13,7 +13,14 @@ use Illuminate\Validation\ValidationException;
 class TeacherAvailabilityService
 {
     /**
+     * Create a recurring teacher availability window.
+     *
+     * The payload is expected to be validated upstream. The method verifies the
+     * teacher role, time range, and overlap rules before creating the window.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function createAvailability(array $payload): TeacherAvailability
     {
@@ -25,7 +32,15 @@ class TeacherAvailabilityService
     }
 
     /**
+     * Update a teacher availability window.
+     *
+     * Existing booked schedules must still fit inside the current window before
+     * edits are allowed. New candidate values are checked for teacher role, time
+     * range, and overlapping windows.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function updateAvailability(TeacherAvailability $availability, array $payload): TeacherAvailability
     {
@@ -53,7 +68,14 @@ class TeacherAvailabilityService
     }
 
     /**
+     * Create a teacher unavailable-date block.
+     *
+     * The payload is normalized to a UTC range, checked for booked schedule
+     * conflicts and overlapping unavailable dates, then persisted.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function createUnavailableDate(array $payload): TeacherUnavailableDate
     {
@@ -72,7 +94,14 @@ class TeacherAvailabilityService
     }
 
     /**
+     * Update a teacher unavailable-date block.
+     *
+     * Candidate values are normalized against the existing block, checked for
+     * booked schedule conflicts and overlapping unavailable dates, then saved.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function updateUnavailableDate(TeacherUnavailableDate $unavailableDate, array $payload): TeacherUnavailableDate
     {
@@ -100,6 +129,14 @@ class TeacherAvailabilityService
         return $unavailableDate->refresh();
     }
 
+    /**
+     * Assert that an availability window can be changed safely.
+     *
+     * The method checks booked class schedules against the availability window
+     * and fails when an existing booking would fall outside it.
+     *
+     * @throws ValidationException
+     */
     public function assertAvailabilityHasNoBookedSchedules(TeacherAvailability $availability): void
     {
         $hasBookedSchedules = ClassSchedule::query()

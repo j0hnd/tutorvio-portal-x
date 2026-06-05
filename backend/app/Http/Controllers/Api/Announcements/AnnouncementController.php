@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Announcements;
 
+use App\Contracts\Search\SearchService;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
@@ -15,8 +16,25 @@ use Illuminate\Validation\ValidationException;
 
 class AnnouncementController extends Controller
 {
-    public function __construct(private readonly AnnouncementRecipientResolver $recipientResolver) {}
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
+    public function __construct(
+        private readonly AnnouncementRecipientResolver $recipientResolver,
+        private readonly SearchService $search,
+    ) {}
 
+    /**
+     * Display a filtered list of announcement records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         foreach (['read', 'unread'] as $key) {
@@ -54,13 +72,7 @@ class AnnouncementController extends Controller
             ->active()
             ->visibleTo($request->user())
             ->tap(fn (Builder $query) => $this->applyReadFilter($query, $validated, $request->user()->id))
-            ->when($validated['search'] ?? null, function (Builder $query, string $search) {
-                $query->where(function (Builder $query) use ($search) {
-                    $query
-                        ->where('title', 'like', "%{$search}%")
-                        ->orWhere('body', 'like', "%{$search}%");
-                });
-            })
+            ->tap(fn (Builder $query) => $this->search->announcements($query, $validated['search'] ?? null))
             ->orderByDesc('published_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 25);
@@ -68,6 +80,14 @@ class AnnouncementController extends Controller
         return response()->json($announcements->through(fn (Announcement $announcement) => new AnnouncementResource($announcement)));
     }
 
+    /**
+     * Display the selected announcement record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $announcement.
+     * The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(Announcement $announcement): JsonResponse
     {
         abort_unless(
@@ -86,6 +106,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the unread count action for announcement records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function unreadCount(Request $request): JsonResponse
     {
         if ($request->user()->hasRole('staff') && ! $request->user()->can('dashboard.operational_notices.view')) {
@@ -109,6 +137,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the mark read action for announcement records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function markRead(Request $request, Announcement $announcement): JsonResponse
     {
         $this->abortUnlessVisible($announcement, $request);
@@ -130,6 +166,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the mark unread action for announcement records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function markUnread(Request $request, Announcement $announcement): JsonResponse
     {
         $this->abortUnlessVisible($announcement, $request);
@@ -151,6 +195,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the mark all read action for announcement records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function markAllRead(Request $request): JsonResponse
     {
         $readAt = now();
@@ -226,6 +278,14 @@ class AnnouncementController extends Controller
         }
     }
 
+    /**
+     * Handle the abort unless visible action for announcement records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     */
     private function abortUnlessVisible(Announcement $announcement, Request $request): void
     {
         abort_unless(

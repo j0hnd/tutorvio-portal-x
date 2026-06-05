@@ -11,6 +11,12 @@ class TeacherStudentAssignmentResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a teacher-student assignment into a public-safe API response.
+     *
+     * Public fields expose assignment status, reason, dates, and loaded student
+     * and teacher summaries using public IDs. Assignment owner, notes, and audit
+     * timestamps require admin access or teacher_student_assignments.view.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AppliesFullTextSearch;
 use App\Models\Concerns\HasPublicId;
 use App\Support\LogSanitizer;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +14,7 @@ use InvalidArgumentException;
 
 class AuditLog extends Model
 {
-    use HasFactory, HasPublicId;
+    use AppliesFullTextSearch, HasFactory, HasPublicId;
 
     protected $fillable = [
         'actor_user_id',
@@ -32,6 +34,9 @@ class AuditLog extends Model
         ];
     }
 
+    /**
+     * Return the metadata value for this audit log.
+     */
     protected function metadata(): Attribute
     {
         return Attribute::make(
@@ -41,9 +46,36 @@ class AuditLog extends Model
         );
     }
 
+    /**
+     * Get the actor inverse relationship for this audit log.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_user_id');
+    }
+
+    /**
+     * Scope the query to searchable audit log text.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        return $this->applyFullTextSearch($query, [
+            'action_type',
+            'module',
+            'target_entity_type',
+            'metadata_search',
+            'ip_address',
+            'user_agent',
+        ], $term, [
+            'action_type',
+            'module',
+            'target_entity_type',
+            'metadata',
+            'ip_address',
+            'user_agent',
+        ]);
     }
 
     private function sanitizeMetadata(mixed $value): mixed

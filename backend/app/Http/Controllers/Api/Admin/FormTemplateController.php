@@ -15,6 +15,17 @@ use Illuminate\Validation\Rule;
 
 class FormTemplateController extends Controller
 {
+    /**
+     * Display a filtered list of form template records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         foreach (['include_archived', 'only_archived'] as $key) {
@@ -68,6 +79,17 @@ class FormTemplateController extends Controller
         return response()->json($templates->through(fn (FormTemplate $template) => new FormTemplateResource($template)));
     }
 
+    /**
+     * Create a new form template record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreFormTemplateRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreFormTemplateRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreFormTemplateRequest $request): JsonResponse
     {
         $validated = $request->formTemplatePayload();
@@ -85,6 +107,17 @@ class FormTemplateController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected form template record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $formTemplate.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  FormTemplate  $formTemplate
+     * @return JsonResponse
+     */
     public function show(FormTemplate $formTemplate): JsonResponse
     {
         return response()->json([
@@ -92,6 +125,18 @@ class FormTemplateController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected form template record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $formTemplate.
+     * The UpdateFormTemplateRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateFormTemplateRequest  $request
+     * @param  FormTemplate  $formTemplate
+     * @return JsonResponse
+     */
     public function update(UpdateFormTemplateRequest $request, FormTemplate $formTemplate): JsonResponse
     {
         $validated = $request->formTemplatePayload();
@@ -110,6 +155,18 @@ class FormTemplateController extends Controller
         ]);
     }
 
+    /**
+     * Archive the selected form template record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $formTemplate.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  FormTemplate  $formTemplate
+     * @return JsonResponse
+     */
     public function archive(Request $request, FormTemplate $formTemplate): JsonResponse
     {
         $formTemplate->update([
@@ -122,6 +179,18 @@ class FormTemplateController extends Controller
         ]);
     }
 
+    /**
+     * Handle the unique key action for form template records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $templateType, $name.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  string  $templateType
+     * @param  string  $name
+     * @return string
+     */
     private function uniqueKey(string $templateType, string $name): string
     {
         $base = Str::slug($templateType.'-'.$name);
@@ -136,6 +205,17 @@ class FormTemplateController extends Controller
         return $key;
     }
 
+    /**
+     * Handle the normalize template type action for form template records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $templateType.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  string  $templateType
+     * @return string
+     */
     private function normalizeTemplateType(string $templateType): string
     {
         return Str::of($templateType)

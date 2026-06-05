@@ -13,11 +13,31 @@ use Illuminate\Http\JsonResponse;
 
 class InvoiceGenerationController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  InvoiceGenerationService  $invoices
+     * @param  AuditLogService  $auditLogService
+     */
     public function __construct(
         private readonly InvoiceGenerationService $invoices,
         private readonly AuditLogService $auditLogService,
     ) {}
 
+    /**
+     * Create a new invoice generation record.
+     *
+     * Admin or staff users with invoices.create permission; route middleware also throttles the action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The GenerateInvoiceRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  GenerateInvoiceRequest  $request
+     * @return JsonResponse
+     */
     public function store(GenerateInvoiceRequest $request): JsonResponse
     {
         $invoice = $this->invoices->generate([

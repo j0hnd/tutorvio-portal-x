@@ -4,13 +4,18 @@ namespace App\Services\Scheduling;
 
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
+use App\Exceptions\ServiceUnavailableException;
 use App\Models\Scheduling\ClassSchedule;
+use App\Models\Scheduling\TeacherAvailability;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Notifications\SystemNotificationService;
 use Carbon\CarbonImmutable;
+use Closure;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -25,7 +30,15 @@ class ClassScheduleService
     ) {}
 
     /**
+     * Create a scheduled class for a student and teacher.
+     *
+     * The payload is expected to be validated before this service is called.
+     * The method verifies student role and teacher availability, calculates the
+     * teacher booking block, creates the schedule, and records an audit log.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function create(array $payload, User $actor): ClassSchedule
     {
@@ -66,8 +79,16 @@ class ClassScheduleService
     }
 
     /**
+     * Create a series of recurring class schedules.
+     *
+     * The payload supplies the recurrence pattern and class details. Eligible
+     * occurrences are created in a transaction and audited, while occurrences
+     * that fail availability validation are returned in the skipped list.
+     *
      * @param  array<string, mixed>  $payload
      * @return array{created: array<int, ClassSchedule>, skipped: array<int, array<string, string>>, requested_occurrences: int}
+     *
+     * @throws ValidationException
      */
     public function createRecurring(array $payload, User $actor): array
     {
@@ -141,7 +162,16 @@ class ClassScheduleService
     }
 
     /**
+     * Book a one-time lesson for a student with their assigned teacher.
+     *
+     * The method verifies the actor is a student, enforces assigned-teacher
+     * booking, acquires configured cache locks for the student attempt and
+     * teacher availability day, checks availability, creates the schedule, and
+     * records the creation audit entry.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function bookOneTimeLesson(array $payload, User $student): ClassSchedule
     {
@@ -170,36 +200,188 @@ class ClassScheduleService
         $classType = $this->classType($payload, $student);
         $teacherBlockedUntilUtc = $this->teacherBlockedUntil($classType, $startsAtUtc, $endsAtUtc, $payload['timezone']);
 
-        return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
-            $this->availabilityService->assertTeacherCanBeBooked(
-                $teacher,
-                $startsAtUtc,
-                $endsAtUtc,
-                $payload['timezone'],
-                student: $student,
-                teacherBlockedUntilUtc: $teacherBlockedUntilUtc
-            );
+        return $this->withLessonBookingLocks(
+            $student,
+            $teacher,
+            $startsAtUtc,
+            $endsAtUtc,
+            $teacherBlockedUntilUtc,
+            $payload['timezone'],
+            function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
+                return DB::transaction(function () use ($payload, $student, $teacher, $startsAtUtc, $endsAtUtc, $classType, $teacherBlockedUntilUtc): ClassSchedule {
+                    $this->availabilityService->assertTeacherCanBeBooked(
+                        $teacher,
+                        $startsAtUtc,
+                        $endsAtUtc,
+                        $payload['timezone'],
+                        student: $student,
+                        teacherBlockedUntilUtc: $teacherBlockedUntilUtc
+                    );
 
-            $schedule = ClassSchedule::create([
-                ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
-                'student_id' => $student->id,
-                'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
-                'class_type' => $classType,
-                'starts_at' => $startsAtUtc,
-                'ends_at' => $endsAtUtc,
-                'teacher_blocked_until' => $teacherBlockedUntilUtc,
-                'created_by' => $student->id,
-                'updated_by' => $student->id,
-            ]);
+                    $schedule = ClassSchedule::create([
+                        ...Arr::only($payload, ['teacher_id', 'title', 'description', 'timezone', 'meeting_url', 'notes']),
+                        'student_id' => $student->id,
+                        'status' => $payload['status'] ?? ClassSchedule::STATUS_PENDING_CONFIRMATION,
+                        'class_type' => $classType,
+                        'starts_at' => $startsAtUtc,
+                        'ends_at' => $endsAtUtc,
+                        'teacher_blocked_until' => $teacherBlockedUntilUtc,
+                        'created_by' => $student->id,
+                        'updated_by' => $student->id,
+                    ]);
 
-            $this->logLessonCreated($schedule, $student);
+                    $this->logLessonCreated($schedule, $student);
 
-            return $schedule;
-        });
+                    return $schedule;
+                });
+            }
+        );
     }
 
     /**
+     * Serialize student-initiated bookings around the student attempt and the
+     * teacher availability day to close the gap between validation and insert.
+     * The cache store is configurable so tests or non-Redis environments can
+     * use another lock-capable store while local production-like paths use
+     * Redis.
+     */
+    private function withLessonBookingLocks(
+        User $student,
+        User $teacher,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $endsAtUtc,
+        CarbonImmutable $teacherBlockedUntilUtc,
+        string $timezone,
+        Closure $callback
+    ): ClassSchedule {
+        $locks = [];
+
+        try {
+            $locks[] = $this->acquireLessonBookingLock(
+                $this->studentBookingLockKey($student, $startsAtUtc, $endsAtUtc),
+                'starts_at',
+                'A booking attempt is already in progress for this student and time slot.'
+            );
+
+            $locks[] = $this->acquireLessonBookingLock(
+                $this->teacherAvailabilitySlotLockKey($teacher, $startsAtUtc, $teacherBlockedUntilUtc, $timezone),
+                'starts_at',
+                'This lesson slot is already being booked. Please try another time or retry shortly.'
+            );
+
+            return $callback();
+        } finally {
+            foreach (array_reverse($locks) as $lock) {
+                try {
+                    $lock->release();
+                } catch (Throwable $exception) {
+                    Log::warning('Lesson booking lock release failed.', [
+                        'failure_type' => $exception::class,
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Acquire a fail-fast lesson-booking lock from the configured cache store.
+     *
+     * Lock contention is returned as validation feedback instead of waiting or
+     * surfacing a generic server error.
+     */
+    private function acquireLessonBookingLock(string $key, string $field, string $message): Lock
+    {
+        try {
+            $lock = Cache::store($this->bookingLockStore())->lock($key, $this->bookingLockTtlSeconds());
+
+            if (! $lock->get()) {
+                throw ValidationException::withMessages([
+                    $field => $message,
+                ]);
+            }
+
+            return $lock;
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::warning('Lesson booking lock acquisition failed.', [
+                'store' => $this->bookingLockStore(),
+                'failure_type' => $exception::class,
+            ]);
+
+            throw new ServiceUnavailableException;
+        }
+    }
+
+    private function studentBookingLockKey(User $student, CarbonImmutable $startsAtUtc, CarbonImmutable $endsAtUtc): string
+    {
+        return implode(':', [
+            'tvio',
+            'lesson_booking',
+            'student',
+            $student->id,
+            $startsAtUtc->timestamp,
+            $endsAtUtc->timestamp,
+        ]);
+    }
+
+    private function teacherAvailabilitySlotLockKey(
+        User $teacher,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $teacherBlockedUntilUtc,
+        string $timezone
+    ): string {
+        $localStart = $startsAtUtc->setTimezone($timezone);
+        $localEnd = $teacherBlockedUntilUtc->setTimezone($timezone);
+
+        $availabilityId = TeacherAvailability::query()
+            ->where('teacher_id', $teacher->id)
+            ->where('is_active', true)
+            ->where('day_of_week', $localStart->dayOfWeek)
+            ->where('timezone', $timezone)
+            ->whereTime('start_time', '<=', $localStart->format('H:i:s'))
+            ->whereTime('end_time', '>=', $localEnd->format('H:i:s'))
+            ->where(function ($query) use ($localStart) {
+                $query->whereNull('effective_from')
+                    ->orWhereDate('effective_from', '<=', $localStart->toDateString());
+            })
+            ->where(function ($query) use ($localStart) {
+                $query->whereNull('effective_until')
+                    ->orWhereDate('effective_until', '>=', $localStart->toDateString());
+            })
+            ->orderBy('id')
+            ->value('id');
+
+        return implode(':', [
+            'tvio',
+            'lesson_booking',
+            'teacher_availability',
+            $teacher->id,
+            $availabilityId ?: 'none',
+            $localStart->toDateString(),
+        ]);
+    }
+
+    private function bookingLockStore(): string
+    {
+        return (string) config('lessons.booking_locks.store', 'redis');
+    }
+
+    private function bookingLockTtlSeconds(): int
+    {
+        return max(1, (int) config('lessons.booking_locks.ttl_seconds', 60));
+    }
+
+    /**
+     * Update an existing class schedule.
+     *
+     * Booking-window changes trigger role and availability validation. The
+     * method persists schedule changes, updates the actor stamp, and records
+     * auditable changed fields.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function update(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
@@ -246,7 +428,15 @@ class ClassScheduleService
     }
 
     /**
+     * Reschedule a class by closing the existing schedule and creating a new one.
+     *
+     * The old schedule is marked rescheduled, the replacement schedule is
+     * created and audited, and a reschedule notification is attempted for the
+     * participants.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function reschedule(ClassSchedule $schedule, array $payload, User $actor): ClassSchedule
     {
@@ -323,6 +513,12 @@ class ClassScheduleService
             ->format('M j, Y g:i A T');
     }
 
+    /**
+     * Cancel a class schedule.
+     *
+     * The schedule status, cancellation actor, timestamp, and reason are
+     * persisted, then the status change is recorded in audit logs.
+     */
     public function cancel(ClassSchedule $schedule, User $actor, ?string $reason = null): ClassSchedule
     {
         $before = clone $schedule;
@@ -341,6 +537,12 @@ class ClassScheduleService
         return $updatedSchedule;
     }
 
+    /**
+     * Update only the status of a class schedule.
+     *
+     * The method stamps the actor as the updater and records the status change
+     * through the schedule audit logging path.
+     */
     public function updateStatus(ClassSchedule $schedule, string $status, User $actor): ClassSchedule
     {
         $before = clone $schedule;

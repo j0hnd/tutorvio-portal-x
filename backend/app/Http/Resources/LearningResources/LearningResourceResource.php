@@ -12,6 +12,13 @@ class LearningResourceResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a learning resource into a public-safe API response.
+     *
+     * Public fields expose resource metadata, visibility, file/link descriptors,
+     * and related course or assignment context with public IDs. Pivot assignment
+     * and course-attachment details are included only when those relationships are
+     * loaded and applicable. Database primary keys should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

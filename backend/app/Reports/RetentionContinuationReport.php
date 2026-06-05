@@ -8,12 +8,15 @@ use App\Models\Subscription;
 use App\Models\SubscriptionHistory;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use App\Reports\Concerns\PaginatesReportQueries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class RetentionContinuationReport
 {
+    use PaginatesReportQueries;
+
     private const NEARING_END_DAYS = 7;
 
     /**
@@ -23,16 +26,16 @@ class RetentionContinuationReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters): array
+    public function generate(SchoolReportFilters $filters, array $pagination = []): array
     {
-        $students = $this->baseQuery($filters)->get();
+        $query = $this->baseQuery($filters);
+        $students = (clone $query)->get();
+        $page = $this->pageRows($query, $pagination, fn (User $student) => $this->row($student));
 
         return [
             'summary' => $this->summary($students),
-            'rows' => $students
-                ->map(fn (User $student) => $this->row($student))
-                ->values()
-                ->all(),
+            'rows' => $page['rows'],
+            'total' => $page['total'],
             'filters' => $filters->toArray(),
         ];
     }

@@ -7,7 +7,9 @@ use App\Http\Requests\CourseCatalog\StoreCourseProgramRequest;
 use App\Http\Requests\CourseCatalog\UpdateCourseProgramRequest;
 use App\Http\Resources\CourseCatalog\CourseProgramResource;
 use App\Models\CourseProgram;
+use App\Models\CourseType;
 use App\Models\LearningResource;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,9 +29,20 @@ class CourseProgramController extends Controller
         'updated_at',
     ];
 
+    /**
+     * Display a filtered list of course program records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', CourseProgram::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'course_type_id' => CourseType::class,
+        ]));
 
         $validated = $request->validate([
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -59,6 +72,14 @@ class CourseProgramController extends Controller
         return response()->json($programs->through(fn (CourseProgram $program) => new CourseProgramResource($program)));
     }
 
+    /**
+     * Create a new course program record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreCourseProgramRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(StoreCourseProgramRequest $request): JsonResponse
     {
         Gate::authorize('create', CourseProgram::class);
@@ -79,6 +100,14 @@ class CourseProgramController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected course program record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('view', $courseProgram);
@@ -88,6 +117,14 @@ class CourseProgramController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected course program record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * The UpdateCourseProgramRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(UpdateCourseProgramRequest $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
@@ -116,9 +153,22 @@ class CourseProgramController extends Controller
         ]);
     }
 
+    /**
+     * Handle the attach learning resources action for course program records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function attachLearningResources(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
+        $request->merge([
+            'learning_resource_ids' => collect($request->input('learning_resource_ids', []))
+                ->map(fn (mixed $id) => PublicIdResolver::toKey($id, LearningResource::class))
+                ->all(),
+        ]);
 
         $validated = $request->validate([
             'learning_resource_ids' => ['required', 'array', 'min:1'],
@@ -139,6 +189,14 @@ class CourseProgramController extends Controller
         ]);
     }
 
+    /**
+     * Handle the detach learning resource action for course program records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram, $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function detachLearningResource(Request $request, CourseProgram $courseProgram, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
@@ -152,6 +210,14 @@ class CourseProgramController extends Controller
         ]);
     }
 
+    /**
+     * Archive the selected course program record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function archive(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('delete', $courseProgram);
@@ -168,6 +234,14 @@ class CourseProgramController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected course program record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON confirmation after deletion.
+     */
     public function destroy(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         $this->archive($request, $courseProgram);
@@ -227,6 +301,14 @@ class CourseProgramController extends Controller
         return $accessibleIds;
     }
 
+    /**
+     * Handle the search action for course program records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $term.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function search(Builder $query, string $term): Builder
     {
         $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($term)).'%';
@@ -238,6 +320,13 @@ class CourseProgramController extends Controller
         });
     }
 
+    /**
+     * Determine whether archived course programs can be included.
+     *
+     * Admins can include archived programs. Staff need
+     * `course_programs.view`. Teachers and students are denied archived
+     * visibility even when active programs are visible to them.
+     */
     private function canViewArchived(Request $request): bool
     {
         $user = $request->user();
@@ -246,6 +335,14 @@ class CourseProgramController extends Controller
             || ($user?->hasRole('staff') === true && $user->can('course_programs.view'));
     }
 
+    /**
+     * Handle the unique slug action for course program records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $title, $ignore.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function uniqueSlug(string $title, ?CourseProgram $ignore = null): string
     {
         $base = Str::slug($title) ?: 'course-program';

@@ -19,7 +19,11 @@ class TeacherEarningResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
-     * Transform the resource into an array.
+     * Transform a teacher earning into a payroll API response.
+     *
+     * Public-safe payroll fields expose teacher, source, lesson, course, rate,
+     * quantity, amount, currency, status, and payout-period context using public
+     * IDs. Source database IDs are converted before leaving the API boundary.
      *
      * @return array<string, mixed>
      */

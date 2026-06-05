@@ -13,6 +13,17 @@ use Illuminate\Validation\ValidationException;
 
 class TeacherChangeRequestController extends Controller
 {
+    /**
+     * Display a filtered list of teacher change request records.
+     *
+     * Authenticated student users only; route middleware requires the student role.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -33,6 +44,17 @@ class TeacherChangeRequestController extends Controller
         return response()->json($requests->through(fn (TeacherChangeRequest $teacherChangeRequest) => new TeacherChangeRequestResource($teacherChangeRequest)));
     }
 
+    /**
+     * Create a new teacher change request record.
+     *
+     * Authenticated student users only; route middleware requires the student role.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', TeacherChangeRequest::class);
@@ -77,6 +99,18 @@ class TeacherChangeRequestController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected teacher change request record.
+     *
+     * Authenticated student users only; route middleware requires the student role.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The TeacherChangeRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  TeacherChangeRequest  $teacherChangeRequest
+     * @return JsonResponse
+     */
     public function show(Request $request, TeacherChangeRequest $teacherChangeRequest): JsonResponse
     {
         Gate::authorize('view', $teacherChangeRequest);
@@ -89,6 +123,18 @@ class TeacherChangeRequestController extends Controller
         ]);
     }
 
+    /**
+     * Cancel the selected teacher change request record.
+     *
+     * Authenticated student users only; route middleware requires the student role.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The TeacherChangeRequest handles authorization and validation before the controller action runs. Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  TeacherChangeRequest  $teacherChangeRequest
+     * @return JsonResponse
+     */
     public function cancel(Request $request, TeacherChangeRequest $teacherChangeRequest): JsonResponse
     {
         Gate::authorize('cancel', $teacherChangeRequest);

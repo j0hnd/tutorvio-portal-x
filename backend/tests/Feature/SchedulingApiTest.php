@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
+use App\Jobs\Scheduling\SendClassReminderNotification;
 use App\Models\AuditLog;
 use App\Models\Notification as PortalNotification;
 use App\Models\NotificationRecipient;
@@ -18,7 +19,9 @@ use App\Services\Scheduling\ScheduleReminderService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -36,6 +39,8 @@ class SchedulingApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        config(['lessons.booking_locks.store' => 'array']);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->seed(RolesAndPermissionsSeeder::class);
@@ -432,6 +437,115 @@ class SchedulingApiTest extends TestCase
             ->assertJsonValidationErrors('starts_at');
 
         $this->assertDatabaseCount('class_schedules', 1);
+    }
+
+    public function test_student_booking_returns_clear_error_when_teacher_slot_is_locked(): void
+    {
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        $availability = TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        $lock = Cache::store('array')->lock(
+            "tvio:lesson_booking:teacher_availability:{$this->teacher->id}:{$availability->id}:2026-06-01",
+            60
+        );
+
+        $this->assertTrue($lock->get());
+
+        try {
+            Sanctum::actingAs($this->student);
+
+            $this->postJson('/api/v1/scheduling/lesson-bookings', [
+                'teacher_id' => $this->teacher->id,
+                'timezone' => 'Asia/Manila',
+                'starts_at' => '2026-06-01T10:00:00+08:00',
+                'ends_at' => '2026-06-01T11:00:00+08:00',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('starts_at')
+                ->assertJsonPath('errors.starts_at.0', 'This lesson slot is already being booked. Please try another time or retry shortly.');
+
+            $this->assertDatabaseCount('class_schedules', 0);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function test_student_booking_returns_service_unavailable_when_lock_store_fails(): void
+    {
+        config(['lessons.booking_locks.store' => 'missing-lock-store']);
+
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:00:00+08:00',
+            'ends_at' => '2026-06-01T11:00:00+08:00',
+        ])
+            ->assertServiceUnavailable()
+            ->assertJsonPath('message', 'Service temporarily unavailable.');
+
+        $this->assertDatabaseCount('class_schedules', 0);
+    }
+
+    public function test_student_booking_releases_locks_after_success(): void
+    {
+        $this->student->studentProfile()->create([
+            'assigned_teacher_id' => $this->teacher->id,
+        ]);
+
+        $availability = TeacherAvailability::create([
+            'teacher_id' => $this->teacher->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'timezone' => 'Asia/Manila',
+        ]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson('/api/v1/scheduling/lesson-bookings', [
+            'teacher_id' => $this->teacher->id,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01T10:00:00+08:00',
+            'ends_at' => '2026-06-01T11:00:00+08:00',
+        ])->assertCreated();
+
+        $teacherLock = Cache::store('array')->lock(
+            "tvio:lesson_booking:teacher_availability:{$this->teacher->id}:{$availability->id}:2026-06-01",
+            60
+        );
+        $studentLock = Cache::store('array')->lock(
+            "tvio:lesson_booking:student:{$this->student->id}:1780279200:1780282800",
+            60
+        );
+
+        $this->assertTrue($teacherLock->get());
+        $this->assertTrue($studentLock->get());
+
+        $teacherLock->release();
+        $studentLock->release();
     }
 
     public function test_student_booking_respects_unavailable_dates_and_holidays(): void
@@ -1291,7 +1405,45 @@ class SchedulingApiTest extends TestCase
         $this->assertDatabaseCount('schedule_reminders', 4);
     }
 
-    public function test_reminder_service_sends_due_email_and_tracks_status(): void
+    public function test_reminder_service_dispatches_due_reminder_jobs(): void
+    {
+        Queue::fake();
+
+        $service = app(ScheduleReminderService::class);
+        $schedule = ClassSchedule::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'title' => 'Grammar review',
+            'status' => ClassSchedule::STATUS_SCHEDULED,
+            'timezone' => 'Asia/Manila',
+            'starts_at' => '2026-06-01 02:00:00',
+            'ends_at' => '2026-06-01 03:00:00',
+        ]);
+
+        $reminder = ScheduleReminder::create([
+            'class_schedule_id' => $schedule->id,
+            'user_id' => $this->student->id,
+            'channel' => 'email',
+            'status' => ScheduleReminder::STATUS_PENDING,
+            'scheduled_for' => '2026-06-01 01:00:00',
+        ]);
+
+        $now = CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC');
+
+        $this->assertSame(1, $service->sendDue($now));
+
+        Queue::assertPushed(SendClassReminderNotification::class, function (SendClassReminderNotification $job) use ($reminder, $now): bool {
+            return $job->scheduleReminderId === $reminder->id
+                && $job->dueAt === $now->toIso8601String();
+        });
+
+        $this->assertDatabaseHas('schedule_reminders', [
+            'id' => $reminder->id,
+            'status' => ScheduleReminder::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_reminder_job_sends_due_email_and_tracks_status(): void
     {
         Notification::fake();
 
@@ -1316,7 +1468,7 @@ class SchedulingApiTest extends TestCase
 
         $now = CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC');
 
-        $this->assertSame(1, $service->sendDue($now));
+        $this->assertTrue($service->sendReminder($reminder->id, $now));
 
         Notification::assertSentTo($this->student, ClassScheduleReminderNotification::class);
         $portalNotification = PortalNotification::query()
@@ -1366,7 +1518,7 @@ class SchedulingApiTest extends TestCase
             'scheduled_for' => '2026-06-01 01:00:00',
         ]);
 
-        $this->assertSame(0, $service->sendDue(CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC')));
+        $this->assertSame(1, $service->sendDue(CarbonImmutable::parse('2026-06-01 01:00:00', 'UTC')));
 
         Notification::assertNothingSent();
         $this->assertDatabaseHas('schedule_reminders', [

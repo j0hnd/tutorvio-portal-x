@@ -2,18 +2,45 @@
 
 namespace App\Http\Requests\TeacherCompensations;
 
+use App\Models\CourseProgram;
+use App\Models\CourseType;
 use App\Models\TeacherCompensation;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create teacher compensation rate rule requests.
+ *
+ * Expected roles: Admin or staff users with teacher compensation management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreTeacherCompensationRateRuleRequest extends FormRequest
 {
+    /**
+     * Resolve public course references to internal keys for rate matching.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'course_type_id' => CourseType::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+    }
+
+    /**
+     * Determine whether the authenticated user can submit create teacher compensation rate rule requests. This request adds no request-local authorization beyond route middleware, controller gates, or policies.
+     */
     public function authorize(): bool
     {
         return true;
     }
 
     /**
+     * Get validation rules for create teacher compensation rate rule requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; required rules define the minimum payload for creation.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

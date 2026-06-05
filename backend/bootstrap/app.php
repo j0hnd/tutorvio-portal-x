@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ServiceUnavailableException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands()
     ->withMiddleware(function (Middleware $middleware): void {
+        // Use Laravel's Redis throttle middleware only when the limiter/cache
+        // store is explicitly Redis; array/database stores remain valid
+        // fallbacks for tests and non-Redis environments.
+        if (env('RATE_LIMITER_STORE', env('CACHE_STORE')) === 'redis') {
+            $middleware->throttleWithRedis();
+        }
+
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
@@ -85,6 +93,16 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 404);
         });
 
+        $exceptions->render(function (ServiceUnavailableException $exception, Request $request) use ($isApiRequest) {
+            if (! $isApiRequest($request)) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => 'Service temporarily unavailable.',
+            ], 503);
+        });
+
         $exceptions->render(function (HttpExceptionInterface $exception, Request $request) use ($isApiRequest) {
             if (! $isApiRequest($request)) {
                 return null;
@@ -96,6 +114,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 403 => 'Forbidden.',
                 404 => 'Resource not found.',
                 429 => 'Too many requests.',
+                503 => 'Service temporarily unavailable.',
                 default => 'HTTP error.',
             };
 

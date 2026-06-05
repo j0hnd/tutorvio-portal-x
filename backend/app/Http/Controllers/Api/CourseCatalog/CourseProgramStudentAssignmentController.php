@@ -7,6 +7,7 @@ use App\Http\Resources\CourseCatalog\CourseProgramStudentAssignmentResource;
 use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,14 @@ use Illuminate\Validation\ValidationException;
 
 class CourseProgramStudentAssignmentController extends Controller
 {
+    /**
+     * Handle the course students action for course program student assignment records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function courseStudents(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('viewStudentAssignments', $courseProgram);
@@ -37,9 +46,22 @@ class CourseProgramStudentAssignmentController extends Controller
         );
     }
 
+    /**
+     * Handle the assign students action for course program student assignment records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseProgram.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function assignStudents(Request $request, CourseProgram $courseProgram): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
+        $request->merge([
+            'student_ids' => collect($request->input('student_ids', []))
+                ->map(fn (mixed $id) => PublicIdResolver::toKey($id, User::class))
+                ->all(),
+        ]);
 
         $validated = $request->validate([
             'student_ids' => ['required', 'array', 'min:1'],
@@ -84,6 +106,14 @@ class CourseProgramStudentAssignmentController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the remove student action for course program student assignment records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $courseProgram, $student.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function removeStudent(CourseProgram $courseProgram, User $student): JsonResponse
     {
         Gate::authorize('update', $courseProgram);
@@ -107,6 +137,14 @@ class CourseProgramStudentAssignmentController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Handle the student courses action for course program student assignment records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function studentCourses(Request $request, User $student): JsonResponse
     {
         Gate::authorize('viewAny', CourseProgram::class);
@@ -166,6 +204,13 @@ class CourseProgramStudentAssignmentController extends Controller
         }
     }
 
+    /**
+     * Authorize viewing course assignments for a student.
+     *
+     * Admins and staff with `course_programs.view` can view any student's
+     * courses. Students can view their own courses. Teachers can view courses
+     * for students assigned to them. All other access is denied.
+     */
     private function authorizeStudentCourses(User $user, User $student): void
     {
         if ($user->hasRole('admin') || ($user->hasRole('staff') && $user->can('course_programs.view'))) {

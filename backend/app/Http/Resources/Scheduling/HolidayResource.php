@@ -11,6 +11,12 @@ class HolidayResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a holiday into a public-safe scheduling response.
+     *
+     * Public fields expose the holiday public ID, name, date range, recurrence,
+     * and status. Database primary keys and internal scheduling configuration
+     * should not be exposed in frontend-facing references.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

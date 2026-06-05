@@ -58,37 +58,71 @@ class ScheduleChangeRequest extends Model
         ];
     }
 
+    /**
+     * Get the requester inverse relationship for this schedule change request.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function requester(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requester_id');
     }
 
+    /**
+     * Get the student inverse relationship for this schedule change request.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this schedule change request.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the lesson inverse relationship for this schedule change request.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the class schedule inverse relationship for this schedule change request.
+     *
+     * This user-facing relationship resolves one ClassSchedule model.
+     */
     public function classSchedule(): BelongsTo
     {
         return $this->belongsTo(ClassSchedule::class);
     }
 
+    /**
+     * Get the reviewer inverse relationship for this schedule change request.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     /**
+     * Scope the query to pending records.
+     *
+     * Important query filters: status.
+     *
      * @param  Builder<ScheduleChangeRequest>  $query
      * @return Builder<ScheduleChangeRequest>
      */

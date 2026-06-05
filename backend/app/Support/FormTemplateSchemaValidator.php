@@ -4,6 +4,12 @@ namespace App\Support;
 
 use Illuminate\Support\Arr;
 
+/**
+ * Validates dynamic form template schemas.
+ *
+ * Expected roles: Admin or staff template managers indirectly through form template requests.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 final class FormTemplateSchemaValidator
 {
     public const FIELD_TYPES = [
@@ -24,6 +30,8 @@ final class FormTemplateSchemaValidator
     ];
 
     /**
+     * Normalize a form-template schema into the canonical storage shape.
+     *
      * @param  array<string, mixed>  $schema
      * @return array<string, mixed>
      */
@@ -36,6 +44,10 @@ final class FormTemplateSchemaValidator
     }
 
     /**
+     * Return validation errors for a dynamic form-template schema without mutating it.
+     *
+     * Important rules: schema fields must be objects with unique identifier names, labels, supported field types, boolean required flags, and valid options for choice fields.
+     *
      * @param  array<string, mixed>  $schema
      * @return array<string, string>
      */

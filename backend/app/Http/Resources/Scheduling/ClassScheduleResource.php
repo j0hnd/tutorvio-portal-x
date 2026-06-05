@@ -11,6 +11,13 @@ class ClassScheduleResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a class schedule into a public-safe scheduling response.
+     *
+     * Public fields expose schedule timing, status, meeting details, and loaded
+     * teacher/student/course references using public IDs. Internal scheduling
+     * metadata should remain hidden unless another authorized resource explicitly
+     * exposes it.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

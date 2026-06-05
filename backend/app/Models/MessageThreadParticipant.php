@@ -30,11 +30,21 @@ class MessageThreadParticipant extends Model
         ];
     }
 
+    /**
+     * Get the thread inverse relationship for this message thread participant.
+     *
+     * This user-facing relationship resolves one MessageThread model.
+     */
     public function thread(): BelongsTo
     {
         return $this->belongsTo(MessageThread::class, 'message_thread_id');
     }
 
+    /**
+     * Get the user inverse relationship for this message thread participant.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

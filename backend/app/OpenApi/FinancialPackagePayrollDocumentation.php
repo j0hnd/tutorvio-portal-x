@@ -150,7 +150,7 @@ use OpenApi\Attributes as OA;
     schema: 'PackageAssignmentRequest',
     required: ['student_id', 'plan_name', 'package_type', 'total_lesson_count', 'consumed_lesson_count', 'remaining_lesson_count', 'status', 'payment_status'],
     properties: [
-        new OA\Property(property: 'student_id', description: 'Internal numeric user ID for a student.', type: 'integer', example: 23),
+        new OA\Property(property: 'student_id', description: 'Student user public ID.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
         new OA\Property(property: 'plan_name', type: 'string', example: 'Business English 20 Lessons'),
         new OA\Property(property: 'package_type', ref: '#/components/schemas/PackageType'),
         new OA\Property(property: 'total_lesson_count', type: 'integer', minimum: 0, example: 20),
@@ -171,7 +171,7 @@ use OpenApi\Attributes as OA;
     description: 'Teacher pay rate configuration. Admin/staff-only payroll object; teachers do not receive compensation configuration through these admin routes.',
     properties: [
         new OA\Property(property: 'id', type: 'string', example: 'tcp_01J0COMP000000000001'),
-        new OA\Property(property: 'teacher_id', description: 'Internal numeric teacher user ID.', type: 'integer', example: 17),
+        new OA\Property(property: 'teacher_id', description: 'Teacher user public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'pay_model', ref: '#/components/schemas/TeacherPayModel'),
         new OA\Property(property: 'base_rate', type: 'number', format: 'float', example: 18.00),
         new OA\Property(property: 'default_pay_rate', type: 'number', format: 'float', example: 18.00),
@@ -191,7 +191,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'lesson_type', nullable: true, type: 'string', example: 'business_english'),
         new OA\Property(property: 'experience_level', nullable: true, type: 'string', example: 'senior'),
         new OA\Property(property: 'contract_agreement', nullable: true, type: 'string', example: 'standard_contract'),
-        new OA\Property(property: 'course_type_id', nullable: true, type: 'integer', example: 3),
+        new OA\Property(property: 'course_type_id', nullable: true, type: 'string', example: 'ctp_01J0COURSETYPE000000001'),
         new OA\Property(property: 'course_program_id', nullable: true, type: 'integer', example: 11),
         new OA\Property(property: 'pay_model', ref: '#/components/schemas/TeacherPayModel'),
         new OA\Property(property: 'pay_rate', type: 'number', format: 'float', example: 22.50),
@@ -256,7 +256,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Billing'],
     parameters: [
-        new OA\Parameter(name: 'student_id', in: 'query', description: 'Internal numeric student ID. Honored only for admin/staff with invoice view access.', schema: new OA\Schema(type: 'integer'), example: 23),
+        new OA\Parameter(name: 'student_id', in: 'query', description: 'Student user public ID. Honored only for admin/staff with invoice view access.', schema: new OA\Schema(type: 'string'), example: 'usr_01J0STUDENT000000000000001'),
         new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/InvoiceStatus')),
         new OA\Parameter(name: 'subscription_id', in: 'query', description: 'Subscription public ID.', schema: new OA\Schema(type: 'string'), example: 'sub_01J0PACKAGE000000000001'),
         new OA\Parameter(name: 'package', in: 'query', schema: new OA\Schema(type: 'string'), example: 'Business English'),
@@ -323,6 +323,26 @@ use OpenApi\Attributes as OA;
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
 )]
+#[OA\Post(
+    path: '/invoices/{invoice}/send-email',
+    operationId: 'billingInvoiceEmailQueue',
+    summary: 'Queue invoice email',
+    description: 'Access: admin or staff with `invoices.create`. Queues a background job to email the invoice PDF to the student and returns the current invoice resource. Delivery history and invoice email metadata are updated by the queued job.',
+    security: [['sanctum' => []]],
+    tags: ['Billing'],
+    parameters: [
+        new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'inv_01J0INVOICE000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 202, description: 'Invoice email queued.', content: new OA\JsonContent(type: 'object', properties: [
+            new OA\Property(property: 'data', ref: '#/components/schemas/BillingInvoice'),
+            new OA\Property(property: 'email_queued', type: 'boolean', example: true),
+        ])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
 #[OA\Patch(
     path: '/invoices/{invoice}/payment-status',
     operationId: 'billingInvoicePaymentStatusUpdate',
@@ -367,7 +387,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Packages', 'Admin'],
     parameters: [
-        new OA\Parameter(name: 'student_id', in: 'query', description: 'Internal numeric student ID.', schema: new OA\Schema(type: 'integer'), example: 23),
+        new OA\Parameter(name: 'student_id', in: 'query', description: 'Student user public ID.', schema: new OA\Schema(type: 'string'), example: 'usr_01J0STUDENT000000000000001'),
         new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['active', 'inactive', 'expired', 'cancelled']), example: 'active'),
         new OA\Parameter(name: 'payment_status', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/PackagePaymentStatus')),
         new OA\Parameter(name: 'package_type', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/PackageType')),
@@ -499,7 +519,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Payroll', 'Admin'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
         new OA\Parameter(name: 'pay_model', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/TeacherPayModel')),
         new OA\Parameter(name: 'currency', in: 'query', schema: new OA\Schema(type: 'string', minLength: 3, maxLength: 3), example: 'USD'),
         new OA\Parameter(name: 'effective_on', in: 'query', schema: new OA\Schema(type: 'string', format: 'date'), example: '2026-06-01'),
@@ -555,7 +575,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Payroll', 'Admin'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
         new OA\Parameter(name: 'payout_period', in: 'query', schema: new OA\Schema(type: 'string'), example: '2026-06'),
         new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/TeacherEarningStatus')),
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
@@ -626,7 +646,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Payroll', 'Admin'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
         new OA\Parameter(name: 'payout_period_id', in: 'query', schema: new OA\Schema(type: 'integer'), example: 7),
         new OA\Parameter(name: 'type', in: 'query', schema: new OA\Schema(ref: '#/components/schemas/PayrollAdjustmentType')),
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 15),
@@ -645,7 +665,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Payroll', 'Admin'],
     requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['teacher_id', 'type', 'amount', 'reason'], properties: [
-        new OA\Property(property: 'teacher_id', description: 'Internal numeric teacher user ID.', type: 'integer', example: 17),
+        new OA\Property(property: 'teacher_id', description: 'Teacher user public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'payout_period_id', nullable: true, type: 'integer', example: 7),
         new OA\Property(property: 'type', ref: '#/components/schemas/PayrollAdjustmentType'),
         new OA\Property(property: 'amount', type: 'number', format: 'float', example: 25.00),

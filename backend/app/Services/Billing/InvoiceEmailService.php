@@ -2,6 +2,8 @@
 
 namespace App\Services\Billing;
 
+use App\Exceptions\ServiceUnavailableException;
+use App\Jobs\Billing\SendInvoiceEmail;
 use App\Models\Invoice;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
@@ -18,6 +20,17 @@ class InvoiceEmailService
 
     public const MODE_MANUAL = 'manual';
 
+    /**
+     * Send an invoice email when automatic invoice delivery is enabled.
+     *
+     * This mail-dispatch helper runs after invoice generation when automatic
+     * delivery is enabled. It skips invoices already marked as automatically
+     * sent, creates notification history for the attempt, sends the invoice
+     * email, updates invoice email metadata, and records failed delivery details
+     * instead of throwing mail exceptions. It logs mail failures as warnings and
+     * is safe to retry after a successful automatic send because
+     * `automatic_sent_at` prevents duplicates.
+     */
     public function sendAutomatically(Invoice $invoice): bool
     {
         if (! (bool) config('billing.invoice.email.automatic_enabled', false)) {
@@ -31,9 +44,91 @@ class InvoiceEmailService
         return $this->send($invoice, self::MODE_AUTOMATIC);
     }
 
+    /**
+     * Queue automatic invoice email delivery after the surrounding transaction.
+     *
+     * The queued job re-checks automatic delivery settings and the
+     * `automatic_sent_at` marker before sending, so stale or duplicate jobs do
+     * not send a second automatic invoice email.
+     */
+    public function queueAutomatically(Invoice $invoice): bool
+    {
+        if (! (bool) config('billing.invoice.email.automatic_enabled', false)) {
+            return false;
+        }
+
+        if ($this->automaticEmailAlreadySent($invoice)) {
+            return false;
+        }
+
+        try {
+            SendInvoiceEmail::dispatch($invoice->id, self::MODE_AUTOMATIC)->afterCommit();
+        } catch (Throwable $exception) {
+            Log::warning('Automatic invoice email queue dispatch failed.', [
+                'invoice_id' => $invoice->id,
+                'failure_type' => $exception::class,
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Resend an invoice email as a manual staff action.
+     *
+     * This mail-dispatch helper runs from a manual staff resend action. It
+     * records the sender on notification history when provided, sends the
+     * invoice email, updates invoice email metadata, and records
+     * missing-recipient or delivery failures as failed notification recipients.
+     * It logs mail failures as warnings. Retrying this method intentionally
+     * creates a new manual delivery attempt and may send another email.
+     */
     public function resendManually(Invoice $invoice, ?User $sender = null): bool
     {
         return $this->send($invoice, self::MODE_MANUAL, $sender);
+    }
+
+    /**
+     * Queue a manual staff invoice email resend after commit.
+     *
+     * Manual resends intentionally create a new delivery attempt when the job
+     * runs, preserving the same semantics as the synchronous resend path.
+     */
+    public function queueManualResend(Invoice $invoice, ?User $sender = null): bool
+    {
+        try {
+            SendInvoiceEmail::dispatch($invoice->id, self::MODE_MANUAL, $sender?->id)->afterCommit();
+        } catch (Throwable $exception) {
+            Log::warning('Manual invoice email queue dispatch failed.', [
+                'invoice_id' => $invoice->id,
+                'sender_id' => $sender?->id,
+                'failure_type' => $exception::class,
+            ]);
+
+            throw new ServiceUnavailableException;
+        }
+
+        return true;
+    }
+
+    /**
+     * Run invoice email delivery from a queued job.
+     */
+    public function sendQueued(int $invoiceId, string $mode, ?User $sender = null): bool
+    {
+        $invoice = Invoice::query()->find($invoiceId);
+
+        if ($invoice === null) {
+            return false;
+        }
+
+        if ($mode === self::MODE_AUTOMATIC) {
+            return $this->sendAutomatically($invoice);
+        }
+
+        return $this->resendManually($invoice, $sender);
     }
 
     private function send(Invoice $invoice, string $mode, ?User $sender = null): bool

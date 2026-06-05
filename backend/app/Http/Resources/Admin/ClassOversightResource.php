@@ -13,6 +13,13 @@ class ClassOversightResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a class schedule into the admin class-oversight response.
+     *
+     * This resource is intended for oversight users and exposes public IDs for
+     * the class, lesson note, teacher, and student references. The nested teacher
+     * note is included only when explicitly requested. Database primary keys
+     * should not be exposed in frontend-facing references.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

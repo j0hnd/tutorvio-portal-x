@@ -14,9 +14,9 @@ class MissedClassReport extends AttendanceReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters): array
+    public function generate(SchoolReportFilters $filters, array $pagination = []): array
     {
-        $lessonRecords = $this->baseQuery($filters)
+        $query = $this->baseQuery($filters)
             ->where(function (Builder $query) {
                 $query
                     ->whereIn('attendance_status', [
@@ -27,17 +27,16 @@ class MissedClassReport extends AttendanceReport
                         LessonRecord::STATUS_MISSED_BY_STUDENT,
                         LessonRecord::STATUS_MISSED_BY_TEACHER,
                     ]);
-            })
-            ->get();
+            });
+        $lessonRecords = (clone $query)->get();
+        $page = $this->pageRows($query, $pagination, fn (LessonRecord $lessonRecord) => $this->row($lessonRecord));
 
         return [
             'summary' => [
                 'missed_class_count' => $lessonRecords->count(),
             ],
-            'rows' => $lessonRecords
-                ->map(fn (LessonRecord $lessonRecord) => $this->row($lessonRecord))
-                ->values()
-                ->all(),
+            'rows' => $page['rows'],
+            'total' => $page['total'],
             'filters' => $filters->toArray(),
         ];
     }

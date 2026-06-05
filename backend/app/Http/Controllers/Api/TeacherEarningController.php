@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TeacherEarnings\TeacherEarningResource;
+use App\Models\CourseProgram;
 use App\Models\LessonRecord;
 use App\Models\TeacherCompensation;
 use App\Models\TeacherEarning;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,9 +17,21 @@ use Illuminate\Validation\Rule;
 
 class TeacherEarningController extends Controller
 {
+    /**
+     * Display a filtered list of teacher earning records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewOwn', TeacherEarning::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'course' => CourseProgram::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
 
         $validated = $request->validate([
             'payout_period' => ['sometimes', 'string', 'max:50'],
@@ -56,6 +70,14 @@ class TeacherEarningController extends Controller
         return response()->json($earnings->through(fn (TeacherEarning $earning) => new TeacherEarningResource($earning)));
     }
 
+    /**
+     * Handle the where earning date action for teacher earning records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $operator, $date.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function whereEarningDate(Builder $query, string $operator, string $date): void
     {
         $query->where(function (Builder $query) use ($operator, $date): void {

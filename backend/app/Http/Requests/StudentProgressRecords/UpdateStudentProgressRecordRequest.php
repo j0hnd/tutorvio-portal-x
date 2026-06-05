@@ -3,12 +3,35 @@
 namespace App\Http\Requests\StudentProgressRecords;
 
 use App\Models\StudentProgressRecord;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates update student progress record requests.
+ *
+ * Expected roles: Authenticated teachers, staff, or admins allowed by student progress routes, controller checks, or policies.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateStudentProgressRecordRequest extends FormRequest
 {
     /**
+     * Resolve public user IDs to internal keys for persistence.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+    }
+
+    /**
+     * Get validation rules for update student progress record requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; partial update rules validate only supplied fields unless a supplied field is explicitly required.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

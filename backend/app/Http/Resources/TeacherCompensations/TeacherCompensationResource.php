@@ -12,6 +12,13 @@ class TeacherCompensationResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform teacher compensation into a payroll API response.
+     *
+     * This resource is for authorized compensation viewers and exposes teacher
+     * public ID, pay model, default rate, effective dates, archive metadata, and
+     * loaded rate rules. Internal admin notes are privileged compensation data and
+     * should not be surfaced through public profile resources.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

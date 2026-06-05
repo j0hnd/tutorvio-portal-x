@@ -6,9 +6,19 @@ use App\Models\PayoutPeriod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates update payout period requests.
+ *
+ * Expected roles: Admin or staff users with payroll or payout-period management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdatePayoutPeriodRequest extends FormRequest
 {
     /**
+     * Get validation rules for update payout period requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; prohibited rules protect fields that this role or request must not change; enum rules constrain values to the relevant model constants; date and time ordering rules keep ranges consistent.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -46,6 +56,11 @@ class UpdatePayoutPeriodRequest extends FormRequest
         return $rules;
     }
 
+    /**
+     * Register after-validation checks for allowed payout-period status transitions.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {

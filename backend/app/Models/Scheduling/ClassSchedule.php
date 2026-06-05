@@ -82,21 +82,41 @@ class ClassSchedule extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this class schedule.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this class schedule.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the reminders one-to-many relationship for this class schedule.
+     *
+     * This user-facing relationship resolves multiple ScheduleReminder models.
+     */
     public function reminders(): HasMany
     {
         return $this->hasMany(ScheduleReminder::class);
     }
 
+    /**
+     * Get the rescheduled from inverse relationship for this class schedule.
+     *
+     * This user-facing relationship resolves one ClassSchedule model.
+     */
     public function rescheduledFrom(): BelongsTo
     {
         return $this->belongsTo(self::class, 'rescheduled_from_id');

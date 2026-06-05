@@ -59,6 +59,11 @@ class OperationalAnnouncement extends Model
         ];
     }
 
+    /**
+     * Get the publisher inverse relationship for this operational announcement.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function publisher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'published_by');

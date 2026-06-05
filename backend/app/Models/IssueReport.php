@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AppliesFullTextSearch;
 use App\Models\Concerns\HasPublicId;
 use App\Models\Scheduling\ClassSchedule;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class IssueReport extends Model
 {
-    use HasFactory, HasPublicId, SoftDeletes;
+    use AppliesFullTextSearch, HasFactory, HasPublicId, SoftDeletes;
 
     public const TYPE_TECHNICAL_ISSUE = 'technical_issue';
 
@@ -107,67 +108,139 @@ class IssueReport extends Model
         ];
     }
 
+    /**
+     * Scope the query to searchable issue report text.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        return $this->applyFullTextSearch($query, ['title', 'description', 'resolution_notes'], $term);
+    }
+
+    /**
+     * Get the reporter inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function reporter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reporter_id');
     }
 
+    /**
+     * Get the target user inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function targetUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'target_user_id');
     }
 
+    /**
+     * Get the lesson inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the class schedule inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one ClassSchedule model.
+     */
     public function classSchedule(): BelongsTo
     {
         return $this->belongsTo(ClassSchedule::class);
     }
 
+    /**
+     * Get the related student inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function relatedStudent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'related_student_id');
     }
 
+    /**
+     * Get the related teacher inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function relatedTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'related_teacher_id');
     }
 
+    /**
+     * Get the course program inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one CourseProgram model.
+     */
     public function courseProgram(): BelongsTo
     {
         return $this->belongsTo(CourseProgram::class);
     }
 
+    /**
+     * Get the material inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one Material model.
+     */
     public function material(): BelongsTo
     {
         return $this->belongsTo(Material::class);
     }
 
+    /**
+     * Get the learning resource inverse relationship for this issue report.
+     *
+     * This admin/internal relationship resolves one LearningResource model.
+     */
     public function learningResource(): BelongsTo
     {
         return $this->belongsTo(LearningResource::class);
     }
 
+    /**
+     * Get the assigned to inverse relationship for this issue report.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to_id');
     }
 
+    /**
+     * Get the resolved by inverse relationship for this issue report.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function resolvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolved_by');
     }
 
+    /**
+     * Get the comments one-to-many relationship for this issue report.
+     *
+     * This user-facing relationship resolves multiple IssueComment models.
+     */
     public function comments(): HasMany
     {
         return $this->hasMany(IssueComment::class);
     }
 
     /**
+     * Scope the query to open records.
+     *
+     * Important query filters: status.
+     *
      * @param  Builder<IssueReport>  $query
      * @return Builder<IssueReport>
      */

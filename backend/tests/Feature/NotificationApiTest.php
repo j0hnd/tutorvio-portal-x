@@ -169,17 +169,24 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('data.unread_count', 0);
     }
 
-    public function test_notification_history_requires_permission_and_includes_authorized_history(): void
+    public function test_notification_history_visibility_is_limited_by_role_and_permission(): void
     {
-        Sanctum::actingAs($this->user);
+        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $admin->assignRole('admin');
+        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $staff->assignRole('staff');
+        $teacher = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $teacher->assignRole('teacher');
+        $student = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $student->assignRole('student');
 
-        $first = $this->createNotificationFor($this->user, [
+        $this->createNotificationFor($this->user, [
             'title' => 'Older notification',
             'published_at' => '2026-06-13 09:00:00',
             'created_at' => '2026-06-13 09:00:00',
         ]);
-        $second = $this->createNotificationFor($this->user, [
-            'title' => 'Newer notification',
+        $staffNotification = $this->createNotificationFor($staff, [
+            'title' => 'Staff notification',
             'published_at' => '2026-06-14 09:00:00',
             'created_at' => '2026-06-14 09:00:00',
         ]);
@@ -188,12 +195,6 @@ class NotificationApiTest extends TestCase
             'published_at' => '2026-06-15 09:00:00',
             'created_at' => '2026-06-15 09:00:00',
         ]);
-
-        $this->getJson('/api/v1/notifications/history?per_page=1')
-            ->assertForbidden();
-
-        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $admin->assignRole('admin');
 
         Sanctum::actingAs($admin);
         $this->getJson('/api/v1/notifications/history?per_page=1')
@@ -204,9 +205,6 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('per_page', 1)
             ->assertJsonPath('total', 3);
 
-        $staff = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $staff->assignRole('staff');
-
         Sanctum::actingAs($staff);
         $this->getJson('/api/v1/notifications/history?per_page=10')
             ->assertForbidden();
@@ -215,9 +213,18 @@ class NotificationApiTest extends TestCase
 
         $this->getJson('/api/v1/notifications/history?per_page=10')
             ->assertOk()
-            ->assertJsonCount(3, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $staffNotification->public_id)
+            ->assertJsonPath('data.0.recipient_user_id', $staff->public_id)
+            ->assertJsonPath('total', 1);
 
-        $this->assertNotSame($first->public_id, $second->id);
+        Sanctum::actingAs($teacher);
+        $this->getJson('/api/v1/notifications/history?per_page=10')
+            ->assertForbidden();
+
+        Sanctum::actingAs($student);
+        $this->getJson('/api/v1/notifications/history?per_page=10')
+            ->assertForbidden();
     }
 
     /**

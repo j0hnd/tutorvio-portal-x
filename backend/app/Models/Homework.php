@@ -56,21 +56,42 @@ class Homework extends Model
         ];
     }
 
+    /**
+     * Get the lesson inverse relationship for this homework.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the student inverse relationship for this homework.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this homework.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the learning resources many-to-many relationship for this homework.
+     *
+     * This user-facing relationship resolves multiple LearningResource models.
+     * Important query filters: pivot columns assigned_by, assigned_at.
+     */
     public function learningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'homework_learning_resource', 'homework_id', 'learning_resource_id')

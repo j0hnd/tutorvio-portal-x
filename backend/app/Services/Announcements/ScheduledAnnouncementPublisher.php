@@ -22,6 +22,18 @@ class ScheduledAnnouncementPublisher
     }
 
     /**
+     * Publish scheduled announcements that are due.
+     *
+     * This scheduled-task handler runs for scheduled announcements whose
+     * scheduled time has passed. Each claimed announcement has recipients
+     * synchronized, a portal notification created or updated, email delivery
+     * requested through `SystemNotificationService`, and its status moved to
+     * published. Publication failures are logged and counted without stopping
+     * the batch, and a completion summary is logged. It is safe to retry at the
+     * batch level because already-published announcements no longer match and
+     * notification creation uses the announcement source metadata for
+     * deduplication.
+     *
      * @return array{published: int, failed: int, notifications: int, recipients: int}
      */
     public function publishDue(?CarbonImmutable $now = null, int $limit = 100): array
@@ -125,6 +137,7 @@ class ScheduledAnnouncementPublisher
             ],
             [
                 'email' => true,
+                'queue_email' => true,
                 'sender_id' => $announcement->author_id,
                 'published_at' => $publishedAt,
                 'source_type' => 'announcement',

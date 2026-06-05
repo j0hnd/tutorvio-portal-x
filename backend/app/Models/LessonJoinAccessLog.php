@@ -40,11 +40,21 @@ class LessonJoinAccessLog extends Model
         ];
     }
 
+    /**
+     * Get the lesson inverse relationship for this lesson join access log.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the user inverse relationship for this lesson join access log.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -7,10 +7,12 @@ use App\Http\Requests\AcademicRecords\StoreAcademicRecordRequest;
 use App\Http\Requests\AcademicRecords\UpdateAcademicRecordRequest;
 use App\Http\Resources\AcademicRecords\AcademicRecordResource;
 use App\Models\AcademicRecord;
+use App\Models\CourseProgram;
 use App\Models\Lesson;
 use App\Models\PortalSetting;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,10 +22,25 @@ use Illuminate\Validation\ValidationException;
 
 class AcademicRecordController extends Controller
 {
+    /**
+     * Display a filtered list of academic records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', AcademicRecord::class);
         $this->assertStudentPortalVisibility($request->user());
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -65,6 +82,14 @@ class AcademicRecordController extends Controller
         );
     }
 
+    /**
+     * Create a new academic record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreAcademicRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(StoreAcademicRecordRequest $request): JsonResponse
     {
         Gate::authorize('create', AcademicRecord::class);
@@ -82,6 +107,14 @@ class AcademicRecordController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected academic record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $academicRecord.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(Request $request, AcademicRecord $academicRecord): JsonResponse
     {
         Gate::authorize('view', $academicRecord);
@@ -92,6 +125,14 @@ class AcademicRecordController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected academic record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $academicRecord.
+     * The UpdateAcademicRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(UpdateAcademicRecordRequest $request, AcademicRecord $academicRecord): JsonResponse
     {
         Gate::authorize('update', $academicRecord);
@@ -109,6 +150,14 @@ class AcademicRecordController extends Controller
         ]);
     }
 
+    /**
+     * Archive the selected academic record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $academicRecord.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function archive(Request $request, AcademicRecord $academicRecord): JsonResponse
     {
         Gate::authorize('archive', $academicRecord);
@@ -206,6 +255,14 @@ class AcademicRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert filter users action for academic records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $studentId, $teacherId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertFilterUsers(?int $studentId, ?int $teacherId): void
     {
         $errors = [];
@@ -223,6 +280,14 @@ class AcademicRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert filters visible to user action for academic records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $studentId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertFiltersVisibleToUser(User $actor, ?int $studentId): void
     {
         if ($studentId === null || $actor->hasRole('admin') || ($actor->hasRole('staff') && $actor->can('academic_records.view'))) {
@@ -246,6 +311,14 @@ class AcademicRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert student portal visibility action for academic records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertStudentPortalVisibility(User $user): void
     {
         if (! $user->hasRole('student') || $this->studentRecordsVisible()) {
@@ -255,6 +328,14 @@ class AcademicRecordController extends Controller
         abort(403);
     }
 
+    /**
+     * Handle the student records visible action for academic records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * This action does not require additional request parameters beyond the route context.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function studentRecordsVisible(): bool
     {
         $setting = PortalSetting::query()

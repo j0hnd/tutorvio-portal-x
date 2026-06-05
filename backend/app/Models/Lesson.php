@@ -109,51 +109,102 @@ class Lesson extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this lesson.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this lesson.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the rescheduled from inverse relationship for this lesson.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function rescheduledFrom(): BelongsTo
     {
         return $this->belongsTo(self::class, 'rescheduled_from_id');
     }
 
+    /**
+     * Get the replacement lesson one-to-one relationship for this lesson.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function replacementLesson(): HasOne
     {
         return $this->hasOne(self::class, 'rescheduled_from_id');
     }
 
+    /**
+     * Get the attendances one-to-many relationship for this lesson.
+     *
+     * This user-facing relationship resolves multiple Attendance models.
+     */
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
     }
 
+    /**
+     * Get the join access logs one-to-many relationship for this lesson.
+     *
+     * This user-facing relationship resolves multiple LessonJoinAccessLog models.
+     */
     public function joinAccessLogs(): HasMany
     {
         return $this->hasMany(LessonJoinAccessLog::class);
     }
 
+    /**
+     * Get the lesson note one-to-one relationship for this lesson.
+     *
+     * This user-facing relationship resolves one LessonNote model.
+     */
     public function lessonNote(): HasOne
     {
         return $this->hasOne(LessonNote::class);
     }
 
+    /**
+     * Get the issue reports one-to-many relationship for this lesson.
+     *
+     * This user-facing relationship resolves multiple IssueReport models.
+     */
     public function issueReports(): HasMany
     {
         return $this->hasMany(IssueReport::class);
     }
 
+    /**
+     * Get the homeworks one-to-many relationship for this lesson.
+     *
+     * This user-facing relationship resolves multiple Homework models.
+     */
     public function homeworks(): HasMany
     {
         return $this->hasMany(Homework::class);
     }
 
+    /**
+     * Get the learning resources many-to-many relationship for this lesson.
+     *
+     * This user-facing relationship resolves multiple LearningResource models.
+     * Important query filters: pivot columns assigned_by, assigned_at.
+     */
     public function learningResources(): BelongsToMany
     {
         return $this->belongsToMany(LearningResource::class, 'learning_resource_lesson', 'lesson_id', 'learning_resource_id')
@@ -162,6 +213,10 @@ class Lesson extends Model
     }
 
     /**
+     * Scope the query to requiring lesson note records.
+     *
+     * Important query filters: status.
+     *
      * @param  Builder<Lesson>  $query
      * @return Builder<Lesson>
      */
@@ -171,6 +226,10 @@ class Lesson extends Model
     }
 
     /**
+     * Scope the query to missing lesson note records.
+     *
+     * Important query filters: submitted_at, lessonNote relation.
+     *
      * @param  Builder<Lesson>  $query
      * @return Builder<Lesson>
      */
@@ -181,11 +240,17 @@ class Lesson extends Model
             ->whereDoesntHave('lessonNote', fn (Builder $query) => $query->whereNotNull('submitted_at'));
     }
 
+    /**
+     * Determine whether this lesson requires lesson note.
+     */
     public function requiresLessonNote(): bool
     {
         return in_array($this->status, self::NOTE_REQUIRED_STATUSES, true);
     }
 
+    /**
+     * Determine whether this lesson is join available.
+     */
     public function isJoinAvailable(?CarbonInterface $now = null): bool
     {
         return $this->joinAvailability($now)['can_join'];
@@ -240,18 +305,27 @@ class Lesson extends Model
         ];
     }
 
+    /**
+     * Return the join available from value for this lesson.
+     */
     public function joinAvailableFrom(): ?CarbonInterface
     {
         return $this->join_available_from
             ?? $this->start_time?->copy()->subMinutes((int) config('lessons.join_window.lead_minutes', 15));
     }
 
+    /**
+     * Return the join available until value for this lesson.
+     */
     public function joinAvailableUntil(): ?CarbonInterface
     {
         return $this->join_available_until
             ?? $this->end_time?->copy()->addMinutes((int) config('lessons.join_window.grace_minutes', 15));
     }
 
+    /**
+     * Determine whether this lesson user can join meeting.
+     */
     public function userCanJoinMeeting(?User $user, ?CarbonInterface $now = null): bool
     {
         if (! $this->userCanAccessMeeting($user) || ! $this->isJoinAvailable($now)) {
@@ -261,6 +335,9 @@ class Lesson extends Model
         return true;
     }
 
+    /**
+     * Determine whether this lesson user can access meeting.
+     */
     public function userCanAccessMeeting(?User $user): bool
     {
         if (! $user) {

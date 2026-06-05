@@ -16,6 +16,14 @@ use Illuminate\Validation\ValidationException;
 
 class NotificationController extends Controller
 {
+    /**
+     * Display a filtered list of notification records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         $validated = $this->validateFilters($request);
@@ -28,18 +36,34 @@ class NotificationController extends Controller
         );
     }
 
+    /**
+     * Display historical notification records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function history(Request $request): JsonResponse
     {
         $validated = $this->validateFilters($request);
 
         return response()->json(
-            $this->applyFilters($this->historyRecipients(), $validated)
+            $this->applyFilters($this->historyRecipientsFor($request->user()), $validated)
                 ->tap(fn (Builder $query) => $this->orderNewestFirst($query))
                 ->paginate($validated['per_page'] ?? 25)
                 ->through(fn (NotificationRecipient $recipient) => new NotificationResource($recipient))
         );
     }
 
+    /**
+     * Handle the unread count action for notification records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function unreadCount(Request $request): JsonResponse
     {
         return response()->json([
@@ -51,6 +75,14 @@ class NotificationController extends Controller
         ]);
     }
 
+    /**
+     * Display the selected notification record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $notification.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(Request $request, Notification $notification): JsonResponse
     {
         return response()->json([
@@ -58,6 +90,14 @@ class NotificationController extends Controller
         ]);
     }
 
+    /**
+     * Handle the mark read action for notification records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $notification.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function markRead(Request $request, Notification $notification): JsonResponse
     {
         $recipient = $this->recipientForNotification($request->user(), $notification);
@@ -71,6 +111,14 @@ class NotificationController extends Controller
         ]);
     }
 
+    /**
+     * Handle the mark all read action for notification records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function markAllRead(Request $request): JsonResponse
     {
         $readAt = now();
@@ -181,10 +229,14 @@ class NotificationController extends Controller
     /**
      * @return Builder<NotificationRecipient>
      */
-    private function historyRecipients(): Builder
+    private function historyRecipientsFor(User $user): Builder
     {
         return NotificationRecipient::query()
             ->with('notification')
+            ->when(
+                ! $user->hasRole('admin'),
+                fn (Builder $query) => $query->where('user_id', $user->id)
+            )
             ->whereNull('archived_at')
             ->whereHas('notification', function (Builder $query) {
                 $query->where('is_archived', false);
@@ -206,6 +258,14 @@ class NotificationController extends Controller
             ->orderByDesc('id');
     }
 
+    /**
+     * Handle the recipient for notification action for notification records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user, $notification.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function recipientForNotification(User $user, Notification $notification): NotificationRecipient
     {
         return $this->visibleRecipientsFor($user)

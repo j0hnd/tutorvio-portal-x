@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CourseProgram;
 use App\Models\LessonRecord;
 use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
 use App\Services\TeacherWorkloadService;
+use App\Support\PublicIdResolver;
 use App\Support\Reports\ReportResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,8 +19,22 @@ use Illuminate\Validation\Rule;
 
 class TeacherLoadReportController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly TeacherWorkloadService $workloads) {}
 
+    /**
+     * Handle the teacher load report endpoint.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function __invoke(Request $request): JsonResponse
     {
         Gate::authorize('viewTeacherWorkloads');
@@ -49,6 +65,13 @@ class TeacherLoadReportController extends Controller
     private function validatedFilters(Request $request): array
     {
         $input = $request->all();
+        $input = [
+            ...$input,
+            ...PublicIdResolver::resolveFields($input, [
+                'teacher_id' => User::class,
+                'course_id' => CourseProgram::class,
+            ]),
+        ];
 
         foreach (['date_from' => 'from', 'date_to' => 'to'] as $source => $target) {
             if (! array_key_exists($source, $input) || array_key_exists($target, $input)) {

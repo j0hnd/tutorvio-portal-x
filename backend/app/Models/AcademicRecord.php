@@ -78,41 +78,81 @@ class AcademicRecord extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the course program inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one CourseProgram model.
+     */
     public function courseProgram(): BelongsTo
     {
         return $this->belongsTo(CourseProgram::class);
     }
 
+    /**
+     * Get the lesson inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the class schedule inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one ClassSchedule model.
+     */
     public function classSchedule(): BelongsTo
     {
         return $this->belongsTo(ClassSchedule::class);
     }
 
+    /**
+     * Get the recorded by inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    /**
+     * Get the approved by inverse relationship for this academic record.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    /**
+     * Get the archived by inverse relationship for this academic record.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');

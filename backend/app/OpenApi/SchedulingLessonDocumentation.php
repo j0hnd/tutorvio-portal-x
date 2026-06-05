@@ -66,8 +66,8 @@ use OpenApi\Attributes as OA;
     schema: 'ClassScheduleRequest',
     required: ['student_id', 'teacher_id', 'timezone', 'starts_at', 'ends_at'],
     properties: [
-        new OA\Property(property: 'student_id', description: 'Internal numeric user ID for the student.', type: 'integer', example: 23),
-        new OA\Property(property: 'teacher_id', description: 'Internal numeric user ID for the teacher.', type: 'integer', example: 17),
+        new OA\Property(property: 'student_id', description: 'Student user public ID.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', description: 'Teacher user public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'title', nullable: true, type: 'string', example: 'Business English coaching'),
         new OA\Property(property: 'description', nullable: true, type: 'string', example: 'Presentation practice and feedback'),
         new OA\Property(property: 'status', ref: '#/components/schemas/ClassStatus'),
@@ -76,6 +76,23 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'starts_at', description: 'ISO 8601 date-time. Include an offset when possible.', type: 'string', format: 'date-time', example: '2026-06-03T10:00:00+08:00'),
         new OA\Property(property: 'ends_at', description: 'ISO 8601 date-time after `starts_at`.', type: 'string', format: 'date-time', example: '2026-06-03T10:50:00+08:00'),
         new OA\Property(property: 'meeting_url', nullable: true, type: 'string', format: 'uri', example: 'https://meet.google.com/abc-defg-hij'),
+        new OA\Property(property: 'notes', nullable: true, type: 'string', example: 'Focus on interview answers.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'LessonBookingRequest',
+    required: ['teacher_id', 'timezone', 'starts_at', 'ends_at'],
+    properties: [
+        new OA\Property(property: 'teacher_id', description: 'Assigned teacher user public ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'title', nullable: true, type: 'string', maxLength: 255, example: 'Business English coaching'),
+        new OA\Property(property: 'description', nullable: true, type: 'string', example: 'Presentation practice and feedback'),
+        new OA\Property(property: 'status', type: 'string', enum: ['scheduled', 'pending_confirmation'], example: 'pending_confirmation'),
+        new OA\Property(property: 'class_type', type: 'string', enum: ['regular', 'trial'], example: 'regular'),
+        new OA\Property(property: 'timezone', description: 'IANA timezone used to interpret the requested lesson time.', type: 'string', example: 'Asia/Manila'),
+        new OA\Property(property: 'starts_at', type: 'string', format: 'date-time', example: '2026-06-03T10:00:00+08:00'),
+        new OA\Property(property: 'ends_at', type: 'string', format: 'date-time', example: '2026-06-03T10:50:00+08:00'),
+        new OA\Property(property: 'meeting_url', nullable: true, type: 'string', format: 'uri', maxLength: 2048, example: 'https://meet.google.com/abc-defg-hij'),
         new OA\Property(property: 'notes', nullable: true, type: 'string', example: 'Focus on interview answers.'),
     ],
     type: 'object'
@@ -120,8 +137,8 @@ use OpenApi\Attributes as OA;
     schema: 'LessonRecordRequest',
     required: ['student_id', 'teacher_id', 'scheduled_date', 'start_time', 'end_time', 'lesson_type', 'lesson_status'],
     properties: [
-        new OA\Property(property: 'student_id', type: 'integer', example: 23),
-        new OA\Property(property: 'teacher_id', type: 'integer', example: 17),
+        new OA\Property(property: 'student_id', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'scheduled_date', description: 'Date-only local lesson date in `YYYY-MM-DD`.', type: 'string', format: 'date', example: '2026-06-03'),
         new OA\Property(property: 'start_time', description: '24-hour local time in `HH:mm`.', type: 'string', example: '10:00'),
         new OA\Property(property: 'end_time', description: '24-hour local time in `HH:mm`; must be after `start_time`.', type: 'string', example: '10:50'),
@@ -147,9 +164,9 @@ use OpenApi\Attributes as OA;
     properties: [
         new OA\Property(
             property: 'data',
-            required: ['lesson_id', 'status', 'can_join', 'meeting_link', 'is_join_available'],
+            required: ['lesson_id', 'status', 'can_join', 'meeting_link', 'start_time', 'end_time', 'is_join_available', 'join_starts_at', 'join_ends_at'],
             properties: [
-                new OA\Property(property: 'lesson_id', type: 'string', example: 'les_01J0LESSON000000000000001'),
+                new OA\Property(property: 'lesson_id', type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6V'),
                 new OA\Property(property: 'status', ref: '#/components/schemas/ClassStatus'),
                 new OA\Property(property: 'can_join', type: 'boolean', example: true),
                 new OA\Property(property: 'available_from', nullable: true, type: 'string', format: 'date-time', example: '2026-06-03T01:45:00Z'),
@@ -159,13 +176,112 @@ use OpenApi\Attributes as OA;
                 new OA\Property(property: 'seconds_until_available', nullable: true, type: 'integer', example: 0),
                 new OA\Property(property: 'meeting_provider', nullable: true, type: 'string', example: 'google_meet'),
                 new OA\Property(property: 'meeting_link', nullable: true, type: 'string', format: 'uri', example: 'https://meet.google.com/abc-defg-hij'),
+                new OA\Property(property: 'start_time', type: 'string', example: '2026-06-03T02:00:00.000000Z'),
+                new OA\Property(property: 'end_time', type: 'string', example: '2026-06-03T02:50:00.000000Z'),
                 new OA\Property(property: 'is_join_available', type: 'boolean', example: true),
+                new OA\Property(property: 'join_starts_at', nullable: true, type: 'string', example: '2026-06-03T01:45:00.000000Z'),
+                new OA\Property(property: 'join_ends_at', nullable: true, type: 'string', example: '2026-06-03T03:05:00.000000Z'),
                 new OA\Property(property: 'reason', nullable: true, type: 'string', enum: ['unauthorized', 'not_yet_available', 'lesson_expired', 'lesson_cancelled', 'lesson_rescheduled', 'lesson_not_joinable', 'no_meeting_link'], example: null),
+                new OA\Property(property: 'message', nullable: true, type: 'string', example: 'This lesson has been rescheduled.'),
+                new OA\Property(
+                    property: 'replacement_lesson',
+                    nullable: true,
+                    properties: [
+                        new OA\Property(property: 'id', description: 'Replacement lesson public ID.', type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6W'),
+                    ],
+                    type: 'object'
+                ),
             ],
             type: 'object'
         ),
     ],
     type: 'object'
+)]
+#[OA\Schema(
+    schema: 'LessonNote',
+    description: 'Teacher lesson note response. Relationship IDs are public IDs. Internal note and review fields are visible only to admins, permitted staff, and the assigned teacher.',
+    required: ['id', 'lesson_objective', 'topics_covered', 'homework_assignment', 'submitted_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6X'),
+        new OA\Property(property: 'lesson_id', nullable: true, type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6V'),
+        new OA\Property(property: 'student_id', nullable: true, type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6Y'),
+        new OA\Property(property: 'teacher_id', nullable: true, type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6Z'),
+        new OA\Property(property: 'author_id', nullable: true, type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6Z'),
+        new OA\Property(property: 'lesson_record_id', nullable: true, type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T70'),
+        new OA\Property(property: 'lesson_objective', nullable: true, type: 'string', example: 'Practice interview answers.'),
+        new OA\Property(property: 'topics_covered', nullable: true, type: 'string', example: 'Introductions, STAR answers, follow-up questions.'),
+        new OA\Property(property: 'vocabulary_learned', nullable: true, type: 'string', example: 'deadline, stakeholder, deliverable'),
+        new OA\Property(property: 'grammar_focus', nullable: true, type: 'string', example: 'Past tense follow-up answers.'),
+        new OA\Property(property: 'pronunciation_issues', nullable: true, type: 'string', example: 'Worked on /th/ sounds.'),
+        new OA\Property(property: 'student_speaking_confidence_observation', nullable: true, type: 'string', example: 'More confident with prepared answers.'),
+        new OA\Property(property: 'homework_assignment', nullable: true, type: 'string', example: 'Write five STAR answers.'),
+        new OA\Property(property: 'recommendation_for_next_lesson', nullable: true, type: 'string', example: 'Continue pronunciation feedback.'),
+        new OA\Property(property: 'internal_note', nullable: true, type: 'string', example: 'Teacher-visible/admin-visible coaching note.'),
+        new OA\Property(property: 'submitted_at', nullable: true, type: 'string', format: 'date-time', example: '2026-06-03T03:05:00Z'),
+        new OA\Property(property: 'review_status', nullable: true, type: 'string', enum: ['pending', 'reviewed', 'needs_revision'], example: 'pending'),
+        new OA\Property(property: 'review_note', nullable: true, type: 'string', example: 'Add clearer homework next time.'),
+        new OA\Property(property: 'reviewed_by', nullable: true, type: 'integer', example: 7),
+        new OA\Property(property: 'reviewed_at', nullable: true, type: 'string', format: 'date-time', example: '2026-06-03T04:00:00Z'),
+        new OA\Property(property: 'lesson', nullable: true, type: 'object', example: ['id' => '01HZYV5W8K6J7Q9P2N3M4R5T6V', 'status' => 'completed', 'start_time' => '2026-06-03T02:00:00.000000Z', 'end_time' => '2026-06-03T02:50:00.000000Z']),
+        new OA\Property(property: 'student', ref: '#/components/schemas/SchedulingUserSummary', nullable: true),
+        new OA\Property(property: 'teacher', ref: '#/components/schemas/SchedulingUserSummary', nullable: true),
+        new OA\Property(property: 'author', ref: '#/components/schemas/SchedulingUserSummary', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'LessonNoteResponse',
+    required: ['data'],
+    properties: [
+        new OA\Property(property: 'data', ref: '#/components/schemas/LessonNote'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'LessonNoteRequest',
+    description: 'Create/update lesson note payload. `lesson_id` and `lesson_record_id` accept public IDs; the request layer resolves them before existing database validation runs. Create requires `lesson_id` and at least one note content field. Update accepts any supplied field.',
+    properties: [
+        new OA\Property(property: 'lesson_id', description: 'Lesson public ID. Required on create and not accepted on update.', type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T6V'),
+        new OA\Property(property: 'lesson_record_id', description: 'Optional lesson record public ID that must match the lesson.', nullable: true, type: 'string', example: '01HZYV5W8K6J7Q9P2N3M4R5T70'),
+        new OA\Property(property: 'lesson_objective', nullable: true, type: 'string', example: 'Practice interview answers.'),
+        new OA\Property(property: 'topics_covered', nullable: true, type: 'string', example: 'Introductions, STAR answers, follow-up questions.'),
+        new OA\Property(property: 'vocabulary_learned', nullable: true, type: 'string', example: 'deadline, stakeholder, deliverable'),
+        new OA\Property(property: 'grammar_focus', nullable: true, type: 'string', example: 'Past tense follow-up answers.'),
+        new OA\Property(property: 'pronunciation_issues', nullable: true, type: 'string', example: 'Worked on /th/ sounds.'),
+        new OA\Property(property: 'student_speaking_confidence_observation', nullable: true, type: 'string', example: 'More confident with prepared answers.'),
+        new OA\Property(property: 'homework_assignment', nullable: true, type: 'string', example: 'Write five STAR answers.'),
+        new OA\Property(property: 'recommendation_for_next_lesson', nullable: true, type: 'string', example: 'Continue pronunciation feedback.'),
+        new OA\Property(property: 'internal_note', nullable: true, type: 'string', example: 'Teacher-visible/admin-visible coaching note.'),
+    ],
+    type: 'object'
+)]
+#[OA\Post(
+    path: '/scheduling/lesson-bookings',
+    operationId: 'lessonBookingCreate',
+    summary: 'Book one-time lesson',
+    description: 'Student-only endpoint. Creates a pending or scheduled one-time class with the authenticated student assigned to their teacher. Booking uses short-lived cache locks around the student/time slot and teacher availability slot; lock conflicts return the normal 422 validation error format on `starts_at`.',
+    security: [['sanctum' => []]],
+    tags: ['Scheduling', 'Student'],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LessonBookingRequest')),
+    responses: [
+        new OA\Response(response: 201, description: 'Lesson booking created.', content: new OA\JsonContent(ref: '#/components/schemas/ClassScheduleResponse')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(
+            response: 422,
+            description: 'Validation error. Includes booking lock conflicts such as another in-progress booking for the same student/time slot or teacher availability slot.',
+            content: new OA\JsonContent(
+                ref: '#/components/schemas/ValidationErrorResponse',
+                example: [
+                    'message' => 'This lesson slot is already being booked. Please try another time or retry shortly.',
+                    'errors' => [
+                        'starts_at' => ['This lesson slot is already being booked. Please try another time or retry shortly.'],
+                    ],
+                ]
+            )
+        ),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
 )]
 #[OA\Get(
     path: '/scheduling/calendar',
@@ -295,7 +411,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Scheduling', 'Teacher'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
     ],
     responses: [
         new OA\Response(
@@ -318,7 +434,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Scheduling', 'Teacher'],
     parameters: [
-        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
     ],
     responses: [
         new OA\Response(
@@ -428,7 +544,7 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Lessons'],
     parameters: [
-        new OA\Parameter(name: 'lesson', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'les_01J0LESSON000000000000001'),
+        new OA\Parameter(name: 'lesson', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: '01HZYV5W8K6J7Q9P2N3M4R5T6V'),
     ],
     responses: [
         new OA\Response(response: 200, description: 'Join availability. Meeting link is null unless `can_join` is true.', content: new OA\JsonContent(ref: '#/components/schemas/LessonJoinResponse')),
@@ -445,6 +561,7 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
     ]
 )]
 #[OA\Get(
@@ -455,13 +572,72 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Lessons', 'Teacher'],
     parameters: [
-        new OA\Parameter(name: 'lesson', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'les_01J0LESSON000000000000001'),
+        new OA\Parameter(name: 'lesson', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: '01HZYV5W8K6J7Q9P2N3M4R5T6V'),
         new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
     ],
     responses: [
         new OA\Response(response: 200, description: 'Paginated lesson notes for the lesson. Internal notes are visible to admins, permitted staff, and the assigned teacher.'),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Get(
+    path: '/students/{student}/lesson-notes',
+    operationId: 'lessonNotesByStudent',
+    summary: 'Teacher lesson notes for a student',
+    description: 'Protected endpoint. Access follows lesson-note viewing rules; students see only their own notes, teachers see notes for assigned students, and admins or permitted staff can view managed students.',
+    security: [['sanctum' => []]],
+    tags: ['Lessons', 'Student'],
+    parameters: [
+        new OA\Parameter(name: 'student', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: '01HZYV5W8K6J7Q9P2N3M4R5T6Y'),
+        new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated lesson notes for the student.'),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Get(
+    path: '/lesson-notes',
+    operationId: 'lessonNoteList',
+    summary: 'List teacher lesson notes',
+    description: 'Protected endpoint. Access follows lesson-note policy scoping. Filters currently accept internal numeric IDs for admin/staff reporting compatibility, while URLs and response relationship IDs use public IDs.',
+    security: [['sanctum' => []]],
+    tags: ['Lessons', 'Teacher'],
+    parameters: [
+        new OA\Parameter(name: 'lesson_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 42),
+        new OA\Parameter(name: 'student_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 23),
+        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 24),
+        new OA\Parameter(name: 'lesson_record_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 77),
+        new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated lesson notes visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Get(
+    path: '/lesson-notes/pending',
+    operationId: 'lessonNotePendingList',
+    summary: 'List lessons missing teacher notes',
+    description: 'Protected endpoint. Returns completed or missed lessons that still require notes, scoped to the authenticated user. The response includes `meta.pending_notes`, `meta.missing_notes`, `meta.completed_lessons_requiring_notes`, and note-required status lists.',
+    security: [['sanctum' => []]],
+    tags: ['Lessons', 'Teacher'],
+    parameters: [
+        new OA\Parameter(name: 'student_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 23),
+        new OA\Parameter(name: 'teacher_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), example: 24),
+        new OA\Parameter(name: 'from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date'), example: '2026-06-01'),
+        new OA\Parameter(name: 'to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date'), example: '2026-06-30'),
+        new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated lessons requiring notes with pending-note metadata.'),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
     ]
 )]
 #[OA\Post(
@@ -473,22 +649,44 @@ use OpenApi\Attributes as OA;
     tags: ['Lessons', 'Teacher'],
     requestBody: new OA\RequestBody(
         required: true,
-        content: new OA\JsonContent(
-            required: ['lesson_id'],
-            properties: [
-                new OA\Property(property: 'lesson_id', description: 'Internal numeric lesson ID.', type: 'integer', example: 101),
-                new OA\Property(property: 'lesson_record_id', description: 'Optional internal numeric lesson record ID that must match the lesson.', nullable: true, type: 'integer', example: 501),
-                new OA\Property(property: 'lesson_objective', nullable: true, type: 'string', example: 'Practice interview answers.'),
-                new OA\Property(property: 'topics_covered', nullable: true, type: 'string', example: 'Introductions, STAR answers, follow-up questions.'),
-                new OA\Property(property: 'homework_assignment', nullable: true, type: 'string', example: 'Write five STAR answers.'),
-                new OA\Property(property: 'recommendation_for_next_lesson', nullable: true, type: 'string', example: 'Continue pronunciation feedback.'),
-                new OA\Property(property: 'internal_note', nullable: true, type: 'string', example: 'Teacher-visible/admin-visible coaching note.'),
-            ],
-            type: 'object'
-        )
+        content: new OA\JsonContent(ref: '#/components/schemas/LessonNoteRequest', required: ['lesson_id'])
     ),
     responses: [
-        new OA\Response(response: 201, description: 'Lesson note created.'),
+        new OA\Response(response: 201, description: 'Lesson note created.', content: new OA\JsonContent(ref: '#/components/schemas/LessonNoteResponse')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Get(
+    path: '/lesson-notes/{lessonNote}',
+    operationId: 'lessonNoteView',
+    summary: 'View teacher lesson note',
+    description: 'Protected endpoint. Access follows lesson-note policy scoping. The `lessonNote` route parameter is the lesson note public ID.',
+    security: [['sanctum' => []]],
+    tags: ['Lessons', 'Teacher'],
+    parameters: [
+        new OA\Parameter(name: 'lessonNote', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: '01HZYV5W8K6J7Q9P2N3M4R5T6X'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Lesson note.', content: new OA\JsonContent(ref: '#/components/schemas/LessonNoteResponse')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Patch(
+    path: '/lesson-notes/{lessonNote}',
+    operationId: 'lessonNoteUpdate',
+    summary: 'Update teacher lesson note',
+    description: 'Protected endpoint. Access follows lesson-note policy scoping. Send only fields that should change. `lesson_record_id`, when supplied, accepts a lesson record public ID that must match the lesson.',
+    security: [['sanctum' => []]],
+    tags: ['Lessons', 'Teacher'],
+    parameters: [
+        new OA\Parameter(name: 'lessonNote', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: '01HZYV5W8K6J7Q9P2N3M4R5T6X'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LessonNoteRequest')),
+    responses: [
+        new OA\Response(response: 200, description: 'Lesson note updated.', content: new OA\JsonContent(ref: '#/components/schemas/LessonNoteResponse')),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),

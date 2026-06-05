@@ -53,31 +53,61 @@ class LessonNote extends Model
         ];
     }
 
+    /**
+     * Get the lesson inverse relationship for this lesson note.
+     *
+     * This user-facing relationship resolves one Lesson model.
+     */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /**
+     * Get the student inverse relationship for this lesson note.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the teacher inverse relationship for this lesson note.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the author inverse relationship for this lesson note.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
     }
 
+    /**
+     * Get the lesson record inverse relationship for this lesson note.
+     *
+     * This user-facing relationship resolves one LessonRecord model.
+     */
     public function lessonRecord(): BelongsTo
     {
         return $this->belongsTo(LessonRecord::class);
     }
 
+    /**
+     * Get the reviewed by inverse relationship for this lesson note.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');

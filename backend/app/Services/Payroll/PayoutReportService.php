@@ -12,6 +12,12 @@ use Illuminate\Support\Collection;
 class PayoutReportService
 {
     /**
+     * Build a payout report for all teachers in a payout period.
+     *
+     * The report reads earnings attached to the period and period adjustments,
+     * then groups base earnings, variable earnings, adjustments, and net totals
+     * by teacher.
+     *
      * @return array<string, mixed>
      */
     public function forPeriod(PayoutPeriod $period): array
@@ -40,6 +46,12 @@ class PayoutReportService
     }
 
     /**
+     * Build a payout report for one teacher.
+     *
+     * Filters may limit the earnings and adjustments by payout period or date
+     * range. This method only reads payroll data and does not alter payout
+     * period state.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */

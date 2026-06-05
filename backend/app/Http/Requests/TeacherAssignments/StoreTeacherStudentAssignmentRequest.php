@@ -3,10 +3,31 @@
 namespace App\Http\Requests\TeacherAssignments;
 
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates create teacher student assignment requests.
+ *
+ * Expected roles: Admins, or staff users with teacher assignment management access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreTeacherStudentAssignmentRequest extends FormRequest
 {
+    /**
+     * Resolve public user IDs to internal keys for assignment creation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+    }
+
+    /**
+     * Determine whether the authenticated user can manage teacher-student assignments. Admins pass, and staff must have assignment management access.
+     */
     public function authorize(): bool
     {
         $user = $this->user();
@@ -16,6 +37,10 @@ class StoreTeacherStudentAssignmentRequest extends FormRequest
     }
 
     /**
+     * Get validation rules for create teacher student assignment requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; required rules define the minimum payload for creation.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -30,6 +55,11 @@ class StoreTeacherStudentAssignmentRequest extends FormRequest
         ];
     }
 
+    /**
+     * Register after-validation checks for cross-field or database-backed constraints on create teacher student assignment requests.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {

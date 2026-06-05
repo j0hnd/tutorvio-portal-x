@@ -14,7 +14,15 @@ class TeacherStudentAssignmentService
     public function __construct(private readonly TeacherSlotDiscoveryService $teacherSlots) {}
 
     /**
+     * Assign a teacher to a student.
+     *
+     * The method validates assignable users, closes any existing active
+     * assignment, creates the new active assignment, and updates the student's
+     * profile assigned-teacher pointer inside a transaction.
+     *
      * @param  array<string, mixed>  $attributes
+     *
+     * @throws ValidationException
      */
     public function assign(User $student, User $teacher, User $assignedBy, array $attributes = []): TeacherStudentAssignment
     {
@@ -69,7 +77,15 @@ class TeacherStudentAssignmentService
     }
 
     /**
+     * Update the status of a teacher-student assignment.
+     *
+     * The method validates the target status, locks the assignment, updates
+     * profile active-teacher pointers as needed, and stamps end metadata for
+     * inactive assignment states.
+     *
      * @param  array<string, mixed>  $attributes
+     *
+     * @throws ValidationException
      */
     public function updateStatus(TeacherStudentAssignment $assignment, string $status, array $attributes = []): TeacherStudentAssignment
     {

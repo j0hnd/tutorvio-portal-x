@@ -13,6 +13,13 @@ class LessonNoteResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a lesson note into a public-safe API response.
+     *
+     * Public fields expose learning progress notes, homework guidance, submitted
+     * timing, and loaded lesson/student/teacher/author summaries using public IDs.
+     * Internal notes and review metadata are conditional on admin, permitted staff,
+     * or the assigned teacher. Created and updated timestamps are admin-only.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -69,6 +76,13 @@ class LessonNoteResource extends JsonResource
         ];
     }
 
+    /**
+     * Determine whether internal lesson-note fields can be serialized.
+     *
+     * Admins can view internal notes. Staff need `lesson_notes.view`.
+     * Teachers can view internal notes only for notes assigned to them.
+     * Students, guests, and unrelated teachers are denied.
+     */
     private function canViewInternalNote(?User $user): bool
     {
         if ($user === null) {

@@ -2,6 +2,9 @@
 
 namespace App\Reports;
 
+use App\Models\CourseProgram;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,9 +27,9 @@ class SchoolReportFilters
      * @return array{
      *     date_from?: string,
      *     date_to?: string,
-     *     teacher_id?: int,
-     *     student_id?: int,
-     *     course_id?: int,
+     *     teacher_id?: string,
+     *     student_id?: string,
+     *     course_id?: string,
      *     status?: string
      * }
      */
@@ -35,9 +38,9 @@ class SchoolReportFilters
         return array_filter([
             'date_from' => $this->dateFrom(),
             'date_to' => $this->dateTo(),
-            'teacher_id' => $this->teacherId(),
-            'student_id' => $this->studentId(),
-            'course_id' => $this->courseId(),
+            'teacher_id' => PublicIdResolver::toPublicId($this->teacherId(), User::class),
+            'student_id' => PublicIdResolver::toPublicId($this->studentId(), User::class),
+            'course_id' => PublicIdResolver::toPublicId($this->courseId(), CourseProgram::class),
             'status' => $this->status(),
         ], fn (mixed $value) => $value !== null);
     }

@@ -4,11 +4,25 @@ namespace Tests\Feature;
 
 use App\Models\PortalSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class PublicPortalSettingApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $key = md5('api-public127.0.0.1');
+
+        try {
+            Redis::del($key);
+        } catch (\Throwable) {
+            //
+        }
+    }
 
     public function test_public_settings_endpoint_returns_minimal_safe_portal_configuration(): void
     {
@@ -117,5 +131,19 @@ class PublicPortalSettingApiTest extends TestCase
             ->assertJsonPath('data.school.name', null)
             ->assertJsonPath('data.locale.default', 'en')
             ->assertJsonPath('data.timezone.value', 'Asia/Manila');
+    }
+
+    public function test_public_settings_endpoint_is_rate_limited(): void
+    {
+        for ($attempt = 0; $attempt < 60; $attempt++) {
+            $this->getJson('/api/settings/public')->assertOk();
+        }
+
+        $this->getJson('/api/settings/public')
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Too many requests.',
+            ])
+            ->assertHeader('Retry-After');
     }
 }

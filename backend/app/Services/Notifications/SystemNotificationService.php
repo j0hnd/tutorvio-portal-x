@@ -2,6 +2,7 @@
 
 namespace App\Services\Notifications;
 
+use App\Jobs\Notifications\SendSystemNotificationEmail;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use App\Models\User;
@@ -15,6 +16,12 @@ use Throwable;
 class SystemNotificationService
 {
     /**
+     * Create a class reminder notification for portal and optional email delivery.
+     *
+     * Recipients may be user models, user IDs, or iterables of either. Options
+     * are forwarded to the generic notification creator for scheduling,
+     * deduplication, source metadata, and email dispatch behavior.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -25,6 +32,11 @@ class SystemNotificationService
     }
 
     /**
+     * Create a reschedule alert notification.
+     *
+     * Recipients are synchronized to portal notification rows, and email rows
+     * are sent immediately or queued when the options request it.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -35,6 +47,11 @@ class SystemNotificationService
     }
 
     /**
+     * Create a homework reminder notification.
+     *
+     * Recipients are synchronized to portal notification rows, and email rows
+     * are sent immediately or queued when enabled through options.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -45,6 +62,12 @@ class SystemNotificationService
     }
 
     /**
+     * Create an administrative announcement notification.
+     *
+     * The method delegates to the generic notification creator, preserving
+     * source metadata and recipient-specific matched-target metadata when
+     * supplied.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -55,6 +78,12 @@ class SystemNotificationService
     }
 
     /**
+     * Create a general system notice notification.
+     *
+     * Recipients are synchronized to portal notification rows, with optional
+     * scheduling, deduplication, and immediate or queued email delivery
+     * controlled by options.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -65,6 +94,18 @@ class SystemNotificationService
     }
 
     /**
+     * Create or update a portal notification and synchronize its recipients.
+     *
+     * This shared system-level handler runs when application services need to
+     * publish a portal notification. It normalizes recipient inputs, applies
+     * source and deduplication metadata, writes notification and in-portal
+     * recipient rows in a transaction, and creates email delivery rows when
+     * requested. Email delivery is queued when `queue_email` is true; otherwise
+     * it is attempted synchronously. Delivery rows are claimed before sending,
+     * then marked sent or failed, with failures logged as warnings. It is safe
+     * to retry when callers provide `source_type` plus `source_id` or a
+     * `dedupe_key`; otherwise each call creates a new notification.
+     *
      * @param  User|int|iterable<int, User|int>  $recipients
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $options
@@ -121,13 +162,18 @@ class SystemNotificationService
         });
 
         if ($options['email'] ?? false) {
-            $this->dispatchEmails($notification, $recipientUsers, $metadata);
+            $this->dispatchEmails($notification, $recipientUsers, $metadata, $options);
         }
 
         return $notification->refresh();
     }
 
     /**
+     * Create email recipient rows and dispatch or send each eligible delivery.
+     *
+     * Already sending or delivered rows are skipped so repeated calls do not
+     * enqueue duplicate email work for the same notification recipient.
+     *
      * @param  Collection<int, User>  $recipients
      * @param  array<string, mixed>  $metadata
      */
@@ -173,11 +219,11 @@ class SystemNotificationService
      * @param  Collection<int, User>  $recipients
      * @param  array<string, mixed>  $metadata
      */
-    private function dispatchEmails(Notification $notification, Collection $recipients, array $metadata): void
+    private function dispatchEmails(Notification $notification, Collection $recipients, array $metadata, array $options): void
     {
         $recipients
             ->filter(fn (User $recipient) => (bool) $recipient->email)
-            ->each(function (User $recipient) use ($notification, $metadata): void {
+            ->each(function (User $recipient) use ($notification, $metadata, $options): void {
                 $delivery = NotificationRecipient::firstOrCreate([
                     'notification_id' => $notification->id,
                     'user_id' => $recipient->id,
@@ -187,36 +233,97 @@ class SystemNotificationService
                     'metadata' => $metadata,
                 ]);
 
-                if (in_array($delivery->delivery_status, [NotificationRecipient::STATUS_SENT, NotificationRecipient::STATUS_DELIVERED], true)) {
+                if (in_array($delivery->delivery_status, [
+                    NotificationRecipient::STATUS_SENDING,
+                    NotificationRecipient::STATUS_SENT,
+                    NotificationRecipient::STATUS_DELIVERED,
+                ], true)) {
                     return;
                 }
 
-                try {
-                    $recipient->notify(new SystemNotificationEmail($notification));
-
-                    $delivery->forceFill([
-                        'delivery_status' => NotificationRecipient::STATUS_SENT,
-                        'sent_at' => now(),
-                        'metadata' => $metadata,
-                    ])->save();
-                } catch (Throwable $exception) {
-                    $delivery->forceFill([
-                        'delivery_status' => NotificationRecipient::STATUS_FAILED,
-                        'metadata' => [
-                            ...$metadata,
+                if ($options['queue_email'] ?? false) {
+                    try {
+                        SendSystemNotificationEmail::dispatch($delivery->id);
+                    } catch (Throwable $exception) {
+                        Log::warning('Notification email queue dispatch failed.', [
+                            'delivery_id' => $delivery->id,
                             'failure_type' => $exception::class,
-                        ],
-                    ])->save();
+                        ]);
+                    }
 
-                    Log::warning('Notification email delivery failed.', [
-                        'notification_id' => $notification->id,
-                        'notification_type' => $notification->type,
-                        'user_id' => $recipient->id,
-                        'delivery_id' => $delivery->id,
-                        'failure_type' => $exception::class,
-                    ]);
+                    return;
                 }
+
+                $this->sendDelivery($delivery->id);
             });
+    }
+
+    /**
+     * Send an email delivery requested by a queued notification job.
+     */
+    public function sendQueuedEmail(int $deliveryId): void
+    {
+        $this->sendDelivery($deliveryId);
+    }
+
+    /**
+     * Claim one email delivery row and attempt notification email delivery.
+     */
+    private function sendDelivery(int $deliveryId): void
+    {
+        $delivery = NotificationRecipient::query()
+            ->with(['notification', 'user'])
+            ->find($deliveryId);
+
+        if ($delivery === null || $delivery->notification === null || $delivery->user === null) {
+            return;
+        }
+
+        if ($delivery->channel !== NotificationRecipient::CHANNEL_EMAIL) {
+            return;
+        }
+
+        if (in_array($delivery->delivery_status, [NotificationRecipient::STATUS_SENT, NotificationRecipient::STATUS_DELIVERED], true)) {
+            return;
+        }
+
+        $claimed = NotificationRecipient::query()
+            ->whereKey($delivery->id)
+            ->whereIn('delivery_status', [NotificationRecipient::STATUS_PENDING, NotificationRecipient::STATUS_FAILED])
+            ->update(['delivery_status' => NotificationRecipient::STATUS_SENDING]);
+
+        if ($claimed === 0) {
+            return;
+        }
+
+        $delivery->refresh();
+        $metadata = $delivery->metadata ?? [];
+
+        try {
+            $delivery->user->notify(new SystemNotificationEmail($delivery->notification));
+
+            $delivery->forceFill([
+                'delivery_status' => NotificationRecipient::STATUS_SENT,
+                'sent_at' => now(),
+                'metadata' => $metadata,
+            ])->save();
+        } catch (Throwable $exception) {
+            $delivery->forceFill([
+                'delivery_status' => NotificationRecipient::STATUS_FAILED,
+                'metadata' => [
+                    ...$metadata,
+                    'failure_type' => $exception::class,
+                ],
+            ])->save();
+
+            Log::warning('Notification email delivery failed.', [
+                'notification_id' => $delivery->notification_id,
+                'notification_type' => $delivery->notification->type,
+                'user_id' => $delivery->user_id,
+                'delivery_id' => $delivery->id,
+                'failure_type' => $exception::class,
+            ]);
+        }
     }
 
     private function findDuplicate(string $type, array $metadata): ?Notification

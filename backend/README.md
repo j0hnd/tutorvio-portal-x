@@ -11,7 +11,7 @@ Laravel API backend for the Tutorvio Portal monorepo.
 - PHPUnit for backend tests
 - Laravel Pint for PHP formatting
 - L5 Swagger for OpenAPI generation and Swagger UI
-- MariaDB in the local Docker stack
+- MariaDB and Redis in the local Docker stack
 
 ## Local Setup
 
@@ -43,6 +43,60 @@ The default `.env.example` is configured for the Docker MariaDB service:
 - `DB_USERNAME=tutorvio`
 - `DB_PASSWORD=tutorvio_password`
 
+Redis is optional outside configured environments. The application queue config falls back to the database driver when `QUEUE_CONNECTION` is not set, so deployments that have not provisioned Redis are not forced onto it.
+
+The example environment uses Redis for queue processing in the Docker stack:
+
+```env
+QUEUE_CONNECTION=redis
+```
+
+The Docker stack includes a Redis service:
+
+```bash
+docker compose up -d redis
+```
+
+Keep `CACHE_STORE=database` unless Redis-backed caching is also required.
+
+Redis-backed cache locks use `REDIS_CACHE_LOCK_CONNECTION`, which defaults to the dedicated `lock` Redis connection.
+
+The Docker backend image installs the `phpredis` extension for `REDIS_CLIENT=phpredis`. Non-Docker Redis use requires the same PHP extension in the local PHP runtime.
+
+Redis environment variables:
+
+- `REDIS_CLIENT`: Redis client, usually `phpredis`.
+- `REDIS_HOST`: Redis host or Docker service name.
+- `REDIS_PORT`: Redis port.
+- `REDIS_USERNAME`: Redis username when required by the service.
+- `REDIS_PASSWORD`: Redis password, or `null` for no password.
+- `REDIS_DB`: Default Redis database.
+- `REDIS_CACHE_DB`: Redis database for cache values.
+- `REDIS_QUEUE_DB`: Redis database for queues.
+- `REDIS_LOCK_DB`: Redis database for cache locks.
+- `REDIS_CACHE_CONNECTION`: Laravel Redis connection used by the `redis` cache store.
+- `REDIS_CACHE_LOCK_CONNECTION`: Laravel Redis connection used by Redis cache locks.
+- `REDIS_QUEUE_CONNECTION`: Laravel Redis connection used by the `redis` queue driver.
+- `REDIS_QUEUE`: Queue name for Redis jobs.
+- `REDIS_QUEUE_RETRY_AFTER`: Seconds before a Redis job is retried.
+- `REDIS_QUEUE_BLOCK_FOR`: Optional seconds for Redis queue blocking pop; use `null` to disable blocking.
+
+### Queue Worker
+
+Run a queue worker whenever background jobs should be processed. With the Docker Redis service and `QUEUE_CONNECTION=redis`:
+
+```bash
+docker compose exec backend php artisan queue:work redis --queue=default --tries=3
+```
+
+For a host PHP runtime from `backend/`:
+
+```bash
+php artisan queue:work redis --queue=default --tries=3
+```
+
+Use the same commands with `database` instead of `redis` if the local `.env` keeps `QUEUE_CONNECTION=database`. If `REDIS_QUEUE` is changed from `default`, pass that queue name to `--queue`.
+
 ## Common Commands
 
 Run from `backend/` unless using `docker compose exec backend`.
@@ -53,6 +107,7 @@ composer test
 vendor/bin/pint
 php artisan migrate
 php artisan migrate:fresh --seed
+php artisan queue:work redis --queue=default --tries=3
 php artisan route:list --path=api --json
 php artisan l5-swagger:generate
 ```
@@ -69,6 +124,8 @@ Current public or compatibility routes outside `/api/v1`:
 - `GET /api/admin/settings` and `PUT|PATCH /api/admin/settings` as legacy admin settings compatibility routes protected by Sanctum, `role:admin|staff`, and portal settings permissions.
 
 Protected routes use Sanctum authentication. Admin and staff workflows add role and permission middleware on top of `auth:sanctum`.
+
+Fresh installs seed the `staff` role without baseline permissions. Staff access is intentionally granted by assigning named permissions such as `users.view`, `school_reports.view`, or other route-specific permissions after the user's operational scope is known.
 
 ## Public IDs
 
@@ -91,6 +148,18 @@ php artisan test --filter=PublicIdGenerationTest
 php artisan test --filter=BackfillPublicIdsCommandTest
 php artisan test --filter=PublicIdAuthorizationRegressionTest
 ```
+
+## Method Documentation
+
+Use method documentation to explain behavior that is not obvious from the method name or type signature:
+
+- Controllers should describe API behavior, request expectations, response shape, and access rules.
+- Services should describe business logic, important decisions, and side effects such as writes, events, notifications, or external calls.
+- Models should describe relationships, query scopes, casts, and domain-specific helpers that affect persistence or retrieval.
+- Policies should describe authorization rules, role and permission requirements, and ownership or state checks.
+- Resources should describe public-safe response fields and call out intentionally hidden internal or sensitive fields.
+- Avoid comments that simply repeat the method name or restate obvious code.
+- Keep documentation updated whenever behavior, access rules, side effects, or response fields change.
 
 ## OpenAPI And Swagger
 

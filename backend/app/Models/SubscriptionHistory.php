@@ -87,16 +87,31 @@ class SubscriptionHistory extends Model
         ];
     }
 
+    /**
+     * Get the subscription inverse relationship for this subscription history.
+     *
+     * This user-facing relationship resolves one Subscription model.
+     */
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
     }
 
+    /**
+     * Get the student inverse relationship for this subscription history.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the created by inverse relationship for this subscription history.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

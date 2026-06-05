@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\ClassOversightResource;
 use App\Http\Resources\LessonNotes\LessonNoteResource;
+use App\Models\CourseProgram;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\Lesson;
 use App\Models\LessonNote;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,8 +18,26 @@ use Illuminate\Validation\Rule;
 
 class ClassOversightController extends Controller
 {
+    /**
+     * Display a filtered list of class oversight records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'teacher' => User::class,
+            'student_id' => User::class,
+            'student' => User::class,
+            'course_program_id' => CourseProgram::class,
+            'course_id' => CourseProgram::class,
+            'course' => CourseProgram::class,
+        ]));
+
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
             'teacher' => ['sometimes', 'integer', 'exists:users,id'],
@@ -67,6 +88,14 @@ class ClassOversightController extends Controller
         );
     }
 
+    /**
+     * Handle the teacher notes action for class oversight records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $lesson.
+     * The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     */
     public function teacherNotes(Lesson $lesson): JsonResponse
     {
         $lesson->load([
@@ -84,6 +113,14 @@ class ClassOversightController extends Controller
         ]);
     }
 
+    /**
+     * Handle the review teacher note action for class oversight records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonNote.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function reviewTeacherNote(Request $request, LessonNote $lessonNote): JsonResponse
     {
         $validated = $request->validate([

@@ -11,6 +11,13 @@ class SubscriptionResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a subscription into a public-safe API response.
+     *
+     * Public fields expose package status, lesson counts, payment state, renewal
+     * timing, invoice and renewed-from references using public IDs, and loaded
+     * student summary. Renewal window keys, renewal notes, internal notes, and
+     * creator/updater references are admin-only or permission-dependent.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -52,6 +59,12 @@ class SubscriptionResource extends JsonResource
         ];
     }
 
+    /**
+     * Determine whether subscription admin fields can be serialized.
+     *
+     * Admins can view admin fields. Staff need `subscriptions.view`.
+     * Teachers, students, guests, and staff without permission are denied.
+     */
     private function canViewAdminFields(Request $request): bool
     {
         $user = $request->user();

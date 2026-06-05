@@ -132,9 +132,9 @@ class TeacherNoteCompletionReportApiTest extends TestCase
             ->assertJsonPath('data.summary.lessons_with_teacher_notes', 1)
             ->assertJsonCount(1, 'data.rows')
             ->assertJsonPath('data.rows.0.lesson_id', $matching->public_id)
-            ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.filters.student_id', $this->student->id)
-            ->assertJsonPath('data.filters.course_id', $this->courseProgram->id)
+            ->assertJsonPath('data.filters.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.filters.student_id', $this->student->public_id)
+            ->assertJsonPath('data.filters.course_id', $this->courseProgram->public_id)
             ->assertJsonPath('data.filters.status', Lesson::STATUS_COMPLETED);
 
         $this->getJson('/api/v1/admin/reports/teacher-note-completions?status=present')

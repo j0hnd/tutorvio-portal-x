@@ -16,6 +16,13 @@ class IssueReportResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform an issue report into a public-safe API response.
+     *
+     * Public fields expose report status, category, priority, reporter summary,
+     * assignee summary, and loaded comments using public IDs. Sensitive description
+     * details are conditional on the viewer being allowed to inspect them. Private
+     * or internal fields should not be exposed just for documentation.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

@@ -17,6 +17,17 @@ use Illuminate\Validation\Rule;
 
 class PayoutPeriodController extends Controller
 {
+    /**
+     * Display a filtered list of payout period records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', PayoutPeriod::class);
@@ -41,6 +52,17 @@ class PayoutPeriodController extends Controller
         return response()->json($periods->through(fn (PayoutPeriod $period) => new PayoutPeriodResource($period)));
     }
 
+    /**
+     * Create a new payout period record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StorePayoutPeriodRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StorePayoutPeriodRequest  $request
+     * @return JsonResponse
+     */
     public function store(StorePayoutPeriodRequest $request): JsonResponse
     {
         Gate::authorize('create', PayoutPeriod::class);
@@ -63,6 +85,17 @@ class PayoutPeriodController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected payout period record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $payoutPeriod.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  PayoutPeriod  $payoutPeriod
+     * @return JsonResponse
+     */
     public function show(PayoutPeriod $payoutPeriod): JsonResponse
     {
         Gate::authorize('view', $payoutPeriod);
@@ -72,6 +105,18 @@ class PayoutPeriodController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected payout period record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $payoutPeriod.
+     * The UpdatePayoutPeriodRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdatePayoutPeriodRequest  $request
+     * @param  PayoutPeriod  $payoutPeriod
+     * @return JsonResponse
+     */
     public function update(UpdatePayoutPeriodRequest $request, PayoutPeriod $payoutPeriod): JsonResponse
     {
         Gate::authorize('update', $payoutPeriod);
@@ -113,6 +158,17 @@ class PayoutPeriodController extends Controller
         ]);
     }
 
+    /**
+     * Handle the refresh eligible earnings action for payout period records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $period.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  PayoutPeriod  $period
+     * @return void
+     */
     private function refreshEligibleEarnings(PayoutPeriod $period): void
     {
         $eligibleIds = $this->eligibleEarningsQuery($period)->pluck('teacher_earnings.id')->all();
@@ -135,6 +191,17 @@ class PayoutPeriodController extends Controller
             ->update(['status' => TeacherEarning::STATUS_INCLUDED_IN_PAYOUT]);
     }
 
+    /**
+     * Handle the release earnings action for payout period records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $period.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  PayoutPeriod  $period
+     * @return void
+     */
     private function releaseEarnings(PayoutPeriod $period): void
     {
         $earningIds = $period->earnings()->pluck('teacher_earnings.id')->all();
@@ -149,6 +216,8 @@ class PayoutPeriodController extends Controller
 
     /**
      * @return Builder<TeacherEarning>
+     *
+     * @param  PayoutPeriod  $period
      */
     private function eligibleEarningsQuery(PayoutPeriod $period): Builder
     {

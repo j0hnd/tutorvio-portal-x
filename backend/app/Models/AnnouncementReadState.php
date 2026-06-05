@@ -27,11 +27,21 @@ class AnnouncementReadState extends Model
         ];
     }
 
+    /**
+     * Get the announcement inverse relationship for this announcement read state.
+     *
+     * This user-facing relationship resolves one Announcement model.
+     */
     public function announcement(): BelongsTo
     {
         return $this->belongsTo(Announcement::class);
     }
 
+    /**
+     * Get the user inverse relationship for this announcement read state.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

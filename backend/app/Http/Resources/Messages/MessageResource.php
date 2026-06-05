@@ -11,6 +11,12 @@ class MessageResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a message into a public-safe API response.
+     *
+     * The response exposes message content, read/delivery state, attachment
+     * descriptors, thread/sender/recipient summaries, and timestamps using public
+     * IDs. It does not expose private transport metadata or database primary keys.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

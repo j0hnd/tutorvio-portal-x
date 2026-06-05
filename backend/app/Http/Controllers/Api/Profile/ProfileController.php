@@ -16,8 +16,22 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ProfileController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
+    /**
+     * Display the selected profile record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a user resource payload.
+     */
     public function show(Request $request): UserResource
     {
         $user = $request->user();
@@ -27,6 +41,14 @@ class ProfileController extends Controller
         return new UserResource($user);
     }
 
+    /**
+     * Handle the show user action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a user resource payload.
+     */
     public function showUser(Request $request, User $user): UserResource|JsonResponse
     {
         $requester = $request->user();
@@ -42,6 +64,14 @@ class ProfileController extends Controller
         return new UserResource($user);
     }
 
+    /**
+     * Update the selected profile record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The UpdateProfileRequest handles authorization and validation before the controller action runs.
+     * Returns a user resource payload.
+     */
     public function update(UpdateProfileRequest $request): UserResource
     {
         $user = $request->user();
@@ -49,6 +79,14 @@ class ProfileController extends Controller
         return $this->updateProfileData($user, $request->validated());
     }
 
+    /**
+     * Handle the update user action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * The UpdateProfileRequest handles authorization and validation before the controller action runs.
+     * Returns a user resource payload.
+     */
     public function updateUser(UpdateProfileRequest $request, User $user): UserResource
     {
         $this->authorizeUserProfileAccess($request->user(), $user, 'update');
@@ -79,6 +117,14 @@ class ProfileController extends Controller
         return $relations;
     }
 
+    /**
+     * Authorize profile view or update access.
+     *
+     * Admins can access any profile. Staff need `users.view` for reads and
+     * `users.update` for writes. Users can update their own profile. Teachers
+     * can view assigned student profiles; unassigned student profiles are
+     * hidden with 404. Other access is denied with 403.
+     */
     private function authorizeUserProfileAccess(User $actor, User $target, string $operation): void
     {
         if ($actor->hasRole('admin')) {
@@ -109,6 +155,14 @@ class ProfileController extends Controller
         }
     }
 
+    /**
+     * Handle the update profile data action for profile records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $user, $data.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a user resource payload.
+     */
     private function updateProfileData(User $user, array $data): UserResource
     {
         $originalUser = $user->only(['name', 'phone', 'timezone']);

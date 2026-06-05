@@ -52,22 +52,41 @@ class TeacherCompensation extends Model
         ];
     }
 
+    /**
+     * Get the teacher inverse relationship for this teacher compensation.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /**
+     * Get the rate rules one-to-many relationship for this teacher compensation.
+     *
+     * This admin/internal relationship resolves multiple TeacherCompensationRateRule models.
+     */
     public function rateRules(): HasMany
     {
         return $this->hasMany(TeacherCompensationRateRule::class);
     }
 
+    /**
+     * Get the archived by inverse relationship for this teacher compensation.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');
     }
 
     /**
+     * Scope the query to active records.
+     *
+     * Important query filters: archived_at.
+     *
      * @param  Builder<TeacherCompensation>  $query
      * @return Builder<TeacherCompensation>
      */
@@ -77,6 +96,10 @@ class TeacherCompensation extends Model
     }
 
     /**
+     * Scope the query to effective on records.
+     *
+     * Important query filters: effective_start_date, effective_end_date.
+     *
      * @param  Builder<TeacherCompensation>  $query
      * @return Builder<TeacherCompensation>
      */

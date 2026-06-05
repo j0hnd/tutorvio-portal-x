@@ -145,6 +145,7 @@ use OpenApi\Attributes as OA;
         ),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
         new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
@@ -178,6 +179,7 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
         new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
@@ -208,6 +210,7 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
         new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
@@ -249,6 +252,7 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
         new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
@@ -301,6 +305,7 @@ use OpenApi\Attributes as OA;
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
         new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]
@@ -339,6 +344,7 @@ use OpenApi\Attributes as OA;
             )
         ),
         new OA\Response(response: 404, description: 'Invitation token was not found.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
         new OA\Response(ref: '#/components/responses/ServerError', response: 500),
     ]
 )]

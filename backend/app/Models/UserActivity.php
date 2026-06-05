@@ -17,6 +17,11 @@ class UserActivity extends Model
         'ip_address',
     ];
 
+    /**
+     * Get the user inverse relationship for this user activity.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

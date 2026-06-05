@@ -8,6 +8,7 @@ use App\Http\Requests\TeacherCompensations\UpdateTeacherCompensationRequest;
 use App\Http\Resources\TeacherCompensations\TeacherCompensationResource;
 use App\Models\TeacherCompensation;
 use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,9 +26,20 @@ class TeacherCompensationController extends Controller
         'currency',
     ];
 
+    /**
+     * Display a filtered list of teacher compensation records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherCompensation::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -56,6 +68,14 @@ class TeacherCompensationController extends Controller
         return response()->json($compensations->through(fn (TeacherCompensation $compensation) => new TeacherCompensationResource($compensation)));
     }
 
+    /**
+     * Handle the teacher action for teacher compensation records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $teacher.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     */
     public function teacher(User $teacher): JsonResponse
     {
         Gate::authorize('viewAny', TeacherCompensation::class);
@@ -72,6 +92,14 @@ class TeacherCompensationController extends Controller
         ]);
     }
 
+    /**
+     * Create a new teacher compensation record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreTeacherCompensationRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(StoreTeacherCompensationRequest $request): JsonResponse
     {
         Gate::authorize('create', TeacherCompensation::class);
@@ -83,6 +111,14 @@ class TeacherCompensationController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected teacher compensation record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $teacherCompensation.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(TeacherCompensation $teacherCompensation): JsonResponse
     {
         Gate::authorize('view', $teacherCompensation);
@@ -96,6 +132,14 @@ class TeacherCompensationController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected teacher compensation record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherCompensation.
+     * The UpdateTeacherCompensationRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(UpdateTeacherCompensationRequest $request, TeacherCompensation $teacherCompensation): JsonResponse
     {
         Gate::authorize('update', $teacherCompensation);
@@ -107,6 +151,14 @@ class TeacherCompensationController extends Controller
         ]);
     }
 
+    /**
+     * Archive the selected teacher compensation record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherCompensation.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function archive(Request $request, TeacherCompensation $teacherCompensation): JsonResponse
     {
         Gate::authorize('delete', $teacherCompensation);

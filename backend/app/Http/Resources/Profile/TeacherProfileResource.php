@@ -11,6 +11,15 @@ class TeacherProfileResource extends JsonResource
 {
     use SanitizesApiResponses;
 
+    /**
+     * Transform a teacher profile into a public-safe profile response.
+     *
+     * Public fields expose teacher profile details, teaching metadata, and the
+     * linked user reference using public IDs. Private compensation or internal
+     * administrative data should stay in dedicated authorized resources.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         $isAdminOrStaff = $this->canViewAdminFields($request);

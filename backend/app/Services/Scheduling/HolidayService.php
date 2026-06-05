@@ -9,7 +9,14 @@ use Illuminate\Validation\ValidationException;
 class HolidayService
 {
     /**
+     * Create a scheduling holiday block.
+     *
+     * The payload is normalized before persistence and checked for conflicting
+     * active holidays in the same timezone.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function create(array $payload): Holiday
     {
@@ -20,7 +27,14 @@ class HolidayService
     }
 
     /**
+     * Update a scheduling holiday block.
+     *
+     * The candidate values are normalized and checked against overlapping active
+     * holidays before the model is saved.
+     *
      * @param  array<string, mixed>  $payload
+     *
+     * @throws ValidationException
      */
     public function update(Holiday $holiday, array $payload): Holiday
     {

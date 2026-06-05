@@ -6,7 +6,7 @@ use OpenApi\Attributes as OA;
 
 #[OA\Tag(
     name: 'Communication',
-    description: 'Notifications, announcements, announcement targeting, scheduled publication, archive behavior, and student-teacher messaging. All operations require Sanctum bearer authentication. Notification and announcement list/read endpoints are scoped to records visible to the authenticated user. Announcement management requires admin/staff access with `announcements.manage`; notification history requires `notifications.history.view`; message thread access requires `messages.view` or `messages.manage`.'
+    description: 'Notifications, announcements, announcement targeting, scheduled publication, archive behavior, and student-teacher messaging. All operations require Sanctum bearer authentication. Notification and announcement list/read endpoints are scoped to records visible to the authenticated user. Announcement management requires admin/staff access with `announcements.manage`; notification history requires `notifications.history.view` and is full-history for admins only; message thread access requires `messages.view` or `messages.manage`.'
 )]
 #[OA\Schema(
     schema: 'CommunicationTargetType',
@@ -72,7 +72,7 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'CommunicationNotification',
-    description: 'Notification recipient response. User-facing notification endpoints return in-portal recipients for the authenticated user only, excluding archived notifications and future unpublished notifications. Admin history includes all non-archived recipients and adds recipient/channel/delivery fields when the actor has `notifications.history.view`.',
+    description: 'Notification recipient response. User-facing notification endpoints return in-portal recipients for the authenticated user only, excluding archived notifications and future unpublished notifications. Admin history includes all non-archived recipients. Staff history is scoped to the authenticated staff user. History responses add recipient/channel/delivery fields when the actor has `notifications.history.view`.',
     required: ['id', 'title', 'body', 'message', 'type', 'is_read', 'read_status', 'read_at', 'created_at', 'published_at', 'metadata'],
     properties: [
         new OA\Property(property: 'id', type: 'string', example: 'ntf_01J0NOTIFICATION0000001'),
@@ -88,7 +88,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'metadata', type: 'object', example: ['announcement_id' => 'ann_01J0ANNOUNCEMENT000000001']),
         new OA\Property(property: 'recipient_user_id', description: 'Admin history field. Recipient user public ID.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
         new OA\Property(property: 'channel', description: 'Admin history field. Email notifications are represented as recipients with `channel=email`; no standalone email notification settings API is currently implemented.', type: 'string', enum: ['in_portal', 'email'], example: 'in_portal'),
-        new OA\Property(property: 'delivery_status', description: 'Admin history field.', type: 'string', enum: ['pending', 'sent', 'delivered', 'failed'], example: 'delivered'),
+        new OA\Property(property: 'delivery_status', description: 'Admin history field.', type: 'string', enum: ['pending', 'sending', 'sent', 'delivered', 'failed'], example: 'delivered'),
     ],
     type: 'object'
 )]
@@ -151,7 +151,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Paginated notifications.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'ntf_01J0NOTIFICATION0000001', 'title' => 'Holiday schedule update', 'body' => 'Classes are paused on the public holiday.', 'message' => 'Classes are paused on the public holiday.', 'type' => 'admin_announcement', 'is_read' => false, 'read_status' => 'unread', 'read_at' => null, 'created_at' => '2026-06-01T09:00:00Z', 'published_at' => '2026-06-01T09:00:00Z', 'metadata' => ['announcement_id' => 12]]], 'meta' => ['current_page' => 1, 'per_page' => 25, 'total' => 1]])),
+        new OA\Response(response: 200, description: 'Paginated notifications.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'ntf_01J0NOTIFICATION0000001', 'title' => 'Holiday schedule update', 'body' => 'Classes are paused on the public holiday.', 'message' => 'Classes are paused on the public holiday.', 'type' => 'admin_announcement', 'is_read' => false, 'read_status' => 'unread', 'read_at' => null, 'created_at' => '2026-06-01T09:00:00Z', 'published_at' => '2026-06-01T09:00:00Z', 'metadata' => ['announcement_id' => 'ann_01J0ANNOUNCEMENT000000001']]], 'meta' => ['current_page' => 1, 'per_page' => 25, 'total' => 1]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
     ]
@@ -160,7 +160,7 @@ use OpenApi\Attributes as OA;
     path: '/notifications/history',
     operationId: 'communicationNotificationHistory',
     summary: 'Notification delivery history',
-    description: 'Access: admin, or staff with `notifications.history.view`. Visibility: all non-archived notification recipients, including `in_portal` and `email` channels. Email notification settings endpoints are not implemented; email delivery appears here as channel and delivery status history.',
+    description: 'Access: admin, or staff with `notifications.history.view`. Visibility: admins see all non-archived notification recipients; staff see only notification recipients addressed to themselves. Includes `in_portal` and `email` channels. Email notification settings endpoints are not implemented; email delivery appears here as channel and delivery status history.',
     security: [['sanctum' => []]],
     tags: ['Communication', 'Authorization'],
     parameters: [
@@ -508,7 +508,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'announcement', in: 'path', required: true, description: 'Announcement public ID.', schema: new OA\Schema(type: 'string'), example: 'ann_01J0ANNOUNCEMENT000000001'),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Resolved recipient count.', content: new OA\JsonContent(type: 'object', example: ['data' => ['announcement_id' => 12, 'recipient_count' => 42]])),
+        new OA\Response(response: 200, description: 'Resolved recipient count.', content: new OA\JsonContent(type: 'object', example: ['data' => ['announcement_id' => 'ann_01J0ANNOUNCEMENT000000001', 'recipient_count' => 42]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
     ]
@@ -522,8 +522,8 @@ use OpenApi\Attributes as OA;
     tags: ['Communication'],
     parameters: [
         new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['active', 'closed']), example: 'active'),
-        new OA\Parameter(name: 'student_id', in: 'query', description: 'Internal numeric user ID.', schema: new OA\Schema(type: 'integer'), example: 23),
-        new OA\Parameter(name: 'teacher_id', in: 'query', description: 'Internal numeric user ID.', schema: new OA\Schema(type: 'integer'), example: 17),
+        new OA\Parameter(name: 'student_id', in: 'query', description: 'Student user public ID.', schema: new OA\Schema(type: 'string'), example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Parameter(name: 'teacher_id', in: 'query', description: 'Teacher user public ID.', schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
     ],
     responses: [
@@ -541,9 +541,9 @@ use OpenApi\Attributes as OA;
     security: [['sanctum' => []]],
     tags: ['Communication'],
     requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(properties: [
-        new OA\Property(property: 'recipient_id', description: 'Internal numeric recipient ID for student/teacher self-service creation.', type: 'integer', example: 17),
-        new OA\Property(property: 'student_id', description: 'Internal numeric student user ID. Required with `teacher_id` for admin/staff.', type: 'integer', example: 23),
-        new OA\Property(property: 'teacher_id', description: 'Internal numeric teacher user ID. Required with `student_id` for admin/staff.', type: 'integer', example: 17),
+        new OA\Property(property: 'recipient_id', description: 'Recipient user public ID for student/teacher self-service creation.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'student_id', description: 'Student user public ID. Required with `teacher_id` for admin/staff.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', description: 'Teacher user public ID. Required with `student_id` for admin/staff.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
         new OA\Property(property: 'title', nullable: true, type: 'string', maxLength: 255, example: 'Lesson follow-up'),
         new OA\Property(property: 'body', nullable: true, type: 'string', maxLength: 10000, example: 'Can you review my homework before class?'),
         new OA\Property(property: 'metadata', type: 'object', example: []),

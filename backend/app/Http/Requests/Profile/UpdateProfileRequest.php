@@ -5,8 +5,20 @@ namespace App\Http\Requests\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates update profile requests.
+ *
+ * Expected roles: The target user, admins, staff with user update access, or assigned teachers for limited student profile updates.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateProfileRequest extends FormRequest
 {
+    /**
+     * Determine whether the authenticated user can update the target profile.
+     *
+     * Allows self updates, admins, staff with user update access, and assigned
+     * teachers for limited student profile updates.
+     */
     public function authorize(): bool
     {
         $user = $this->user();
@@ -43,6 +55,13 @@ class UpdateProfileRequest extends FormRequest
         return false;
     }
 
+    /**
+     * Get validation rules for update profile requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; prohibited rules protect fields that this role or request must not change; exists rules require referenced records to be present.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         $user = $this->user();
@@ -91,10 +110,9 @@ class UpdateProfileRequest extends FormRequest
                 $rules['student_profile.assigned_teacher_id'] = ['sometimes', 'integer', 'exists:users,id', 'nullable'];
             } elseif ($isTeacherAssigned) {
                 // Teacher updating assigned student profile
-                $rules['student_profile'] = ['sometimes', 'array'];
+                $rules['student_profile'] = ['sometimes', 'array:teacher_notes,assigned_teacher_id,english_level,current_level,course,class_type,start_date,notes,internal_notes,preferences,goals,learning_concerns'];
                 $rules['student_profile.teacher_notes'] = ['sometimes', 'string', 'nullable'];
-                $rules['student_profile.assigned_teacher_id'] = ['prohibited'];
-                $rules['student_profile.internal_notes'] = ['prohibited'];
+                $rules += $this->protectedAssignedTeacherStudentProfileRules();
             }
         } elseif ($targetUser->hasRole('teacher')) {
             if ($user->id === $targetUser->id) {
@@ -131,6 +149,8 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Return protected-field rules for update profile requests.
+     *
      * @return array<string, array<int, string>>
      */
     private function protectedFieldRules(): array
@@ -149,6 +169,8 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Return protected-field rules for update profile requests.
+     *
      * @return array<string, array<int, string>>
      */
     private function protectedStudentProfileRules(): array
@@ -162,6 +184,32 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Return protected student profile rules for assigned teacher updates.
+     *
+     * Assigned teachers own only the teacher notes field on student profiles.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function protectedAssignedTeacherStudentProfileRules(): array
+    {
+        return [
+            'student_profile.assigned_teacher_id' => ['prohibited'],
+            'student_profile.english_level' => ['prohibited'],
+            'student_profile.current_level' => ['prohibited'],
+            'student_profile.course' => ['prohibited'],
+            'student_profile.class_type' => ['prohibited'],
+            'student_profile.start_date' => ['prohibited'],
+            'student_profile.notes' => ['prohibited'],
+            'student_profile.internal_notes' => ['prohibited'],
+            'student_profile.preferences' => ['prohibited'],
+            'student_profile.goals' => ['prohibited'],
+            'student_profile.learning_concerns' => ['prohibited'],
+        ];
+    }
+
+    /**
+     * Return protected-field rules for update profile requests.
+     *
      * @return array<string, array<int, string>>
      */
     private function protectedTeacherProfileRules(): array

@@ -12,6 +12,13 @@ class LessonRecordResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a lesson record into a public-safe API response.
+     *
+     * Public fields expose scheduling, attendance, lesson status, completion,
+     * material, subscription-balance, and loaded relationship summaries using
+     * public IDs. Internal database IDs should be translated to public IDs before
+     * leaving the API boundary.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -113,6 +120,13 @@ class LessonRecordResource extends JsonResource
         return $data;
     }
 
+    /**
+     * Determine whether the internal lesson note can be serialized.
+     *
+     * Admins can view the internal note. Staff need `lesson_notes.view`.
+     * Teachers can view it only for lesson records assigned to them. Students,
+     * guests, and unrelated teachers are denied.
+     */
     private function canViewInternalLessonNote(Request $request): bool
     {
         $user = $request->user();

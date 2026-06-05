@@ -69,11 +69,21 @@ class FormTemplate extends Model
         ];
     }
 
+    /**
+     * Get the created by inverse relationship for this form template.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Get the updated by inverse relationship for this form template.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');

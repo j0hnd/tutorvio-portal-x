@@ -3,19 +3,38 @@
 namespace App\Http\Requests\LessonRecords;
 
 use App\Models\LessonRecord;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validates update lesson record requests.
+ *
+ * Expected roles: Authenticated teachers, staff, or admins allowed by lesson record routes, controller checks, or policies.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateLessonRecordRequest extends FormRequest
 {
+    /**
+     * Determine whether the authenticated user can submit update lesson record requests. This request adds no request-local authorization beyond route middleware, controller gates, or policies.
+     */
     public function authorize(): bool
     {
         return true;
     }
 
+    /**
+     * Copy the homework_instructions alias into homework_details when the canonical field is absent.
+     */
     protected function prepareForValidation(): void
     {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+
         if ($this->has('homework_instructions') && ! $this->has('homework_details')) {
             $this->merge([
                 'homework_details' => $this->input('homework_instructions'),
@@ -24,6 +43,10 @@ class UpdateLessonRecordRequest extends FormRequest
     }
 
     /**
+     * Get validation rules for update lesson record requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; distinct rules reject duplicate IDs in arrays.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -53,6 +76,11 @@ class UpdateLessonRecordRequest extends FormRequest
         ];
     }
 
+    /**
+     * Register after-validation checks that preserve time and join-window ordering during partial updates.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {

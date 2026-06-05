@@ -15,6 +15,13 @@ class InvoiceEmailNotification extends Notification
     public function __construct(private readonly Invoice $invoice) {}
 
     /**
+     * Select the delivery channels for invoice delivery.
+     *
+     * Laravel calls this when `InvoiceEmailService` sends an automatic or
+     * manual invoice email. The notification only sends mail; portal history,
+     * recipient status rows, invoice email metadata, and delivery failure logs
+     * are written by the service around this notification.
+     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
@@ -22,6 +29,15 @@ class InvoiceEmailNotification extends Notification
         return ['mail'];
     }
 
+    /**
+     * Build the invoice email and PDF attachment.
+     *
+     * Laravel calls this during mail delivery. The method loads invoice context,
+     * renders the PDF attachment, and returns a mail message. It does not write
+     * logs or update statuses itself. Automatic sends are safe to retry after a
+     * successful send because the service stores `automatic_sent_at`; manual
+     * resends intentionally create a fresh delivery attempt.
+     */
     public function toMail(object $notifiable): MailMessage
     {
         $this->invoice->loadMissing(['student', 'subscription', 'courseProgram']);

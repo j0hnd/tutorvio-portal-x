@@ -15,6 +15,13 @@ class ClassScheduleReminderNotification extends Notification
     public function __construct(private readonly ScheduleReminder $reminder) {}
 
     /**
+     * Select the delivery channels for a class reminder.
+     *
+     * Laravel calls this when `ScheduleReminderService` sends a due reminder.
+     * The notification is mail-only; the service creates the companion portal
+     * notification, records email delivery status, cancels ineligible reminders,
+     * and logs delivery failures.
+     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
@@ -22,6 +29,15 @@ class ClassScheduleReminderNotification extends Notification
         return ['mail'];
     }
 
+    /**
+     * Build the class reminder email.
+     *
+     * Laravel calls this during mail delivery for a claimed pending reminder.
+     * The method reads the reminder's schedule, recipient timezone, counterparty,
+     * and meeting link. It does not write logs or update reminder status itself.
+     * Retry safety is handled by the service claiming pending reminders before
+     * sending and moving them to sent, failed, or cancelled afterward.
+     */
     public function toMail(object $notifiable): MailMessage
     {
         $schedule = $this->reminder->classSchedule;

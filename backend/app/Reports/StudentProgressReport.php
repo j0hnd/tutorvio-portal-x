@@ -17,18 +17,17 @@ class StudentProgressReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters, User $actor): array
+    public function generate(SchoolReportFilters $filters, User $actor, array $pagination = []): array
     {
-        $records = $this->baseQuery($filters, $actor)->get();
-        $rows = $records
-            ->groupBy('student_id')
-            ->map(fn (Collection $studentRecords) => $this->row($studentRecords))
-            ->sortBy(fn (array $row) => $row['student_name'] ?? '')
-            ->values();
+        $query = $this->baseQuery($filters, $actor);
+        $records = (clone $query)->get();
+        $summaryRows = $this->rowsFromRecords($records);
+        $rows = $this->pageRows($query, $pagination);
 
         return [
-            'summary' => $this->summary($records, $rows),
+            'summary' => $this->summary($records, $summaryRows),
             'rows' => $rows->all(),
+            'total' => $this->totalStudents($query),
             'filters' => $filters->toArray(),
         ];
     }
@@ -91,6 +90,60 @@ class StudentProgressReport
     private function staffCanViewReports(User $actor): bool
     {
         return $actor->can('school_reports.view') || $actor->can('student_progress_records.view');
+    }
+
+    /**
+     * @param  Builder<StudentProgressRecord>  $query
+     * @param  array{page?: int, per_page?: int}  $pagination
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function pageRows(Builder $query, array $pagination): Collection
+    {
+        $page = max(1, (int) ($pagination['page'] ?? 1));
+        $perPage = min(100, max(1, (int) ($pagination['per_page'] ?? 50)));
+        $studentIds = (clone $query)
+            ->select('student_progress_records.student_id')
+            ->join('users', 'users.id', '=', 'student_progress_records.student_id')
+            ->groupBy('student_progress_records.student_id', 'users.name')
+            ->reorder()
+            ->orderBy('users.name')
+            ->orderBy('student_progress_records.student_id')
+            ->forPage($page, $perPage)
+            ->pluck('student_progress_records.student_id');
+
+        if ($studentIds->isEmpty()) {
+            return collect();
+        }
+
+        return (clone $query)
+            ->whereIn('student_progress_records.student_id', $studentIds)
+            ->get()
+            ->pipe(fn (Collection $records) => $this->rowsFromRecords($records));
+    }
+
+    /**
+     * @param  Builder<StudentProgressRecord>  $query
+     */
+    private function totalStudents(Builder $query): int
+    {
+        return (clone $query)
+            ->reorder()
+            ->toBase()
+            ->distinct()
+            ->count('student_progress_records.student_id');
+    }
+
+    /**
+     * @param  Collection<int, StudentProgressRecord>  $records
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function rowsFromRecords(Collection $records): Collection
+    {
+        return $records
+            ->groupBy('student_id')
+            ->map(fn (Collection $studentRecords) => $this->row($studentRecords))
+            ->sortBy(fn (array $row) => $row['student_name'] ?? '')
+            ->values();
     }
 
     /**

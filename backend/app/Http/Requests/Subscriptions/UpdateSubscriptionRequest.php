@@ -4,14 +4,36 @@ namespace App\Http\Requests\Subscriptions;
 
 use App\Http\Requests\Subscriptions\Concerns\ValidatesSubscriptionPayload;
 use App\Models\Subscription;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates update subscription requests.
+ *
+ * Expected roles: Admin or staff users with the relevant subscription management permission.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class UpdateSubscriptionRequest extends FormRequest
 {
     use ValidatesSubscriptionPayload;
 
     /**
+     * Resolve public student IDs to internal keys before subscription validation runs.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+        ]));
+    }
+
+    /**
+     * Get validation rules for update subscription requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; public_id exists rules expect public identifiers instead of numeric primary keys.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

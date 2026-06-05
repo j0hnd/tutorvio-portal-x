@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\IssueReports\IssueReportResource;
 use App\Models\IssueComment;
 use App\Models\IssueReport;
+use App\Models\Lesson;
+use App\Models\Scheduling\ClassSchedule;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,10 +23,36 @@ use Illuminate\Validation\ValidationException;
 
 class IssueReportController extends Controller
 {
-    public function __construct(private readonly AuditLogService $auditLogService) {}
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
+    public function __construct(
+        private readonly AuditLogService $auditLogService,
+        private readonly SearchService $search,
+    ) {}
 
+    /**
+     * Display a filtered list of issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'reporter_id' => User::class,
+            'assigned_to_id' => User::class,
+            'related_student_id' => User::class,
+            'related_teacher_id' => User::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+        ]));
+
         $validated = $request->validate([
             'status' => ['sometimes', 'string', Rule::in(IssueReport::STATUSES)],
             'issue_type' => ['sometimes', 'string', Rule::in(IssueReport::ISSUE_TYPES)],
@@ -36,6 +66,7 @@ class IssueReportController extends Controller
             'class_schedule_id' => ['sometimes', 'integer', 'exists:class_schedules,id'],
             'date_from' => ['sometimes', 'date_format:Y-m-d'],
             'date_to' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -54,12 +85,21 @@ class IssueReportController extends Controller
             ->when($validated['class_schedule_id'] ?? null, fn (Builder $query, int $id) => $query->where('class_schedule_id', $id))
             ->when($validated['date_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '>=', $date))
             ->when($validated['date_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '<=', $date))
+            ->tap(fn (Builder $query) => $this->search->issues($query, $validated['search'] ?? null))
             ->latest()
             ->paginate($validated['per_page'] ?? 15);
 
         return response()->json($issues->through(fn (IssueReport $issueReport) => new IssueReportResource($issueReport)));
     }
 
+    /**
+     * Display the selected issue report record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $issueReport.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(IssueReport $issueReport): JsonResponse
     {
         return response()->json([
@@ -69,6 +109,14 @@ class IssueReportController extends Controller
         ]);
     }
 
+    /**
+     * Handle the update status action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function updateStatus(Request $request, IssueReport $issueReport): JsonResponse
     {
         $validated = $request->validate([
@@ -106,8 +154,20 @@ class IssueReportController extends Controller
         return $this->issueResponse($issueReport);
     }
 
+    /**
+     * Handle the assign action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function assign(Request $request, IssueReport $issueReport): JsonResponse
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'assigned_to_id' => User::class,
+        ]));
+
         $validated = $request->validate([
             'assigned_to_id' => ['required', 'integer', 'exists:users,id'],
             'note' => ['sometimes', 'nullable', 'string', 'max:10000'],
@@ -165,6 +225,14 @@ class IssueReportController extends Controller
         return $this->issueResponse($issueReport);
     }
 
+    /**
+     * Handle the add resolution note action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function addResolutionNote(Request $request, IssueReport $issueReport): JsonResponse
     {
         $validated = $request->validate([
@@ -194,16 +262,40 @@ class IssueReportController extends Controller
         return $this->issueResponse($issueReport);
     }
 
+    /**
+     * Handle the close action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function close(Request $request, IssueReport $issueReport): JsonResponse
     {
         return $this->finish($request, $issueReport, IssueReport::STATUS_CLOSED);
     }
 
+    /**
+     * Cancel the selected issue report record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function cancel(Request $request, IssueReport $issueReport): JsonResponse
     {
         return $this->finish($request, $issueReport, IssueReport::STATUS_CANCELLED);
     }
 
+    /**
+     * Handle the finish action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport, $status.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     private function finish(Request $request, IssueReport $issueReport, string $status): JsonResponse
     {
         $validated = $request->validate([
@@ -245,6 +337,14 @@ class IssueReportController extends Controller
         return $this->issueResponse($issueReport);
     }
 
+    /**
+     * Handle the issue response action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $issueReport.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function issueResponse(IssueReport $issueReport): JsonResponse
     {
         return response()->json([
@@ -254,6 +354,14 @@ class IssueReportController extends Controller
         ]);
     }
 
+    /**
+     * Handle the record history action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $issueReport, $author, $type, $body, $isInternal.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function recordHistory(IssueReport $issueReport, ?User $author, string $type, string $body, bool $isInternal = true): void
     {
         $issueReport->comments()->create([
@@ -264,6 +372,14 @@ class IssueReportController extends Controller
         ]);
     }
 
+    /**
+     * Handle the log issue status changed action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $issueReport, $actor, $previousStatus, $newStatus, $notePresent.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function logIssueStatusChanged(IssueReport $issueReport, ?User $actor, string $previousStatus, string $newStatus, bool $notePresent): void
     {
         if ($previousStatus === $newStatus) {
@@ -291,6 +407,14 @@ class IssueReportController extends Controller
         );
     }
 
+    /**
+     * Handle the log issue resolution updated action for issue report records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $issueReport, $actor, $notePresent.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function logIssueResolutionUpdated(IssueReport $issueReport, ?User $actor, bool $notePresent): void
     {
         $this->auditLogService->record(

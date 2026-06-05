@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\DB;
 class AnnouncementRecipientResolver
 {
     /**
+     * Resolve the active users targeted by an announcement.
+     *
+     * The announcement model is loaded with its targets, and the returned
+     * payload preserves which target rules matched each recipient.
+     *
      * @return Collection<int, array{user_id: int, matched_targets: array<int, array<string, mixed>>}>
      */
     public function resolve(Announcement $announcement): Collection
@@ -43,6 +48,12 @@ class AnnouncementRecipientResolver
         return $recipients->values();
     }
 
+    /**
+     * Synchronize the stored recipient rows for an announcement.
+     *
+     * This deletes existing recipient rows and recreates them from the current
+     * announcement targets inside a transaction.
+     */
     public function syncRecipients(Announcement $announcement): int
     {
         $resolved = $this->resolve($announcement);
@@ -58,6 +69,13 @@ class AnnouncementRecipientResolver
         return $resolved->count();
     }
 
+    /**
+     * Determine whether a user can see an announcement through recipient scope.
+     *
+     * The user must be a stored announcement recipient. Staff users must also
+     * have `dashboard.operational_notices.view`; staff without that permission
+     * are denied even when a recipient row exists.
+     */
     public function canView(Announcement $announcement, User $user): bool
     {
         if (! $this->staffHasAnnouncementVisibility($user)) {
@@ -169,6 +187,12 @@ class AnnouncementRecipientResolver
         return is_string($group) && $group !== '' ? $group : null;
     }
 
+    /**
+     * Determine whether staff announcement visibility is allowed.
+     *
+     * Non-staff users pass through to recipient checks. Staff must have the
+     * Spatie permission `dashboard.operational_notices.view`.
+     */
     private function staffHasAnnouncementVisibility(User $user): bool
     {
         return ! $user->hasRole('staff')

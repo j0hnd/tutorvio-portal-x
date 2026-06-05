@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -38,6 +39,16 @@ class PermissionAccessTest extends TestCase
 
         $this->getJson("/api/v1/students/{$student->public_id}/package-summary")
             ->assertOk();
+    }
+
+    public function test_seeded_staff_role_starts_without_baseline_permissions(): void
+    {
+        $staffRole = Role::findByName('staff');
+
+        $this->assertCount(0, $staffRole->permissions);
+        $this->assertFalse($staffRole->hasPermissionTo('admin.access'));
+        $this->assertFalse($staffRole->hasPermissionTo('users.view'));
+        $this->assertFalse($staffRole->hasPermissionTo('school_reports.view'));
     }
 
     public function test_admin_only_endpoints_reject_non_admin_users_even_with_permissions(): void

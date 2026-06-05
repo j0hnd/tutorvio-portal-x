@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Contracts\Search\SearchService;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
@@ -15,17 +16,21 @@ use App\Models\Lesson;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\LearningResourceStorage;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class LearningResourceController extends Controller
 {
@@ -39,14 +44,36 @@ class LearningResourceController extends Controller
         'visibility',
     ];
 
+    /**
+     * Create the controller with its service dependencies.
+
+     *
+
+     * The framework resolves this constructor before action-specific route
+
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(
         private readonly LearningResourceStorage $storage,
         private readonly AuditLogService $auditLogService,
+        private readonly SearchService $search,
     ) {}
 
+    /**
+     * Display a filtered list of learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', LearningResource::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'assigned_student_id' => User::class,
+            'assigned_lesson_id' => Lesson::class,
+        ]));
 
         $validated = $request->validate([
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -64,7 +91,7 @@ class LearningResourceController extends Controller
         $resources = LearningResource::query()
             ->with('createdBy')
             ->visibleTo($request->user())
-            ->search($validated['search'] ?? null)
+            ->tap(fn (Builder $query) => $this->search->resources($query, $validated['search'] ?? null))
             ->when($validated['resource_type'] ?? null, fn ($query, $type) => $query->where('resource_type', $type))
             ->when($validated['course'] ?? null, fn ($query, $course) => $query->where('course', $course))
             ->when($validated['level'] ?? null, fn ($query, $level) => $query->where('level', $level))
@@ -86,12 +113,26 @@ class LearningResourceController extends Controller
         );
     }
 
+    /**
+     * Handle the store file action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreFileResourceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function storeFile(StoreFileResourceRequest $request): JsonResponse
     {
         Gate::authorize('create', LearningResource::class);
 
         $validated = $request->validated();
-        $fileMetadata = $this->storage->store($validated['file']);
+        try {
+            $fileMetadata = $this->storage->store($validated['file']);
+        } catch (RuntimeException $exception) {
+            return $this->storageFailureResponse($exception);
+        } catch (Throwable $exception) {
+            return $this->storageFailureResponse($exception);
+        }
 
         unset($validated['file']);
 
@@ -118,6 +159,14 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the store link action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreLinkResourceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function storeLink(StoreLinkResourceRequest $request): JsonResponse
     {
         Gate::authorize('create', LearningResource::class);
@@ -142,6 +191,14 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected learning resource record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('view', $learningResource);
@@ -151,6 +208,14 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Download the selected learning resource file or document.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a downloadable HTTP response or an error response when access or file checks fail.
+     */
     public function download(LearningResource $learningResource): StreamedResponse|JsonResponse
     {
         Gate::authorize('view', $learningResource);
@@ -173,19 +238,36 @@ class LearningResourceController extends Controller
             ], 404);
         }
 
-        if (! $learningResource->storedFileExists()) {
+        $exists = $this->storedFileExists($learningResource);
+        if ($exists === null) {
+            return $this->storageFailureResponse();
+        }
+
+        if (! $exists) {
             return response()->json([
                 'message' => 'The resource file could not be found.',
             ], 404);
         }
 
         if ($this->shouldReturnTemporaryUrl($learningResource)) {
-            $expiresAt = now()->addMinutes($this->temporaryUrlTtlMinutes());
-            $temporaryUrl = Storage::disk($learningResource->storageDisk())->temporaryUrl(
-                $learningResource->file_path,
-                $expiresAt,
-                $this->temporaryDownloadOptions($learningResource->original_filename)
-            );
+            try {
+                $expiresAt = now()->addMinutes($this->temporaryUrlTtlMinutes());
+                $temporaryUrl = Storage::disk($learningResource->storageDisk())->temporaryUrl(
+                    $learningResource->file_path,
+                    $expiresAt,
+                    $this->temporaryDownloadOptions($learningResource->original_filename)
+                );
+            } catch (Throwable $exception) {
+                Log::warning('Learning resource temporary URL generation failed.', [
+                    'learning_resource_id' => $learningResource->id,
+                    'exception' => $exception::class,
+                ]);
+
+                return response()->json([
+                    'message' => 'A secure download link could not be created. Please try again later.',
+                ], 503);
+            }
+
             $this->logFileDownloaded($learningResource, request()->user()?->id, 'temporary_url');
 
             return response()->json([
@@ -200,15 +282,36 @@ class LearningResourceController extends Controller
 
         $this->logFileDownloaded($learningResource, request()->user()?->id, 'stream');
 
-        return Storage::disk($learningResource->storageDisk())->download(
-            $learningResource->file_path,
-            $learningResource->original_filename,
-            [
-                'Cache-Control' => 'private, no-store, max-age=0',
-            ]
-        );
+        try {
+            $this->assertStoredFileCanStream($learningResource);
+
+            return Storage::disk($learningResource->storageDisk())->download(
+                $learningResource->file_path,
+                $learningResource->original_filename,
+                [
+                    'Cache-Control' => 'private, no-store, max-age=0',
+                ]
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Learning resource stream download failed.', [
+                'learning_resource_id' => $learningResource->id,
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'message' => 'The resource file could not be downloaded. Please try again later.',
+            ], 503);
+        }
     }
 
+    /**
+     * Update the selected learning resource record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $learningResource.
+     * The UpdateLearningResourceRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(UpdateLearningResourceRequest $request, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('update', $learningResource);
@@ -220,30 +323,40 @@ class LearningResourceController extends Controller
         unset($validated['file'], $validated['change_notes']);
 
         if ($uploadedFile instanceof UploadedFile) {
-            DB::transaction(function () use ($learningResource, $uploadedFile, $validated, $request, $changeNotes) {
-                $this->ensureInitialVersionSnapshotExists($learningResource);
+            try {
+                DB::transaction(function () use ($learningResource, $uploadedFile, $validated, $request, $changeNotes) {
+                    $this->ensureInitialVersionSnapshotExists($learningResource);
 
-                $previousFilePath = $learningResource->file_path;
-                $fileMetadata = $this->storage->store($uploadedFile);
-                $latestVersionNumber = (int) $learningResource->versions()->max('version_number');
-                $nextVersionNumber = max($learningResource->currentVersionNumber(), $latestVersionNumber) + 1;
+                    $previousFilePath = $learningResource->file_path;
+                    try {
+                        $fileMetadata = $this->storage->store($uploadedFile);
+                    } catch (RuntimeException $exception) {
+                        throw $exception;
+                    } catch (Throwable $exception) {
+                        throw new RuntimeException('Learning resource upload could not be stored.', previous: $exception);
+                    }
+                    $latestVersionNumber = (int) $learningResource->versions()->max('version_number');
+                    $nextVersionNumber = max($learningResource->currentVersionNumber(), $latestVersionNumber) + 1;
 
-                $learningResource->update([
-                    ...$validated,
-                    ...$fileMetadata,
-                    'preview_metadata' => $this->previewMetadata($fileMetadata),
-                    'current_version_number' => $nextVersionNumber,
-                ]);
+                    $learningResource->update([
+                        ...$validated,
+                        ...$fileMetadata,
+                        'preview_metadata' => $this->previewMetadata($fileMetadata),
+                        'current_version_number' => $nextVersionNumber,
+                    ]);
 
-                $this->createVersionSnapshot(
-                    $learningResource,
-                    $fileMetadata,
-                    uploadedBy: $request->user()->id,
-                    previousFilePath: $previousFilePath,
-                    changeNotes: $changeNotes
-                );
-                $this->logFileUploaded($learningResource->refresh(), $request->user()->id, isReplacement: true);
-            });
+                    $this->createVersionSnapshot(
+                        $learningResource,
+                        $fileMetadata,
+                        uploadedBy: $request->user()->id,
+                        previousFilePath: $previousFilePath,
+                        changeNotes: $changeNotes
+                    );
+                    $this->logFileUploaded($learningResource->refresh(), $request->user()->id, isReplacement: true);
+                });
+            } catch (RuntimeException $exception) {
+                return $this->storageFailureResponse($exception);
+            }
         } else {
             $learningResource->update($validated);
         }
@@ -253,6 +366,14 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the versions action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function versions(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('viewVersionHistory', $learningResource);
@@ -285,9 +406,20 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the assign student action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $learningResource.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function assignStudent(Request $request, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['required', 'integer', 'exists:users,id'],
@@ -311,9 +443,20 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the assign lesson action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $learningResource.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function assignLesson(Request $request, LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'lesson_id' => Lesson::class,
+        ]));
 
         $validated = $request->validate([
             'lesson_id' => ['required', 'integer', 'exists:lessons,id'],
@@ -336,6 +479,14 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the unassign student action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $student.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function unassignStudent(LearningResource $learningResource, User $student): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
@@ -346,6 +497,14 @@ class LearningResourceController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Handle the unassign lesson action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $lesson.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function unassignLesson(LearningResource $learningResource, Lesson $lesson): JsonResponse
     {
         Gate::authorize('assign', $learningResource);
@@ -355,6 +514,14 @@ class LearningResourceController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Delete the selected learning resource record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     */
     public function destroy(LearningResource $learningResource): JsonResponse
     {
         Gate::authorize('delete', $learningResource);
@@ -404,6 +571,14 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the ensure initial version snapshot exists action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function ensureInitialVersionSnapshotExists(LearningResource $learningResource): void
     {
         if (! $learningResource->hasStoredFile()) {
@@ -429,6 +604,14 @@ class LearningResourceController extends Controller
         ]);
     }
 
+    /**
+     * Handle the delete all stored files action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function deleteAllStoredFiles(LearningResource $learningResource): void
     {
         $paths = $learningResource->versions()
@@ -449,6 +632,14 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the assert student user action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertStudentUser(User $student): void
     {
         if (! $student->hasRole('student')) {
@@ -458,6 +649,14 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the assert student assignment does not exist action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertStudentAssignmentDoesNotExist(LearningResource $learningResource, User $student): void
     {
         if ($learningResource->assignedStudents()->whereKey($student->id)->exists()) {
@@ -467,6 +666,14 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson assignment does not exist action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $lesson.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertLessonAssignmentDoesNotExist(LearningResource $learningResource, Lesson $lesson): void
     {
         if ($learningResource->assignedLessons()->whereKey($lesson->id)->exists()) {
@@ -476,6 +683,14 @@ class LearningResourceController extends Controller
         }
     }
 
+    /**
+     * Handle the where assigned to student for user action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $studentId, $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function whereAssignedToStudentForUser(Builder $query, int $studentId, User $user): Builder
     {
         return $query->whereHas('assignedStudents', function (Builder $query) use ($studentId, $user) {
@@ -491,6 +706,14 @@ class LearningResourceController extends Controller
         });
     }
 
+    /**
+     * Handle the where assigned to lesson for user action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $lessonId, $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function whereAssignedToLessonForUser(Builder $query, int $lessonId, User $user): Builder
     {
         return $query->whereHas('assignedLessons', function (Builder $query) use ($lessonId, $user) {
@@ -506,13 +729,32 @@ class LearningResourceController extends Controller
         });
     }
 
+    /**
+     * Handle the should return temporary url action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function shouldReturnTemporaryUrl(LearningResource $learningResource): bool
     {
         $disk = $learningResource->storageDisk();
         $strategy = (string) config('learning_resources.download.strategy', 'auto');
         $driver = (string) config("filesystems.disks.{$disk}.driver", '');
 
-        if (! Storage::disk($disk)->providesTemporaryUrls()) {
+        try {
+            $providesTemporaryUrls = Storage::disk($disk)->providesTemporaryUrls();
+        } catch (Throwable $exception) {
+            Log::warning('Learning resource temporary URL capability check failed.', [
+                'learning_resource_id' => $learningResource->id,
+                'exception' => $exception::class,
+            ]);
+
+            return false;
+        }
+
+        if (! $providesTemporaryUrls) {
             return false;
         }
 
@@ -541,11 +783,71 @@ class LearningResourceController extends Controller
         ];
     }
 
+    /**
+     * Handle the temporary url ttl minutes action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * This action does not require additional request parameters beyond the route context.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function temporaryUrlTtlMinutes(): int
     {
         return max(1, (int) config('learning_resources.download.temporary_url_ttl_minutes', 10));
     }
 
+    private function storedFileExists(LearningResource $learningResource): ?bool
+    {
+        try {
+            return Storage::disk($learningResource->storageDisk())->exists($learningResource->file_path);
+        } catch (Throwable $exception) {
+            Log::warning('Learning resource storage existence check failed.', [
+                'learning_resource_id' => $learningResource->id,
+                'exception' => $exception::class,
+            ]);
+
+            return null;
+        }
+    }
+
+    private function assertStoredFileCanStream(LearningResource $learningResource): void
+    {
+        $stream = Storage::disk($learningResource->storageDisk())->readStream($learningResource->file_path);
+
+        if (! is_resource($stream)) {
+            throw new RuntimeException('Learning resource stream could not be opened.');
+        }
+
+        fclose($stream);
+    }
+
+    private function storageFailureResponse(?Throwable $exception = null): JsonResponse
+    {
+        if ($exception !== null) {
+            Log::warning('Learning resource storage operation failed.', [
+                'exception' => $exception::class,
+            ]);
+        }
+
+        if ($exception instanceof RuntimeException && str_contains($exception->getMessage(), 'protected storage')) {
+            return response()->json([
+                'message' => 'File storage is not configured correctly.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'File storage is temporarily unavailable. Please try again later.',
+        ], 503);
+    }
+
+    /**
+     * Handle the log file uploaded action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $actorUserId, $isReplacement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function logFileUploaded(LearningResource $learningResource, int $actorUserId, bool $isReplacement): void
     {
         $this->auditLogService->record(
@@ -565,6 +867,14 @@ class LearningResourceController extends Controller
         );
     }
 
+    /**
+     * Handle the log file downloaded action for learning resource records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $learningResource, $actorUserId, $deliveryType.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function logFileDownloaded(LearningResource $learningResource, ?int $actorUserId, string $deliveryType): void
     {
         $this->auditLogService->record(

@@ -11,6 +11,12 @@ class CourseProgramStudentAssignmentResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a course-program student assignment response.
+     *
+     * Public-safe fields expose the assigned course program, student summary,
+     * assigned date, status, and start date using public IDs. Assignment owner,
+     * notes, and timestamps are admin-only or require course_programs.view.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

@@ -25,6 +25,17 @@ class CourseTypeController extends Controller
         'updated_at',
     ];
 
+    /**
+     * Display a filtered list of course type records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', CourseType::class);
@@ -50,6 +61,17 @@ class CourseTypeController extends Controller
         return response()->json($types->through(fn (CourseType $courseType) => new CourseTypeResource($courseType)));
     }
 
+    /**
+     * Create a new course type record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreCourseTypeRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreCourseTypeRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreCourseTypeRequest $request): JsonResponse
     {
         Gate::authorize('create', CourseType::class);
@@ -66,6 +88,17 @@ class CourseTypeController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected course type record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $courseType.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  CourseType  $courseType
+     * @return JsonResponse
+     */
     public function show(CourseType $courseType): JsonResponse
     {
         Gate::authorize('view', $courseType);
@@ -75,6 +108,18 @@ class CourseTypeController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected course type record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseType.
+     * The UpdateCourseTypeRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateCourseTypeRequest  $request
+     * @param  CourseType  $courseType
+     * @return JsonResponse
+     */
     public function update(UpdateCourseTypeRequest $request, CourseType $courseType): JsonResponse
     {
         Gate::authorize('update', $courseType);
@@ -95,6 +140,18 @@ class CourseTypeController extends Controller
         ]);
     }
 
+    /**
+     * Archive the selected course type record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseType.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  CourseType  $courseType
+     * @return JsonResponse
+     */
     public function archive(Request $request, CourseType $courseType): JsonResponse
     {
         Gate::authorize('delete', $courseType);
@@ -122,6 +179,18 @@ class CourseTypeController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected course type record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $courseType.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON confirmation after deletion.
+     *
+     * @param  Request  $request
+     * @param  CourseType  $courseType
+     * @return JsonResponse
+     */
     public function destroy(Request $request, CourseType $courseType): JsonResponse
     {
         $this->archive($request, $courseType);
@@ -129,6 +198,18 @@ class CourseTypeController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Handle the search action for course type records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $query, $term.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Builder  $query
+     * @param  string  $term
+     * @return Builder
+     */
     private function search(Builder $query, string $term): Builder
     {
         $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($term)).'%';
@@ -139,6 +220,18 @@ class CourseTypeController extends Controller
         });
     }
 
+    /**
+     * Handle the unique slug action for course type records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $name, $ignore.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  string  $name
+     * @param  ?CourseType  $ignore
+     * @return string
+     */
     private function uniqueSlug(string $name, ?CourseType $ignore = null): string
     {
         $base = Str::slug($name) ?: 'course-type';

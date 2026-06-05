@@ -6,14 +6,27 @@ use App\Models\Subscription;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validates adjust subscription lesson balance requests.
+ *
+ * Expected roles: Admin or staff users with the relevant subscription management permission.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class AdjustSubscriptionLessonBalanceRequest extends FormRequest
 {
+    /**
+     * Determine whether the authenticated user can submit adjust subscription lesson balance requests. This request adds no request-local authorization beyond route middleware, controller gates, or policies.
+     */
     public function authorize(): bool
     {
         return true;
     }
 
     /**
+     * Get validation rules for adjust subscription lesson balance requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -26,6 +39,11 @@ class AdjustSubscriptionLessonBalanceRequest extends FormRequest
         ];
     }
 
+    /**
+     * Register after-validation checks for subscription student role, lesson-count consistency, and date ranges.
+     *
+     * @param  mixed  $validator
+     */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {

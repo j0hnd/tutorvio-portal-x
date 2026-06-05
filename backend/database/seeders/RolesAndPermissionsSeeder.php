@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\PortalMetadataService;
 use App\Support\PermissionNames;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
@@ -99,8 +100,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'messages.view',
         ]);
 
+        // Staff is permissionless by default. Assign named permissions per
+        // staff account or team once an operational access level is known.
         $staffRole->syncPermissions([]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PortalMetadataService::class)->forgetRolePermissionMetadata();
     }
 }

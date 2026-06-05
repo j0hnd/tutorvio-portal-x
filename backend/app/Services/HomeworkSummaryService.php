@@ -3,12 +3,19 @@
 namespace App\Services;
 
 use App\Models\Homework;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class HomeworkSummaryService
 {
     /**
+     * Summarize homework status counts and trends for filtered assignments.
+     *
+     * The filters are expected to be validated before this service is called.
+     * This method only reads homework data and does not update overdue status.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
@@ -24,8 +31,8 @@ class HomeworkSummaryService
             'filters' => [
                 'date_from' => $filters['date_from'] ?? null,
                 'date_to' => $filters['date_to'] ?? null,
-                'teacher_id' => isset($filters['teacher_id']) ? (int) $filters['teacher_id'] : null,
-                'student_id' => isset($filters['student_id']) ? (int) $filters['student_id'] : null,
+                'teacher_id' => PublicIdResolver::toPublicId($filters['teacher_id'] ?? null, User::class),
+                'student_id' => PublicIdResolver::toPublicId($filters['student_id'] ?? null, User::class),
                 'status' => $filters['status'] ?? null,
                 'course' => $filters['course'] ?? null,
                 'level' => $filters['level'] ?? null,

@@ -12,6 +12,17 @@ use Illuminate\Support\Facades\Gate;
 
 class TeacherPayoutAdjustmentController extends Controller
 {
+    /**
+     * Display a filtered list of teacher payout adjustment records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewOwnSummary', TeacherPayoutAdjustment::class);

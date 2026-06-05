@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Enums\AuditActionType;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
@@ -9,6 +10,7 @@ use App\Models\StudentProfile;
 use App\Models\User;
 use App\Models\UserStatusHistory;
 use App\Services\AuditLogService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -22,8 +24,28 @@ class UserManagementController extends Controller
 {
     private const MANAGED_ROLES = ['student', 'teacher', 'admin', 'staff'];
 
-    public function __construct(private readonly AuditLogService $auditLogService) {}
+    /**
+     * Create the controller with its service dependencies.
 
+     *
+
+     * The framework resolves this constructor before action-specific route
+
+     * middleware, permissions, validation, and authorization are applied.
+     */
+    public function __construct(
+        private readonly AuditLogService $auditLogService,
+        private readonly SearchService $search,
+    ) {}
+
+    /**
+     * Display a filtered list of user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -35,21 +57,35 @@ class UserManagementController extends Controller
 
         $users = User::query()
             ->with(['roles', 'permissions', 'studentProfile.assignedTeacher', 'teacherProfile', 'staffProfile'])
-            ->when($validated['role'] ?? null, fn ($query, string $role) => $query->role($role))
+            ->when(
+                ($validated['role'] ?? null) && ! in_array($validated['role'], ['student', 'teacher'], true),
+                fn ($query) => $query->role($validated['role'])
+            )
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($validated['search'] ?? null, function ($query, string $search) {
-                $query->where(function ($query) use ($search) {
-                    $query
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
+            ->tap(fn ($query) => $this->searchUsers($query, $validated['search'] ?? null, $validated['role'] ?? null))
             ->latest()
             ->paginate($validated['per_page'] ?? 25);
 
         return response()->json($users->through(fn (User $user) => $this->serializeUser($user)));
     }
 
+    private function searchUsers(Builder $query, ?string $term, ?string $role): void
+    {
+        match ($role) {
+            'student' => $this->search->students($query, $term),
+            'teacher' => $this->search->teachers($query, $term),
+            default => $query->searchIdentity($term),
+        };
+    }
+
+    /**
+     * Create a new user management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateUserPayload($request, true);
@@ -93,6 +129,14 @@ class UserManagementController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected user management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(User $user): JsonResponse
     {
         return response()->json([
@@ -100,6 +144,14 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected user management record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(Request $request, User $user): JsonResponse
     {
         $validated = $this->validateUserPayload($request, false, $user);
@@ -171,16 +223,40 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the activate action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function activate(Request $request, User $user): JsonResponse
     {
         return $this->changeStatus($request, $user, User::STATUS_ACTIVE);
     }
 
+    /**
+     * Handle the deactivate action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function deactivate(Request $request, User $user): JsonResponse
     {
         return $this->changeStatus($request, $user, User::STATUS_INACTIVE);
     }
 
+    /**
+     * Handle the sync roles action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function syncRoles(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
@@ -221,6 +297,14 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the status history action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function statusHistory(User $user): JsonResponse
     {
         return response()->json([
@@ -246,6 +330,14 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the change status action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $user, $status.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     private function changeStatus(Request $request, User $user, string $status): JsonResponse
     {
         $validated = $request->validate([
@@ -520,6 +612,14 @@ class UserManagementController extends Controller
         }
     }
 
+    /**
+     * Handle the primary role action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $user.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function primaryRole(?User $user): ?string
     {
         if ($user === null) {
@@ -649,6 +749,14 @@ class UserManagementController extends Controller
         ];
     }
 
+    /**
+     * Handle the user public id action for user management records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $id.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function userPublicId(mixed $id): ?string
     {
         if ($id === null || $id === '') {

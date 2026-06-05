@@ -11,6 +11,17 @@ use Illuminate\Http\Request;
 
 class IssueReportController extends Controller
 {
+    /**
+     * Create a new issue report record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreIssueReportRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreIssueReportRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreIssueReportRequest $request): JsonResponse
     {
         $issueReport = IssueReport::create($request->issuePayload());
@@ -20,6 +31,18 @@ class IssueReportController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected issue report record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $issueReport.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  IssueReport  $issueReport
+     * @return JsonResponse
+     */
     public function show(Request $request, IssueReport $issueReport): JsonResponse
     {
         $user = $request->user();

@@ -12,6 +12,13 @@ class InvoiceResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform an invoice into a public-safe billing API response.
+     *
+     * Public fields expose invoice totals, dates, status, and loaded student,
+     * subscription, and course-program summaries using public IDs. Payment and
+     * internal billing details are included only for admins or staff with
+     * billing.invoices.view. Database primary keys should not be exposed.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -59,6 +66,13 @@ class InvoiceResource extends JsonResource
         return $data;
     }
 
+    /**
+     * Determine whether invoice payment details can be serialized.
+     *
+     * Admins can view payment details. Staff need either `invoices.view` or
+     * `invoices.update`. Teachers, students, guests, and staff without those
+     * permissions are denied.
+     */
     private function canViewPaymentDetails(Request $request): bool
     {
         $user = $request->user();

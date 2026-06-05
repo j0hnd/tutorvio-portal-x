@@ -11,6 +11,12 @@ class TeacherSlotDiscoveryService
     public function __construct(private readonly TeacherWorkloadService $workloads) {}
 
     /**
+     * Discover assignable teacher options for a student.
+     *
+     * The filters are normalized from the student's profile, teacher workload
+     * summaries are evaluated, and only available teacher options are returned
+     * ranked by capacity and compatibility.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<int, array<string, mixed>>
      */
@@ -40,6 +46,12 @@ class TeacherSlotDiscoveryService
     }
 
     /**
+     * Evaluate one teacher as an assignment option for a student.
+     *
+     * The method combines workload summary data, capacity limits, lesson-type
+     * compatibility, and teacher status to build a structured availability
+     * explanation.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
@@ -108,6 +120,11 @@ class TeacherSlotDiscoveryService
     }
 
     /**
+     * Build validation-style assignment errors for a student-teacher pairing.
+     *
+     * The method checks active roles and the teacher availability evaluation,
+     * returning field-keyed messages suitable for request validation failures.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, string>
      */

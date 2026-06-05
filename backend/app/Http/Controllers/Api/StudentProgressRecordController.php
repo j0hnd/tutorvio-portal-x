@@ -11,6 +11,7 @@ use App\Http\Resources\StudentProgressRecords\StudentProgressRecordResource;
 use App\Models\StudentProgressRecord;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,11 +22,29 @@ use Illuminate\Validation\ValidationException;
 
 class StudentProgressRecordController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly AuditLogService $auditLogService) {}
 
+    /**
+     * Display a filtered list of student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', StudentProgressRecord::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -64,6 +83,14 @@ class StudentProgressRecordController extends Controller
         );
     }
 
+    /**
+     * Create a new student progress record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreStudentProgressRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(StoreStudentProgressRecordRequest $request): JsonResponse
     {
         Gate::authorize('create', StudentProgressRecord::class);
@@ -83,6 +110,14 @@ class StudentProgressRecordController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected student progress record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $studentProgressRecord.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(StudentProgressRecord $studentProgressRecord): JsonResponse
     {
         Gate::authorize('view', $studentProgressRecord);
@@ -92,6 +127,14 @@ class StudentProgressRecordController extends Controller
         ]);
     }
 
+    /**
+     * Display a summarized student progress record result.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function summary(Request $request, User $student): JsonResponse
     {
         $this->assertStudentVisibleToUser($request->user(), $student);
@@ -130,6 +173,14 @@ class StudentProgressRecordController extends Controller
         ]);
     }
 
+    /**
+     * Display a timeline of student progress record activity.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function timeline(Request $request, User $student): JsonResponse
     {
         $validated = $request->validate([
@@ -168,6 +219,14 @@ class StudentProgressRecordController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected student progress record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $studentProgressRecord.
+     * The UpdateStudentProgressRecordRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(UpdateStudentProgressRecordRequest $request, StudentProgressRecord $studentProgressRecord): JsonResponse
     {
         Gate::authorize('update', $studentProgressRecord);
@@ -209,6 +268,14 @@ class StudentProgressRecordController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected student progress record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $studentProgressRecord.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     */
     public function destroy(StudentProgressRecord $studentProgressRecord): JsonResponse
     {
         Gate::authorize('delete', $studentProgressRecord);
@@ -233,6 +300,14 @@ class StudentProgressRecordController extends Controller
         return $payload;
     }
 
+    /**
+     * Handle the assert valid student and teacher action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $studentId, $teacherId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertValidStudentAndTeacher(int $studentId, int $teacherId): void
     {
         $student = User::query()->with('studentProfile')->findOrFail($studentId);
@@ -252,6 +327,14 @@ class StudentProgressRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert filter users action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $studentId, $teacherId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertFilterUsers(?int $studentId, ?int $teacherId): void
     {
         $errors = [];
@@ -269,6 +352,14 @@ class StudentProgressRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert filters visible to user action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $studentId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertFiltersVisibleToUser(User $actor, ?int $studentId): void
     {
         if ($studentId === null || $actor->hasRole('admin') || ($actor->hasRole('staff') && $actor->can('student_progress_records.view'))) {
@@ -292,6 +383,14 @@ class StudentProgressRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert student visible to user action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertStudentVisibleToUser(User $actor, User $student): void
     {
         $student->loadMissing('studentProfile');
@@ -323,6 +422,14 @@ class StudentProgressRecordController extends Controller
         }
     }
 
+    /**
+     * Handle the assert teacher can manage student action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $actor, $studentId, $teacherId.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function assertTeacherCanManageStudent(User $actor, int $studentId, int $teacherId): void
     {
         if ($actor->hasRole('admin')) {
@@ -382,6 +489,14 @@ class StudentProgressRecordController extends Controller
         ];
     }
 
+    /**
+     * Handle the previous level action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function previousLevel(User $student): ?string
     {
         $previousLevel = $student->studentProfile?->english_level;
@@ -442,6 +557,14 @@ class StudentProgressRecordController extends Controller
         return $records->first(fn (StudentProgressRecord $record) => $this->hasDisplayValue($record->{$field}))?->{$field};
     }
 
+    /**
+     * Handle the has display value action for student progress records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $value.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function hasDisplayValue(mixed $value): bool
     {
         if ($value === null) {

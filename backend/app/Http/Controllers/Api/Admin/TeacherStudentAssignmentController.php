@@ -12,6 +12,7 @@ use App\Models\TeacherStudentAssignment;
 use App\Models\User;
 use App\Services\TeacherSlotDiscoveryService;
 use App\Services\TeacherStudentAssignmentService;
+use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,14 +21,32 @@ use Illuminate\Validation\Rule;
 
 class TeacherStudentAssignmentController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(
         private readonly TeacherStudentAssignmentService $assignments,
         private readonly TeacherSlotDiscoveryService $teacherSlots
     ) {}
 
+    /**
+     * Display a filtered list of teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include active.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherStudentAssignment::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -50,6 +69,14 @@ class TeacherStudentAssignmentController extends Controller
         return response()->json($assignments->through(fn (TeacherStudentAssignment $assignment) => new TeacherStudentAssignmentResource($assignment)));
     }
 
+    /**
+     * Create a new teacher student assignment record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreTeacherStudentAssignmentRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(StoreTeacherStudentAssignmentRequest $request): JsonResponse
     {
         Gate::authorize('create', TeacherStudentAssignment::class);
@@ -65,6 +92,14 @@ class TeacherStudentAssignmentController extends Controller
         ], $assignment->wasRecentlyCreated ? 201 : 200);
     }
 
+    /**
+     * Handle the assign student action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * The StoreTeacherStudentAssignmentRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function assignStudent(StoreTeacherStudentAssignmentRequest $request, User $student): JsonResponse
     {
         Gate::authorize('create', TeacherStudentAssignment::class);
@@ -82,6 +117,14 @@ class TeacherStudentAssignmentController extends Controller
         ], $assignment->wasRecentlyCreated ? 201 : 200);
     }
 
+    /**
+     * Handle the available teachers action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record. The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     */
     public function availableTeachers(Request $request, User $student): JsonResponse
     {
         Gate::authorize('viewAny', TeacherStudentAssignment::class);
@@ -102,6 +145,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Handle the end active action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function endActive(Request $request, User $student): JsonResponse
     {
         Gate::authorize('create', TeacherStudentAssignment::class);
@@ -137,6 +188,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Display the selected teacher student assignment record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $teacherStudentAssignment.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(TeacherStudentAssignment $teacherStudentAssignment): JsonResponse
     {
         Gate::authorize('view', $teacherStudentAssignment);
@@ -148,6 +207,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected teacher student assignment record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacherStudentAssignment.
+     * The UpdateTeacherStudentAssignmentRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(
         UpdateTeacherStudentAssignmentRequest $request,
         TeacherStudentAssignment $teacherStudentAssignment
@@ -162,6 +229,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Handle the current teacher action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function currentTeacher(Request $request, User $student): JsonResponse
     {
         $this->authorizeStudentView($request, $student);
@@ -177,6 +252,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Handle the teacher students action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacher.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function teacherStudents(Request $request, User $teacher): JsonResponse
     {
         $this->authorizeTeacherView($request, $teacher);
@@ -194,6 +277,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Handle the student history action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function studentHistory(Request $request, User $student): JsonResponse
     {
         $this->authorizeStudentView($request, $student);
@@ -210,6 +301,14 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Handle the teacher history action for teacher student assignment records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $teacher.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function teacherHistory(Request $request, User $teacher): JsonResponse
     {
         $this->authorizeTeacherView($request, $teacher);
@@ -226,6 +325,13 @@ class TeacherStudentAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Authorize viewing assignment history for a student.
+     *
+     * Admins can view any student history. Staff need
+     * `teacher_assignments.view`. Students can view only their own history.
+     * Teachers and unrelated students are denied.
+     */
     private function authorizeStudentView(Request $request, User $student): void
     {
         $user = $request->user();
@@ -238,6 +344,13 @@ class TeacherStudentAssignmentController extends Controller
         );
     }
 
+    /**
+     * Authorize viewing assignment history for a teacher.
+     *
+     * Admins can view any teacher history. Staff need
+     * `teacher_assignments.view`. Teachers can view only their own history.
+     * Students and unrelated teachers are denied.
+     */
     private function authorizeTeacherView(Request $request, User $teacher): void
     {
         $user = $request->user();

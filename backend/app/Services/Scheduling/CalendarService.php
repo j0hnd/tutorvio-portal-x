@@ -14,6 +14,12 @@ use Illuminate\Support\Collection;
 class CalendarService
 {
     /**
+     * Build calendar availability and booking blocks visible to a user.
+     *
+     * The method derives the requested date range, limits teacher visibility by
+     * role, and returns availability, booked lessons, unavailable dates, and
+     * holiday blocks without modifying scheduling records.
+     *
      * @return array<string, mixed>
      */
     public function calendar(User $user, string $view, CarbonImmutable $date, string $timezone): array

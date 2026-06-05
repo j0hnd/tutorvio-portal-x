@@ -16,7 +16,11 @@ class PayoutPeriodResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
-     * Transform the resource into an array.
+     * Transform a payout period into a payroll API response.
+     *
+     * Public-safe fields expose period identity, date range, status, totals, and
+     * payout timing for authorized payroll users. The public ID is used as the API
+     * identifier, and database primary keys should not be exposed.
      *
      * @return array<string, mixed>
      */

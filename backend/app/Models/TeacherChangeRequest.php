@@ -47,27 +47,51 @@ class TeacherChangeRequest extends Model
         ];
     }
 
+    /**
+     * Get the student inverse relationship for this teacher change request.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    /**
+     * Get the current teacher inverse relationship for this teacher change request.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function currentTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'current_teacher_id');
     }
 
+    /**
+     * Get the approved teacher inverse relationship for this teacher change request.
+     *
+     * This user-facing relationship resolves one User model.
+     */
     public function approvedTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_teacher_id');
     }
 
+    /**
+     * Get the reviewer inverse relationship for this teacher change request.
+     *
+     * This admin/internal relationship resolves one User model.
+     */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     /**
+     * Scope the query to pending records.
+     *
+     * Important query filters: status.
+     *
      * @param  Builder<TeacherChangeRequest>  $query
      * @return Builder<TeacherChangeRequest>
      */

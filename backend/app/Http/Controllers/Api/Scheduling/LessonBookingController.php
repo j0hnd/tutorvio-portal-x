@@ -5,17 +5,37 @@ namespace App\Http\Controllers\Api\Scheduling;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Scheduling\ClassScheduleResource;
 use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
 use App\Services\Scheduling\ClassScheduleService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class LessonBookingController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly ClassScheduleService $scheduleService) {}
 
+    /**
+     * Create a new lesson booking record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(Request $request): JsonResponse
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+        ]));
+
         $schedule = $this->scheduleService->bookOneTimeLesson($request->validate([
             'teacher_id' => ['required', 'integer', 'exists:users,id'],
             'title' => ['sometimes', 'nullable', 'string', 'max:255'],

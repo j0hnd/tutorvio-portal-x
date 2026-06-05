@@ -12,6 +12,12 @@ class NotificationResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a notification into a public-safe API response.
+     *
+     * The response exposes notification content, type, read state, action data,
+     * and timestamps for the intended recipient. Database primary keys and private
+     * delivery internals should not be exposed in frontend-facing references.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

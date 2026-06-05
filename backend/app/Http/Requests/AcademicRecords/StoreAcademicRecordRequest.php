@@ -3,12 +3,42 @@
 namespace App\Http\Requests\AcademicRecords;
 
 use App\Models\AcademicRecord;
+use App\Models\CourseProgram;
+use App\Models\Lesson;
+use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates create academic record requests.
+ *
+ * Expected roles: Authenticated teachers, staff, or admins allowed by academic record routes, controller checks, or policies.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class StoreAcademicRecordRequest extends FormRequest
 {
     /**
+     * Resolve public references to internal keys for record persistence.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+            'lesson_id' => Lesson::class,
+            'class_schedule_id' => ClassSchedule::class,
+            'approved_by' => User::class,
+        ]));
+    }
+
+    /**
+     * Get validation rules for create academic record requests.
+     *
+     * Important rules: sometimes rules support partial updates or optional filters; enum rules constrain values to the relevant model constants; exists rules require referenced records to be present; required rules define the minimum payload for creation.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

@@ -38,6 +38,17 @@ class LessonNoteController extends Controller
         'internal_note',
     ];
 
+    /**
+     * Display a filtered list of lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', LessonNote::class);
@@ -63,6 +74,17 @@ class LessonNoteController extends Controller
         );
     }
 
+    /**
+     * Display pending lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function pending(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', LessonNote::class);
@@ -106,6 +128,17 @@ class LessonNoteController extends Controller
         ])->response();
     }
 
+    /**
+     * Create a new lesson note record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreLessonNoteRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     *
+     * @param  StoreLessonNoteRequest  $request
+     * @return JsonResponse
+     */
     public function store(StoreLessonNoteRequest $request): JsonResponse
     {
         Gate::authorize('create', LessonNote::class);
@@ -139,6 +172,17 @@ class LessonNoteController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected lesson note record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lessonNote.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LessonNote  $lessonNote
+     * @return JsonResponse
+     */
     public function show(LessonNote $lessonNote): JsonResponse
     {
         Gate::authorize('view', $lessonNote);
@@ -148,6 +192,18 @@ class LessonNoteController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected lesson note record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lessonNote.
+     * The UpdateLessonNoteRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  UpdateLessonNoteRequest  $request
+     * @param  LessonNote  $lessonNote
+     * @return JsonResponse
+     */
     public function update(UpdateLessonNoteRequest $request, LessonNote $lessonNote): JsonResponse
     {
         Gate::authorize('update', $lessonNote);
@@ -168,6 +224,18 @@ class LessonNoteController extends Controller
         ]);
     }
 
+    /**
+     * Handle the by lesson action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $lesson.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  Lesson  $lesson
+     * @return JsonResponse
+     */
     public function byLesson(Request $request, Lesson $lesson): JsonResponse
     {
         Gate::authorize('viewAny', LessonNote::class);
@@ -184,6 +252,18 @@ class LessonNoteController extends Controller
         return response()->json($notes->through(fn (LessonNote $lessonNote) => new LessonNoteResource($lessonNote)));
     }
 
+    /**
+     * Handle the by student action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @param  User  $student
+     * @return JsonResponse
+     */
     public function byStudent(Request $request, User $student): JsonResponse
     {
         Gate::authorize('viewAny', LessonNote::class);
@@ -200,6 +280,18 @@ class LessonNoteController extends Controller
         return response()->json($notes->through(fn (LessonNote $lessonNote) => new LessonNoteResource($lessonNote)));
     }
 
+    /**
+     * Handle the assert lesson can be noted action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lesson, $actor.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Lesson  $lesson
+     * @param  User  $actor
+     * @return void
+     */
     private function assertLessonCanBeNoted(Lesson $lesson, User $actor): void
     {
         if (! $lesson->student?->hasRole('student')) {
@@ -227,6 +319,18 @@ class LessonNoteController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson record matches lesson action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lessonRecord, $lesson.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LessonRecord  $lessonRecord
+     * @param  Lesson  $lesson
+     * @return void
+     */
     private function assertLessonRecordMatchesLesson(LessonRecord $lessonRecord, Lesson $lesson): void
     {
         if ((int) $lessonRecord->student_id !== (int) $lesson->student_id || (int) $lessonRecord->teacher_id !== (int) $lesson->teacher_id) {
@@ -242,6 +346,17 @@ class LessonNoteController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson does not already have note action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lesson.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Lesson  $lesson
+     * @return void
+     */
     private function assertLessonDoesNotAlreadyHaveNote(Lesson $lesson): void
     {
         if ($lesson->lessonNote()->exists()) {
@@ -251,6 +366,18 @@ class LessonNoteController extends Controller
         }
     }
 
+    /**
+     * Handle the assert lesson record does not already have note action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lessonRecord, $currentLessonNote.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  LessonRecord  $lessonRecord
+     * @param  ?LessonNote  $currentLessonNote
+     * @return void
+     */
     private function assertLessonRecordDoesNotAlreadyHaveNote(LessonRecord $lessonRecord, ?LessonNote $currentLessonNote = null): void
     {
         $existingLessonNote = $lessonRecord->lessonNote()->first();
@@ -262,6 +389,17 @@ class LessonNoteController extends Controller
         }
     }
 
+    /**
+     * Handle the matching lesson record for lesson action for lesson note records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $lesson.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Lesson  $lesson
+     * @return ?LessonRecord
+     */
     private function matchingLessonRecordForLesson(Lesson $lesson): ?LessonRecord
     {
         if ($lesson->start_time === null || $lesson->end_time === null) {
@@ -281,6 +419,8 @@ class LessonNoteController extends Controller
 
     /**
      * @return Builder<LessonNote>
+     *
+     * @param  User  $user
      */
     private function queryForUser(User $user): Builder
     {
@@ -292,6 +432,8 @@ class LessonNoteController extends Controller
 
     /**
      * @return Builder<Lesson>
+     *
+     * @param  User  $user
      */
     private function missingLessonNoteQueryForUser(User $user): Builder
     {
@@ -301,6 +443,8 @@ class LessonNoteController extends Controller
 
     /**
      * @return Builder<Lesson>
+     *
+     * @param  User  $user
      */
     private function lessonNoteRequiredQueryForUser(User $user): Builder
     {

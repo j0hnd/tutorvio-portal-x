@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Scheduling;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Scheduling\ClassScheduleResource;
 use App\Models\Scheduling\ClassSchedule;
+use App\Models\User;
 use App\Services\Scheduling\ClassScheduleService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -13,11 +15,29 @@ use Illuminate\Validation\Rule;
 
 class ClassScheduleController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly ClassScheduleService $scheduleService) {}
 
+    /**
+     * Display a filtered list of class schedule records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', ClassSchedule::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'student_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -47,6 +67,14 @@ class ClassScheduleController extends Controller
         );
     }
 
+    /**
+     * Create a new class schedule record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', ClassSchedule::class);
@@ -58,9 +86,21 @@ class ClassScheduleController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the recurring action for class schedule records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function recurring(Request $request): JsonResponse
     {
         Gate::authorize('create', ClassSchedule::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'student_id' => ['required', 'integer', 'exists:users,id'],
@@ -115,6 +155,14 @@ class ClassScheduleController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected class schedule record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $classSchedule.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('view', $classSchedule);
@@ -124,6 +172,14 @@ class ClassScheduleController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected class schedule record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('update', $classSchedule);
@@ -135,6 +191,14 @@ class ClassScheduleController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected class schedule record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $classSchedule.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     */
     public function destroy(ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('delete', $classSchedule);
@@ -144,6 +208,14 @@ class ClassScheduleController extends Controller
         return response()->json(status: 204);
     }
 
+    /**
+     * Cancel the selected class schedule record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function cancel(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('cancel', $classSchedule);
@@ -160,9 +232,21 @@ class ClassScheduleController extends Controller
         ]);
     }
 
+    /**
+     * Handle the reschedule action for class schedule records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function reschedule(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('reschedule', $classSchedule);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'teacher_id' => User::class,
+            'student_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'starts_at' => ['required', 'date'],
@@ -186,6 +270,14 @@ class ClassScheduleController extends Controller
         ], 201);
     }
 
+    /**
+     * Handle the status action for class schedule records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $classSchedule.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function status(Request $request, ClassSchedule $classSchedule): JsonResponse
     {
         Gate::authorize('update', $classSchedule);
@@ -207,6 +299,11 @@ class ClassScheduleController extends Controller
      */
     private function validatePayload(Request $request, bool $creating): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+        ]));
+
         return $request->validate([
             'student_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],
             'teacher_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],

@@ -55,7 +55,7 @@ use OpenApi\Attributes as OA;
         content: new OA\JsonContent(
             required: ['teacher_id', 'day_of_week', 'start_time', 'end_time', 'timezone'],
             properties: [
-                new OA\Property(property: 'teacher_id', description: 'Internal numeric user ID. Teachers may only submit their own ID.', type: 'integer', example: 17),
+                new OA\Property(property: 'teacher_id', description: 'Teacher user public ID. Teachers may only submit their own ID.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
                 new OA\Property(property: 'day_of_week', type: 'integer', minimum: 0, maximum: 6, example: 3),
                 new OA\Property(property: 'start_time', type: 'string', example: '09:00'),
                 new OA\Property(property: 'end_time', type: 'string', example: '17:00'),

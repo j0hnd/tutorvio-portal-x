@@ -18,11 +18,31 @@ use Illuminate\Validation\ValidationException;
 
 class TeacherChangeRequestController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     *
+     * @param  TeacherStudentAssignmentService  $assignments
+     * @param  TeacherSlotDiscoveryService  $teacherSlots
+     */
     public function __construct(
         private readonly TeacherStudentAssignmentService $assignments,
         private readonly TeacherSlotDiscoveryService $teacherSlots
     ) {}
 
+    /**
+     * Display a filtered list of teacher change request records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', TeacherChangeRequest::class);
@@ -45,6 +65,17 @@ class TeacherChangeRequestController extends Controller
         return response()->json($requests->through(fn (TeacherChangeRequest $teacherChangeRequest) => new TeacherChangeRequestResource($teacherChangeRequest)));
     }
 
+    /**
+     * Display pending teacher change request records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function pending(Request $request): JsonResponse
     {
         $request->merge(['status' => TeacherChangeRequest::STATUS_PENDING]);
@@ -52,6 +83,17 @@ class TeacherChangeRequestController extends Controller
         return $this->index($request);
     }
 
+    /**
+     * Display the selected teacher change request record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The TeacherChangeRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  TeacherChangeRequest  $teacherChangeRequest
+     * @return JsonResponse
+     */
     public function show(TeacherChangeRequest $teacherChangeRequest): JsonResponse
     {
         Gate::authorize('view', $teacherChangeRequest);
@@ -63,6 +105,18 @@ class TeacherChangeRequestController extends Controller
         ]);
     }
 
+    /**
+     * Approve the selected teacher change request record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The TeacherChangeRequest handles authorization and validation before the controller action runs. Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  TeacherChangeRequest  $teacherChangeRequest
+     * @return JsonResponse
+     */
     public function approve(Request $request, TeacherChangeRequest $teacherChangeRequest): JsonResponse
     {
         Gate::authorize('update', $teacherChangeRequest);
@@ -139,6 +193,18 @@ class TeacherChangeRequestController extends Controller
         ]);
     }
 
+    /**
+     * Reject the selected teacher change request record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The TeacherChangeRequest handles authorization and validation before the controller action runs. Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     *
+     * @param  Request  $request
+     * @param  TeacherChangeRequest  $teacherChangeRequest
+     * @return JsonResponse
+     */
     public function reject(Request $request, TeacherChangeRequest $teacherChangeRequest): JsonResponse
     {
         Gate::authorize('update', $teacherChangeRequest);
@@ -165,6 +231,17 @@ class TeacherChangeRequestController extends Controller
         ]);
     }
 
+    /**
+     * Handle the assert pending action for teacher change request records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The TeacherChangeRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON response containing the requested data.
+     *
+     * @param  TeacherChangeRequest  $teacherChangeRequest
+     * @return void
+     */
     private function assertPending(TeacherChangeRequest $teacherChangeRequest): void
     {
         if ($teacherChangeRequest->status !== TeacherChangeRequest::STATUS_PENDING) {

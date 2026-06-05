@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Announcements\StoreAnnouncementRequest;
 use App\Http\Requests\Announcements\UpdateAnnouncementRequest;
@@ -22,11 +23,26 @@ use Throwable;
 
 class AnnouncementController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(
         private readonly AnnouncementRecipientResolver $recipientResolver,
-        private readonly SystemNotificationService $notificationService
+        private readonly SystemNotificationService $notificationService,
+        private readonly SearchService $search,
     ) {}
 
+    /**
+     * Display a filtered list of announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Notable request fields include include_archived, only_archived.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         foreach (['include_archived', 'only_archived'] as $key) {
@@ -55,13 +71,7 @@ class AnnouncementController extends Controller
             ->when(! $includeArchived, fn (Builder $query) => $query->where('is_archived', false))
             ->when($request->boolean('only_archived'), fn (Builder $query) => $query->where('is_archived', true))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
-            ->when($validated['search'] ?? null, function (Builder $query, string $search) {
-                $query->where(function (Builder $query) use ($search) {
-                    $query
-                        ->where('title', 'like', "%{$search}%")
-                        ->orWhere('body', 'like', "%{$search}%");
-                });
-            })
+            ->tap(fn (Builder $query) => $this->search->announcements($query, $validated['search'] ?? null))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 25);
@@ -69,6 +79,14 @@ class AnnouncementController extends Controller
         return response()->json($announcements->through(fn (Announcement $announcement) => new AnnouncementResource($announcement)));
     }
 
+    /**
+     * Create a new announcement record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The StoreAnnouncementRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(StoreAnnouncementRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -102,6 +120,14 @@ class AnnouncementController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected announcement record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(Announcement $announcement): JsonResponse
     {
         return response()->json([
@@ -109,6 +135,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Update the selected announcement record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * The UpdateAnnouncementRequest handles authorization and validation before the controller action runs.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(UpdateAnnouncementRequest $request, Announcement $announcement): JsonResponse
     {
         $this->ensureNotArchived($announcement);
@@ -158,6 +192,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the publish action for announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function publish(Announcement $announcement): JsonResponse
     {
         $this->ensureNotArchived($announcement);
@@ -179,6 +221,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the unpublish action for announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function unpublish(Announcement $announcement): JsonResponse
     {
         $this->ensureNotArchived($announcement);
@@ -194,6 +244,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the schedule action for announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * Inline validation rejects missing or invalid request data before processing.
+     * Returns a JSON response containing the requested data.
+     */
     public function schedule(Request $request, Announcement $announcement): JsonResponse
     {
         $this->ensureNotArchived($announcement);
@@ -217,6 +275,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Archive the selected announcement record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function archive(Request $request, Announcement $announcement): JsonResponse
     {
         $announcement->update([
@@ -231,11 +297,27 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected announcement record.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON confirmation after deletion.
+     */
     public function destroy(Request $request, Announcement $announcement): JsonResponse
     {
         return $this->archive($request, $announcement);
     }
 
+    /**
+     * Handle the recipient count action for announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     public function recipientCount(Announcement $announcement): JsonResponse
     {
         return response()->json([
@@ -246,6 +328,14 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Handle the ensure not archived action for announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function ensureNotArchived(Announcement $announcement): void
     {
         if ($announcement->is_archived || $announcement->status === Announcement::STATUS_ARCHIVED) {
@@ -255,6 +345,14 @@ class AnnouncementController extends Controller
         }
     }
 
+    /**
+     * Handle the notify published announcement action for announcement records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Route model parameters include $announcement.
+     * Request data is constrained by route model binding, middleware, and any validation performed by the called services.
+     * Returns a JSON response containing the requested data.
+     */
     private function notifyPublishedAnnouncement(Announcement $announcement): void
     {
         try {

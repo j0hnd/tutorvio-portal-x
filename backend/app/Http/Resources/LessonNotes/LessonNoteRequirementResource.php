@@ -11,6 +11,13 @@ class LessonNoteRequirementResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform a lesson-note requirement into a public-safe API response.
+     *
+     * The response exposes requirement status, due/submission timing, and loaded
+     * lesson, student, teacher, or note references using public IDs. It should not
+     * expose private lesson-note review fields beyond fields already authorized by
+     * the related resource.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

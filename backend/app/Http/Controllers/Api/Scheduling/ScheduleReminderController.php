@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\Scheduling;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Scheduling\ScheduleReminderResource;
+use App\Models\Scheduling\ClassSchedule;
 use App\Models\Scheduling\ScheduleReminder;
+use App\Models\User;
 use App\Services\Scheduling\ScheduleReminderService;
+use App\Support\PublicIdResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -13,11 +16,29 @@ use Illuminate\Validation\Rule;
 
 class ScheduleReminderController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly ScheduleReminderService $reminderService) {}
 
+    /**
+     * Display a filtered list of schedule reminder records.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Inline validation rejects missing or invalid request data before processing. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', ScheduleReminder::class);
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'class_schedule_id' => ClassSchedule::class,
+            'user_id' => User::class,
+        ]));
 
         $validated = $request->validate([
             'class_schedule_id' => ['sometimes', 'integer', 'exists:class_schedules,id'],
@@ -42,6 +63,14 @@ class ScheduleReminderController extends Controller
         );
     }
 
+    /**
+     * Create a new schedule reminder record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the created resource or action result.
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', ScheduleReminder::class);
@@ -51,6 +80,14 @@ class ScheduleReminderController extends Controller
         ], 201);
     }
 
+    /**
+     * Display the selected schedule reminder record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $scheduleReminder.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function show(ScheduleReminder $scheduleReminder): JsonResponse
     {
         Gate::authorize('view', $scheduleReminder);
@@ -58,6 +95,14 @@ class ScheduleReminderController extends Controller
         return response()->json(['data' => new ScheduleReminderResource($scheduleReminder->load(['classSchedule', 'user:id,public_id,name,email,timezone']))]);
     }
 
+    /**
+     * Update the selected schedule reminder record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $scheduleReminder.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON payload with the updated resource or status result.
+     */
     public function update(Request $request, ScheduleReminder $scheduleReminder): JsonResponse
     {
         Gate::authorize('update', $scheduleReminder);
@@ -67,6 +112,14 @@ class ScheduleReminderController extends Controller
         ]);
     }
 
+    /**
+     * Delete the selected schedule reminder record.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Route model parameters include $scheduleReminder.
+     * Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON confirmation after deletion.
+     */
     public function destroy(ScheduleReminder $scheduleReminder): JsonResponse
     {
         Gate::authorize('delete', $scheduleReminder);
@@ -81,6 +134,11 @@ class ScheduleReminderController extends Controller
      */
     private function validatePayload(Request $request, bool $creating): array
     {
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'class_schedule_id' => ClassSchedule::class,
+            'user_id' => User::class,
+        ]));
+
         return $request->validate([
             'class_schedule_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:class_schedules,id'],
             'user_id' => [$creating ? 'required' : 'sometimes', 'integer', 'exists:users,id'],

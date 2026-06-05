@@ -12,8 +12,22 @@ use Illuminate\Http\Request;
 
 class StudentPackageSummaryController extends Controller
 {
+    /**
+     * Create the controller with its service dependencies.
+     *
+     * The framework resolves this constructor before action-specific route
+     * middleware, permissions, validation, and authorization are applied.
+     */
     public function __construct(private readonly SubscriptionRenewalReminderService $renewalReminders) {}
 
+    /**
+     * Handle the student package summary endpoint.
+     *
+     * Authenticated users only; role, permission, ownership, and policy limits are enforced by route middleware, FormRequest authorization, or method checks.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $student.
+     * The method can return a forbidden response when authorization or ownership checks fail.
+     * Returns a JSON response containing the requested data.
+     */
     public function __invoke(Request $request, User $student): JsonResponse
     {
         abort_unless($student->hasRole('student'), 404);
@@ -36,6 +50,13 @@ class StudentPackageSummaryController extends Controller
         ]);
     }
 
+    /**
+     * Determine whether the user can view a student's package summary.
+     *
+     * Admins can view any summary. Staff need `subscriptions.view`. Students
+     * can view only their own summary. Teachers can view summaries only for
+     * students assigned to them. Other users are denied.
+     */
     private function canViewPackageSummary(User $user, User $student): bool
     {
         if ($user->hasRole('admin')) {

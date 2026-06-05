@@ -7,6 +7,7 @@ use App\Enums\AuditModule;
 use App\Models\PortalSetting;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\SafeCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,14 @@ use Illuminate\Validation\ValidationException;
 
 class PortalSettingsService
 {
+    public const CACHE_KEY_ALL = 'tvio:portal_settings:all:v1';
+
+    public const CACHE_KEY_PUBLIC = 'tvio:portal_settings:public:v1';
+
+    public const CACHE_TTL_ALL_MINUTES = 15;
+
+    public const CACHE_TTL_PUBLIC_MINUTES = 30;
+
     /**
      * @var array<string, array{category: string, value_type: string, description: string, is_public: bool, default: mixed}>
      */
@@ -234,12 +243,48 @@ class PortalSettingsService
         ],
     ];
 
-    public function __construct(private readonly AuditLogService $auditLogService) {}
+    public function __construct(
+        private readonly AuditLogService $auditLogService,
+        private readonly SafeCache $cache,
+    ) {}
 
     /**
+     * Return configured portal settings with stored or default values.
+     *
+     * When public-only mode is enabled, private settings and administrative
+     * metadata are omitted from the returned payload. Admin and public payloads
+     * are cached separately so Redis-backed reads keep the two contracts apart.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function all(bool $publicOnly = false): array
+    {
+        return $this->cache->remember(
+            $publicOnly ? self::CACHE_KEY_PUBLIC : self::CACHE_KEY_ALL,
+            now()->addMinutes($publicOnly ? self::CACHE_TTL_PUBLIC_MINUTES : self::CACHE_TTL_ALL_MINUTES),
+            fn (): array => $this->loadAll($publicOnly),
+            ['cache_area' => $publicOnly ? 'portal_settings_public' : 'portal_settings_all']
+        );
+    }
+
+    /**
+     * Clear cached portal setting payloads.
+     *
+     * Both admin and public variants are forgotten after setting writes or
+     * model events so later reads rebuild from the database/default definitions.
+     */
+    public function forgetCachedSettings(): void
+    {
+        $this->cache->forget(self::CACHE_KEY_ALL, ['cache_area' => 'portal_settings_all']);
+        $this->cache->forget(self::CACHE_KEY_PUBLIC, ['cache_area' => 'portal_settings_public']);
+    }
+
+    /**
+     * Return configured portal settings with stored or default values.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadAll(bool $publicOnly = false): array
     {
         $definitions = collect(self::DEFINITIONS)
             ->when($publicOnly, fn ($items) => $items->filter(fn (array $definition) => $definition['is_public']));
@@ -262,8 +307,15 @@ class PortalSettingsService
     }
 
     /**
+     * Update portal settings from validated administrative input.
+     *
+     * Each value is validated against its setting definition, persisted in a
+     * transaction, and summarized in a portal-settings audit log entry.
+     *
      * @param  array<string, mixed>  $settings
      * @return array<int, array<string, mixed>>
+     *
+     * @throws ValidationException
      */
     public function update(array $settings, User $actor): array
     {
@@ -317,10 +369,14 @@ class PortalSettingsService
             return $updated;
         });
 
+        $this->forgetCachedSettings();
+
         return $updated;
     }
 
     /**
+     * Return the list of supported portal setting keys.
+     *
      * @return array<int, string>
      */
     public function allowedKeys(): array
@@ -328,6 +384,14 @@ class PortalSettingsService
         return array_keys(self::DEFINITIONS);
     }
 
+    /**
+     * Resolve a single portal setting value.
+     *
+     * Stored values are preferred, with the definition default returned when no
+     * row exists for the key.
+     *
+     * @throws ValidationException
+     */
     public function value(string $key): mixed
     {
         if (! array_key_exists($key, self::DEFINITIONS)) {

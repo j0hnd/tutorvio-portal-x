@@ -16,6 +16,14 @@ class AnnouncementResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform an announcement into a public-safe API response.
+     *
+     * Public fields expose announcement content, status, schedule, author summary,
+     * and loaded read-state metadata. Archive details, creator references, target
+     * metadata, recipient counts, and timestamps are admin-only or require the
+     * announcements.manage permission. Public IDs are used for user and target
+     * references.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

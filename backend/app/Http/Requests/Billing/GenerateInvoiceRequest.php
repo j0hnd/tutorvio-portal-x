@@ -2,11 +2,35 @@
 
 namespace App\Http\Requests\Billing;
 
+use App\Models\CourseProgram;
+use App\Models\User;
+use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates generate invoice requests.
+ *
+ * Expected roles: Admin or staff users with invoice creation access.
+ * Request-level authorize() documents any additional checks; otherwise route middleware, controller gates, and policies handle access.
+ */
 class GenerateInvoiceRequest extends FormRequest
 {
     /**
+     * Resolve public student and course IDs before invoice services run.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PublicIdResolver::resolveFields($this->all(), [
+            'student_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+    }
+
+    /**
+     * Get validation rules for generate invoice requests.
+     *
+     * Important rules: conditional required rules accept aliases or require at least one meaningful content field; sometimes rules support partial updates or optional filters; exists rules require referenced records to be present; public_id exists rules expect public identifiers instead of numeric primary keys.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array

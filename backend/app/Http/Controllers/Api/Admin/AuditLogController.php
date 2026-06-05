@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Contracts\Search\SearchService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AuditLogs\ListAuditLogsRequest;
 use App\Http\Resources\AuditLogs\AuditLogResource;
@@ -12,6 +13,16 @@ use Illuminate\Support\Facades\Gate;
 
 class AuditLogController extends Controller
 {
+    public function __construct(private readonly SearchService $search) {}
+
+    /**
+     * Display a filtered list of audit log records.
+     *
+     * Admin or staff users only, with the route-specific permission middleware required for this action.
+     * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action.
+     * The ListAuditLogsRequest handles authorization and validation before the controller action runs. Authorization checks in this method can reject users who do not own or cannot manage the target record.
+     * Returns a JSON response containing the requested data.
+     */
     public function index(ListAuditLogsRequest $request): JsonResponse
     {
         Gate::authorize('viewAny', AuditLog::class);
@@ -28,24 +39,7 @@ class AuditLogController extends Controller
             ->when($validated['target_entity_id'] ?? null, fn (Builder $query, int $id) => $query->where('target_entity_id', $id))
             ->when($validated['date_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '>=', $date))
             ->when($validated['date_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '<=', $date))
-            ->when($validated['search'] ?? null, function (Builder $query, string $search): void {
-                $query->where(function (Builder $query) use ($search): void {
-                    $query
-                        ->where('action_type', 'like', '%'.$search.'%')
-                        ->orWhere('module', 'like', '%'.$search.'%')
-                        ->orWhere('target_entity_type', 'like', '%'.$search.'%')
-                        ->orWhere('ip_address', 'like', '%'.$search.'%')
-                        ->orWhere('user_agent', 'like', '%'.$search.'%')
-                        ->orWhere('metadata', 'like', '%'.$search.'%')
-                        ->orWhereHas('actor', fn (Builder $query) => $query
-                            ->where('name', 'like', '%'.$search.'%')
-                            ->orWhere('email', 'like', '%'.$search.'%'));
-
-                    if (is_numeric($search)) {
-                        $query->orWhere('target_entity_id', (int) $search);
-                    }
-                });
-            })
+            ->tap(fn (Builder $query) => $this->search->auditLogs($query, $validated['search'] ?? null))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 15);

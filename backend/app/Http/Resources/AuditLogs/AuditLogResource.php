@@ -17,6 +17,13 @@ class AuditLogResource extends JsonResource
     use SanitizesApiResponses;
 
     /**
+     * Transform an audit log entry for authorized audit-log API consumers.
+     *
+     * The response summarizes the actor, action, module, target, timestamp, and
+     * sanitized metadata. This resource is for privileged audit access only; it
+     * does not add private metadata beyond what sanitizeMetadataForResponse allows.
+     * Actor references use public IDs instead of database primary keys.
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
