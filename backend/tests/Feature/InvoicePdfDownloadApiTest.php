@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Billing\InvoicePdfService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Mockery;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -134,6 +137,36 @@ class InvoicePdfDownloadApiTest extends TestCase
         Sanctum::actingAs($teacher);
 
         $this->get("/api/v1/invoices/{$invoice->public_id}/download")->assertForbidden();
+    }
+
+    public function test_pdf_render_failure_returns_user_safe_error(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $invoice = Invoice::factory()->create([
+            'student_id' => $this->userWithRole('student')->id,
+            'invoice_number' => 'INV-PDF-FAIL',
+        ]);
+
+        $pdfs = Mockery::mock(InvoicePdfService::class);
+        $pdfs->shouldReceive('render')
+            ->once()
+            ->with(Mockery::on(fn (Invoice $renderedInvoice): bool => $renderedInvoice->is($invoice)))
+            ->andThrow(new RuntimeException('dompdf /Users/john/private-template failed'));
+        app()->instance(InvoicePdfService::class, $pdfs);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson("/api/v1/invoices/{$invoice->public_id}/download")
+            ->assertStatus(503)
+            ->assertExactJson([
+                'message' => 'The invoice PDF could not be generated. Please try again later.',
+            ]);
+
+        $encoded = json_encode($response->json());
+
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('dompdf', $encoded);
+        $this->assertStringNotContainsString('/Users/john', $encoded);
     }
 
     /**

@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Mockery;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -89,6 +90,59 @@ class LearningResourceApiTest extends TestCase
 
         Storage::disk('local')->assertExists($resource->file_path);
         $this->assertSame($this->admin->id, $resource->created_by);
+    }
+
+    public function test_upload_failure_returns_user_safe_storage_error(): void
+    {
+        $diskMock = Mockery::mock();
+        $diskMock->shouldReceive('putFile')
+            ->once()
+            ->andThrow(new RuntimeException('storage/app/private/learning-resources failed'));
+        Storage::shouldReceive('disk')
+            ->with('local')
+            ->andReturn($diskMock);
+
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/learning-resources/files', [
+            'title' => 'Placement worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'file' => UploadedFile::fake()->create('placement.pdf', 64, 'application/pdf'),
+        ])
+            ->assertStatus(503)
+            ->assertExactJson([
+                'message' => 'File storage is temporarily unavailable. Please try again later.',
+            ]);
+
+        $encoded = json_encode($response->json());
+
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('storage/app/private', $encoded);
+        $this->assertStringNotContainsString('learning-resources failed', $encoded);
+        $this->assertDatabaseMissing('learning_resources', [
+            'title' => 'Placement worksheet',
+        ]);
+    }
+
+    public function test_protected_storage_misconfiguration_returns_user_safe_error(): void
+    {
+        config(['learning_resources.disk' => 'public']);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson('/api/v1/learning-resources/files', [
+            'title' => 'Misconfigured worksheet',
+            'resource_type' => LearningResource::TYPE_WORKSHEET,
+            'file' => UploadedFile::fake()->create('worksheet.pdf', 64, 'application/pdf'),
+        ])
+            ->assertStatus(500)
+            ->assertExactJson([
+                'message' => 'File storage is not configured correctly.',
+            ]);
+
+        $this->assertDatabaseMissing('learning_resources', [
+            'title' => 'Misconfigured worksheet',
+        ]);
     }
 
     public function test_file_upload_validates_required_fields_allowed_mime_and_size(): void

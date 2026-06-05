@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Mockery;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -147,6 +148,86 @@ class FileAccessSecurityTest extends TestCase
 
         $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
             ->assertForbidden();
+    }
+
+    public function test_missing_learning_resource_file_returns_user_safe_not_found(): void
+    {
+        Storage::fake('local');
+
+        $resource = $this->storedResource('missing.pdf');
+        Storage::disk('local')->delete($resource->file_path);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
+            ->assertNotFound()
+            ->assertExactJson([
+                'message' => 'The resource file could not be found.',
+            ]);
+    }
+
+    public function test_temporary_url_generation_failure_returns_user_safe_error(): void
+    {
+        config([
+            'learning_resources.download.strategy' => 'temporary_url',
+            'learning_resources.download.temporary_url_ttl_minutes' => 5,
+        ]);
+
+        $resource = $this->storedResource('cloud.pdf', [
+            'storage_disk' => 's3',
+            'file_path' => 'learning-resources/private/cloud.pdf',
+        ]);
+
+        $diskMock = Mockery::mock();
+        $diskMock->shouldReceive('exists')->once()->andReturnTrue();
+        $diskMock->shouldReceive('providesTemporaryUrls')->once()->andReturnTrue();
+        $diskMock->shouldReceive('temporaryUrl')
+            ->once()
+            ->andThrow(new RuntimeException('s3 signed URL secret failed'));
+        Storage::shouldReceive('disk')->with('s3')->andReturn($diskMock);
+
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
+            ->assertStatus(503)
+            ->assertExactJson([
+                'message' => 'A secure download link could not be created. Please try again later.',
+            ]);
+
+        $encoded = json_encode($response->json());
+
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('s3', $encoded);
+        $this->assertStringNotContainsString('secret', $encoded);
+    }
+
+    public function test_stream_download_failure_returns_user_safe_error(): void
+    {
+        config(['learning_resources.download.strategy' => 'stream']);
+
+        $resource = $this->storedResource('stream.pdf', [
+            'storage_disk' => 's3',
+            'file_path' => 'learning-resources/private/stream.pdf',
+        ]);
+
+        $diskMock = Mockery::mock();
+        $diskMock->shouldReceive('exists')->once()->andReturnTrue();
+        $diskMock->shouldReceive('providesTemporaryUrls')->once()->andReturnFalse();
+        $diskMock->shouldReceive('readStream')->once()->andReturnFalse();
+        Storage::shouldReceive('disk')->with('s3')->andReturn($diskMock);
+
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->getJson("/api/v1/learning-resources/{$resource->public_id}/download")
+            ->assertStatus(503)
+            ->assertExactJson([
+                'message' => 'The resource file could not be downloaded. Please try again later.',
+            ]);
+
+        $encoded = json_encode($response->json());
+
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('learning-resources/private/stream.pdf', $encoded);
     }
 
     public function test_unauthorized_users_cannot_access_protected_file_downloads(): void

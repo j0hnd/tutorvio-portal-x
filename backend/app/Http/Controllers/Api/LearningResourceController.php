@@ -23,11 +23,14 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class LearningResourceController extends Controller
 {
@@ -123,7 +126,13 @@ class LearningResourceController extends Controller
         Gate::authorize('create', LearningResource::class);
 
         $validated = $request->validated();
-        $fileMetadata = $this->storage->store($validated['file']);
+        try {
+            $fileMetadata = $this->storage->store($validated['file']);
+        } catch (RuntimeException $exception) {
+            return $this->storageFailureResponse($exception);
+        } catch (Throwable $exception) {
+            return $this->storageFailureResponse($exception);
+        }
 
         unset($validated['file']);
 
@@ -229,19 +238,36 @@ class LearningResourceController extends Controller
             ], 404);
         }
 
-        if (! $learningResource->storedFileExists()) {
+        $exists = $this->storedFileExists($learningResource);
+        if ($exists === null) {
+            return $this->storageFailureResponse();
+        }
+
+        if (! $exists) {
             return response()->json([
                 'message' => 'The resource file could not be found.',
             ], 404);
         }
 
         if ($this->shouldReturnTemporaryUrl($learningResource)) {
-            $expiresAt = now()->addMinutes($this->temporaryUrlTtlMinutes());
-            $temporaryUrl = Storage::disk($learningResource->storageDisk())->temporaryUrl(
-                $learningResource->file_path,
-                $expiresAt,
-                $this->temporaryDownloadOptions($learningResource->original_filename)
-            );
+            try {
+                $expiresAt = now()->addMinutes($this->temporaryUrlTtlMinutes());
+                $temporaryUrl = Storage::disk($learningResource->storageDisk())->temporaryUrl(
+                    $learningResource->file_path,
+                    $expiresAt,
+                    $this->temporaryDownloadOptions($learningResource->original_filename)
+                );
+            } catch (Throwable $exception) {
+                Log::warning('Learning resource temporary URL generation failed.', [
+                    'learning_resource_id' => $learningResource->id,
+                    'exception' => $exception::class,
+                ]);
+
+                return response()->json([
+                    'message' => 'A secure download link could not be created. Please try again later.',
+                ], 503);
+            }
+
             $this->logFileDownloaded($learningResource, request()->user()?->id, 'temporary_url');
 
             return response()->json([
@@ -256,13 +282,26 @@ class LearningResourceController extends Controller
 
         $this->logFileDownloaded($learningResource, request()->user()?->id, 'stream');
 
-        return Storage::disk($learningResource->storageDisk())->download(
-            $learningResource->file_path,
-            $learningResource->original_filename,
-            [
-                'Cache-Control' => 'private, no-store, max-age=0',
-            ]
-        );
+        try {
+            $this->assertStoredFileCanStream($learningResource);
+
+            return Storage::disk($learningResource->storageDisk())->download(
+                $learningResource->file_path,
+                $learningResource->original_filename,
+                [
+                    'Cache-Control' => 'private, no-store, max-age=0',
+                ]
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Learning resource stream download failed.', [
+                'learning_resource_id' => $learningResource->id,
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'message' => 'The resource file could not be downloaded. Please try again later.',
+            ], 503);
+        }
     }
 
     /**
@@ -284,30 +323,40 @@ class LearningResourceController extends Controller
         unset($validated['file'], $validated['change_notes']);
 
         if ($uploadedFile instanceof UploadedFile) {
-            DB::transaction(function () use ($learningResource, $uploadedFile, $validated, $request, $changeNotes) {
-                $this->ensureInitialVersionSnapshotExists($learningResource);
+            try {
+                DB::transaction(function () use ($learningResource, $uploadedFile, $validated, $request, $changeNotes) {
+                    $this->ensureInitialVersionSnapshotExists($learningResource);
 
-                $previousFilePath = $learningResource->file_path;
-                $fileMetadata = $this->storage->store($uploadedFile);
-                $latestVersionNumber = (int) $learningResource->versions()->max('version_number');
-                $nextVersionNumber = max($learningResource->currentVersionNumber(), $latestVersionNumber) + 1;
+                    $previousFilePath = $learningResource->file_path;
+                    try {
+                        $fileMetadata = $this->storage->store($uploadedFile);
+                    } catch (RuntimeException $exception) {
+                        throw $exception;
+                    } catch (Throwable $exception) {
+                        throw new RuntimeException('Learning resource upload could not be stored.', previous: $exception);
+                    }
+                    $latestVersionNumber = (int) $learningResource->versions()->max('version_number');
+                    $nextVersionNumber = max($learningResource->currentVersionNumber(), $latestVersionNumber) + 1;
 
-                $learningResource->update([
-                    ...$validated,
-                    ...$fileMetadata,
-                    'preview_metadata' => $this->previewMetadata($fileMetadata),
-                    'current_version_number' => $nextVersionNumber,
-                ]);
+                    $learningResource->update([
+                        ...$validated,
+                        ...$fileMetadata,
+                        'preview_metadata' => $this->previewMetadata($fileMetadata),
+                        'current_version_number' => $nextVersionNumber,
+                    ]);
 
-                $this->createVersionSnapshot(
-                    $learningResource,
-                    $fileMetadata,
-                    uploadedBy: $request->user()->id,
-                    previousFilePath: $previousFilePath,
-                    changeNotes: $changeNotes
-                );
-                $this->logFileUploaded($learningResource->refresh(), $request->user()->id, isReplacement: true);
-            });
+                    $this->createVersionSnapshot(
+                        $learningResource,
+                        $fileMetadata,
+                        uploadedBy: $request->user()->id,
+                        previousFilePath: $previousFilePath,
+                        changeNotes: $changeNotes
+                    );
+                    $this->logFileUploaded($learningResource->refresh(), $request->user()->id, isReplacement: true);
+                });
+            } catch (RuntimeException $exception) {
+                return $this->storageFailureResponse($exception);
+            }
         } else {
             $learningResource->update($validated);
         }
@@ -694,7 +743,18 @@ class LearningResourceController extends Controller
         $strategy = (string) config('learning_resources.download.strategy', 'auto');
         $driver = (string) config("filesystems.disks.{$disk}.driver", '');
 
-        if (! Storage::disk($disk)->providesTemporaryUrls()) {
+        try {
+            $providesTemporaryUrls = Storage::disk($disk)->providesTemporaryUrls();
+        } catch (Throwable $exception) {
+            Log::warning('Learning resource temporary URL capability check failed.', [
+                'learning_resource_id' => $learningResource->id,
+                'exception' => $exception::class,
+            ]);
+
+            return false;
+        }
+
+        if (! $providesTemporaryUrls) {
             return false;
         }
 
@@ -734,6 +794,50 @@ class LearningResourceController extends Controller
     private function temporaryUrlTtlMinutes(): int
     {
         return max(1, (int) config('learning_resources.download.temporary_url_ttl_minutes', 10));
+    }
+
+    private function storedFileExists(LearningResource $learningResource): ?bool
+    {
+        try {
+            return Storage::disk($learningResource->storageDisk())->exists($learningResource->file_path);
+        } catch (Throwable $exception) {
+            Log::warning('Learning resource storage existence check failed.', [
+                'learning_resource_id' => $learningResource->id,
+                'exception' => $exception::class,
+            ]);
+
+            return null;
+        }
+    }
+
+    private function assertStoredFileCanStream(LearningResource $learningResource): void
+    {
+        $stream = Storage::disk($learningResource->storageDisk())->readStream($learningResource->file_path);
+
+        if (! is_resource($stream)) {
+            throw new RuntimeException('Learning resource stream could not be opened.');
+        }
+
+        fclose($stream);
+    }
+
+    private function storageFailureResponse(?Throwable $exception = null): JsonResponse
+    {
+        if ($exception !== null) {
+            Log::warning('Learning resource storage operation failed.', [
+                'exception' => $exception::class,
+            ]);
+        }
+
+        if ($exception instanceof RuntimeException && str_contains($exception->getMessage(), 'protected storage')) {
+            return response()->json([
+                'message' => 'File storage is not configured correctly.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'File storage is temporarily unavailable. Please try again later.',
+        ], 503);
     }
 
     /**

@@ -19,8 +19,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class InvoiceController extends Controller
 {
@@ -92,11 +94,22 @@ class InvoiceController extends Controller
      * Authorization checks in this method can reject users who do not own or cannot manage the target record.
      * Returns a downloadable HTTP response or an error response when access or file checks fail.
      */
-    public function download(Invoice $invoice, InvoicePdfService $pdfs): Response
+    public function download(Invoice $invoice, InvoicePdfService $pdfs): Response|JsonResponse
     {
         Gate::authorize('download', $invoice);
 
-        $pdf = $pdfs->render($invoice);
+        try {
+            $pdf = $pdfs->render($invoice);
+        } catch (Throwable $exception) {
+            Log::warning('Invoice PDF rendering failed.', [
+                'invoice_id' => $invoice->id,
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'message' => 'The invoice PDF could not be generated. Please try again later.',
+            ], 503);
+        }
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

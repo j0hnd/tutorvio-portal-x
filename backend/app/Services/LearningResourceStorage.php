@@ -26,6 +26,10 @@ class LearningResourceStorage
         $disk = $this->disk();
         $path = Storage::disk($disk)->putFile($this->directory(), $file);
 
+        if (! is_string($path) || $path === '') {
+            throw new RuntimeException('Learning resource upload could not be stored.');
+        }
+
         return [
             'storage_disk' => $disk,
             'file_path' => $path,
