@@ -44,6 +44,10 @@ class ConversationMessageResource extends JsonResource
                 ])->values(),
                 $this->resource->attachments ?? []
             ),
+            'message_type' => $this->resource->messageType(),
+            'is_system_message' => $this->resource->isSystemMessage(),
+            'is_reminder_message' => $this->resource->isReminderMessage(),
+            'reminder_type' => $this->when($this->resource->isReminderMessage(), fn () => data_get($this->resource->metadata, 'reminder_type')),
             'status' => $this->resource->status,
             'created_at' => $this->resource->created_at,
             'edited_at' => $this->resource->edited_at,

@@ -481,7 +481,11 @@ class ConversationMessageController extends Controller
 
         return ConversationMessage::query()
             ->where('conversation_id', $participant->conversation_id)
-            ->where('sender_id', '!=', $actor->id)
+            ->where(function (Builder $query) use ($actor): void {
+                $query
+                    ->whereNull('sender_id')
+                    ->orWhere('sender_id', '!=', $actor->id);
+            })
             ->when(
                 $lastReadMessage !== null,
                 fn (Builder $query) => $query->where(function (Builder $query) use ($participant, $lastReadMessage): void {

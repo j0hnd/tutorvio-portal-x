@@ -14,6 +14,18 @@ class ConversationMessage extends Model
 {
     use HasFactory, HasPublicId, SoftDeletes;
 
+    public const MESSAGE_TYPE_TEXT = 'text';
+
+    public const MESSAGE_TYPE_SYSTEM = 'system';
+
+    public const MESSAGE_TYPE_REMINDER = 'reminder';
+
+    public const MESSAGE_TYPES = [
+        self::MESSAGE_TYPE_TEXT,
+        self::MESSAGE_TYPE_SYSTEM,
+        self::MESSAGE_TYPE_REMINDER,
+    ];
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_DELIVERED = 'delivered';
@@ -86,5 +98,23 @@ class ConversationMessage extends Model
     public function pin(): HasOne
     {
         return $this->hasOne(ConversationMessagePin::class);
+    }
+
+    public function messageType(): string
+    {
+        return (string) data_get($this->metadata, 'message_type', self::MESSAGE_TYPE_TEXT);
+    }
+
+    public function isSystemMessage(): bool
+    {
+        return (bool) data_get($this->metadata, 'is_system_message', false)
+            || $this->messageType() === self::MESSAGE_TYPE_SYSTEM
+            || $this->isReminderMessage();
+    }
+
+    public function isReminderMessage(): bool
+    {
+        return (bool) data_get($this->metadata, 'is_reminder_message', false)
+            || $this->messageType() === self::MESSAGE_TYPE_REMINDER;
     }
 }

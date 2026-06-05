@@ -140,7 +140,11 @@ class ConversationResource extends JsonResource
 
         return ConversationMessage::query()
             ->where('conversation_id', $this->resource->id)
-            ->where('sender_id', '!=', $user->id)
+            ->where(function (Builder $query) use ($user): void {
+                $query
+                    ->whereNull('sender_id')
+                    ->orWhere('sender_id', '!=', $user->id);
+            })
             ->when(
                 $participant->last_read_message_id !== null,
                 fn (Builder $query) => $this->afterLastReadMessage($query, $participant),
