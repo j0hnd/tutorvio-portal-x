@@ -150,6 +150,16 @@ class Conversation extends Model
     }
 
     /**
+     * Get the messages one-to-many relationship for this conversation.
+     *
+     * This user-facing relationship resolves public chat messages.
+     */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(ConversationMessage::class);
+    }
+
+    /**
      * Get the users many-to-many relationship for this conversation.
      *
      * This user-facing relationship resolves multiple User models.

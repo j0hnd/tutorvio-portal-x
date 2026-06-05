@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Messages\ConversationController;
+use App\Http\Controllers\Api\Messages\ConversationMessageController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\PortalMetadataController;
@@ -124,6 +125,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/conversations', [ConversationController::class, 'store'])
             ->middleware('throttle:api-action');
         Route::get('/conversations/{conversation:public_id}', [ConversationController::class, 'show']);
+        Route::get('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'index']);
+        Route::post('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'store'])
+            ->middleware('throttle:api-action');
         Route::get('/message-threads', [MessageThreadController::class, 'index']);
         Route::post('/message-threads', [MessageThreadController::class, 'store'])
             ->middleware('throttle:api-action');
