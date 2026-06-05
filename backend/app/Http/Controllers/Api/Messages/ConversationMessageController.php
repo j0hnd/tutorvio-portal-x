@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Messages;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Messages\ConversationMessagePinResource;
 use App\Http\Resources\Messages\ConversationMessageResource;
 use App\Models\Conversation;
 use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
+use App\Models\ConversationMessagePin;
 use App\Models\ConversationParticipant;
 use App\Models\User;
 use App\Services\ConversationAttachmentStorage;
@@ -205,6 +207,91 @@ class ConversationMessageController extends Controller
     }
 
     /**
+     * Display pinned messages for a visible conversation.
+     */
+    public function pinned(Request $request, Conversation $conversation): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+
+        $validated = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return response()->json(
+            $conversation->messagePins()
+                ->with([
+                    'conversation:id,public_id',
+                    'message.attachmentRecords',
+                    'message.conversation:id,public_id',
+                    'message.sender:id,public_id,name,email',
+                    'pinnedBy:id,public_id,name,email',
+                ])
+                ->whereHas('message', fn (Builder $query) => $query->whereNull('deleted_at'))
+                ->orderByDesc('pinned_at')
+                ->orderByDesc('id')
+                ->paginate($validated['per_page'] ?? 25)
+                ->through(fn (ConversationMessagePin $pin) => new ConversationMessagePinResource($pin))
+        );
+    }
+
+    /**
+     * Pin an existing visible message in a conversation.
+     */
+    public function pin(Request $request, Conversation $conversation, ConversationMessage $message): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $message = $this->visibleMessageFor($conversation, $message);
+        $this->assertCanPinMessages($actor, $conversation);
+
+        $pin = ConversationMessagePin::query()->firstOrCreate(
+            ['conversation_message_id' => $message->id],
+            [
+                'conversation_id' => $conversation->id,
+                'pinned_by' => $actor->id,
+                'pinned_at' => now(),
+            ]
+        );
+
+        return response()->json([
+            'data' => new ConversationMessagePinResource(
+                $pin->load([
+                    'conversation:id,public_id',
+                    'message.attachmentRecords',
+                    'message.conversation:id,public_id',
+                    'message.sender:id,public_id,name,email',
+                    'pinnedBy:id,public_id,name,email',
+                ])
+            ),
+        ], $pin->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /**
+     * Unpin a message in a conversation.
+     */
+    public function unpin(Request $request, Conversation $conversation, ConversationMessage $message): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $message = $this->visibleMessageFor($conversation, $message);
+        $this->assertCanPinMessages($actor, $conversation);
+
+        ConversationMessagePin::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('conversation_message_id', $message->id)
+            ->delete();
+
+        return response()->json([
+            'data' => [
+                'conversation_id' => $conversation->public_id,
+                'message_id' => $message->public_id,
+                'is_pinned' => false,
+            ],
+        ]);
+    }
+
+    /**
      * Mark the actor participant read through the latest visible message.
      */
     public function markRead(Request $request, Conversation $conversation): JsonResponse
@@ -337,13 +424,23 @@ class ConversationMessageController extends Controller
     {
         $conversation = $this->visibleConversationFor($user, $conversation);
 
-        if ((int) $message->conversation_id !== (int) $conversation->id
-            || (int) $attachment->conversation_id !== (int) $conversation->id
+        $message = $this->visibleMessageFor($conversation, $message);
+
+        if ((int) $attachment->conversation_id !== (int) $conversation->id
             || (int) $attachment->conversation_message_id !== (int) $message->id) {
             abort(404);
         }
 
         return $attachment;
+    }
+
+    private function visibleMessageFor(Conversation $conversation, ConversationMessage $message): ConversationMessage
+    {
+        if ((int) $message->conversation_id !== (int) $conversation->id) {
+            abort(404);
+        }
+
+        return $message;
     }
 
     /**
@@ -425,6 +522,13 @@ class ConversationMessageController extends Controller
             ->exists();
 
         if (! $isActiveParticipant) {
+            abort(403);
+        }
+    }
+
+    private function assertCanPinMessages(User $actor, Conversation $conversation): void
+    {
+        if ($actor->status !== User::STATUS_ACTIVE || ! $actor->can('pinMessage', $conversation)) {
             abort(403);
         }
     }

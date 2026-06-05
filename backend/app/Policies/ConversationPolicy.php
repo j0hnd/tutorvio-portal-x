@@ -63,4 +63,32 @@ class ConversationPolicy
         return $user->hasRole('admin')
             || ($user->hasRole('staff') && $user->can('messages.manage'));
     }
+
+    /**
+     * Determine whether the user can pin or unpin messages in a conversation.
+     */
+    public function pinMessage(User $user, Conversation $conversation): bool
+    {
+        if ($this->manage($user, $conversation)) {
+            return true;
+        }
+
+        if ($conversation->status !== Conversation::STATUS_ACTIVE) {
+            return false;
+        }
+
+        if (! $this->view($user, $conversation)) {
+            return false;
+        }
+
+        if ($user->hasRole('teacher') && (bool) config('chat.allow_teacher_message_pins', true)) {
+            return (int) $conversation->teacher_id === (int) $user->id;
+        }
+
+        if ($user->hasRole('student') && (bool) config('chat.allow_student_message_pins', false)) {
+            return (int) $conversation->student_id === (int) $user->id;
+        }
+
+        return false;
+    }
 }

@@ -126,6 +126,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/conversations', [ConversationController::class, 'store'])
             ->middleware('throttle:api-action');
         Route::get('/conversations/{conversation:public_id}', [ConversationController::class, 'show']);
+        Route::get('/conversations/{conversation:public_id}/pinned-messages', [ConversationMessageController::class, 'pinned']);
         Route::get('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'index']);
         Route::get('/conversations/{conversation:public_id}/messages/{message:public_id}/attachments/{conversationAttachment:public_id}/download', [ConversationMessageController::class, 'download'])
             ->middleware('throttle:api-download');
@@ -134,6 +135,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/messages/read', [ConversationMessageController::class, 'markMessagesRead'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/messages/{message:public_id}/pin', [ConversationMessageController::class, 'pin'])
+            ->middleware('throttle:api-action');
+        Route::delete('/conversations/{conversation:public_id}/messages/{message:public_id}/pin', [ConversationMessageController::class, 'unpin'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'store'])
             ->middleware('throttle:api-action');

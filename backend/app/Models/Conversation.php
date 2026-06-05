@@ -160,6 +160,16 @@ class Conversation extends Model
     }
 
     /**
+     * Get pinned messages for this conversation.
+     *
+     * This user-facing relationship resolves multiple ConversationMessagePin models.
+     */
+    public function messagePins(): HasMany
+    {
+        return $this->hasMany(ConversationMessagePin::class);
+    }
+
+    /**
      * Get the users many-to-many relationship for this conversation.
      *
      * This user-facing relationship resolves multiple User models.

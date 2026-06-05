@@ -41,6 +41,7 @@ class ConversationResource extends JsonResource
             'unread_count' => $unreadMessageCount,
             'unread_message_count' => $unreadMessageCount,
             'is_pinned' => $this->isPinned($request),
+            'pinned_messages_summary' => $this->pinnedMessagesSummary(),
             'participant_summary' => $this->participantSummary($request),
             'participants' => $this->whenLoaded('participants', fn () => $this->resource->participants->map(fn ($participant) => [
                 'user_id' => $participant->relationLoaded('user') ? $this->publicId($participant->user) : null,
@@ -186,11 +187,43 @@ class ConversationResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    private function pinnedMessagesSummary(): array
+    {
+        if (! $this->resource->relationLoaded('messagePins')) {
+            return [
+                'count' => 0,
+                'latest' => null,
+            ];
+        }
+
+        $pins = $this->resource->messagePins
+            ->filter(fn ($pin) => $pin->relationLoaded('message') && $pin->message !== null)
+            ->sortByDesc('pinned_at')
+            ->values();
+
+        $latest = $pins->first();
+
+        return [
+            'count' => $pins->count(),
+            'latest' => $latest === null ? null : [
+                'id' => $this->publicId($latest),
+                'message_id' => $this->publicId($latest->message),
+                'pinned_by' => $latest->relationLoaded('pinnedBy') ? $this->publicId($latest->pinnedBy) : null,
+                'pinned_at' => $latest->pinned_at,
+                'body_preview' => $latest->message?->body === null ? null : str($latest->message->body)->limit(160)->toString(),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function permissionMetadata(Request $request): array
     {
         $user = $request->user();
         $participant = $this->currentParticipant($request);
         $canManage = $user !== null && $user->can('manage', $this->resource);
+        $canPinMessages = $user !== null && $user->can('pinMessage', $this->resource);
         $canWrite = $this->resource->status === 'active'
             && ($canManage || ($participant !== null && $participant->archived_at === null));
 
@@ -206,7 +239,7 @@ class ConversationResource extends JsonResource
             'archived_at' => $participant?->archived_at,
             'can_send_messages' => $canWrite,
             'can_upload_files' => $canWrite,
-            'can_pin_messages' => $canManage,
+            'can_pin_messages' => $canPinMessages,
             'can_close_conversation' => $canManage,
             'can_archive_conversation' => $canManage,
         ];

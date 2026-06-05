@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ConversationMessage extends Model
@@ -49,6 +50,13 @@ class ConversationMessage extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (ConversationMessage $message): void {
+            $message->pin()->delete();
+        });
+    }
+
     /**
      * Get the conversation inverse relationship for this message.
      */
@@ -73,5 +81,10 @@ class ConversationMessage extends Model
     public function conversationAttachments(): HasMany
     {
         return $this->attachmentRecords();
+    }
+
+    public function pin(): HasOne
+    {
+        return $this->hasOne(ConversationMessagePin::class);
     }
 }
