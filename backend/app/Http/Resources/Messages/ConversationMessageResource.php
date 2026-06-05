@@ -24,7 +24,26 @@ class ConversationMessageResource extends JsonResource
             'sender' => $this->whenLoaded('sender', fn () => $this->userSummary($this->resource->sender, $request)),
             'body' => $this->resource->body,
             'links' => $this->resource->links ?? [],
-            'attachments' => $this->resource->attachments ?? [],
+            'attachments' => $this->when(
+                $this->resource->relationLoaded('attachmentRecords'),
+                fn () => $this->resource->attachmentRecords->map(fn ($attachment) => [
+                    'id' => $this->publicId($attachment),
+                    'type' => $attachment->type,
+                    'title' => $attachment->title,
+                    'url' => $attachment->type === 'link' ? $attachment->url : null,
+                    'original_filename' => $attachment->original_filename,
+                    'mime_type' => $attachment->mime_type,
+                    'file_size' => $attachment->file_size,
+                    'download' => $attachment->hasStoredFile() ? [
+                        'endpoint' => url('/api/v1/conversations/'.$this->publicId($this->resource->conversation).'/messages/'.$this->publicId($this->resource).'/attachments/'.$this->publicId($attachment).'/download'),
+                    ] : null,
+                    'preview' => $attachment->isPreviewable() ? [
+                        'endpoint' => url('/api/v1/conversations/'.$this->publicId($this->resource->conversation).'/messages/'.$this->publicId($this->resource).'/attachments/'.$this->publicId($attachment).'/preview'),
+                    ] : null,
+                    'created_at' => $attachment->created_at,
+                ])->values(),
+                $this->resource->attachments ?? []
+            ),
             'status' => $this->resource->status,
             'created_at' => $this->resource->created_at,
             'edited_at' => $this->resource->edited_at,

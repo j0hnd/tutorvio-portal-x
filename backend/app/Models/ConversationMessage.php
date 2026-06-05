@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ConversationMessage extends Model
@@ -62,5 +63,15 @@ class ConversationMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    public function attachmentRecords(): HasMany
+    {
+        return $this->hasMany(ConversationAttachment::class);
+    }
+
+    public function conversationAttachments(): HasMany
+    {
+        return $this->attachmentRecords();
     }
 }

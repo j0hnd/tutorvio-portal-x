@@ -127,6 +127,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:api-action');
         Route::get('/conversations/{conversation:public_id}', [ConversationController::class, 'show']);
         Route::get('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'index']);
+        Route::get('/conversations/{conversation:public_id}/messages/{message:public_id}/attachments/{conversationAttachment:public_id}/download', [ConversationMessageController::class, 'download'])
+            ->middleware('throttle:api-download');
+        Route::get('/conversations/{conversation:public_id}/messages/{message:public_id}/attachments/{conversationAttachment:public_id}/preview', [ConversationMessageController::class, 'preview'])
+            ->middleware('throttle:api-download');
         Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/messages/read', [ConversationMessageController::class, 'markMessagesRead'])

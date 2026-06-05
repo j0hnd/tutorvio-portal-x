@@ -5,18 +5,26 @@ namespace App\Http\Controllers\Api\Messages;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Messages\ConversationMessageResource;
 use App\Models\Conversation;
+use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
 use App\Models\ConversationParticipant;
 use App\Models\User;
+use App\Services\ConversationAttachmentStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ConversationMessageController extends Controller
 {
+    public function __construct(private readonly ConversationAttachmentStorage $storage) {}
+
     /**
      * Display paginated messages for a visible conversation.
      */
@@ -34,7 +42,7 @@ class ConversationMessageController extends Controller
 
         return response()->json(
             $conversation->messages()
-                ->with(['conversation:id,public_id', 'sender:id,public_id,name,email'])
+                ->with(['attachmentRecords', 'conversation:id,public_id', 'sender:id,public_id,name,email'])
                 ->when(
                     $order === 'newest',
                     fn (Builder $query) => $query->orderByDesc('created_at')->orderByDesc('id'),
@@ -58,31 +66,66 @@ class ConversationMessageController extends Controller
             'body' => ['sometimes', 'nullable', 'string', 'max:10000'],
             'links' => ['sometimes', 'array', 'max:20'],
             'links.*' => ['required', 'url', 'max:2048'],
-            'attachments' => ['sometimes', 'array', 'max:20'],
-            'attachments.*' => ['array'],
+            'attachment_links' => ['sometimes', 'array', 'max:'.(int) config('chat_attachments.max_links_per_message', 20)],
+            'attachment_links.*.url' => ['required', 'url', 'max:2048'],
+            'attachment_links.*.title' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'files' => ['sometimes', 'array', 'max:'.(int) config('chat_attachments.max_files_per_message', 5)],
+            'files.*' => [
+                'required',
+                'file',
+                'max:'.(int) config('chat_attachments.max_upload_kilobytes', 10240),
+                'mimes:'.implode(',', config('chat_attachments.allowed_extensions', [])),
+                'mimetypes:'.implode(',', config('chat_attachments.allowed_mime_types', [])),
+                'extensions:'.implode(',', config('chat_attachments.allowed_extensions', [])),
+            ],
             'metadata' => ['sometimes', 'array'],
         ]);
 
         $body = trim((string) ($validated['body'] ?? ''));
-        $attachments = $validated['attachments'] ?? [];
+        $uploadedFiles = $request->file('files', []);
+        $attachmentLinks = $this->normalizedAttachmentLinks($validated);
 
-        if ($body === '' && $attachments === []) {
+        if ($body === '' && $uploadedFiles === [] && $attachmentLinks === []) {
             throw ValidationException::withMessages([
                 'body' => 'A message body is required unless files are attached.',
             ]);
         }
 
-        $message = DB::transaction(function () use ($actor, $conversation, $validated, $body) {
+        $storedFiles = collect($uploadedFiles)
+            ->map(fn ($file) => $this->storage->store($file))
+            ->all();
+
+        $message = DB::transaction(function () use ($actor, $conversation, $validated, $body, $storedFiles, $attachmentLinks) {
             $now = now();
+            $linkUrls = collect($attachmentLinks)->pluck('url')->merge($validated['links'] ?? [])->unique()->values()->all();
 
             $message = $conversation->messages()->create([
                 'sender_id' => $actor->id,
                 'body' => $body !== '' ? $body : null,
-                'links' => $validated['links'] ?? null,
-                'attachments' => $validated['attachments'] ?? null,
+                'links' => $linkUrls !== [] ? $linkUrls : null,
+                'attachments' => null,
                 'status' => ConversationMessage::STATUS_SENT,
                 'metadata' => $validated['metadata'] ?? null,
             ]);
+
+            foreach ($storedFiles as $storedFile) {
+                $message->attachmentRecords()->create($storedFile + [
+                    'conversation_id' => $conversation->id,
+                    'uploaded_by' => $actor->id,
+                    'type' => ConversationAttachment::TYPE_FILE,
+                    'title' => $storedFile['original_filename'],
+                ]);
+            }
+
+            foreach ($attachmentLinks as $link) {
+                $message->attachmentRecords()->create([
+                    'conversation_id' => $conversation->id,
+                    'uploaded_by' => $actor->id,
+                    'type' => ConversationAttachment::TYPE_LINK,
+                    'title' => $link['title'] ?? null,
+                    'url' => $link['url'],
+                ]);
+            }
 
             $conversation->forceFill([
                 'last_message_at' => $now,
@@ -91,8 +134,8 @@ class ConversationMessageController extends Controller
                 'last_message_metadata' => [
                     'message_id' => $message->public_id,
                     'message_type' => 'text',
-                    'has_attachments' => ! empty($validated['attachments'] ?? []),
-                    'has_links' => ! empty($validated['links'] ?? []),
+                    'has_attachments' => $storedFiles !== [] || $attachmentLinks !== [],
+                    'has_links' => $linkUrls !== [],
                 ],
             ])->save();
 
@@ -108,8 +151,57 @@ class ConversationMessageController extends Controller
         });
 
         return response()->json([
-            'data' => new ConversationMessageResource($message->load(['conversation:id,public_id', 'sender:id,public_id,name,email'])),
+            'data' => new ConversationMessageResource($message->load(['attachmentRecords', 'conversation:id,public_id', 'sender:id,public_id,name,email'])),
         ], 201);
+    }
+
+    public function download(Request $request, Conversation $conversation, ConversationMessage $message, ConversationAttachment $conversationAttachment): StreamedResponse|JsonResponse
+    {
+        $attachment = $this->visibleAttachmentFor($request->user(), $conversation, $message, $conversationAttachment);
+
+        if (! $attachment->hasStoredFile()) {
+            return response()->json(['message' => 'This attachment does not have a downloadable file.'], 404);
+        }
+
+        if (! Storage::disk($attachment->storageDisk())->exists($attachment->file_path)) {
+            return response()->json(['message' => 'The attachment file could not be found.'], 404);
+        }
+
+        try {
+            return response()->streamDownload(
+                fn () => print Storage::disk($attachment->storageDisk())->get($attachment->file_path),
+                $attachment->original_filename,
+                [
+                    'Cache-Control' => 'max-age=0, no-store, private',
+                    'Content-Type' => $attachment->mime_type ?: 'application/octet-stream',
+                ]
+            );
+        } catch (Throwable) {
+            return response()->json(['message' => 'The attachment file could not be downloaded. Please try again later.'], 503);
+        }
+    }
+
+    public function preview(Request $request, Conversation $conversation, ConversationMessage $message, ConversationAttachment $conversationAttachment): Response|JsonResponse
+    {
+        $attachment = $this->visibleAttachmentFor($request->user(), $conversation, $message, $conversationAttachment);
+
+        if (! $attachment->isPreviewable()) {
+            return response()->json(['message' => 'This attachment cannot be previewed.'], 404);
+        }
+
+        if (! Storage::disk($attachment->storageDisk())->exists($attachment->file_path)) {
+            return response()->json(['message' => 'The attachment file could not be found.'], 404);
+        }
+
+        try {
+            return response(Storage::disk($attachment->storageDisk())->get($attachment->file_path), 200, [
+                'Cache-Control' => 'max-age=0, no-store, private',
+                'Content-Disposition' => 'inline; filename="'.$attachment->original_filename.'"',
+                'Content-Type' => $attachment->mime_type ?: 'application/octet-stream',
+            ]);
+        } catch (Throwable) {
+            return response()->json(['message' => 'The attachment file could not be previewed. Please try again later.'], 503);
+        }
     }
 
     /**
@@ -239,6 +331,36 @@ class ConversationMessageController extends Controller
                 });
             })
             ->firstOrFail();
+    }
+
+    private function visibleAttachmentFor(User $user, Conversation $conversation, ConversationMessage $message, ConversationAttachment $attachment): ConversationAttachment
+    {
+        $conversation = $this->visibleConversationFor($user, $conversation);
+
+        if ((int) $message->conversation_id !== (int) $conversation->id
+            || (int) $attachment->conversation_id !== (int) $conversation->id
+            || (int) $attachment->conversation_message_id !== (int) $message->id) {
+            abort(404);
+        }
+
+        return $attachment;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<int, array{url: string, title?: string|null}>
+     */
+    private function normalizedAttachmentLinks(array $validated): array
+    {
+        $links = collect($validated['attachment_links'] ?? []);
+
+        collect($validated['links'] ?? [])
+            ->each(fn (string $url) => $links->push(['url' => $url, 'title' => null]));
+
+        return $links
+            ->unique('url')
+            ->values()
+            ->all();
     }
 
     private function activeParticipantFor(Conversation $conversation, User $actor): ConversationParticipant

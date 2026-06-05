@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Conversation;
+use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -34,6 +37,16 @@ class ConversationMessageApiTest extends TestCase
         $this->teacher = $this->userWithRole('teacher');
         $this->student = $this->userWithRole('student');
         $this->otherStudent = $this->userWithRole('student');
+
+        config([
+            'chat_attachments.disk' => 'local',
+            'chat_attachments.directory' => 'chat-attachments',
+            'chat_attachments.max_upload_kilobytes' => 1024,
+            'chat_attachments.max_files_per_message' => 5,
+            'chat_attachments.max_links_per_message' => 20,
+        ]);
+
+        Storage::fake('local');
     }
 
     public function test_active_participant_can_send_and_read_conversation_messages(): void
@@ -178,7 +191,7 @@ class ConversationMessageApiTest extends TestCase
             ->assertJsonPath('data.0.id', $oldest->public_id);
     }
 
-    public function test_empty_messages_are_rejected_unless_files_are_attached(): void
+    public function test_empty_messages_are_rejected_unless_attachments_are_attached(): void
     {
         $conversation = $this->createConversation([$this->student, $this->teacher]);
 
@@ -191,13 +204,106 @@ class ConversationMessageApiTest extends TestCase
             ->assertJsonValidationErrors('body');
 
         $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
-            'attachments' => [
-                ['id' => 'file_01HX0000000000000000000000', 'name' => 'worksheet.pdf'],
+            'attachment_links' => [
+                ['url' => 'https://example.test/document', 'title' => 'Shared document'],
             ],
         ])
             ->assertCreated()
             ->assertJsonPath('data.body', null)
-            ->assertJsonPath('data.attachments.0.name', 'worksheet.pdf');
+            ->assertJsonPath('data.attachments.0.title', 'Shared document')
+            ->assertJsonPath('data.attachments.0.url', 'https://example.test/document');
+    }
+
+    public function test_message_file_uploads_are_validated_stored_privately_and_return_safe_urls(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Unsafe attachment',
+            'files' => [
+                UploadedFile::fake()->create('tool.exe', 64, 'application/pdf'),
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('files.0');
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Too large',
+            'files' => [
+                UploadedFile::fake()->create('large.pdf', 2048, 'application/pdf'),
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('files.0');
+
+        $response = $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Please review the worksheet.',
+            'files' => [
+                UploadedFile::fake()->create('lesson"plan.pdf', 128, 'application/pdf'),
+            ],
+            'attachment_links' => [
+                ['url' => 'https://example.test/resource', 'title' => 'Resource link'],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.attachments.0.original_filename', 'lesson_plan.pdf')
+            ->assertJsonPath('data.attachments.0.mime_type', 'application/pdf')
+            ->assertJsonPath('data.attachments.0.url', null)
+            ->assertJsonPath('data.attachments.1.title', 'Resource link')
+            ->assertJsonPath('data.attachments.1.url', 'https://example.test/resource')
+            ->assertJsonMissingPath('data.attachments.0.file_path')
+            ->assertJsonMissingPath('data.attachments.0.storage_disk');
+
+        $attachment = ConversationAttachment::query()->where('type', ConversationAttachment::TYPE_FILE)->firstOrFail();
+
+        $this->assertSame('local', $attachment->storage_disk);
+        $this->assertStringStartsWith('chat-attachments/', $attachment->file_path);
+        $this->assertStringNotContainsString('lesson_plan.pdf', $attachment->file_path);
+        $this->assertStringNotContainsString($attachment->file_path, json_encode($response->json()));
+        Storage::disk('local')->assertExists($attachment->file_path);
+    }
+
+    public function test_only_authorized_conversation_viewers_can_download_or_preview_attachments(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->student, 'Attached worksheet', now());
+        $attachment = $message->attachmentRecords()->create([
+            'conversation_id' => $conversation->id,
+            'uploaded_by' => $this->student->id,
+            'type' => ConversationAttachment::TYPE_FILE,
+            'storage_disk' => 'local',
+            'file_path' => 'chat-attachments/private-worksheet.pdf',
+            'original_filename' => 'worksheet.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 18,
+        ]);
+
+        Storage::disk('local')->put($attachment->file_path, 'private worksheet');
+
+        $downloadUrl = "/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/attachments/{$attachment->public_id}/download";
+        $previewUrl = "/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/attachments/{$attachment->public_id}/preview";
+
+        $this->getJson($downloadUrl)->assertUnauthorized();
+
+        Sanctum::actingAs($this->otherStudent);
+        $this->getJson($downloadUrl)->assertNotFound();
+
+        Sanctum::actingAs($this->teacher);
+        $this->getJson($downloadUrl)
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
+            ->assertDownload('worksheet.pdf');
+
+        $this->getJson($previewUrl)
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private');
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson($downloadUrl)->assertOk();
     }
 
     public function test_send_requires_active_participant_active_conversation_and_message_permission(): void

@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Conversation;
+use App\Models\ConversationAttachment;
+use App\Models\ConversationMessage;
 use App\Models\ConversationParticipant;
 use App\Models\CourseProgram;
 use App\Models\StudentProfile;
@@ -53,6 +55,25 @@ class ChatConversationSchemaTest extends TestCase
             'updated_at',
             'deleted_at',
         ]));
+
+        $this->assertTrue(Schema::hasColumns('conversation_attachments', [
+            'public_id',
+            'conversation_id',
+            'conversation_message_id',
+            'uploaded_by',
+            'type',
+            'title',
+            'url',
+            'storage_disk',
+            'file_path',
+            'original_filename',
+            'mime_type',
+            'file_size',
+            'metadata',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ]));
     }
 
     public function test_conversation_relationships_resolve_chat_context(): void
@@ -94,6 +115,24 @@ class ChatConversationSchemaTest extends TestCase
             'participant_roles_snapshot' => ['student'],
             'joined_at' => now(),
         ]);
+        $message = ConversationMessage::query()->create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $student->id,
+            'body' => 'Attached worksheet.',
+            'status' => ConversationMessage::STATUS_SENT,
+        ]);
+        $attachment = ConversationAttachment::query()->create([
+            'conversation_id' => $conversation->id,
+            'conversation_message_id' => $message->id,
+            'uploaded_by' => $student->id,
+            'type' => ConversationAttachment::TYPE_FILE,
+            'title' => 'worksheet.pdf',
+            'storage_disk' => 'local',
+            'file_path' => 'chat-attachments/worksheet.pdf',
+            'original_filename' => 'worksheet.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 123,
+        ]);
 
         $this->assertNotNull($conversation->public_id);
         $this->assertSame($student->id, $conversation->student->id);
@@ -110,5 +149,8 @@ class ChatConversationSchemaTest extends TestCase
         $this->assertSame($student->id, $conversation->users->first()->id);
         $this->assertSame($conversation->id, $student->conversations->first()->id);
         $this->assertSame($conversation->id, $courseProgram->conversations->first()->id);
+        $this->assertSame($conversation->id, $attachment->conversation->id);
+        $this->assertSame($message->id, $attachment->message->id);
+        $this->assertSame($attachment->id, $message->attachmentRecords->first()->id);
     }
 }
