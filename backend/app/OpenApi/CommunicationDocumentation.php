@@ -6,7 +6,7 @@ use OpenApi\Attributes as OA;
 
 #[OA\Tag(
     name: 'Communication',
-    description: 'Notifications, announcements, announcement targeting, scheduled publication, archive behavior, and student-teacher messaging. All operations require Sanctum bearer authentication. Notification and announcement list/read endpoints are scoped to records visible to the authenticated user. Announcement management requires admin/staff access with `announcements.manage`; notification history requires `notifications.history.view` and is full-history for admins only; message thread access requires `messages.view` or `messages.manage`.'
+    description: 'Notifications, announcements, announcement targeting, scheduled publication, archive behavior, legacy student-teacher message threads, and internal chat conversations. All operations require Sanctum bearer authentication. Notification and announcement list/read endpoints are scoped to records visible to the authenticated user. Announcement management requires admin/staff access with `announcements.manage`; notification history requires `notifications.history.view` and is full-history for admins only. Legacy message thread access and internal chat access require `messages.view` or `messages.manage`; internal chat uses public IDs for conversations, messages, attachments, pins, templates, and escalations. Chat reminder automation is represented through reminder templates and reminder/system messages; no separate chat reminder trigger/list HTTP endpoint is currently exposed.'
 )]
 #[OA\Schema(
     schema: 'CommunicationTargetType',
@@ -129,6 +129,138 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'metadata', description: 'Admin field.', type: 'object', example: []),
         new OA\Property(property: 'created_at', description: 'Admin field.', type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
         new OA\Property(property: 'updated_at', description: 'Admin field.', type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CommunicationConversation',
+    description: 'Internal chat conversation response. All relationship IDs are public IDs. Students and teachers see active participant conversations only; admins and staff with `messages.view` or `messages.manage` can view all conversations and receive admin audit fields.',
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Property(property: 'type', type: 'string', enum: ['student_teacher', 'teacher_admin', 'admin_student', 'group_course', 'announcement_thread'], example: 'student_teacher'),
+        new OA\Property(property: 'title', nullable: true, type: 'string', example: 'Lesson follow-up'),
+        new OA\Property(property: 'display_title', nullable: true, type: 'string', example: 'Taylor Teacher'),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'archived', 'closed'], example: 'active'),
+        new OA\Property(property: 'is_archived', type: 'boolean', example: false),
+        new OA\Property(property: 'is_closed', type: 'boolean', example: false),
+        new OA\Property(property: 'student_id', nullable: true, type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', nullable: true, type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'course_program_id', nullable: true, type: 'string', example: 'crs_01J0BUSINESS000000000001'),
+        new OA\Property(property: 'last_message_at', nullable: true, type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
+        new OA\Property(property: 'last_message_by', nullable: true, type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'last_message_preview', nullable: true, type: 'string', example: 'Can you review my homework before class?'),
+        new OA\Property(property: 'last_message_metadata', type: 'object', example: ['message_id' => 'msg_01J0CHATMSG000000000001', 'message_type' => 'text', 'has_attachments' => false, 'has_links' => false]),
+        new OA\Property(property: 'metadata', description: 'Returned to conversation viewers; clients should avoid sending sensitive internal data.', type: 'object', example: []),
+        new OA\Property(property: 'unread_count', type: 'integer', example: 2),
+        new OA\Property(property: 'unread_message_count', type: 'integer', example: 2),
+        new OA\Property(property: 'is_pinned', description: 'Actor participant-level conversation pin state from participant metadata.', type: 'boolean', example: false),
+        new OA\Property(property: 'pinned_messages_summary', type: 'object', example: ['count' => 1, 'latest' => ['id' => 'pin_01J0CHATPIN000000000001', 'message_id' => 'msg_01J0CHATMSG000000000001', 'pinned_by' => 'usr_01J0TEACHER000000000000001', 'pinned_at' => '2026-06-01T09:12:00Z', 'body_preview' => 'Can you review my homework before class?']]),
+        new OA\Property(property: 'participant_summary', type: 'object', example: ['total' => 2, 'preview' => [['user_id' => 'usr_01J0TEACHER000000000000001', 'name' => 'Taylor Teacher', 'participant_role' => 'teacher']]]),
+        new OA\Property(property: 'participants', type: 'array', items: new OA\Items(type: 'object'), example: [['user_id' => 'usr_01J0STUDENT000000000000001', 'participant_role' => 'student', 'participant_role_snapshot' => 'student', 'participant_roles_snapshot' => ['student'], 'joined_at' => '2026-06-01T09:00:00Z', 'last_read_at' => '2026-06-01T09:10:00Z', 'last_read_message_id' => 'msg_01J0CHATMSG000000000001', 'muted_at' => null, 'archived_at' => null, 'user' => ['id' => 'usr_01J0STUDENT000000000000001', 'name' => 'Alex Student', 'email' => 'alex.student@example.com']]]),
+        new OA\Property(property: 'permission_metadata', type: 'object', example: ['current_user_id' => 'usr_01J0STUDENT000000000000001', 'is_participant' => true, 'participant_role' => 'student', 'can_send_messages' => true, 'can_upload_files' => true, 'can_pin_messages' => false, 'can_close_conversation' => false, 'can_archive_conversation' => false]),
+        new OA\Property(property: 'created_by', description: 'Admin/staff message permission field. Creator public ID.', nullable: true, type: 'string', example: 'usr_01J0ADMIN000000000000001'),
+        new OA\Property(property: 'created_at', description: 'Admin/staff message permission field.', type: 'string', format: 'date-time', example: '2026-06-01T09:00:00Z'),
+        new OA\Property(property: 'updated_at', description: 'Admin/staff message permission field.', type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CommunicationConversationMessage',
+    description: 'Internal chat message response. File attachments are represented by public attachment IDs plus download/preview endpoints; storage disk and file path are never exposed.',
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'msg_01J0CHATMSG000000000001'),
+        new OA\Property(property: 'conversation_id', type: 'string', example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Property(property: 'sender_id', nullable: true, type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'sender', ref: '#/components/schemas/UserSummary', nullable: true),
+        new OA\Property(property: 'body', nullable: true, type: 'string', example: 'Can you review my homework before class?'),
+        new OA\Property(property: 'links', type: 'array', items: new OA\Items(type: 'string', format: 'uri'), example: ['https://example.com/homework-notes']),
+        new OA\Property(property: 'attachments', type: 'array', items: new OA\Items(ref: '#/components/schemas/CommunicationConversationAttachment')),
+        new OA\Property(property: 'message_type', type: 'string', enum: ['text', 'system', 'reminder'], example: 'text'),
+        new OA\Property(property: 'is_system_message', type: 'boolean', example: false),
+        new OA\Property(property: 'is_reminder_message', type: 'boolean', example: false),
+        new OA\Property(property: 'reminder_type', nullable: true, type: 'string', example: 'lesson_reminder'),
+        new OA\Property(property: 'status', type: 'string', enum: ['sent', 'delivered', 'read', 'failed'], example: 'sent'),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
+        new OA\Property(property: 'edited_at', nullable: true, type: 'string', format: 'date-time', example: null),
+        new OA\Property(property: 'deleted_at', nullable: true, type: 'string', format: 'date-time', example: null),
+        new OA\Property(property: 'metadata', description: 'Admin/staff with `messages.manage` only.', type: 'object', example: []),
+        new OA\Property(property: 'updated_at', description: 'Admin/staff with `messages.manage` only.', type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CommunicationConversationAttachment',
+    description: 'Internal chat attachment. Uploads are accepted on `POST /conversations/{conversation}/messages` as multipart `files[]`; allowed files are PDF, JPG/JPEG, PNG, WebP, or GIF, up to 10 MB each by default, with at most 5 files and 20 links per message unless deployment config overrides those limits.',
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'att_01J0CHATATTACH000000001'),
+        new OA\Property(property: 'type', type: 'string', enum: ['file', 'link'], example: 'file'),
+        new OA\Property(property: 'title', nullable: true, type: 'string', example: 'homework.pdf'),
+        new OA\Property(property: 'url', nullable: true, type: 'string', format: 'uri', example: null),
+        new OA\Property(property: 'original_filename', nullable: true, type: 'string', example: 'homework.pdf'),
+        new OA\Property(property: 'mime_type', nullable: true, type: 'string', example: 'application/pdf'),
+        new OA\Property(property: 'file_size', nullable: true, type: 'integer', example: 245760),
+        new OA\Property(property: 'download', nullable: true, type: 'object', example: ['endpoint' => 'http://localhost:8001/api/v1/conversations/cnv_01J0CHAT000000000000001/messages/msg_01J0CHATMSG000000000001/attachments/att_01J0CHATATTACH000000001/download']),
+        new OA\Property(property: 'preview', nullable: true, type: 'object', example: ['endpoint' => 'http://localhost:8001/api/v1/conversations/cnv_01J0CHAT000000000000001/messages/msg_01J0CHATMSG000000000001/attachments/att_01J0CHATATTACH000000001/preview']),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time', example: '2026-06-01T09:10:00Z'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CommunicationConversationMessagePin',
+    description: 'Pinned internal chat message. Pin IDs, conversation IDs, message IDs, and user IDs are public IDs.',
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'pin_01J0CHATPIN000000000001'),
+        new OA\Property(property: 'conversation_id', type: 'string', example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Property(property: 'message_id', type: 'string', example: 'msg_01J0CHATMSG000000000001'),
+        new OA\Property(property: 'pinned_by', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'pinned_by_user', ref: '#/components/schemas/UserSummary'),
+        new OA\Property(property: 'pinned_at', type: 'string', format: 'date-time', example: '2026-06-01T09:12:00Z'),
+        new OA\Property(property: 'message', ref: '#/components/schemas/CommunicationConversationMessage'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CommunicationMessageTemplate',
+    description: 'Quick message template response. User-facing template endpoints return active templates visible to at least one actor role and either global templates or templates owned by the actor teacher. Admin fields require `message_templates.view`.',
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'mtp_01J0TEMPLATE000000000001'),
+        new OA\Property(property: 'title', type: 'string', example: 'Lesson reminder'),
+        new OA\Property(property: 'body', type: 'string', example: 'Hi! This is a quick reminder about your upcoming lesson.'),
+        new OA\Property(property: 'category', type: 'string', enum: ['lesson_reminder', 'homework_reminder', 'reschedule_notice', 'payment_reminder', 'attendance_follow_up', 'progress_check_in'], example: 'lesson_reminder'),
+        new OA\Property(property: 'role_visibility', type: 'array', items: new OA\Items(type: 'string', enum: ['admin', 'staff', 'teacher', 'student']), example: ['admin', 'staff', 'teacher']),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], example: 'active'),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+        new OA\Property(property: 'teacher_id', nullable: true, type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'teacher', ref: '#/components/schemas/UserSummary', nullable: true),
+        new OA\Property(property: 'created_by', description: 'Admin field.', nullable: true, type: 'string', example: 'usr_01J0ADMIN000000000000001'),
+        new OA\Property(property: 'updated_by', description: 'Admin field.', nullable: true, type: 'string', example: 'usr_01J0ADMIN000000000000001'),
+        new OA\Property(property: 'created_at', description: 'Admin field.', type: 'string', format: 'date-time', example: '2026-06-01T09:00:00Z'),
+        new OA\Property(property: 'updated_at', description: 'Admin field.', type: 'string', format: 'date-time', example: '2026-06-01T09:00:00Z'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CommunicationConversationEscalation',
+    description: 'Internal chat escalation. Students may escalate their own student conversation. Teachers may escalate assigned-student conversations. Admins and permitted staff review the queue through `/admin/chat-escalations`.',
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'ces_01J0CHATESCL00000000001'),
+        new OA\Property(property: 'conversation_id', type: 'string', example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Property(property: 'message_id', nullable: true, type: 'string', example: 'msg_01J0CHATMSG000000000001'),
+        new OA\Property(property: 'issue_report_id', nullable: true, type: 'string', example: 'isr_01J0ISSUE000000000000001'),
+        new OA\Property(property: 'status', type: 'string', enum: ['open', 'in_review', 'resolved', 'dismissed'], example: 'open'),
+        new OA\Property(property: 'reason', type: 'string', example: 'Student reported repeated access problems in this lesson chat.'),
+        new OA\Property(property: 'notes', nullable: true, type: 'string', example: 'Please review before the next scheduled class.'),
+        new OA\Property(property: 'escalated_by', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time', example: '2026-06-01T09:15:00Z'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time', example: '2026-06-01T09:15:00Z'),
+        new OA\Property(property: 'review_notes', description: 'Review queue field.', nullable: true, type: 'string', example: 'Linked to the existing issue report.'),
+        new OA\Property(property: 'reviewed_by', description: 'Review queue field.', nullable: true, type: 'string', example: 'usr_01J0STAFF0000000000000001'),
+        new OA\Property(property: 'reviewed_at', description: 'Review queue field.', nullable: true, type: 'string', format: 'date-time', example: '2026-06-01T10:00:00Z'),
+        new OA\Property(property: 'resolved_at', description: 'Review queue field.', nullable: true, type: 'string', format: 'date-time', example: null),
+        new OA\Property(property: 'dismissed_at', description: 'Review queue field.', nullable: true, type: 'string', format: 'date-time', example: null),
+        new OA\Property(property: 'metadata', description: 'Review queue field.', type: 'object', example: []),
+        new OA\Property(property: 'conversation', ref: '#/components/schemas/CommunicationConversation'),
+        new OA\Property(property: 'message', ref: '#/components/schemas/CommunicationConversationMessage'),
     ],
     type: 'object'
 )]
@@ -511,6 +643,570 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 200, description: 'Resolved recipient count.', content: new OA\JsonContent(type: 'object', example: ['data' => ['announcement_id' => 'ann_01J0ANNOUNCEMENT000000001', 'recipient_count' => 42]])),
         new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
         new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Get(
+    path: '/message-templates',
+    operationId: 'communicationMessageTemplatesList',
+    summary: 'List visible quick message templates',
+    description: 'Access: any authenticated user whose role has visible active templates. Role visibility: templates must include at least one of the actor roles in `role_visibility`; teacher-specific templates are returned only to that teacher, while global templates have `teacher_id=null`. Categories include reminder templates (`lesson_reminder`, `homework_reminder`, `payment_reminder`) but there is no separate chat reminder trigger/list HTTP endpoint.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'category', in: 'query', schema: new OA\Schema(type: 'string', enum: ['lesson_reminder', 'homework_reminder', 'reschedule_notice', 'payment_reminder', 'attendance_follow_up', 'progress_check_in']), example: 'lesson_reminder'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated templates visible to the actor role.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'mtp_01J0TEMPLATE000000000001', 'title' => 'Lesson reminder', 'body' => 'Hi! This is a quick reminder about your upcoming lesson.', 'category' => 'lesson_reminder', 'role_visibility' => ['admin', 'staff', 'teacher'], 'status' => 'active', 'is_active' => true, 'teacher_id' => null]]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Get(
+    path: '/message-templates/{messageTemplate}',
+    operationId: 'communicationMessageTemplateShow',
+    summary: 'Show visible quick message template',
+    description: 'Access: any authenticated user. The template must be active, match one of the actor roles, and be either global or owned by the actor teacher; otherwise it returns 404.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'messageTemplate', in: 'path', required: true, description: 'Message template public ID.', schema: new OA\Schema(type: 'string'), example: 'mtp_01J0TEMPLATE000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Visible template.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'mtp_01J0TEMPLATE000000000001', 'title' => 'Lesson reminder', 'body' => 'Hi! This is a quick reminder about your upcoming lesson.', 'category' => 'lesson_reminder', 'role_visibility' => ['admin', 'staff', 'teacher'], 'status' => 'active', 'is_active' => true, 'teacher_id' => null]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Template is not visible to the authenticated user.'),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations/unread-count',
+    operationId: 'communicationConversationsUnreadCount',
+    summary: 'Internal chat unread count',
+    description: 'Access: students, teachers, admins, and staff with `messages.view` or `messages.manage`. Counts unread messages across the actor participant rows, excluding messages sent by the actor.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    responses: [
+        new OA\Response(response: 200, description: 'Unread internal chat count.', content: new OA\JsonContent(type: 'object', example: ['data' => ['unread_count' => 4]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations',
+    operationId: 'communicationConversationsList',
+    summary: 'List internal chat conversations',
+    description: 'Access: students, teachers, admins, and staff with `messages.view` or `messages.manage`. Visibility: admins and permitted staff can view all conversations; students and teachers see only conversations where they are active participants. Filters accept public IDs for `student_id`, `teacher_id`, and `course_program_id` and are resolved server-side.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'type', in: 'query', schema: new OA\Schema(type: 'string', enum: ['student_teacher', 'teacher_admin', 'admin_student', 'group_course', 'announcement_thread']), example: 'student_teacher'),
+        new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['active', 'archived', 'closed']), example: 'active'),
+        new OA\Parameter(name: 'student_id', in: 'query', description: 'Student user public ID.', schema: new OA\Schema(type: 'string'), example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Parameter(name: 'teacher_id', in: 'query', description: 'Teacher user public ID.', schema: new OA\Schema(type: 'string'), example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Parameter(name: 'course_program_id', in: 'query', description: 'Course program public ID.', schema: new OA\Schema(type: 'string'), example: 'crs_01J0BUSINESS000000000001'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated conversations.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'cnv_01J0CHAT000000000000001', 'type' => 'student_teacher', 'display_title' => 'Taylor Teacher', 'status' => 'active', 'student_id' => 'usr_01J0STUDENT000000000000001', 'teacher_id' => 'usr_01J0TEACHER000000000000001', 'unread_count' => 2, 'permission_metadata' => ['is_participant' => true, 'can_send_messages' => true, 'can_pin_messages' => false]]], 'meta' => ['current_page' => 1, 'per_page' => 25, 'total' => 1]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations',
+    operationId: 'communicationConversationCreate',
+    summary: 'Create internal chat conversation',
+    description: 'Access: students, teachers, admins, and staff with `messages.view` or `messages.manage`; staff creation beyond self-service requires `messages.manage`. Public ID usage: submit user and course program public IDs. One-to-one conversations return an existing active conversation for the same two participants instead of creating a duplicate. Students can start assigned-teacher chats or their own admin chats. Teachers can start chats with assigned students or their own admin chats. Admins and staff with `messages.manage` may create direct and course group conversations.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(properties: [
+        new OA\Property(property: 'type', type: 'string', enum: ['student_teacher', 'teacher_admin', 'admin_student', 'group_course'], example: 'student_teacher'),
+        new OA\Property(property: 'recipient_id', description: 'Recipient user public ID for actor-led one-to-one creation.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'student_id', description: 'Student user public ID for admin/staff managed creation.', type: 'string', example: 'usr_01J0STUDENT000000000000001'),
+        new OA\Property(property: 'teacher_id', description: 'Teacher user public ID for student-teacher or teacher-admin creation.', type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Property(property: 'admin_id', description: 'Admin or staff contact public ID. Staff contacts must be allowed to manage messages.', type: 'string', example: 'usr_01J0ADMIN000000000000001'),
+        new OA\Property(property: 'course_program_id', description: 'Required for `group_course` conversations.', type: 'string', example: 'crs_01J0BUSINESS000000000001'),
+        new OA\Property(property: 'participant_ids', description: 'Additional participant user public IDs for group course conversations. Maximum 100.', type: 'array', items: new OA\Items(type: 'string'), example: ['usr_01J0STUDENT000000000000001']),
+        new OA\Property(property: 'title', nullable: true, type: 'string', maxLength: 255, example: 'Business English group chat'),
+        new OA\Property(property: 'metadata', type: 'object', example: []),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 201, description: 'Conversation created.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'cnv_01J0CHAT000000000000001', 'type' => 'student_teacher', 'display_title' => 'Taylor Teacher', 'status' => 'active', 'student_id' => 'usr_01J0STUDENT000000000000001', 'teacher_id' => 'usr_01J0TEACHER000000000000001']])),
+        new OA\Response(response: 200, description: 'Existing active one-to-one conversation returned.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'cnv_01J0CHAT000000000000001', 'type' => 'student_teacher', 'status' => 'active']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations/{conversation}',
+    operationId: 'communicationConversationShow',
+    summary: 'Show internal chat conversation',
+    description: 'Access follows conversation list visibility. Non-global users only receive active participant conversations; invisible conversations return 404. Path parameter is the conversation public ID.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Conversation detail.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'cnv_01J0CHAT000000000000001', 'type' => 'student_teacher', 'display_title' => 'Taylor Teacher', 'status' => 'active', 'participants' => [['user_id' => 'usr_01J0STUDENT000000000000001', 'participant_role' => 'student']]]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations/{conversation}/messages',
+    operationId: 'communicationConversationMessagesList',
+    summary: 'List internal chat message history',
+    description: 'Access follows conversation visibility. Messages are paginated oldest-first by default; `order=newest` returns newest first. Response includes attachment records with public attachment IDs and download/preview endpoint hints.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'order', in: 'query', schema: new OA\Schema(type: 'string', enum: ['oldest', 'newest']), example: 'oldest'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 50),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated conversation messages.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'msg_01J0CHATMSG000000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'sender_id' => 'usr_01J0STUDENT000000000000001', 'body' => 'Can you review my homework before class?', 'links' => [], 'attachments' => [], 'message_type' => 'text', 'status' => 'sent', 'created_at' => '2026-06-01T09:10:00Z']], 'meta' => ['current_page' => 1, 'per_page' => 50, 'total' => 1]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/messages',
+    operationId: 'communicationConversationMessageSend',
+    summary: 'Send internal chat message or upload attachments',
+    description: 'Access: active participants with `messages.view` or `messages.manage` on active conversations. A message requires `body`, uploaded `files[]`, or `attachment_links[]`. File upload limits: default maximum 5 files per message, 10 MB per file, PDF/JPG/JPEG/PNG/WebP/GIF only; default maximum 20 attachment links per message. These limits are deployment-configurable through `chat_attachments`. Successful sends update conversation last-message fields and mark the sender participant read through the sent message.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: [
+        new OA\JsonContent(properties: [
+            new OA\Property(property: 'body', nullable: true, type: 'string', maxLength: 10000, example: 'Can you review my homework before class?'),
+            new OA\Property(property: 'links', description: 'Legacy bare URL list. Maximum 20.', type: 'array', items: new OA\Items(type: 'string', format: 'uri'), example: ['https://example.com/homework-notes']),
+            new OA\Property(property: 'attachment_links', type: 'array', items: new OA\Items(type: 'object'), example: [['url' => 'https://example.com/homework-notes', 'title' => 'Homework notes']]),
+            new OA\Property(property: 'metadata', type: 'object', example: []),
+        ], type: 'object'),
+        new OA\MediaType(mediaType: 'multipart/form-data', schema: new OA\Schema(properties: [
+            new OA\Property(property: 'body', nullable: true, type: 'string', maxLength: 10000, example: 'Attached my homework.'),
+            new OA\Property(property: 'files[]', description: 'PDF, JPG/JPEG, PNG, WebP, or GIF files. Maximum 5 files and 10 MB each by default.', type: 'array', items: new OA\Items(type: 'string', format: 'binary')),
+            new OA\Property(property: 'attachment_links[0][url]', type: 'string', format: 'uri', example: 'https://example.com/homework-notes'),
+            new OA\Property(property: 'attachment_links[0][title]', nullable: true, type: 'string', maxLength: 255, example: 'Homework notes'),
+        ], type: 'object')),
+    ]),
+    responses: [
+        new OA\Response(response: 201, description: 'Message sent.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'msg_01J0CHATMSG000000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'sender_id' => 'usr_01J0STUDENT000000000000001', 'body' => 'Attached my homework.', 'attachments' => [['id' => 'att_01J0CHATATTACH000000001', 'type' => 'file', 'original_filename' => 'homework.pdf', 'mime_type' => 'application/pdf', 'file_size' => 245760, 'download' => ['endpoint' => 'http://localhost:8001/api/v1/conversations/cnv_01J0CHAT000000000000001/messages/msg_01J0CHATMSG000000000001/attachments/att_01J0CHATATTACH000000001/download']]], 'status' => 'sent', 'created_at' => '2026-06-01T09:10:00Z']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations/{conversation}/messages/{message}/attachments/{conversationAttachment}/download',
+    operationId: 'communicationConversationAttachmentDownload',
+    summary: 'Download internal chat attachment',
+    description: 'Access: users who can view the conversation and whose message/attachment public IDs belong to that conversation. Link attachments and missing stored files return 404. Successful responses stream the stored file with private no-store cache headers.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'message', in: 'path', required: true, description: 'Conversation message public ID.', schema: new OA\Schema(type: 'string'), example: 'msg_01J0CHATMSG000000000001'),
+        new OA\Parameter(name: 'conversationAttachment', in: 'path', required: true, description: 'Conversation attachment public ID.', schema: new OA\Schema(type: 'string'), example: 'att_01J0CHATATTACH000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Attachment file stream.', content: new OA\MediaType(mediaType: 'application/octet-stream', schema: new OA\Schema(type: 'string', format: 'binary'))),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Attachment is not visible, is not a stored file, or the file is missing.'),
+        new OA\Response(response: 503, description: 'Stored file could not be downloaded.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations/{conversation}/messages/{message}/attachments/{conversationAttachment}/preview',
+    operationId: 'communicationConversationAttachmentPreview',
+    summary: 'Preview internal chat attachment',
+    description: 'Access matches attachment download. Only PDF and image uploads (`image/jpeg`, `image/png`, `image/webp`, `image/gif`) are previewable; non-previewable attachments return 404.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'message', in: 'path', required: true, description: 'Conversation message public ID.', schema: new OA\Schema(type: 'string'), example: 'msg_01J0CHATMSG000000000001'),
+        new OA\Parameter(name: 'conversationAttachment', in: 'path', required: true, description: 'Conversation attachment public ID.', schema: new OA\Schema(type: 'string'), example: 'att_01J0CHATATTACH000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Inline preview file response.', content: new OA\MediaType(mediaType: 'application/octet-stream', schema: new OA\Schema(type: 'string', format: 'binary'))),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Attachment is not visible, not previewable, or the file is missing.'),
+        new OA\Response(response: 503, description: 'Stored file could not be previewed.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/read',
+    operationId: 'communicationConversationMarkRead',
+    summary: 'Mark internal chat conversation read',
+    description: 'Access: active participant in a visible conversation. Marks the actor participant read through the latest message and returns the latest read message public ID.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Conversation marked read.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'read_at' => '2026-06-01T10:00:00Z', 'last_read_message_id' => 'msg_01J0CHATMSG000000000001', 'unread_count' => 0]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Conversation or actor participant row is not visible.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/messages/read',
+    operationId: 'communicationConversationMessagesMarkRead',
+    summary: 'Mark internal chat messages read',
+    description: 'Access: active participant in a visible conversation. Accepts one `message_id` or up to 100 `message_ids`; all message IDs must be public IDs that belong to the conversation. The participant is marked read through the newest selected message.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(properties: [
+        new OA\Property(property: 'message_id', type: 'string', example: 'msg_01J0CHATMSG000000000001'),
+        new OA\Property(property: 'message_ids', type: 'array', maxItems: 100, items: new OA\Items(type: 'string'), example: ['msg_01J0CHATMSG000000000001', 'msg_01J0CHATMSG000000000002']),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 200, description: 'Selected messages marked read.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'read_at' => '2026-06-01T10:00:00Z', 'last_read_message_id' => 'msg_01J0CHATMSG000000000002', 'unread_count' => 1]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Conversation or actor participant row is not visible.'),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Get(
+    path: '/conversations/{conversation}/pinned-messages',
+    operationId: 'communicationConversationPinnedMessagesList',
+    summary: 'List pinned internal chat messages',
+    description: 'Access follows conversation visibility. Returns non-deleted pinned messages newest-pin first.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated pinned messages.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'pin_01J0CHATPIN000000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'message_id' => 'msg_01J0CHATMSG000000000001', 'pinned_by' => 'usr_01J0TEACHER000000000000001', 'pinned_at' => '2026-06-01T09:12:00Z', 'message' => ['id' => 'msg_01J0CHATMSG000000000001', 'body' => 'Can you review my homework before class?']]]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/messages/{message}/pin',
+    operationId: 'communicationConversationMessagePin',
+    summary: 'Pin internal chat message',
+    description: 'Access: admins and staff with `messages.manage`; teachers can pin in their active teacher conversation when `chat.allow_teacher_message_pins` is enabled; students can pin only when `chat.allow_student_message_pins` is enabled. Message ID must belong to the conversation. Re-pinning an already pinned message returns the existing pin with 200.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'message', in: 'path', required: true, description: 'Conversation message public ID.', schema: new OA\Schema(type: 'string'), example: 'msg_01J0CHATMSG000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 201, description: 'Message pinned.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'pin_01J0CHATPIN000000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'message_id' => 'msg_01J0CHATMSG000000000001', 'pinned_by' => 'usr_01J0TEACHER000000000000001', 'pinned_at' => '2026-06-01T09:12:00Z']])),
+        new OA\Response(response: 200, description: 'Existing pin returned.', content: new OA\JsonContent(ref: '#/components/schemas/CommunicationConversationMessagePin')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation or message is not visible.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Delete(
+    path: '/conversations/{conversation}/messages/{message}/pin',
+    operationId: 'communicationConversationMessageUnpin',
+    summary: 'Unpin internal chat message',
+    description: 'Access rules match message pinning. Deleting an absent pin is idempotent and still returns `is_pinned=false` for the message.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'message', in: 'path', required: true, description: 'Conversation message public ID.', schema: new OA\Schema(type: 'string'), example: 'msg_01J0CHATMSG000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Message unpinned.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'message_id' => 'msg_01J0CHATMSG000000000001', 'is_pinned' => false]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation or message is not visible.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/typing/start',
+    operationId: 'communicationConversationTypingStart',
+    summary: 'Start internal chat typing indicator',
+    description: 'HTTP-based typing indicator. Access: active participant with `messages.view` or `messages.manage` in an active conversation. The event is cached for `chat.typing_indicator_ttl_seconds` seconds, default 10, and broadcasts `ConversationTypingStateChanged`.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Typing started.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'user_id' => 'usr_01J0STUDENT000000000000001', 'is_typing' => true, 'expires_at' => '2026-06-01T09:10:10Z']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/typing/stop',
+    operationId: 'communicationConversationTypingStop',
+    summary: 'Stop internal chat typing indicator',
+    description: 'HTTP-based typing indicator. Access rules match typing start. Clears the actor typing cache key and broadcasts a stopped state.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Typing stopped.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'user_id' => 'usr_01J0STUDENT000000000000001', 'is_typing' => false, 'expires_at' => null]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/escalations',
+    operationId: 'communicationConversationEscalate',
+    summary: 'Escalate internal chat conversation',
+    description: 'Access: active student participants may escalate their own student conversation; active teachers may escalate conversations for students assigned to them. Admins and staff do not create user-side escalations here; they review the queue under `/admin/chat-escalations`. `issue_report_id` uses an issue report public ID when supplied.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['reason'], properties: [
+        new OA\Property(property: 'reason', type: 'string', maxLength: 5000, example: 'Student reported repeated access problems in this lesson chat.'),
+        new OA\Property(property: 'notes', nullable: true, type: 'string', maxLength: 5000, example: 'Please review before the next scheduled class.'),
+        new OA\Property(property: 'issue_report_id', nullable: true, type: 'string', example: 'isr_01J0ISSUE000000000000001'),
+        new OA\Property(property: 'metadata', type: 'object', example: []),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 201, description: 'Conversation escalation created.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'ces_01J0CHATESCL00000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'message_id' => null, 'issue_report_id' => 'isr_01J0ISSUE000000000000001', 'status' => 'open', 'reason' => 'Student reported repeated access problems in this lesson chat.', 'notes' => 'Please review before the next scheduled class.', 'escalated_by' => 'usr_01J0TEACHER000000000000001']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/messages/{message}/escalations',
+    operationId: 'communicationConversationMessageEscalate',
+    summary: 'Escalate internal chat message',
+    description: 'Access rules match conversation escalation. Message ID must be a public ID belonging to the conversation.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'message', in: 'path', required: true, description: 'Conversation message public ID.', schema: new OA\Schema(type: 'string'), example: 'msg_01J0CHATMSG000000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['reason'], properties: [
+        new OA\Property(property: 'reason', type: 'string', maxLength: 5000, example: 'This message needs staff review before the next lesson.'),
+        new OA\Property(property: 'notes', nullable: true, type: 'string', maxLength: 5000, example: 'Escalated from the conversation detail view.'),
+        new OA\Property(property: 'issue_report_id', nullable: true, type: 'string', example: 'isr_01J0ISSUE000000000000001'),
+        new OA\Property(property: 'metadata', type: 'object', example: []),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 201, description: 'Message escalation created.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'ces_01J0CHATESCL00000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'message_id' => 'msg_01J0CHATMSG000000000001', 'status' => 'open', 'reason' => 'This message needs staff review before the next lesson.']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation or message is not visible.'),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Get(
+    path: '/admin/message-templates',
+    operationId: 'communicationAdminMessageTemplatesList',
+    summary: 'Admin list quick message templates',
+    description: 'Access: admin or staff with `message_templates.view`. Includes active and inactive templates, global templates, and teacher-specific templates. `teacher_id` is a user public ID; `teacher_id=null` filters global templates.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'category', in: 'query', schema: new OA\Schema(type: 'string', enum: ['lesson_reminder', 'homework_reminder', 'reschedule_notice', 'payment_reminder', 'attendance_follow_up', 'progress_check_in']), example: 'lesson_reminder'),
+        new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['active', 'inactive']), example: 'active'),
+        new OA\Parameter(name: 'teacher_id', in: 'query', description: 'Teacher user public ID; null means global templates.', schema: new OA\Schema(type: 'string', nullable: true), example: 'usr_01J0TEACHER000000000000001'),
+        new OA\Parameter(name: 'search', in: 'query', schema: new OA\Schema(type: 'string', maxLength: 255), example: 'reminder'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated admin template list.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'mtp_01J0TEMPLATE000000000001', 'title' => 'Lesson reminder', 'category' => 'lesson_reminder', 'role_visibility' => ['admin', 'staff', 'teacher'], 'status' => 'active', 'teacher_id' => null, 'created_by' => 'usr_01J0ADMIN000000000000001']]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Post(
+    path: '/admin/message-templates',
+    operationId: 'communicationAdminMessageTemplateCreate',
+    summary: 'Create quick message template',
+    description: 'Access: admin or staff with `message_templates.manage`. `category` and role values are normalized from spaces/hyphens to underscores. `teacher_id` must be a teacher public ID when present; omit or set null for a global template.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['title', 'body', 'category', 'role_visibility'], properties: [
+        new OA\Property(property: 'title', type: 'string', maxLength: 255, example: 'Lesson reminder'),
+        new OA\Property(property: 'body', type: 'string', maxLength: 20000, example: 'Hi! This is a quick reminder about your upcoming lesson.'),
+        new OA\Property(property: 'category', type: 'string', enum: ['lesson_reminder', 'homework_reminder', 'reschedule_notice', 'payment_reminder', 'attendance_follow_up', 'progress_check_in'], example: 'lesson_reminder'),
+        new OA\Property(property: 'role_visibility', type: 'array', minItems: 1, items: new OA\Items(type: 'string', enum: ['admin', 'staff', 'teacher', 'student']), example: ['admin', 'staff', 'teacher']),
+        new OA\Property(property: 'roles', description: 'Alias accepted for `role_visibility`.', type: 'array', items: new OA\Items(type: 'string'), example: ['teacher']),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], example: 'active'),
+        new OA\Property(property: 'teacher_id', nullable: true, type: 'string', example: 'usr_01J0TEACHER000000000000001'),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 201, description: 'Template created.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'mtp_01J0TEMPLATE000000000001', 'title' => 'Lesson reminder', 'body' => 'Hi! This is a quick reminder about your upcoming lesson.', 'category' => 'lesson_reminder', 'role_visibility' => ['admin', 'staff', 'teacher'], 'status' => 'active', 'is_active' => true, 'teacher_id' => null]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Get(
+    path: '/admin/message-templates/{messageTemplate}',
+    operationId: 'communicationAdminMessageTemplateShow',
+    summary: 'Admin show quick message template',
+    description: 'Access: admin or staff with `message_templates.view`. Path parameter is the template public ID.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'messageTemplate', in: 'path', required: true, description: 'Message template public ID.', schema: new OA\Schema(type: 'string'), example: 'mtp_01J0TEMPLATE000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Template detail.', content: new OA\JsonContent(ref: '#/components/schemas/CommunicationMessageTemplate')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Patch(
+    path: '/admin/message-templates/{messageTemplate}',
+    operationId: 'communicationAdminMessageTemplateUpdate',
+    summary: 'Update quick message template',
+    description: 'Access: admin or staff with `message_templates.manage`. Validation matches create, but fields are optional. `teacher_id=null` clears teacher-specific ownership.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'messageTemplate', in: 'path', required: true, description: 'Message template public ID.', schema: new OA\Schema(type: 'string'), example: 'mtp_01J0TEMPLATE000000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(properties: [
+        new OA\Property(property: 'title', type: 'string', maxLength: 255, example: 'Updated lesson reminder'),
+        new OA\Property(property: 'body', type: 'string', maxLength: 20000, example: 'Reminder: your lesson starts soon.'),
+        new OA\Property(property: 'category', type: 'string', enum: ['lesson_reminder', 'homework_reminder', 'reschedule_notice', 'payment_reminder', 'attendance_follow_up', 'progress_check_in'], example: 'lesson_reminder'),
+        new OA\Property(property: 'role_visibility', type: 'array', minItems: 1, items: new OA\Items(type: 'string', enum: ['admin', 'staff', 'teacher', 'student']), example: ['teacher']),
+        new OA\Property(property: 'status', type: 'string', enum: ['active', 'inactive'], example: 'inactive'),
+        new OA\Property(property: 'teacher_id', nullable: true, type: 'string', example: null),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 200, description: 'Template updated.', content: new OA\JsonContent(ref: '#/components/schemas/CommunicationMessageTemplate')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Put(
+    path: '/admin/message-templates/{messageTemplate}',
+    operationId: 'communicationAdminMessageTemplateReplace',
+    summary: 'Update quick message template with PUT',
+    description: 'Access and validation match `PATCH /admin/message-templates/{messageTemplate}`.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'messageTemplate', in: 'path', required: true, description: 'Message template public ID.', schema: new OA\Schema(type: 'string'), example: 'mtp_01J0TEMPLATE000000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/CommunicationMessageTemplate')),
+    responses: [
+        new OA\Response(response: 200, description: 'Template updated.', content: new OA\JsonContent(ref: '#/components/schemas/CommunicationMessageTemplate')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Delete(
+    path: '/admin/message-templates/{messageTemplate}',
+    operationId: 'communicationAdminMessageTemplateDestroy',
+    summary: 'Deactivate quick message template',
+    description: 'Access: admin or staff with `message_templates.manage`. This endpoint marks the template inactive; it does not hard-delete the record.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'messageTemplate', in: 'path', required: true, description: 'Message template public ID.', schema: new OA\Schema(type: 'string'), example: 'mtp_01J0TEMPLATE000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Template deactivated.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'mtp_01J0TEMPLATE000000000001', 'status' => 'inactive', 'is_active' => false]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Get(
+    path: '/admin/chat-escalations',
+    operationId: 'communicationAdminChatEscalationsList',
+    summary: 'List internal chat escalations',
+    description: 'Access: admin or staff with `chat_escalations.view`. Filter IDs use public IDs. Admin queue responses include conversation, message, escalated-by, and reviewed-by context when loaded.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['open', 'in_review', 'resolved', 'dismissed']), example: 'open'),
+        new OA\Parameter(name: 'conversation_id', in: 'query', description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+        new OA\Parameter(name: 'issue_report_id', in: 'query', description: 'Issue report public ID.', schema: new OA\Schema(type: 'string'), example: 'isr_01J0ISSUE000000000000001'),
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100), example: 25),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated chat escalation queue.', content: new OA\JsonContent(type: 'object', example: ['data' => [['id' => 'ces_01J0CHATESCL00000000001', 'conversation_id' => 'cnv_01J0CHAT000000000000001', 'message_id' => 'msg_01J0CHATMSG000000000001', 'issue_report_id' => 'isr_01J0ISSUE000000000000001', 'status' => 'open', 'reason' => 'This message needs staff review before the next lesson.', 'escalated_by' => 'usr_01J0TEACHER000000000000001']]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
+    ]
+)]
+#[OA\Get(
+    path: '/admin/chat-escalations/{conversationEscalation}',
+    operationId: 'communicationAdminChatEscalationShow',
+    summary: 'Show internal chat escalation',
+    description: 'Access: admin or staff with `chat_escalations.view`. Path parameter is the escalation public ID.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'conversationEscalation', in: 'path', required: true, description: 'Conversation escalation public ID.', schema: new OA\Schema(type: 'string'), example: 'ces_01J0CHATESCL00000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Escalation detail.', content: new OA\JsonContent(ref: '#/components/schemas/CommunicationConversationEscalation')),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+    ]
+)]
+#[OA\Patch(
+    path: '/admin/chat-escalations/{conversationEscalation}/status',
+    operationId: 'communicationAdminChatEscalationUpdateStatus',
+    summary: 'Update internal chat escalation status',
+    description: 'Access: admin or staff with `chat_escalations.manage`. Sets reviewer fields and marks `resolved_at` or `dismissed_at` based on the selected status. Optional `issue_report_id` uses an issue report public ID or null to clear the link.',
+    security: [['sanctum' => []]],
+    tags: ['Communication', 'Admin'],
+    parameters: [
+        new OA\Parameter(name: 'conversationEscalation', in: 'path', required: true, description: 'Conversation escalation public ID.', schema: new OA\Schema(type: 'string'), example: 'ces_01J0CHATESCL00000000001'),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['status'], properties: [
+        new OA\Property(property: 'status', type: 'string', enum: ['open', 'in_review', 'resolved', 'dismissed'], example: 'resolved'),
+        new OA\Property(property: 'review_notes', nullable: true, type: 'string', maxLength: 5000, example: 'Linked to the existing issue report and notified operations.'),
+        new OA\Property(property: 'issue_report_id', nullable: true, type: 'string', example: 'isr_01J0ISSUE000000000000001'),
+    ], type: 'object')),
+    responses: [
+        new OA\Response(response: 200, description: 'Escalation status updated.', content: new OA\JsonContent(type: 'object', example: ['data' => ['id' => 'ces_01J0CHATESCL00000000001', 'status' => 'resolved', 'reviewed_by' => 'usr_01J0STAFF0000000000000001', 'reviewed_at' => '2026-06-01T10:00:00Z', 'resolved_at' => '2026-06-01T10:00:00Z', 'review_notes' => 'Linked to the existing issue report and notified operations.']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(ref: '#/components/responses/ValidationError', response: 422),
     ]
 )]
 #[OA\Get(
