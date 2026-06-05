@@ -91,4 +91,14 @@ class TeacherProfile extends Model
     {
         return $this->hasMany(TeacherCompensation::class, 'teacher_id', 'user_id');
     }
+
+    /**
+     * Get the conversations one-to-many relationship for this teacher profile.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'teacher_id', 'user_id');
+    }
 }

@@ -183,4 +183,14 @@ class StudentProfile extends Model
     {
         return $this->hasMany(Invoice::class, 'student_id', 'user_id');
     }
+
+    /**
+     * Get the conversations one-to-many relationship for this student profile.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'student_id', 'user_id');
+    }
 }
