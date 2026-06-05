@@ -26,7 +26,7 @@ trait ValidatesTeacherCompensationPayload
     /**
      * Copy the base_rate alias into default_pay_rate when the canonical field is absent.
      */
-    protected function prepareForValidation(): void
+    protected function prepareCompensationPayloadForValidation(): void
     {
         if (! $this->has('default_pay_rate') && $this->has('base_rate')) {
             $this->merge(['default_pay_rate' => $this->input('base_rate')]);

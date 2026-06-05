@@ -372,7 +372,7 @@ class HomeworkApiTest extends TestCase
 
         $this->getJson('/api/v1/admin/homeworks/summary?date_from=2026-06-01&date_to=2026-06-03&teacher_id='.$this->teacher->id.'&course=General%20English&level=A2.2')
             ->assertOk()
-            ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
+            ->assertJsonPath('data.filters.teacher_id', $this->teacher->public_id)
             ->assertJsonPath('data.filters.course', 'General English')
             ->assertJsonPath('data.filters.level', 'A2.2')
             ->assertJsonPath('data.summary.total_assigned', 5)

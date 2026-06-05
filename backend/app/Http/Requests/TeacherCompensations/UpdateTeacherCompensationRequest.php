@@ -27,6 +27,8 @@ class UpdateTeacherCompensationRequest extends FormRequest
         $this->merge(PublicIdResolver::resolveFields($this->all(), [
             'teacher_id' => User::class,
         ]));
+
+        $this->prepareCompensationPayloadForValidation();
     }
 
     /**
