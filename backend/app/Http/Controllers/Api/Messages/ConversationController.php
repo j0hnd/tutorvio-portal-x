@@ -20,6 +20,60 @@ use Illuminate\Validation\ValidationException;
 class ConversationController extends Controller
 {
     /**
+     * Display a filtered list of conversation records.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $this->assertCanViewConversations($actor);
+
+        $request->merge(PublicIdResolver::resolveFields($request->all(), [
+            'student_id' => User::class,
+            'teacher_id' => User::class,
+            'course_program_id' => CourseProgram::class,
+        ]));
+
+        $validated = $request->validate([
+            'type' => ['sometimes', 'string', Rule::in(Conversation::TYPES)],
+            'status' => ['sometimes', 'string', Rule::in(Conversation::STATUSES)],
+            'student_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'teacher_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'course_program_id' => ['sometimes', 'integer', 'exists:course_programs,id'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return response()->json(
+            $this->visibleConversationsFor($actor)
+                ->with($this->conversationRelations())
+                ->when($validated['type'] ?? null, fn (Builder $query, string $type) => $query->where('type', $type))
+                ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
+                ->when($validated['student_id'] ?? null, fn (Builder $query, int $studentId) => $query->where('student_id', $studentId))
+                ->when($validated['teacher_id'] ?? null, fn (Builder $query, int $teacherId) => $query->where('teacher_id', $teacherId))
+                ->when($validated['course_program_id'] ?? null, fn (Builder $query, int $courseProgramId) => $query->where('course_program_id', $courseProgramId))
+                ->orderByDesc('last_message_at')
+                ->orderByDesc('id')
+                ->paginate($validated['per_page'] ?? 25)
+                ->through(fn (Conversation $conversation) => new ConversationResource($conversation))
+        );
+    }
+
+    /**
+     * Display a public-safe conversation detail record.
+     */
+    public function show(Request $request, Conversation $conversation): JsonResponse
+    {
+        $actor = $request->user();
+        $this->assertCanViewConversations($actor);
+
+        return response()->json([
+            'data' => new ConversationResource(
+                $this->visibleConversationFor($actor, $conversation)
+                    ->load($this->conversationRelations())
+            ),
+        ]);
+    }
+
+    /**
      * Create a conversation when the actor is allowed to reach every participant.
      */
     public function store(Request $request): JsonResponse
@@ -376,6 +430,29 @@ class ConversationController extends Controller
     }
 
     /**
+     * @return Builder<Conversation>
+     */
+    private function visibleConversationsFor(User $user): Builder
+    {
+        return Conversation::query()
+            ->when(! $this->canViewAllConversations($user), function (Builder $query) use ($user): void {
+                $query->whereHas('participants', function (Builder $query) use ($user): void {
+                    $query
+                        ->where('user_id', $user->id)
+                        ->whereNull('archived_at')
+                        ->whereNull('deleted_at');
+                });
+            });
+    }
+
+    private function visibleConversationFor(User $user, Conversation $conversation): Conversation
+    {
+        return $this->visibleConversationsFor($user)
+            ->whereKey($conversation->id)
+            ->firstOrFail();
+    }
+
+    /**
      * @param  Collection<int, User>  $participants
      */
     private function syncParticipants(Conversation $conversation, Collection $participants): void
@@ -414,26 +491,47 @@ class ConversationController extends Controller
 
     private function canManageConversations(User $user): bool
     {
-        return $user->hasRole('admin') || $user->can('messages.manage');
+        return $user->can('manage', Conversation::class);
     }
 
     private function assertCanAccessMessages(User $user): void
     {
-        if (! $user->hasRole('admin') && ! $user->can('messages.view') && ! $user->can('messages.manage')) {
+        if (! $user->can('create', Conversation::class)) {
             abort(403);
         }
+    }
+
+    private function assertCanViewConversations(User $user): void
+    {
+        if (! $user->can('viewAny', Conversation::class)) {
+            abort(403);
+        }
+    }
+
+    private function canViewAllConversations(User $user): bool
+    {
+        return $user->can('viewAll', Conversation::class);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function conversationRelations(): array
+    {
+        return [
+            'student:id,public_id,name,email',
+            'teacher:id,public_id,name,email',
+            'courseProgram:id,public_id,title',
+            'createdBy:id,public_id,name,email',
+            'lastMessageBy:id,public_id,name,email',
+            'participants.user:id,public_id,name,email',
+        ];
     }
 
     private function conversationResponse(Conversation $conversation, int $status = 200): JsonResponse
     {
         return response()->json([
-            'data' => new ConversationResource($conversation->load([
-                'student:id,public_id,name,email',
-                'teacher:id,public_id,name,email',
-                'courseProgram:id,public_id,title',
-                'createdBy:id,public_id,name,email',
-                'participants.user:id,public_id,name,email',
-            ])),
+            'data' => new ConversationResource($conversation->load($this->conversationRelations())),
         ], $status);
     }
 }

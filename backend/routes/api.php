@@ -120,8 +120,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/{notification:public_id}/read', [NotificationController::class, 'markRead'])
             ->middleware('throttle:api-action');
         Route::get('/message-threads/unread-count', [MessageThreadController::class, 'unreadCount']);
+        Route::get('/conversations', [ConversationController::class, 'index']);
         Route::post('/conversations', [ConversationController::class, 'store'])
             ->middleware('throttle:api-action');
+        Route::get('/conversations/{conversation:public_id}', [ConversationController::class, 'show']);
         Route::get('/message-threads', [MessageThreadController::class, 'index']);
         Route::post('/message-threads', [MessageThreadController::class, 'store'])
             ->middleware('throttle:api-action');
