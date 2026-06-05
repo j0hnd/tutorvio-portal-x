@@ -6,11 +6,14 @@ use App\Models\CourseProgramStudentAssignment;
 use App\Models\Subscription;
 use App\Models\TeacherStudentAssignment;
 use App\Models\User;
+use App\Reports\Concerns\PaginatesReportQueries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class ActiveStudentsReport
 {
+    use PaginatesReportQueries;
+
     /**
      * @return array{
      *     summary: array{active_students_count: int},
@@ -18,18 +21,18 @@ class ActiveStudentsReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters): array
+    public function generate(SchoolReportFilters $filters, array $pagination = []): array
     {
-        $students = $this->baseQuery($filters)->get();
+        $query = $this->baseQuery($filters);
+        $students = (clone $query)->get();
+        $page = $this->pageRows($query, $pagination, fn (User $student) => $this->row($student));
 
         return [
             'summary' => [
                 'active_students_count' => $students->count(),
             ],
-            'rows' => $students
-                ->map(fn (User $student) => $this->row($student))
-                ->values()
-                ->all(),
+            'rows' => $page['rows'],
+            'total' => $page['total'],
             'filters' => $filters->toArray(),
         ];
     }

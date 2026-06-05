@@ -52,9 +52,9 @@ class SchoolReportApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.filters.date_from', '2026-06-01')
             ->assertJsonPath('data.filters.date_to', '2026-06-30')
-            ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.filters.student_id', $this->student->id)
-            ->assertJsonPath('data.filters.course_id', $this->courseProgram->id)
+            ->assertJsonPath('data.filters.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.filters.student_id', $this->student->public_id)
+            ->assertJsonPath('data.filters.course_id', $this->courseProgram->public_id)
             ->assertJsonPath('data.filters.status', 'completed');
 
         $this->getJson('/api/v1/admin/reports/school')
@@ -105,6 +105,10 @@ class SchoolReportApiTest extends TestCase
         $this->getJson('/api/v1/admin/reports/school?date_from=not-a-date')
             ->assertUnprocessable()
             ->assertJsonValidationErrors('date_from');
+
+        $this->getJson('/api/v1/admin/reports/school?date_from=2025-01-01&date_to=2026-01-03')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('date_to');
     }
 
     public function test_school_report_route_requires_role_and_permission(): void

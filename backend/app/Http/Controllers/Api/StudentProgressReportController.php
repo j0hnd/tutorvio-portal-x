@@ -27,7 +27,7 @@ class StudentProgressReportController extends Controller
         $this->authorizeReportAccess($actor);
         $this->authorizeRequestedStudent($actor, $request->validated('student_id'));
 
-        return ReportResponse::json($report->generate($request->filters(), $actor), $request->pagination());
+        return ReportResponse::json($report->generate($request->filters(), $actor, $request->pagination()), $request->pagination());
     }
 
     /**

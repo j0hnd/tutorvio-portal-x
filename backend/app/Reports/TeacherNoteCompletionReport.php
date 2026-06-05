@@ -5,11 +5,14 @@ namespace App\Reports;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Reports\Concerns\PaginatesReportQueries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class TeacherNoteCompletionReport
 {
+    use PaginatesReportQueries;
+
     /**
      * @return array{
      *     summary: array{total_completed_lessons_requiring_notes: int, lessons_with_teacher_notes: int, lessons_missing_teacher_notes: int, teacher_note_completion_rate: float},
@@ -17,16 +20,16 @@ class TeacherNoteCompletionReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters, User $user): array
+    public function generate(SchoolReportFilters $filters, User $user, array $pagination = []): array
     {
-        $lessons = $this->baseQuery($filters, $user)->get();
+        $query = $this->baseQuery($filters, $user);
+        $lessons = (clone $query)->get();
+        $page = $this->pageRows($query, $pagination, fn (Lesson $lesson) => $this->row($lesson));
 
         return [
             'summary' => $this->summary($lessons),
-            'rows' => $lessons
-                ->map(fn (Lesson $lesson) => $this->row($lesson))
-                ->values()
-                ->all(),
+            'rows' => $page['rows'],
+            'total' => $page['total'],
             'filters' => $filters->toArray(),
         ];
     }

@@ -173,9 +173,9 @@ class StudentProgressReportApiTest extends TestCase
             ->assertJsonPath('data.rows.0.skill_progress.speaking.record_id', $matching->public_id)
             ->assertJsonPath('data.filters.date_from', '2026-06-01')
             ->assertJsonPath('data.filters.date_to', '2026-06-30')
-            ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.filters.student_id', $this->student->id)
-            ->assertJsonPath('data.filters.course_id', $this->courseProgram->id)
+            ->assertJsonPath('data.filters.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.filters.student_id', $this->student->public_id)
+            ->assertJsonPath('data.filters.course_id', $this->courseProgram->public_id)
             ->assertJsonPath('data.filters.status', StudentProgressRecord::STATUS_COMPLETED);
 
         $this->getJson('/api/v1/admin/reports/student-progress?status=archived')

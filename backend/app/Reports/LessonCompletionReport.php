@@ -4,11 +4,14 @@ namespace App\Reports;
 
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\LessonRecord;
+use App\Reports\Concerns\PaginatesReportQueries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class LessonCompletionReport
 {
+    use PaginatesReportQueries;
+
     /**
      * @return array{
      *     summary: array{total_lessons: int, completed_count: int, pending_upcoming_count: int, cancelled_rescheduled_missed_count: int, completion_rate: float},
@@ -16,16 +19,16 @@ class LessonCompletionReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters): array
+    public function generate(SchoolReportFilters $filters, array $pagination = []): array
     {
-        $lessonRecords = $this->baseQuery($filters)->get();
+        $query = $this->baseQuery($filters);
+        $lessonRecords = (clone $query)->get();
+        $page = $this->pageRows($query, $pagination, fn (LessonRecord $lessonRecord) => $this->row($lessonRecord));
 
         return [
             'summary' => $this->summary($lessonRecords),
-            'rows' => $lessonRecords
-                ->map(fn (LessonRecord $lessonRecord) => $this->row($lessonRecord))
-                ->values()
-                ->all(),
+            'rows' => $page['rows'],
+            'total' => $page['total'],
             'filters' => $filters->toArray(),
         ];
     }

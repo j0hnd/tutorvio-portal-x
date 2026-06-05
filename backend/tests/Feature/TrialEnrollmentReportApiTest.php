@@ -128,9 +128,9 @@ class TrialEnrollmentReportApiTest extends TestCase
             ->assertJsonPath('data.rows.0.enrollment_status', 'enrolled')
             ->assertJsonPath('data.filters.date_from', '2026-05-01')
             ->assertJsonPath('data.filters.date_to', '2026-05-31')
-            ->assertJsonPath('data.filters.teacher_id', $this->teacher->id)
-            ->assertJsonPath('data.filters.student_id', $matchingStudent->id)
-            ->assertJsonPath('data.filters.course_id', $this->courseProgram->id)
+            ->assertJsonPath('data.filters.teacher_id', $this->teacher->public_id)
+            ->assertJsonPath('data.filters.student_id', $matchingStudent->public_id)
+            ->assertJsonPath('data.filters.course_id', $this->courseProgram->public_id)
             ->assertJsonPath('data.filters.status', 'enrolled');
     }
 

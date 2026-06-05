@@ -5,12 +5,15 @@ namespace App\Reports;
 use App\Models\CourseProgramStudentAssignment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Reports\Concerns\PaginatesReportQueries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class PackageUsageReport
 {
+    use PaginatesReportQueries;
+
     /**
      * @return array{
      *     summary: array{total_active_packages: int, total_consumed_lessons: int, total_remaining_lessons: int, expiring_package_count: int, frozen_package_count: int},
@@ -18,17 +21,17 @@ class PackageUsageReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters, User $viewer): array
+    public function generate(SchoolReportFilters $filters, User $viewer, array $pagination = []): array
     {
-        $subscriptions = $this->baseQuery($filters)->get();
+        $query = $this->baseQuery($filters);
+        $subscriptions = (clone $query)->get();
         $canViewBilling = $this->canViewBillingReferences($viewer);
+        $page = $this->pageRows($query, $pagination, fn (Subscription $subscription) => $this->row($subscription, $canViewBilling));
 
         return [
             'summary' => $this->summary($subscriptions),
-            'rows' => $subscriptions
-                ->map(fn (Subscription $subscription) => $this->row($subscription, $canViewBilling))
-                ->values()
-                ->all(),
+            'rows' => $page['rows'],
+            'total' => $page['total'],
             'filters' => $filters->toArray(),
         ];
     }

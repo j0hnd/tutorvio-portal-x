@@ -17,13 +17,9 @@ class RetentionContinuationReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $report.
      * The RetentionContinuationReportRequest handles authorization and validation before the controller action runs.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  RetentionContinuationReportRequest  $request
-     * @param  RetentionContinuationReport  $report
-     * @return JsonResponse
      */
     public function __invoke(RetentionContinuationReportRequest $request, RetentionContinuationReport $report): JsonResponse
     {
-        return ReportResponse::json($report->generate($request->filters()), $request->pagination());
+        return ReportResponse::json($report->generate($request->filters(), $request->pagination()), $request->pagination());
     }
 }

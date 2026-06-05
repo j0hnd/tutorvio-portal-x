@@ -17,13 +17,9 @@ class ActiveStudentsReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $report.
      * The SchoolReportRequest handles authorization and validation before the controller action runs.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  SchoolReportRequest  $request
-     * @param  ActiveStudentsReport  $report
-     * @return JsonResponse
      */
     public function __invoke(SchoolReportRequest $request, ActiveStudentsReport $report): JsonResponse
     {
-        return ReportResponse::json($report->generate($request->filters()), $request->pagination());
+        return ReportResponse::json($report->generate($request->filters(), $request->pagination()), $request->pagination());
     }
 }

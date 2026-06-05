@@ -26,7 +26,7 @@ class TrialEnrollmentReport
      *     filters: array<string, mixed>
      * }
      */
-    public function generate(SchoolReportFilters $filters): array
+    public function generate(SchoolReportFilters $filters, array $pagination = []): array
     {
         $trialClasses = $this->baseQuery($filters)->get();
         $rows = $trialClasses
@@ -36,10 +36,13 @@ class TrialEnrollmentReport
                 fn (Collection $rows) => $rows->where('enrollment_status', $filters->status())
             )
             ->values();
+        $page = max(1, (int) ($pagination['page'] ?? 1));
+        $perPage = min(100, max(1, (int) ($pagination['per_page'] ?? 50)));
 
         return [
             'summary' => $this->summary($rows),
-            'rows' => $rows->all(),
+            'rows' => $rows->forPage($page, $perPage)->values()->all(),
+            'total' => $rows->count(),
             'filters' => $filters->toArray(),
         ];
     }

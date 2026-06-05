@@ -10,7 +10,7 @@ class ReportResponse
     public const EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'];
 
     /**
-     * @param  array{summary?: array<string, mixed>, rows?: list<array<string, mixed>>, filters?: array<string, mixed>}  $report
+     * @param  array{summary?: array<string, mixed>, rows?: list<array<string, mixed>>, total?: int, filters?: array<string, mixed>}  $report
      * @param  array{page?: int, per_page?: int}  $pagination
      */
     public static function json(array $report, array $pagination = []): JsonResponse
@@ -24,18 +24,18 @@ class ReportResponse
     }
 
     /**
-     * @param  array{summary?: array<string, mixed>, rows?: list<array<string, mixed>>, filters?: array<string, mixed>}  $report
+     * @param  array{summary?: array<string, mixed>, rows?: list<array<string, mixed>>, total?: int, filters?: array<string, mixed>}  $report
      * @param  array{page?: int, per_page?: int}  $pagination
      * @return array<string, mixed>
      */
     public static function payload(array $report, array $pagination = []): array
     {
-        $rows = collect($report['rows'] ?? [])->values();
         $page = max(1, (int) ($pagination['page'] ?? 1));
         $perPage = min(100, max(1, (int) ($pagination['per_page'] ?? 50)));
-        $total = $rows->count();
+        $rows = collect($report['rows'] ?? [])->values();
+        $total = array_key_exists('total', $report) ? max(0, (int) $report['total']) : $rows->count();
         $lastPage = max(1, (int) ceil($total / $perPage));
-        $pageRows = $rows->forPage($page, $perPage)->values();
+        $pageRows = array_key_exists('total', $report) ? $rows : $rows->forPage($page, $perPage)->values();
 
         return [
             'success' => true,
@@ -46,6 +46,7 @@ class ReportResponse
             'export' => [
                 'supported' => true,
                 'formats' => self::EXPORT_FORMATS,
+                'requires_explicit_request' => true,
             ],
         ];
     }

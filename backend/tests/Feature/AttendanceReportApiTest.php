@@ -153,6 +153,39 @@ class AttendanceReportApiTest extends TestCase
             ->assertJsonPath('data.filters.status', LessonRecord::ATTENDANCE_ABSENT);
     }
 
+    public function test_attendance_report_paginates_rows_without_changing_summary(): void
+    {
+        $first = $this->createLessonRecord([
+            'scheduled_date' => '2026-06-10',
+            'attendance_status' => LessonRecord::ATTENDANCE_PRESENT,
+        ]);
+        $second = $this->createLessonRecord([
+            'scheduled_date' => '2026-06-11',
+            'attendance_status' => LessonRecord::ATTENDANCE_LATE,
+        ]);
+        $this->createLessonRecord([
+            'scheduled_date' => '2026-06-12',
+            'attendance_status' => LessonRecord::ATTENDANCE_ABSENT,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/v1/admin/reports/attendance?date_from=2026-06-01&date_to=2026-06-30&per_page=1&page=2')
+            ->assertOk()
+            ->assertJsonPath('data.summary.total_lessons', 3)
+            ->assertJsonPath('data.summary.attended_count', 2)
+            ->assertJsonCount(1, 'data.rows')
+            ->assertJsonPath('data.rows.0.lesson_record_id', $second->public_id)
+            ->assertJsonMissing(['lesson_record_id' => $first->public_id])
+            ->assertJsonPath('data.pagination.current_page', 2)
+            ->assertJsonPath('data.pagination.per_page', 1)
+            ->assertJsonPath('data.pagination.total', 3)
+            ->assertJsonPath('data.pagination.last_page', 3)
+            ->assertJsonPath('data.pagination.from', 2)
+            ->assertJsonPath('data.pagination.to', 2)
+            ->assertJsonPath('data.pagination.has_more_pages', true);
+    }
+
     public function test_missed_class_report_returns_missed_rows_and_filters(): void
     {
         $missed = $this->createLessonRecord([

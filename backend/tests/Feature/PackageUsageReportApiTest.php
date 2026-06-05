@@ -135,8 +135,8 @@ class PackageUsageReportApiTest extends TestCase
             ->assertJsonCount(1, 'data.rows')
             ->assertJsonPath('data.rows.0.package_id', $matching->public_id)
             ->assertJsonPath('data.rows.0.course.id', $course->public_id)
-            ->assertJsonPath('data.filters.student_id', $student->id)
-            ->assertJsonPath('data.filters.course_id', $course->id)
+            ->assertJsonPath('data.filters.student_id', $student->public_id)
+            ->assertJsonPath('data.filters.course_id', $course->public_id)
             ->assertJsonPath('data.filters.status', Subscription::STATUS_ACTIVE)
             ->assertJsonPath('data.filters.date_from', '2026-05-01')
             ->assertJsonPath('data.filters.date_to', '2026-05-31');

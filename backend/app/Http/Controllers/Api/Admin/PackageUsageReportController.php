@@ -17,13 +17,9 @@ class PackageUsageReportController extends Controller
      * Important request values come from query parameters, JSON body fields, or the typed FormRequest used by this action. Route model parameters include $report.
      * The PackageUsageReportRequest handles authorization and validation before the controller action runs.
      * Returns a JSON response containing the requested data.
-     *
-     * @param  PackageUsageReportRequest  $request
-     * @param  PackageUsageReport  $report
-     * @return JsonResponse
      */
     public function __invoke(PackageUsageReportRequest $request, PackageUsageReport $report): JsonResponse
     {
-        return ReportResponse::json($report->generate($request->filters(), $request->user()), $request->pagination());
+        return ReportResponse::json($report->generate($request->filters(), $request->user(), $request->pagination()), $request->pagination());
     }
 }

@@ -8,6 +8,7 @@ use App\Reports\SchoolReportFilters;
 use App\Support\PublicIdResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Validator;
 
 /**
  * Validates shared school report filters.
@@ -17,6 +18,8 @@ use Illuminate\Support\Carbon;
  */
 class SchoolReportRequest extends FormRequest
 {
+    public const MAX_DATE_RANGE_DAYS = 366;
+
     /**
      * Normalize parseable report date filters to Y-m-d before validation.
      */
@@ -51,6 +54,32 @@ class SchoolReportRequest extends FormRequest
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
+    }
+
+    /**
+     * Enforce a bounded report date window when callers provide both bounds.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->filled('date_from') || ! $this->filled('date_to')) {
+                return;
+            }
+
+            try {
+                $dateFrom = Carbon::createFromFormat('Y-m-d', (string) $this->input('date_from'))->startOfDay();
+                $dateTo = Carbon::createFromFormat('Y-m-d', (string) $this->input('date_to'))->startOfDay();
+            } catch (\Throwable) {
+                return;
+            }
+
+            if ($dateFrom->diffInDays($dateTo) > self::MAX_DATE_RANGE_DAYS) {
+                $validator->errors()->add(
+                    'date_to',
+                    'The report date range may not be greater than '.self::MAX_DATE_RANGE_DAYS.' days.'
+                );
+            }
+        });
     }
 
     /**
