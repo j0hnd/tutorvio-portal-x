@@ -125,6 +125,8 @@ Current public or compatibility routes outside `/api/v1`:
 
 Protected routes use Sanctum authentication. Admin and staff workflows add role and permission middleware on top of `auth:sanctum`.
 
+Fresh installs seed the `staff` role without baseline permissions. Staff access is intentionally granted by assigning named permissions such as `users.view`, `school_reports.view`, or other route-specific permissions after the user's operational scope is known.
+
 ## Public IDs
 
 Client-facing resource identifiers use `public_id` ULIDs. API resources should expose `public_id` as the normal client-facing `id` field and should not expose internal numeric database IDs unless a deliberately internal admin field is required.

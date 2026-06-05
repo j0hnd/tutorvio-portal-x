@@ -100,6 +100,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'messages.view',
         ]);
 
+        // Staff is permissionless by default. Assign named permissions per
+        // staff account or team once an operational access level is known.
         $staffRole->syncPermissions([]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
