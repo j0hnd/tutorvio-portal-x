@@ -67,13 +67,34 @@ class ChatRealtimeStateService
      * @param  array<string, mixed>  $metadata
      * @return array<string, mixed>
      */
+    public function markOnline(string|int $userId, array $metadata = []): array
+    {
+        return $this->setPresence($userId, 'online', $metadata);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    public function markRecentlyActive(string|int $userId, array $metadata = []): array
+    {
+        return $this->setPresence($userId, 'recently_active', $metadata);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
     public function setPresence(string|int $userId, string $state, array $metadata = []): array
     {
+        $expiresAt = now()->addSeconds($this->ttl('presence_seconds', self::DEFAULT_PRESENCE_TTL_SECONDS));
         $payload = [
             'user_id' => (string) $userId,
             'state' => $state,
             'metadata' => $metadata,
             'seen_at' => now()->toISOString(),
+            'last_active_at' => now()->toISOString(),
+            'expires_at' => $expiresAt->toISOString(),
         ];
 
         $this->put($this->presenceKey($userId), $payload, $this->ttl('presence_seconds', self::DEFAULT_PRESENCE_TTL_SECONDS), [
@@ -94,16 +115,29 @@ class ChatRealtimeStateService
 
     public function setActiveConversation(string|int $userId, string|int $conversationId): bool
     {
-        return $this->put(
+        return $this->markActiveConversation($userId, $conversationId)['stored'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function markActiveConversation(string|int $userId, string|int $conversationId): array
+    {
+        $expiresAt = now()->addSeconds($this->ttl('active_conversation_seconds', self::DEFAULT_ACTIVE_CONVERSATION_TTL_SECONDS));
+        $payload = [
+            'user_id' => (string) $userId,
+            'conversation_id' => (string) $conversationId,
+            'active_at' => now()->toISOString(),
+            'expires_at' => $expiresAt->toISOString(),
+        ];
+        $payload['stored'] = $this->put(
             $this->activeConversationKey($userId),
-            [
-                'user_id' => (string) $userId,
-                'conversation_id' => (string) $conversationId,
-                'active_at' => now()->toISOString(),
-            ],
+            $payload,
             $this->ttl('active_conversation_seconds', self::DEFAULT_ACTIVE_CONVERSATION_TTL_SECONDS),
             ['cache_area' => 'chat_active_conversation']
         );
+
+        return $payload;
     }
 
     public function activeConversation(string|int $userId): ?array

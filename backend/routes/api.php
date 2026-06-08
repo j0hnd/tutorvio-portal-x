@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\LessonRecordController;
 use App\Http\Controllers\Api\Messages\ConversationController;
 use App\Http\Controllers\Api\Messages\ConversationEscalationController;
 use App\Http\Controllers\Api\Messages\ConversationMessageController;
+use App\Http\Controllers\Api\Messages\ConversationPresenceController;
 use App\Http\Controllers\Api\Messages\ConversationTypingController;
 use App\Http\Controllers\Api\Messages\MessageTemplateController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
@@ -128,6 +129,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/message-templates', [MessageTemplateController::class, 'index']);
         Route::get('/message-templates/{messageTemplate:public_id}', [MessageTemplateController::class, 'show']);
         Route::get('/conversations/unread-count', [ConversationMessageController::class, 'unreadCount']);
+        Route::post('/conversations/presence', [ConversationPresenceController::class, 'update'])
+            ->middleware('throttle:api-action');
         Route::get('/conversations', [ConversationController::class, 'index']);
         Route::post('/conversations', [ConversationController::class, 'store'])
             ->middleware('throttle:api-action');
@@ -143,6 +146,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/conversations/{conversation:public_id}/messages/{message:public_id}/escalations', [ConversationEscalationController::class, 'storeMessage'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/presence/active', [ConversationPresenceController::class, 'activeConversation'])
             ->middleware('throttle:api-action');
         Route::get('/conversations/{conversation:public_id}/typing', [ConversationTypingController::class, 'index']);
         Route::post('/conversations/{conversation:public_id}/typing', [ConversationTypingController::class, 'start'])

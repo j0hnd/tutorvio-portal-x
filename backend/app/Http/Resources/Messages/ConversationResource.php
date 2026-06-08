@@ -5,6 +5,7 @@ namespace App\Http\Resources\Messages;
 use App\Http\Resources\Concerns\SanitizesApiResponses;
 use App\Models\ConversationMessage;
 use App\Models\User;
+use App\Services\ChatRealtimeStateService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -58,6 +59,7 @@ class ConversationResource extends JsonResource
                     'name' => $participant->user?->name,
                     'email' => $participant->user?->email,
                 ] : null,
+                'presence' => $this->participantPresence($request, $participant),
             ])->values()),
             'permission_metadata' => $this->permissionMetadata($request),
         ];
@@ -124,9 +126,51 @@ class ConversationResource extends JsonResource
                     'user_id' => $participant->relationLoaded('user') ? $this->publicId($participant->user) : null,
                     'name' => $participant->relationLoaded('user') ? $participant->user?->name : null,
                     'participant_role' => $participant->participant_role,
+                    'presence' => $this->participantPresence($request, $participant),
                 ])
                 ->values(),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function participantPresence(Request $request, mixed $participant): ?array
+    {
+        if (! $this->canViewParticipantPresence($request) || ! $participant->relationLoaded('user') || $participant->user === null) {
+            return null;
+        }
+
+        if ($participant->archived_at !== null || $participant->deleted_at !== null) {
+            return null;
+        }
+
+        $chatState = app(ChatRealtimeStateService::class);
+        $presence = $chatState->presence($participant->user->public_id);
+        $activeConversation = $chatState->activeConversation($participant->user->public_id);
+        $activeInThisConversation = is_array($activeConversation)
+            && ($activeConversation['conversation_id'] ?? null) === $this->resource->public_id;
+
+        return [
+            'online' => ($presence['state'] ?? null) === 'online',
+            'state' => $presence['state'] ?? null,
+            'last_active_at' => $presence['last_active_at'] ?? $presence['seen_at'] ?? null,
+            'expires_at' => $presence['expires_at'] ?? null,
+            'active_conversation' => [
+                'is_active' => $activeInThisConversation,
+                'active_at' => $activeInThisConversation ? ($activeConversation['active_at'] ?? null) : null,
+                'expires_at' => $activeInThisConversation ? ($activeConversation['expires_at'] ?? null) : null,
+            ],
+        ];
+    }
+
+    private function canViewParticipantPresence(Request $request): bool
+    {
+        $participant = $this->currentParticipant($request);
+
+        return $participant !== null
+            && $participant->archived_at === null
+            && $participant->deleted_at === null;
     }
 
     private function unreadMessageCount(Request $request): int
