@@ -9,6 +9,7 @@ use App\Models\ConversationEscalation;
 use App\Models\ConversationMessage;
 use App\Models\IssueReport;
 use App\Models\User;
+use App\Services\ChatMessageEventPublisher;
 use App\Support\PublicIdResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,8 @@ use Illuminate\Validation\Rule;
 
 class ConversationEscalationController extends Controller
 {
+    public function __construct(private readonly ChatMessageEventPublisher $events) {}
+
     public function store(Request $request, Conversation $conversation): JsonResponse
     {
         $actor = $request->user();
@@ -32,6 +35,11 @@ class ConversationEscalationController extends Controller
             'reason' => $validated['reason'],
             'notes' => $validated['notes'] ?? null,
             'metadata' => $validated['metadata'] ?? null,
+        ]);
+
+        $this->events->publishConversationEscalated($escalation, $actor);
+        $this->events->publishConversationUpdated($conversation, $actor, 'conversation_escalated', [
+            'escalation_id' => $escalation->public_id,
         ]);
 
         return response()->json([
@@ -56,6 +64,12 @@ class ConversationEscalationController extends Controller
             'reason' => $validated['reason'],
             'notes' => $validated['notes'] ?? null,
             'metadata' => $validated['metadata'] ?? null,
+        ]);
+
+        $this->events->publishConversationEscalated($escalation, $actor);
+        $this->events->publishConversationUpdated($conversation, $actor, 'conversation_escalated', [
+            'escalation_id' => $escalation->public_id,
+            'message_id' => $message->public_id,
         ]);
 
         return response()->json([
@@ -135,6 +149,12 @@ class ConversationEscalationController extends Controller
             'resolved_at' => $validated['status'] === ConversationEscalation::STATUS_RESOLVED ? $now : null,
             'dismissed_at' => $validated['status'] === ConversationEscalation::STATUS_DISMISSED ? $now : null,
         ])->save();
+
+        $conversationEscalation->loadMissing('conversation');
+        $this->events->publishConversationUpdated($conversationEscalation->conversation, $actor, 'escalation_status', [
+            'escalation_id' => $conversationEscalation->public_id,
+            'status' => $conversationEscalation->status,
+        ]);
 
         return response()->json([
             'data' => new ConversationEscalationResource($conversationEscalation->load($this->resourceRelations(includeAdminContext: true))),

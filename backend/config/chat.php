@@ -30,6 +30,11 @@ return [
             'message_send' => (int) env('CHAT_MESSAGE_SEND_RATE_LIMIT_MAX_ATTEMPTS', 30),
             'reminder' => (int) env('CHAT_REMINDER_RATE_LIMIT_MAX_ATTEMPTS', 10),
         ],
+
+        'events' => [
+            'enabled' => filter_var(env('CHAT_REALTIME_EVENTS_ENABLED', env('CHAT_REALTIME_ENABLED', true)), FILTER_VALIDATE_BOOLEAN),
+            'channel' => env('CHAT_REALTIME_EVENTS_CHANNEL', 'tvio:chat:events'),
+        ],
     ],
 
     'typing_indicator_ttl_seconds' => (int) env('CHAT_TYPING_TTL_SECONDS', env('CHAT_TYPING_INDICATOR_TTL_SECONDS', 10)),

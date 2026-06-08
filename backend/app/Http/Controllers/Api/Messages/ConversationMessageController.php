@@ -11,6 +11,7 @@ use App\Models\ConversationMessage;
 use App\Models\ConversationMessagePin;
 use App\Models\ConversationParticipant;
 use App\Models\User;
+use App\Services\ChatMessageEventPublisher;
 use App\Services\ChatUnreadCountService;
 use App\Services\ConversationAttachmentStorage;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,6 +30,7 @@ class ConversationMessageController extends Controller
     public function __construct(
         private readonly ConversationAttachmentStorage $storage,
         private readonly ChatUnreadCountService $unreadCounts,
+        private readonly ChatMessageEventPublisher $events,
     ) {}
 
     /**
@@ -157,6 +159,12 @@ class ConversationMessageController extends Controller
         });
 
         $this->unreadCounts->forgetForConversation($conversation);
+        $message->load(['attachmentRecords', 'conversation.participants.user:id,public_id,status', 'sender:id,public_id,name,email']);
+        $this->events->publishMessageSent($message, $actor);
+        $this->events->publishAttachmentAdded($message, $message->attachmentRecords, $actor);
+        $this->events->publishConversationUpdated($conversation->refresh(), $actor, 'last_message', [
+            'last_message_id' => $message->public_id,
+        ]);
 
         return response()->json([
             'data' => new ConversationMessageResource($message->load(['attachmentRecords', 'conversation:id,public_id', 'sender:id,public_id,name,email'])),
@@ -260,6 +268,12 @@ class ConversationMessageController extends Controller
             ]
         );
 
+        $this->events->publishMessagePinned($pin, $actor);
+        $this->events->publishConversationUpdated($conversation, $actor, 'message_pinned', [
+            'message_id' => $message->public_id,
+            'is_pinned' => true,
+        ]);
+
         return response()->json([
             'data' => new ConversationMessagePinResource(
                 $pin->load([
@@ -287,6 +301,11 @@ class ConversationMessageController extends Controller
             ->where('conversation_id', $conversation->id)
             ->where('conversation_message_id', $message->id)
             ->delete();
+
+        $this->events->publishConversationUpdated($conversation, $actor, 'message_unpinned', [
+            'message_id' => $message->public_id,
+            'is_pinned' => false,
+        ]);
 
         return response()->json([
             'data' => [
@@ -318,6 +337,10 @@ class ConversationMessageController extends Controller
         ])->save();
 
         $this->unreadCounts->forgetForParticipant($participant);
+        $this->events->publishMessageRead($conversation, $actor, $message);
+        $this->events->publishConversationUpdated($conversation, $actor, 'read_marker', [
+            'last_read_message_id' => $message?->public_id,
+        ]);
 
         return response()->json([
             'data' => [
@@ -378,6 +401,10 @@ class ConversationMessageController extends Controller
         ])->save();
 
         $this->unreadCounts->forgetForParticipant($participant);
+        $this->events->publishMessageRead($conversation, $actor, $message);
+        $this->events->publishConversationUpdated($conversation, $actor, 'read_marker', [
+            'last_read_message_id' => $message->public_id,
+        ]);
 
         return response()->json([
             'data' => [

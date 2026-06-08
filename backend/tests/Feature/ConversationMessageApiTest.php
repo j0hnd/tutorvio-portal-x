@@ -13,6 +13,7 @@ use Illuminate\Contracts\Cache\Store as CacheStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use RuntimeException;
@@ -261,6 +262,114 @@ class ConversationMessageApiTest extends TestCase
         $this->getJson('/api/v1/conversations/unread-count')
             ->assertOk()
             ->assertJsonPath('data.unread_count', 1);
+    }
+
+    public function test_message_sent_publishes_public_safe_chat_event(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $published = [];
+
+        Redis::shouldReceive('publish')
+            ->times(3)
+            ->withArgs(function (string $channel, string $payload) use (&$published): bool {
+                $published[] = [
+                    'channel' => $channel,
+                    'payload' => json_decode($payload, true, flags: JSON_THROW_ON_ERROR),
+                ];
+
+                return true;
+            })
+            ->andReturn(1);
+
+        Sanctum::actingAs($this->student);
+
+        $response = $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'This body must stay out of pubsub events.',
+            'attachment_links' => [
+                ['url' => 'https://example.test/private-note', 'title' => 'Private note'],
+            ],
+        ])->assertCreated();
+
+        $messageEvent = collect($published)->firstWhere('payload.event', 'message_sent');
+        $attachmentEvent = collect($published)->firstWhere('payload.event', 'attachment_added');
+        $conversationEvent = collect($published)->firstWhere('payload.event', 'conversation_updated');
+
+        $this->assertSame('tvio:chat:events', $messageEvent['channel']);
+        $this->assertSame($conversation->public_id, $messageEvent['payload']['conversation_id']);
+        $this->assertSame($this->student->public_id, $messageEvent['payload']['actor_id']);
+        $this->assertEqualsCanonicalizing(
+            [$this->student->public_id, $this->teacher->public_id],
+            $messageEvent['payload']['target_user_ids']
+        );
+        $this->assertSame($response->json('data.id'), $messageEvent['payload']['payload']['message']['id']);
+        $this->assertSame($this->student->public_id, $messageEvent['payload']['payload']['message']['sender_id']);
+        $this->assertTrue($messageEvent['payload']['payload']['message']['has_attachments']);
+        $this->assertStringNotContainsString('This body must stay out', json_encode($messageEvent['payload'], JSON_THROW_ON_ERROR));
+        $this->assertNotSame((string) $conversation->id, $messageEvent['payload']['conversation_id']);
+        $this->assertNotSame((string) ConversationMessage::query()->firstOrFail()->id, $messageEvent['payload']['payload']['message']['id']);
+
+        $this->assertSame($response->json('data.id'), $attachmentEvent['payload']['payload']['message_id']);
+        $this->assertSame('last_message', $conversationEvent['payload']['payload']['change_type']);
+    }
+
+    public function test_unauthorized_users_are_not_in_chat_event_fanout_targets(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $conversation->participants()->create([
+            'user_id' => $this->otherStudent->id,
+            'participant_role' => 'student',
+            'participant_role_snapshot' => 'student',
+            'participant_roles_snapshot' => ['student'],
+            'joined_at' => now(),
+            'archived_at' => now(),
+        ]);
+        $published = [];
+
+        Redis::shouldReceive('publish')
+            ->times(2)
+            ->withArgs(function (string $channel, string $payload) use (&$published): bool {
+                $published[] = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
+
+                return true;
+            })
+            ->andReturn(1);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Authorized participants only.',
+        ])->assertCreated();
+
+        $messageEvent = collect($published)->firstWhere('event', 'message_sent');
+
+        $this->assertEqualsCanonicalizing(
+            [$this->student->public_id, $this->teacher->public_id],
+            $messageEvent['target_user_ids']
+        );
+        $this->assertNotContains($this->otherStudent->public_id, $messageEvent['target_user_ids']);
+        $this->assertNotContains($this->admin->public_id, $messageEvent['target_user_ids']);
+    }
+
+    public function test_redis_publish_failure_does_not_block_message_creation(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Redis::shouldReceive('publish')
+            ->andThrow(new RuntimeException('Redis unavailable'));
+
+        Sanctum::actingAs($this->student);
+
+        $response = $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Persistence should win over pubsub.',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.body', 'Persistence should win over pubsub.');
+
+        $this->assertDatabaseHas('conversation_messages', [
+            'public_id' => $response->json('data.id'),
+            'conversation_id' => $conversation->id,
+            'sender_id' => $this->student->id,
+        ]);
     }
 
     public function test_only_active_participants_can_mark_conversation_messages_read(): void
