@@ -63,6 +63,8 @@ Redis-backed cache locks use `REDIS_CACHE_LOCK_CONNECTION`, which defaults to th
 
 The Docker backend image installs the `phpredis` extension for `REDIS_CLIENT=phpredis`. Non-Docker Redis use requires the same PHP extension in the local PHP runtime.
 
+Chat realtime Redis keys, TTLs, fallback behavior, and the MariaDB source-of-truth boundary are documented in [docs/chat-redis-state.md](docs/chat-redis-state.md).
+
 Redis environment variables:
 
 - `REDIS_CLIENT`: Redis client, usually `phpredis`.
