@@ -159,10 +159,27 @@ class ChatRealtimeStateService
         );
     }
 
+    public function rememberConversationUnreadCount(string|int $userId, string|int $conversationId, Closure $callback): int
+    {
+        return (int) $this->remember(
+            $this->conversationUnreadCountKey($userId, $conversationId),
+            $this->ttl('unread_count_seconds', self::DEFAULT_UNREAD_COUNT_TTL_SECONDS),
+            $callback,
+            ['cache_area' => 'chat_conversation_unread_count']
+        );
+    }
+
     public function forgetUnreadCount(string|int $userId): bool
     {
         return $this->forget($this->unreadCountKey($userId), [
             'cache_area' => 'chat_unread_count',
+        ]);
+    }
+
+    public function forgetConversationUnreadCount(string|int $userId, string|int $conversationId): bool
+    {
+        return $this->forget($this->conversationUnreadCountKey($userId, $conversationId), [
+            'cache_area' => 'chat_conversation_unread_count',
         ]);
     }
 
@@ -271,6 +288,11 @@ class ChatRealtimeStateService
     public function unreadCountKey(string|int $userId): string
     {
         return $this->key('unread_count', $userId);
+    }
+
+    public function conversationUnreadCountKey(string|int $userId, string|int $conversationId): string
+    {
+        return $this->key('unread_count', $userId, 'conversation', $conversationId);
     }
 
     public function duplicateReminderLockKey(string|int $conversationId, string $reminderKey): string

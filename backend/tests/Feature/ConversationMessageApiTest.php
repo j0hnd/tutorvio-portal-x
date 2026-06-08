@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
 use App\Models\User;
+use App\Services\ChatRealtimeStateService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Cache\Store as CacheStore;
@@ -43,6 +44,10 @@ class ConversationMessageApiTest extends TestCase
         $this->otherStudent = $this->userWithRole('student');
 
         config([
+            'chat.realtime.enabled' => true,
+            'chat.realtime.store' => 'array',
+            'chat.realtime.namespace' => 'tvio:chat',
+            'chat.realtime.environment' => 'testing',
             'chat_attachments.disk' => 'local',
             'chat_attachments.directory' => 'chat-attachments',
             'chat_attachments.max_upload_kilobytes' => 1024,
@@ -50,6 +55,7 @@ class ConversationMessageApiTest extends TestCase
             'chat_attachments.max_links_per_message' => 20,
         ]);
 
+        Cache::store('array')->flush();
         Storage::fake('local');
     }
 
@@ -156,6 +162,105 @@ class ConversationMessageApiTest extends TestCase
             ->assertJsonPath('data.unread_count', 1);
 
         $this->assertNotNull($second->public_id);
+    }
+
+    public function test_unread_count_cache_hits_are_user_and_conversation_scoped(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $this->createMessage($conversation, $this->teacher, 'Unread from teacher', now());
+
+        $chatState = app(ChatRealtimeStateService::class);
+        Cache::store('array')->put($chatState->conversationUnreadCountKey($this->student->public_id, $conversation->public_id), 7, 30);
+        Cache::store('array')->put($chatState->unreadCountKey($this->student->public_id), 11, 30);
+        Cache::store('array')->put($chatState->conversationUnreadCountKey($this->teacher->public_id, $conversation->public_id), 13, 30);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $conversation->public_id)
+            ->assertJsonPath('data.0.unread_count', 7);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 11);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->getJson('/api/v1/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.0.unread_count', 13);
+    }
+
+    public function test_unread_count_cache_misses_fall_back_to_mariadb_and_store_results(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $this->createMessage($conversation, $this->teacher, 'First unread', now()->subMinutes(2));
+        $this->createMessage($conversation, $this->teacher, 'Second unread', now()->subMinute());
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $conversation->public_id)
+            ->assertJsonPath('data.0.unread_count', 2);
+
+        $chatState = app(ChatRealtimeStateService::class);
+        $this->assertSame(2, Cache::store('array')->get($chatState->conversationUnreadCountKey($this->student->public_id, $conversation->public_id)));
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 2);
+
+        $this->assertSame(2, Cache::store('array')->get($chatState->unreadCountKey($this->student->public_id)));
+    }
+
+    public function test_mark_as_read_invalidates_stale_unread_count_cache(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->teacher, 'Unread from teacher', now());
+
+        $chatState = app(ChatRealtimeStateService::class);
+        Cache::store('array')->put($chatState->conversationUnreadCountKey($this->student->public_id, $conversation->public_id), 9, 30);
+        Cache::store('array')->put($chatState->unreadCountKey($this->student->public_id), 9, 30);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/read", [
+            'message_id' => $message->public_id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
+    }
+
+    public function test_new_messages_invalidate_stale_unread_count_cache(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        $chatState = app(ChatRealtimeStateService::class);
+        Cache::store('array')->put($chatState->conversationUnreadCountKey($this->student->public_id, $conversation->public_id), 0, 30);
+        Cache::store('array')->put($chatState->unreadCountKey($this->student->public_id), 0, 30);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'New unread message.',
+        ])->assertCreated();
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $conversation->public_id)
+            ->assertJsonPath('data.0.unread_count', 1);
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1);
     }
 
     public function test_only_active_participants_can_mark_conversation_messages_read(): void
@@ -425,6 +530,10 @@ class ConversationMessageApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.unread_count', 1);
 
+        $this->getJson('/api/v1/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.0.unread_count', 1);
+
         $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/read", [
             'message_id' => $teacherMessage->public_id,
         ])
@@ -477,7 +586,7 @@ class ConversationMessageApiTest extends TestCase
 
     private function createMessage(Conversation $conversation, User $sender, string $body, mixed $createdAt): ConversationMessage
     {
-        return ConversationMessage::query()->create([
+        $message = ConversationMessage::query()->create([
             'conversation_id' => $conversation->id,
             'sender_id' => $sender->id,
             'body' => $body,
@@ -485,6 +594,15 @@ class ConversationMessageApiTest extends TestCase
             'created_at' => $createdAt,
             'updated_at' => $createdAt,
         ]);
+
+        $conversation->forceFill([
+            'last_message_at' => $createdAt,
+            'last_message_by' => $sender->id,
+            'last_message_preview' => $body,
+            'last_message_metadata' => ['message_id' => $message->public_id],
+        ])->save();
+
+        return $message;
     }
 
     private function useFailingChatCacheStore(): void

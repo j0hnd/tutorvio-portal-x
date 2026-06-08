@@ -38,6 +38,7 @@ class ChatRealtimeStateServiceTest extends TestCase
         $this->assertSame('tvio:chat:testing:typing:cnv_123:usr_456', $service->typingKey('cnv_123', 'usr_456'));
         $this->assertSame('tvio:chat:testing:presence:usr_456', $service->presenceKey('usr_456'));
         $this->assertSame('tvio:chat:testing:unread_count:usr_456', $service->unreadCountKey('usr_456'));
+        $this->assertSame('tvio:chat:testing:unread_count:usr_456:conversation:cnv_123', $service->conversationUnreadCountKey('usr_456', 'cnv_123'));
     }
 
     public function test_it_tracks_transient_chat_state_without_message_history(): void
@@ -57,6 +58,8 @@ class ChatRealtimeStateServiceTest extends TestCase
 
         $this->assertSame(7, $service->rememberUnreadCount('usr_456', fn () => 7));
         $this->assertSame(7, $service->rememberUnreadCount('usr_456', fn () => 99));
+        $this->assertSame(3, $service->rememberConversationUnreadCount('usr_456', 'cnv_123', fn () => 3));
+        $this->assertSame(3, $service->rememberConversationUnreadCount('usr_456', 'cnv_123', fn () => 99));
 
         $this->assertTrue($service->recordDeliveryStatus('msg_123', 'usr_456', 'delivered'));
         $this->assertSame('delivered', $service->deliveryStatus('msg_123', 'usr_456')['status']);
@@ -100,7 +103,9 @@ class ChatRealtimeStateServiceTest extends TestCase
 
         $this->assertFalse($service->setActiveConversation('usr_456', 'cnv_123'));
         $this->assertSame(7, $service->rememberUnreadCount('usr_456', fn () => 7));
+        $this->assertSame(5, $service->rememberConversationUnreadCount('usr_456', 'cnv_123', fn () => 5));
         $this->assertFalse($service->forgetUnreadCount('usr_456'));
+        $this->assertFalse($service->forgetConversationUnreadCount('usr_456', 'cnv_123'));
         $this->assertFalse($service->recordDeliveryStatus('msg_123', 'usr_456', 'delivered'));
         $this->assertNull($service->deliveryStatus('msg_123', 'usr_456'));
         $this->assertFalse($service->acquireDuplicateReminderLock('cnv_123', 'lesson-reminder'));

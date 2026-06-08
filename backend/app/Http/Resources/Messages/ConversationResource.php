@@ -3,10 +3,9 @@
 namespace App\Http\Resources\Messages;
 
 use App\Http\Resources\Concerns\SanitizesApiResponses;
-use App\Models\ConversationMessage;
 use App\Models\User;
 use App\Services\ChatRealtimeStateService;
-use Illuminate\Database\Eloquent\Builder;
+use App\Services\ChatUnreadCountService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -182,45 +181,7 @@ class ConversationResource extends JsonResource
             return 0;
         }
 
-        return ConversationMessage::query()
-            ->where('conversation_id', $this->resource->id)
-            ->where(function (Builder $query) use ($user): void {
-                $query
-                    ->whereNull('sender_id')
-                    ->orWhere('sender_id', '!=', $user->id);
-            })
-            ->when(
-                $participant->last_read_message_id !== null,
-                fn (Builder $query) => $this->afterLastReadMessage($query, $participant),
-                fn (Builder $query) => $query->when(
-                    $participant->last_read_at !== null,
-                    fn (Builder $query) => $query->where('created_at', '>', $participant->last_read_at)
-                )
-            )
-            ->count();
-    }
-
-    private function afterLastReadMessage(Builder $query, mixed $participant): Builder
-    {
-        $lastReadMessage = $participant->relationLoaded('lastReadMessage')
-            ? $participant->lastReadMessage
-            : ConversationMessage::query()
-                ->select(['id', 'created_at'])
-                ->find($participant->last_read_message_id);
-
-        if ($lastReadMessage === null) {
-            return $query;
-        }
-
-        return $query->where(function (Builder $query) use ($lastReadMessage, $participant): void {
-            $query
-                ->where('created_at', '>', $lastReadMessage->created_at)
-                ->orWhere(function (Builder $query) use ($lastReadMessage, $participant): void {
-                    $query
-                        ->where('created_at', $lastReadMessage->created_at)
-                        ->where('id', '>', $participant->last_read_message_id);
-                });
-        });
+        return app(ChatUnreadCountService::class)->conversationUnreadCount($user, $this->resource, $participant);
     }
 
     private function isPinned(Request $request): bool

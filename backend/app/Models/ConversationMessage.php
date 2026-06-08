@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicId;
+use App\Services\ChatUnreadCountService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -66,6 +67,22 @@ class ConversationMessage extends Model
     {
         static::deleting(function (ConversationMessage $message): void {
             $message->pin()->delete();
+        });
+
+        static::created(function (ConversationMessage $message): void {
+            $message->loadMissing('conversation:id,public_id');
+
+            if ($message->conversation !== null) {
+                app(ChatUnreadCountService::class)->forgetForConversation($message->conversation);
+            }
+        });
+
+        static::deleted(function (ConversationMessage $message): void {
+            $message->loadMissing('conversation:id,public_id');
+
+            if ($message->conversation !== null) {
+                app(ChatUnreadCountService::class)->forgetForConversation($message->conversation);
+            }
         });
     }
 

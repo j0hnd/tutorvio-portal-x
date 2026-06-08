@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ChatUnreadCountService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,6 +37,17 @@ class ConversationParticipant extends Model
             'archived_at' => 'immutable_datetime',
             'metadata' => 'array',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        $forgetUnreadCounts = function (ConversationParticipant $participant): void {
+            app(ChatUnreadCountService::class)->forgetForParticipant($participant);
+        };
+
+        static::saved($forgetUnreadCounts);
+        static::deleted($forgetUnreadCounts);
+        static::restored($forgetUnreadCounts);
     }
 
     /**

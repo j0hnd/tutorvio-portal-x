@@ -11,7 +11,7 @@ use App\Models\ConversationMessage;
 use App\Models\ConversationMessagePin;
 use App\Models\ConversationParticipant;
 use App\Models\User;
-use App\Services\ChatRealtimeStateService;
+use App\Services\ChatUnreadCountService;
 use App\Services\ConversationAttachmentStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +28,7 @@ class ConversationMessageController extends Controller
 {
     public function __construct(
         private readonly ConversationAttachmentStorage $storage,
-        private readonly ChatRealtimeStateService $chatState,
+        private readonly ChatUnreadCountService $unreadCounts,
     ) {}
 
     /**
@@ -156,7 +156,7 @@ class ConversationMessageController extends Controller
             return $message;
         });
 
-        $this->forgetUnreadCountCacheForConversation($conversation);
+        $this->unreadCounts->forgetForConversation($conversation);
 
         return response()->json([
             'data' => new ConversationMessageResource($message->load(['attachmentRecords', 'conversation:id,public_id', 'sender:id,public_id,name,email'])),
@@ -317,7 +317,7 @@ class ConversationMessageController extends Controller
             'last_read_message_id' => $message?->id,
         ])->save();
 
-        $this->chatState->forgetUnreadCount($actor->public_id);
+        $this->unreadCounts->forgetForParticipant($participant);
 
         return response()->json([
             'data' => [
@@ -377,14 +377,14 @@ class ConversationMessageController extends Controller
             'last_read_message_id' => $message->id,
         ])->save();
 
-        $this->chatState->forgetUnreadCount($actor->public_id);
+        $this->unreadCounts->forgetForParticipant($participant);
 
         return response()->json([
             'data' => [
                 'conversation_id' => $conversation->public_id,
                 'read_at' => $readAt,
                 'last_read_message_id' => $message->public_id,
-                'unread_count' => $this->unreadCountFor($participant->refresh(), $actor),
+                'unread_count' => $this->unreadCounts->conversationUnreadCount($actor, $conversation, $participant->refresh()),
             ],
         ]);
     }
@@ -400,16 +400,7 @@ class ConversationMessageController extends Controller
             abort(403);
         }
 
-        $count = $this->chatState->rememberUnreadCount(
-            $actor->public_id,
-            fn (): int => ConversationParticipant::query()
-                ->where('user_id', $actor->id)
-                ->whereNull('archived_at')
-                ->whereNull('deleted_at')
-                ->with('lastReadMessage:id,conversation_id,created_at')
-                ->get()
-                ->sum(fn (ConversationParticipant $participant) => $this->unreadCountFor($participant, $actor))
-        );
+        $count = $this->unreadCounts->totalUnreadCount($actor);
 
         return response()->json([
             'data' => [
@@ -478,54 +469,6 @@ class ConversationMessageController extends Controller
             ->whereNull('archived_at')
             ->whereNull('deleted_at')
             ->firstOrFail();
-    }
-
-    private function unreadCountFor(ConversationParticipant $participant, User $actor): int
-    {
-        $lastReadMessage = $participant->last_read_message_id !== null
-            ? ($participant->relationLoaded('lastReadMessage')
-                ? $participant->lastReadMessage
-                : ConversationMessage::query()
-                    ->select(['id', 'conversation_id', 'created_at'])
-                    ->find($participant->last_read_message_id))
-            : null;
-
-        return ConversationMessage::query()
-            ->where('conversation_id', $participant->conversation_id)
-            ->where(function (Builder $query) use ($actor): void {
-                $query
-                    ->whereNull('sender_id')
-                    ->orWhere('sender_id', '!=', $actor->id);
-            })
-            ->when(
-                $lastReadMessage !== null,
-                fn (Builder $query) => $query->where(function (Builder $query) use ($participant, $lastReadMessage): void {
-                    $query
-                        ->where('created_at', '>', $lastReadMessage->created_at)
-                        ->orWhere(function (Builder $query) use ($participant, $lastReadMessage): void {
-                            $query
-                                ->where('created_at', $lastReadMessage->created_at)
-                                ->where('id', '>', $participant->last_read_message_id);
-                        });
-                }),
-                fn (Builder $query) => $query->when(
-                    $participant->last_read_at !== null,
-                    fn (Builder $query) => $query->where('created_at', '>', $participant->last_read_at)
-                )
-            )
-            ->count();
-    }
-
-    private function forgetUnreadCountCacheForConversation(Conversation $conversation): void
-    {
-        $conversation->participants()
-            ->with('user:id,public_id')
-            ->get()
-            ->each(function (ConversationParticipant $participant): void {
-                if ($participant->user?->public_id !== null) {
-                    $this->chatState->forgetUnreadCount($participant->user->public_id);
-                }
-            });
     }
 
     private function assertCanSendMessage(User $actor, Conversation $conversation): void
