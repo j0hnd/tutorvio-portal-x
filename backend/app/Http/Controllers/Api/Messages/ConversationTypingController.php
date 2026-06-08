@@ -6,34 +6,32 @@ use App\Events\Messages\ConversationTypingStateChanged;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\ChatRealtimeStateService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 class ConversationTypingController extends Controller
 {
+    public function __construct(private readonly ChatRealtimeStateService $chatState) {}
+
     public function start(Request $request, Conversation $conversation): JsonResponse
     {
         $actor = $request->user();
         $conversation = $this->visibleConversationFor($actor, $conversation);
         $this->assertCanSendTypingState($actor, $conversation);
 
-        $ttl = max(1, (int) config('chat.typing_indicator_ttl_seconds', 10));
-        $expiresAt = now()->addSeconds($ttl);
-
-        Cache::put($this->cacheKey($conversation, $actor), [
+        $state = $this->chatState->startTyping($conversation->public_id, $actor->public_id, [
             'conversation_id' => $conversation->public_id,
             'user_id' => $actor->public_id,
             'started_at' => now()->toISOString(),
-            'expires_at' => $expiresAt->toISOString(),
-        ], $expiresAt);
+        ]);
 
         ConversationTypingStateChanged::dispatch(
             $conversation,
             $actor,
             true,
-            $expiresAt->toISOString(),
+            $state['expires_at'],
         );
 
         return response()->json([
@@ -41,7 +39,7 @@ class ConversationTypingController extends Controller
                 'conversation_id' => $conversation->public_id,
                 'user_id' => $actor->public_id,
                 'is_typing' => true,
-                'expires_at' => $expiresAt->toISOString(),
+                'expires_at' => $state['expires_at'],
             ],
         ]);
     }
@@ -52,7 +50,7 @@ class ConversationTypingController extends Controller
         $conversation = $this->visibleConversationFor($actor, $conversation);
         $this->assertCanSendTypingState($actor, $conversation);
 
-        Cache::forget($this->cacheKey($conversation, $actor));
+        $this->chatState->stopTyping($conversation->public_id, $actor->public_id);
 
         ConversationTypingStateChanged::dispatch($conversation, $actor, false, null);
 
@@ -104,10 +102,5 @@ class ConversationTypingController extends Controller
         if (! $isActiveParticipant) {
             abort(403);
         }
-    }
-
-    private function cacheKey(Conversation $conversation, User $actor): string
-    {
-        return "conversation_typing:{$conversation->id}:{$actor->id}";
     }
 }

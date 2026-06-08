@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Events\Messages\ConversationTypingStateChanged;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\ChatRealtimeStateService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -42,7 +43,10 @@ class ConversationTypingApiTest extends TestCase
         $this->student = $this->userWithRole('student');
         $this->otherStudent = $this->userWithRole('student');
 
-        config(['chat.typing_indicator_ttl_seconds' => 5]);
+        config([
+            'chat.realtime.store' => 'array',
+            'chat.realtime.ttl.typing_seconds' => 5,
+        ]);
     }
 
     public function test_active_participant_can_start_and_stop_typing_without_persistent_records(): void
@@ -188,7 +192,7 @@ class ConversationTypingApiTest extends TestCase
 
     private function cacheKey(Conversation $conversation, User $actor): string
     {
-        return "conversation_typing:{$conversation->id}:{$actor->id}";
+        return app(ChatRealtimeStateService::class)->typingKey($conversation->public_id, $actor->public_id);
     }
 
     private function verifyBroadcastChannelAccess(User $actor, Conversation $conversation): mixed
