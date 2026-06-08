@@ -945,6 +945,59 @@ use OpenApi\Attributes as OA;
         new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
     ]
 )]
+#[OA\Get(
+    path: '/conversations/{conversation}/typing',
+    operationId: 'communicationConversationTypingIndex',
+    summary: 'List current internal chat typing users',
+    description: 'Returns active conversation participants with unexpired typing indicators. Access: active participant with `messages.view` or `messages.manage` in an active conversation. Redis/cache failures return an empty typing list instead of breaking chat APIs.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Current typing users.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'typing_users' => [['user_id' => 'usr_01J0STUDENT000000000000001', 'name' => 'Alex Student', 'is_typing' => true, 'started_at' => '2026-06-01T09:10:00Z', 'expires_at' => '2026-06-01T09:10:10Z']]]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+    ]
+)]
+#[OA\Post(
+    path: '/conversations/{conversation}/typing',
+    operationId: 'communicationConversationTypingStore',
+    summary: 'Start internal chat typing indicator',
+    description: 'Alias for `/conversations/{conversation}/typing/start`. Access: active participant with `messages.view` or `messages.manage` in an active conversation. The indicator is cached for `chat.typing_indicator_ttl_seconds` seconds, default 10.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Typing started.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'user_id' => 'usr_01J0STUDENT000000000000001', 'is_typing' => true, 'expires_at' => '2026-06-01T09:10:10Z']])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
+#[OA\Delete(
+    path: '/conversations/{conversation}/typing',
+    operationId: 'communicationConversationTypingDestroy',
+    summary: 'Stop internal chat typing indicator',
+    description: 'Alias for `/conversations/{conversation}/typing/stop`. Access rules match typing start. Clears the actor typing cache key and broadcasts a stopped state.',
+    security: [['sanctum' => []]],
+    tags: ['Communication'],
+    parameters: [
+        new OA\Parameter(name: 'conversation', in: 'path', required: true, description: 'Conversation public ID.', schema: new OA\Schema(type: 'string'), example: 'cnv_01J0CHAT000000000000001'),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Typing stopped.', content: new OA\JsonContent(type: 'object', example: ['data' => ['conversation_id' => 'cnv_01J0CHAT000000000000001', 'user_id' => 'usr_01J0STUDENT000000000000001', 'is_typing' => false, 'expires_at' => null]])),
+        new OA\Response(ref: '#/components/responses/UnauthorizedError', response: 401),
+        new OA\Response(ref: '#/components/responses/ForbiddenError', response: 403),
+        new OA\Response(response: 404, description: 'Conversation is not visible to the authenticated user.'),
+        new OA\Response(ref: '#/components/responses/TooManyRequests', response: 429),
+    ]
+)]
 #[OA\Post(
     path: '/conversations/{conversation}/typing/start',
     operationId: 'communicationConversationTypingStart',

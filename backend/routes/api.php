@@ -144,6 +144,11 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
             ->middleware('throttle:api-action');
+        Route::get('/conversations/{conversation:public_id}/typing', [ConversationTypingController::class, 'index']);
+        Route::post('/conversations/{conversation:public_id}/typing', [ConversationTypingController::class, 'start'])
+            ->middleware('throttle:api-action');
+        Route::delete('/conversations/{conversation:public_id}/typing', [ConversationTypingController::class, 'stop'])
+            ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/typing/start', [ConversationTypingController::class, 'start'])
             ->middleware('throttle:api-action');
         Route::post('/conversations/{conversation:public_id}/typing/stop', [ConversationTypingController::class, 'stop'])

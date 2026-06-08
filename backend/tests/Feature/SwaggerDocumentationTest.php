@@ -91,6 +91,7 @@ class SwaggerDocumentationTest extends TestCase
             '/conversations/{conversation}/messages/read',
             '/conversations/{conversation}/messages/{message}/attachments/{conversationAttachment}/download',
             '/conversations/{conversation}/messages/{message}/pin',
+            '/conversations/{conversation}/typing',
             '/conversations/{conversation}/typing/start',
             '/conversations/{conversation}/escalations',
             '/conversations/{conversation}/messages/{message}/escalations',
@@ -117,6 +118,9 @@ class SwaggerDocumentationTest extends TestCase
         $this->assertArrayHasKey('post', $paths['/conversations']);
         $this->assertArrayHasKey('post', $paths['/conversations/{conversation}/messages']);
         $this->assertArrayHasKey('delete', $paths['/conversations/{conversation}/messages/{message}/pin']);
+        $this->assertArrayHasKey('get', $paths['/conversations/{conversation}/typing']);
+        $this->assertArrayHasKey('post', $paths['/conversations/{conversation}/typing']);
+        $this->assertArrayHasKey('delete', $paths['/conversations/{conversation}/typing']);
         $this->assertArrayHasKey('post', $paths['/conversations/{conversation}/typing/stop']);
         $this->assertArrayHasKey('post', $paths['/admin/message-templates']);
         $this->assertArrayHasKey('patch', $paths['/admin/chat-escalations/{conversationEscalation}/status']);

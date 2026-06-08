@@ -17,6 +17,49 @@ class ConversationTypingController extends Controller
 {
     public function __construct(private readonly ChatRealtimeStateService $chatState) {}
 
+    public function index(Request $request, Conversation $conversation): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $this->assertCanSendTypingState($actor, $conversation);
+
+        $typingUsers = $conversation->participants()
+            ->with(['user:id,public_id,name,status'])
+            ->whereNull('archived_at')
+            ->whereNull('deleted_at')
+            ->get()
+            ->map(function ($participant) use ($conversation): ?array {
+                $user = $participant->user;
+
+                if (! $user || $user->status !== User::STATUS_ACTIVE) {
+                    return null;
+                }
+
+                $state = $this->chatState->typingState($conversation->public_id, $user->public_id);
+
+                if (! $state) {
+                    return null;
+                }
+
+                return [
+                    'user_id' => $user->public_id,
+                    'name' => $user->name,
+                    'is_typing' => true,
+                    'started_at' => $state['started_at'] ?? null,
+                    'expires_at' => $state['expires_at'] ?? null,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'conversation_id' => $conversation->public_id,
+                'typing_users' => $typingUsers,
+            ],
+        ]);
+    }
+
     public function start(Request $request, Conversation $conversation): JsonResponse
     {
         $actor = $request->user();
@@ -78,25 +121,7 @@ class ConversationTypingController extends Controller
 
     private function assertCanSendTypingState(User $actor, Conversation $conversation): void
     {
-        if ($actor->status !== User::STATUS_ACTIVE) {
-            abort(403);
-        }
-
-        if (! ($actor->can('messages.view') || $actor->can('messages.manage'))) {
-            abort(403);
-        }
-
-        if ($conversation->status !== Conversation::STATUS_ACTIVE) {
-            abort(403, 'Closed or archived conversations cannot receive typing events.');
-        }
-
-        $isActiveParticipant = $conversation->participants()
-            ->where('user_id', $actor->id)
-            ->whereNull('archived_at')
-            ->whereNull('deleted_at')
-            ->exists();
-
-        if (! $isActiveParticipant) {
+        if (! $actor->can('sendMessage', $conversation)) {
             abort(403);
         }
     }

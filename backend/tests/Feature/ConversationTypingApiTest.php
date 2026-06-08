@@ -59,7 +59,7 @@ class ConversationTypingApiTest extends TestCase
 
         Sanctum::actingAs($this->student);
 
-        $response = $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing/start")
+        $response = $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing")
             ->assertOk()
             ->assertJsonPath('data.conversation_id', $conversation->public_id)
             ->assertJsonPath('data.user_id', $this->student->public_id)
@@ -85,7 +85,7 @@ class ConversationTypingApiTest extends TestCase
         $this->travel(6)->seconds();
         $this->assertFalse(Cache::has($this->cacheKey($conversation, $this->student)));
 
-        $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing/stop")
+        $this->deleteJson("/api/v1/conversations/{$conversation->public_id}/typing")
             ->assertOk()
             ->assertJsonPath('data.conversation_id', $conversation->public_id)
             ->assertJsonPath('data.user_id', $this->student->public_id)
@@ -99,6 +99,48 @@ class ConversationTypingApiTest extends TestCase
                 && $event->isTyping === false
                 && $event->expiresAt === null
         );
+    }
+
+    public function test_authorized_participant_can_get_current_typing_users(): void
+    {
+        Event::fake([ConversationTypingStateChanged::class]);
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Sanctum::actingAs($this->student);
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk();
+
+        Sanctum::actingAs($this->teacher);
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk()
+            ->assertJsonPath('data.conversation_id', $conversation->public_id)
+            ->assertJsonPath('data.typing_users.0.user_id', $this->student->public_id)
+            ->assertJsonPath('data.typing_users.0.name', $this->student->name)
+            ->assertJsonPath('data.typing_users.0.is_typing', true)
+            ->assertJsonMissingPath('data.typing_users.1');
+    }
+
+    public function test_stopped_typing_clears_redis_state_before_ttl_expires(): void
+    {
+        Event::fake([ConversationTypingStateChanged::class]);
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk();
+        $this->assertTrue(Cache::has($this->cacheKey($conversation, $this->student)));
+
+        $this->deleteJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk()
+            ->assertJsonPath('data.is_typing', false);
+
+        $this->assertFalse(Cache::has($this->cacheKey($conversation, $this->student)));
+
+        Sanctum::actingAs($this->teacher);
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk()
+            ->assertJsonPath('data.typing_users', []);
     }
 
     public function test_only_active_conversation_participants_can_send_typing_events(): void
@@ -131,6 +173,30 @@ class ConversationTypingApiTest extends TestCase
             ->assertForbidden();
 
         Event::assertNotDispatched(ConversationTypingStateChanged::class);
+    }
+
+    public function test_only_active_conversation_participants_can_view_typing_state(): void
+    {
+        Event::fake([ConversationTypingStateChanged::class]);
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Sanctum::actingAs($this->student);
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk();
+
+        Sanctum::actingAs($this->otherStudent);
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertNotFound();
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertForbidden();
+
+        $conversation->participants()->where('user_id', $this->teacher->id)->update(['archived_at' => now()]);
+
+        Sanctum::actingAs($this->teacher);
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertNotFound();
     }
 
     public function test_typing_broadcast_channel_authorizes_active_participants_only(): void
@@ -170,6 +236,11 @@ class ConversationTypingApiTest extends TestCase
             ->assertJsonPath('data.is_typing', true);
 
         $this->assertNull(app(ChatRealtimeStateService::class)->typingState($conversation->public_id, $this->student->public_id));
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/typing")
+            ->assertOk()
+            ->assertJsonPath('data.conversation_id', $conversation->public_id)
+            ->assertJsonPath('data.typing_users', []);
 
         $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing/stop")
             ->assertOk()
