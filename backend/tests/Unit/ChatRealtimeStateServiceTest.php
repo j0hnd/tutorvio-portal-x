@@ -3,7 +3,10 @@
 namespace Tests\Unit;
 
 use App\Services\ChatRealtimeStateService;
+use Illuminate\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Cache\Store as CacheStore;
 use Illuminate\Support\Facades\Cache;
+use RuntimeException;
 use Tests\TestCase;
 
 class ChatRealtimeStateServiceTest extends TestCase
@@ -78,5 +81,99 @@ class ChatRealtimeStateServiceTest extends TestCase
         $this->assertFalse($service->setActiveConversation('usr_456', 'cnv_123'));
         $this->assertFalse($service->acquireDuplicateReminderLock('cnv_123', 'lesson-reminder'));
         $this->assertNull($service->typingState('cnv_123', 'usr_456'));
+    }
+
+    public function test_redis_backed_realtime_failures_are_best_effort(): void
+    {
+        $this->useFailingChatCacheStore();
+
+        $service = app(ChatRealtimeStateService::class);
+
+        $typing = $service->startTyping('cnv_123', 'usr_456', []);
+        $this->assertSame('cnv_123', $typing['conversation_id']);
+        $this->assertNull($service->typingState('cnv_123', 'usr_456'));
+        $this->assertFalse($service->stopTyping('cnv_123', 'usr_456'));
+
+        $presence = $service->setPresence('usr_456', 'online');
+        $this->assertSame('online', $presence['state']);
+        $this->assertNull($service->presence('usr_456'));
+
+        $this->assertFalse($service->setActiveConversation('usr_456', 'cnv_123'));
+        $this->assertSame(7, $service->rememberUnreadCount('usr_456', fn () => 7));
+        $this->assertFalse($service->forgetUnreadCount('usr_456'));
+        $this->assertFalse($service->recordDeliveryStatus('msg_123', 'usr_456', 'delivered'));
+        $this->assertNull($service->deliveryStatus('msg_123', 'usr_456'));
+        $this->assertFalse($service->acquireDuplicateReminderLock('cnv_123', 'lesson-reminder'));
+
+        config(['cache.default' => 'chat_failing']);
+        $service->clearRateLimit('typing', 'usr_456');
+
+        $this->addToAssertionCount(1);
+    }
+
+    private function useFailingChatCacheStore(): void
+    {
+        Cache::extend('chat_failing', fn (): CacheRepository => new CacheRepository(new class implements CacheStore
+        {
+            public function get($key): mixed
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function many(array $keys): array
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function put($key, $value, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function putMany(array $values, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function increment($key, $value = 1): int|bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function decrement($key, $value = 1): int|bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function forever($key, $value): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function touch($key, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function forget($key): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function flush(): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function getPrefix(): string
+            {
+                return '';
+            }
+        }));
+
+        config([
+            'cache.stores.chat_failing' => ['driver' => 'chat_failing'],
+            'chat.realtime.store' => 'chat_failing',
+        ]);
     }
 }

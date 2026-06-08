@@ -7,12 +7,15 @@ use App\Models\Conversation;
 use App\Models\User;
 use App\Services\ChatRealtimeStateService;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Cache\Store as CacheStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tests\TestCase;
@@ -153,6 +156,26 @@ class ConversationTypingApiTest extends TestCase
         }
     }
 
+    public function test_typing_state_is_skipped_when_realtime_cache_is_unavailable(): void
+    {
+        $this->useFailingChatCacheStore();
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Sanctum::actingAs($this->student);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing/start")
+            ->assertOk()
+            ->assertJsonPath('data.conversation_id', $conversation->public_id)
+            ->assertJsonPath('data.user_id', $this->student->public_id)
+            ->assertJsonPath('data.is_typing', true);
+
+        $this->assertNull(app(ChatRealtimeStateService::class)->typingState($conversation->public_id, $this->student->public_id));
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/typing/stop")
+            ->assertOk()
+            ->assertJsonPath('data.is_typing', false);
+    }
+
     private function userWithRole(string $role, string $status = User::STATUS_ACTIVE): User
     {
         $user = User::factory()->create(['status' => $status]);
@@ -205,5 +228,71 @@ class ConversationTypingApiTest extends TestCase
         $verifier->setAccessible(true);
 
         return $verifier->invoke($broadcaster, $request, 'conversations.'.$conversation->public_id);
+    }
+
+    private function useFailingChatCacheStore(): void
+    {
+        Cache::extend('chat_failing', fn (): CacheRepository => new CacheRepository(new class implements CacheStore
+        {
+            public function get($key): mixed
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function many(array $keys): array
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function put($key, $value, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function putMany(array $values, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function increment($key, $value = 1): int|bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function decrement($key, $value = 1): int|bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function forever($key, $value): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function touch($key, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function forget($key): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function flush(): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function getPrefix(): string
+            {
+                return '';
+            }
+        }));
+
+        config([
+            'cache.stores.chat_failing' => ['driver' => 'chat_failing'],
+            'chat.realtime.store' => 'chat_failing',
+        ]);
     }
 }

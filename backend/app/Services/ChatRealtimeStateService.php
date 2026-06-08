@@ -210,7 +210,13 @@ class ChatRealtimeStateService
 
     public function clearRateLimit(string $name, string|int $identifier): void
     {
-        RateLimiter::clear($this->rateLimitKey($name, $identifier));
+        try {
+            RateLimiter::clear($this->rateLimitKey($name, $identifier));
+        } catch (Throwable $exception) {
+            $this->logFailure('Chat rate limit clear failed.', $exception, [
+                'cache_area' => 'chat_rate_limit',
+            ]);
+        }
     }
 
     public function typingKey(string|int $conversationId, string|int $userId): string

@@ -7,10 +7,14 @@ use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Cache\Store as CacheStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -389,6 +393,51 @@ class ConversationMessageApiTest extends TestCase
             ->assertJsonPath('data.sender_id', $staff->public_id);
     }
 
+    public function test_core_chat_message_apis_use_database_when_realtime_cache_is_unavailable(): void
+    {
+        $this->useFailingChatCacheStore();
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+
+        Sanctum::actingAs($this->student);
+
+        $response = $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages", [
+            'body' => 'Cache should not block this attachment.',
+            'files' => [
+                UploadedFile::fake()->create('worksheet.pdf', 32, 'application/pdf'),
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.body', 'Cache should not block this attachment.')
+            ->assertJsonPath('data.attachments.0.original_filename', 'worksheet.pdf');
+
+        $messagePublicId = $response->json('data.id');
+        $attachment = ConversationAttachment::query()->where('type', ConversationAttachment::TYPE_FILE)->firstOrFail();
+        Storage::disk('local')->assertExists($attachment->file_path);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $messagePublicId)
+            ->assertJsonPath('data.0.attachments.0.id', $attachment->public_id);
+
+        $teacherMessage = $this->createMessage($conversation, $this->teacher, 'Unread from teacher', now()->addMinute());
+
+        $this->getJson('/api/v1/conversations/unread-count')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/read", [
+            'message_id' => $teacherMessage->public_id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->assertDatabaseHas('conversation_participants', [
+            'conversation_id' => $conversation->id,
+            'user_id' => $this->student->id,
+            'last_read_message_id' => $teacherMessage->id,
+        ]);
+    }
+
     private function userWithRole(string $role, string $status = User::STATUS_ACTIVE): User
     {
         $user = User::factory()->create(['status' => $status]);
@@ -435,6 +484,72 @@ class ConversationMessageApiTest extends TestCase
             'status' => ConversationMessage::STATUS_SENT,
             'created_at' => $createdAt,
             'updated_at' => $createdAt,
+        ]);
+    }
+
+    private function useFailingChatCacheStore(): void
+    {
+        Cache::extend('chat_failing', fn (): CacheRepository => new CacheRepository(new class implements CacheStore
+        {
+            public function get($key): mixed
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function many(array $keys): array
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function put($key, $value, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function putMany(array $values, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function increment($key, $value = 1): int|bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function decrement($key, $value = 1): int|bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function forever($key, $value): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function touch($key, $seconds): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function forget($key): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function flush(): bool
+            {
+                throw new RuntimeException('Redis unavailable');
+            }
+
+            public function getPrefix(): string
+            {
+                return '';
+            }
+        }));
+
+        config([
+            'cache.stores.chat_failing' => ['driver' => 'chat_failing'],
+            'chat.realtime.store' => 'chat_failing',
         ]);
     }
 }

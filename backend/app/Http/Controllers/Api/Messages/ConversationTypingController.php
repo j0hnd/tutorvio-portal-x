@@ -10,6 +10,8 @@ use App\Services\ChatRealtimeStateService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ConversationTypingController extends Controller
 {
@@ -27,12 +29,7 @@ class ConversationTypingController extends Controller
             'started_at' => now()->toISOString(),
         ]);
 
-        ConversationTypingStateChanged::dispatch(
-            $conversation,
-            $actor,
-            true,
-            $state['expires_at'],
-        );
+        $this->dispatchTypingState($conversation, $actor, true, $state['expires_at']);
 
         return response()->json([
             'data' => [
@@ -52,7 +49,7 @@ class ConversationTypingController extends Controller
 
         $this->chatState->stopTyping($conversation->public_id, $actor->public_id);
 
-        ConversationTypingStateChanged::dispatch($conversation, $actor, false, null);
+        $this->dispatchTypingState($conversation, $actor, false, null);
 
         return response()->json([
             'data' => [
@@ -101,6 +98,18 @@ class ConversationTypingController extends Controller
 
         if (! $isActiveParticipant) {
             abort(403);
+        }
+    }
+
+    private function dispatchTypingState(Conversation $conversation, User $actor, bool $isTyping, ?string $expiresAt): void
+    {
+        try {
+            ConversationTypingStateChanged::dispatch($conversation, $actor, $isTyping, $expiresAt);
+        } catch (Throwable $exception) {
+            Log::warning('Chat typing broadcast failed; skipping realtime event.', [
+                'realtime_area' => 'chat_typing_broadcast',
+                'failure_type' => $exception::class,
+            ]);
         }
     }
 }
