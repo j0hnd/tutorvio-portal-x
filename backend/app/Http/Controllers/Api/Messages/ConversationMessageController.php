@@ -12,6 +12,7 @@ use App\Models\ConversationMessagePin;
 use App\Models\ConversationParticipant;
 use App\Models\User;
 use App\Services\ChatMessageEventPublisher;
+use App\Services\ChatRealtimeStateService;
 use App\Services\ChatUnreadCountService;
 use App\Services\ConversationAttachmentStorage;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +32,7 @@ class ConversationMessageController extends Controller
         private readonly ConversationAttachmentStorage $storage,
         private readonly ChatUnreadCountService $unreadCounts,
         private readonly ChatMessageEventPublisher $events,
+        private readonly ChatRealtimeStateService $realtimeState,
     ) {}
 
     /**
@@ -160,6 +162,7 @@ class ConversationMessageController extends Controller
 
         $this->unreadCounts->forgetForConversation($conversation);
         $message->load(['attachmentRecords', 'conversation.participants.user:id,public_id,status', 'sender:id,public_id,name,email']);
+        $this->realtimeState->recordDeliveryStatus($message->public_id, $actor->public_id, 'sent');
         $this->events->publishMessageSent($message, $actor);
         $this->events->publishAttachmentAdded($message, $message->attachmentRecords, $actor);
         $this->events->publishConversationUpdated($conversation->refresh(), $actor, 'last_message', [
@@ -168,6 +171,88 @@ class ConversationMessageController extends Controller
 
         return response()->json([
             'data' => new ConversationMessageResource($message->load(['attachmentRecords', 'conversation:id,public_id', 'sender:id,public_id,name,email'])),
+        ], 201);
+    }
+
+    /**
+     * Return temporary realtime delivery statuses for a visible message.
+     */
+    public function deliveryStatus(Request $request, Conversation $conversation, ConversationMessage $message): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $message = $this->visibleMessageFor($conversation, $message);
+        $this->activeParticipantFor($conversation, $actor);
+
+        $statuses = $conversation->participants()
+            ->whereNull('archived_at')
+            ->whereNull('deleted_at')
+            ->with('user:id,public_id')
+            ->get()
+            ->map(function (ConversationParticipant $participant) use ($message): ?array {
+                $recipientPublicId = $participant->user?->public_id;
+
+                if ($recipientPublicId === null) {
+                    return null;
+                }
+
+                $status = $this->realtimeState->deliveryStatus($message->public_id, $recipientPublicId);
+
+                if (! is_array($status)) {
+                    return null;
+                }
+
+                return [
+                    'recipient_id' => $recipientPublicId,
+                    'status' => $status['status'] ?? null,
+                    'metadata' => $status['metadata'] ?? [],
+                    'recorded_at' => $status['recorded_at'] ?? null,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return response()->json([
+            'data' => [
+                'conversation_id' => $conversation->public_id,
+                'message_id' => $message->public_id,
+                'statuses' => $statuses,
+            ],
+        ]);
+    }
+
+    /**
+     * Store the actor participant's temporary realtime delivery status.
+     */
+    public function recordDeliveryStatus(Request $request, Conversation $conversation, ConversationMessage $message): JsonResponse
+    {
+        $actor = $request->user();
+        $conversation = $this->visibleConversationFor($actor, $conversation);
+        $message = $this->visibleMessageFor($conversation, $message);
+        $this->activeParticipantFor($conversation, $actor);
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', Rule::in(['sent', 'delivered', 'seen', 'failed'])],
+            'metadata' => ['sometimes', 'array'],
+        ]);
+
+        $stored = $this->realtimeState->recordDeliveryStatus(
+            $message->public_id,
+            $actor->public_id,
+            $validated['status'],
+            $validated['metadata'] ?? []
+        );
+
+        return response()->json([
+            'data' => [
+                'conversation_id' => $conversation->public_id,
+                'message_id' => $message->public_id,
+                'recipient_id' => $actor->public_id,
+                'status' => $validated['status'],
+                'metadata' => $validated['metadata'] ?? [],
+                'stored' => $stored,
+            ],
         ], 201);
     }
 

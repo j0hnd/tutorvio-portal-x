@@ -12,6 +12,9 @@ use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Cache\Store as CacheStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
@@ -36,6 +39,11 @@ class ConversationMessageApiTest extends TestCase
     {
         parent::setUp();
 
+        $this->withoutMiddleware([
+            ThrottleRequests::class,
+            ThrottleRequestsWithRedis::class,
+        ]);
+
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->seed(RolesAndPermissionsSeeder::class);
 
@@ -49,6 +57,7 @@ class ConversationMessageApiTest extends TestCase
             'chat.realtime.store' => 'array',
             'chat.realtime.namespace' => 'tvio:chat',
             'chat.realtime.environment' => 'testing',
+            'chat.realtime.ttl.delivery_status_seconds' => 30,
             'chat_attachments.disk' => 'local',
             'chat_attachments.directory' => 'chat-attachments',
             'chat_attachments.max_upload_kilobytes' => 1024,
@@ -58,6 +67,13 @@ class ConversationMessageApiTest extends TestCase
 
         Cache::store('array')->flush();
         Storage::fake('local');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_active_participant_can_send_and_read_conversation_messages(): void
@@ -370,6 +386,117 @@ class ConversationMessageApiTest extends TestCase
             'conversation_id' => $conversation->id,
             'sender_id' => $this->student->id,
         ]);
+    }
+
+    public function test_delivery_status_is_stored_with_ttl_for_authorized_participant(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->student, 'Realtime acknowledgement', now());
+        $chatState = app(ChatRealtimeStateService::class);
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status", [
+            'status' => 'delivered',
+            'metadata' => ['transport' => 'websocket'],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.conversation_id', $conversation->public_id)
+            ->assertJsonPath('data.message_id', $message->public_id)
+            ->assertJsonPath('data.recipient_id', $this->teacher->public_id)
+            ->assertJsonPath('data.status', 'delivered')
+            ->assertJsonPath('data.stored', true);
+
+        $key = $chatState->deliveryStatusKey($message->public_id, $this->teacher->public_id);
+        $stored = Cache::store('array')->getStore()->all()[$key] ?? null;
+
+        $this->assertIsArray($stored);
+        $this->assertSame('delivered', $stored['value']['status']);
+        $this->assertSame('websocket', $stored['value']['metadata']['transport']);
+        $this->assertGreaterThan(Carbon::now()->getPreciseTimestamp(3) / 1000, $stored['expiresAt']);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status")
+            ->assertOk()
+            ->assertJsonPath('data.statuses.0.recipient_id', $this->teacher->public_id)
+            ->assertJsonPath('data.statuses.0.status', 'delivered')
+            ->assertJsonPath('data.statuses.0.metadata.transport', 'websocket');
+    }
+
+    public function test_delivery_status_expires_without_changing_persistent_message_state(): void
+    {
+        config(['chat.realtime.ttl.delivery_status_seconds' => 1]);
+
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->student, 'Short-lived acknowledgement', now());
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status", [
+            'status' => 'seen',
+        ])->assertCreated();
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status")
+            ->assertOk()
+            ->assertJsonPath('data.statuses.0.status', 'seen');
+
+        Carbon::setTestNow(now()->addSeconds(2));
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status")
+            ->assertOk()
+            ->assertJsonPath('data.statuses', []);
+
+        $this->assertDatabaseHas('conversation_messages', [
+            'id' => $message->id,
+            'status' => ConversationMessage::STATUS_SENT,
+        ]);
+    }
+
+    public function test_unauthorized_user_cannot_read_delivery_status(): void
+    {
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->student, 'Private delivery status', now());
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status", [
+            'status' => 'delivered',
+        ])->assertCreated();
+
+        Sanctum::actingAs($this->otherStudent);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status")
+            ->assertNotFound();
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status")
+            ->assertNotFound();
+    }
+
+    public function test_delivery_status_redis_unavailable_fallback_keeps_endpoint_best_effort(): void
+    {
+        $this->useFailingChatCacheStore();
+
+        $conversation = $this->createConversation([$this->student, $this->teacher]);
+        $message = $this->createMessage($conversation, $this->student, 'Best effort delivery status', now());
+
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status", [
+            'status' => 'failed',
+            'metadata' => ['reason' => 'socket_timeout'],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.stored', false);
+
+        Sanctum::actingAs($this->student);
+
+        $this->getJson("/api/v1/conversations/{$conversation->public_id}/messages/{$message->public_id}/delivery-status")
+            ->assertOk()
+            ->assertJsonPath('data.statuses', []);
     }
 
     public function test_only_active_participants_can_mark_conversation_messages_read(): void
