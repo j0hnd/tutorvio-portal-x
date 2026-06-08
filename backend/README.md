@@ -85,11 +85,14 @@ Redis environment variables:
 
 ### Queue Worker
 
-Run a queue worker whenever background jobs should be processed. With the Docker Redis service and `QUEUE_CONNECTION=redis`:
+The Docker stack includes a dedicated `queue` service that runs the Redis queue worker:
 
 ```bash
-docker compose exec backend php artisan queue:work redis --queue=default --tries=3
+docker compose up -d queue
+docker compose logs -f queue
 ```
+
+`docker compose up -d` starts this worker with the rest of the stack. The service runs `php artisan queue:work redis --queue=default --tries=3` and consumes jobs from the Docker Redis service.
 
 For a host PHP runtime from `backend/`:
 
@@ -97,7 +100,7 @@ For a host PHP runtime from `backend/`:
 php artisan queue:work redis --queue=default --tries=3
 ```
 
-Use the same commands with `database` instead of `redis` if the local `.env` keeps `QUEUE_CONNECTION=database`. If `REDIS_QUEUE` is changed from `default`, pass that queue name to `--queue`.
+Use `database` instead of `redis` if the local `.env` keeps `QUEUE_CONNECTION=database`. If `REDIS_QUEUE` is changed from `default`, update the Compose service command and pass that queue name to `--queue`.
 
 ## Common Commands
 

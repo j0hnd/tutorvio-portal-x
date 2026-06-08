@@ -17,6 +17,30 @@ services:
     depends_on:
       - mariadb
 
+  queue:
+    build:
+      context: ./backend
+    command: php artisan queue:work redis --queue=default --tries=3
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      - APP_ENV=local
+      - DB_CONNECTION=mysql
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_DATABASE=tutorvio
+      - DB_USERNAME=tutorvio
+      - DB_PASSWORD=tutorvio_password
+      - QUEUE_CONNECTION=redis
+      - REDIS_CLIENT=phpredis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_CONNECTION=queue
+      - REDIS_QUEUE=default
+    depends_on:
+      - mariadb
+      - redis
+
   frontend:
     build:
       context: ./frontend
