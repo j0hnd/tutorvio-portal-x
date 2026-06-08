@@ -102,6 +102,16 @@ class CourseProgram extends Model
     }
 
     /**
+     * Get the conversations one-to-many relationship for this course program.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    /**
      * Get the created by inverse relationship for this course program.
      *
      * This admin/internal relationship resolves one User model.

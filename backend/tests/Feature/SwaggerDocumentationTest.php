@@ -83,6 +83,21 @@ class SwaggerDocumentationTest extends TestCase
             '/academic-records',
             '/academic-records/{academicRecord}',
             '/academic-records/{academicRecord}/archive',
+            '/conversations',
+            '/conversations/unread-count',
+            '/conversations/{conversation}',
+            '/conversations/{conversation}/messages',
+            '/conversations/{conversation}/read',
+            '/conversations/{conversation}/messages/read',
+            '/conversations/{conversation}/messages/{message}/attachments/{conversationAttachment}/download',
+            '/conversations/{conversation}/messages/{message}/pin',
+            '/conversations/{conversation}/typing/start',
+            '/conversations/{conversation}/escalations',
+            '/conversations/{conversation}/messages/{message}/escalations',
+            '/message-templates',
+            '/admin/message-templates',
+            '/admin/chat-escalations',
+            '/admin/chat-escalations/{conversationEscalation}/status',
         ] as $path) {
             $this->assertArrayHasKey($path, $paths, "Expected Swagger path [{$path}] to be documented.");
         }
@@ -98,6 +113,13 @@ class SwaggerDocumentationTest extends TestCase
         $this->assertArrayHasKey('post', $paths['/lesson-notes']);
         $this->assertArrayHasKey('get', $paths['/lesson-notes/{lessonNote}']);
         $this->assertArrayHasKey('patch', $paths['/lesson-notes/{lessonNote}']);
+        $this->assertArrayHasKey('get', $paths['/conversations']);
+        $this->assertArrayHasKey('post', $paths['/conversations']);
+        $this->assertArrayHasKey('post', $paths['/conversations/{conversation}/messages']);
+        $this->assertArrayHasKey('delete', $paths['/conversations/{conversation}/messages/{message}/pin']);
+        $this->assertArrayHasKey('post', $paths['/conversations/{conversation}/typing/stop']);
+        $this->assertArrayHasKey('post', $paths['/admin/message-templates']);
+        $this->assertArrayHasKey('patch', $paths['/admin/chat-escalations/{conversationEscalation}/status']);
     }
 
     /**

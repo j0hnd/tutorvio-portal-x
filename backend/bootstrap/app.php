@@ -21,6 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(__DIR__.'/../routes/channels.php', [
+        'middleware' => ['api', 'auth:sanctum'],
+        'prefix' => 'api/v1',
+    ])
     ->withCommands()
     ->withMiddleware(function (Middleware $middleware): void {
         // Use Laravel's Redis throttle middleware only when the limiter/cache

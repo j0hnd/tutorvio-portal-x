@@ -632,6 +632,80 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the student conversations one-to-many relationship for this user.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     */
+    public function studentConversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'student_id');
+    }
+
+    /**
+     * Get the teacher conversations one-to-many relationship for this user.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     */
+    public function teacherConversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'teacher_id');
+    }
+
+    /**
+     * Get the created conversations one-to-many relationship for this user.
+     *
+     * This admin/internal relationship resolves multiple Conversation models.
+     */
+    public function createdConversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'created_by');
+    }
+
+    /**
+     * Get the last-message conversations one-to-many relationship for this user.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     */
+    public function lastMessageConversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'last_message_by');
+    }
+
+    /**
+     * Get the conversation participants one-to-many relationship for this user.
+     *
+     * This user-facing relationship resolves multiple ConversationParticipant models.
+     */
+    public function conversationParticipants(): HasMany
+    {
+        return $this->hasMany(ConversationParticipant::class);
+    }
+
+    /**
+     * Get the conversations many-to-many relationship for this user.
+     *
+     * This user-facing relationship resolves multiple Conversation models.
+     * Important query filters: pivot deleted_at.
+     */
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_participants')
+            ->withPivot([
+                'participant_role',
+                'participant_role_snapshot',
+                'participant_roles_snapshot',
+                'joined_at',
+                'last_read_at',
+                'muted_at',
+                'archived_at',
+                'metadata',
+                'deleted_at',
+            ])
+            ->wherePivotNull('deleted_at')
+            ->withTimestamps();
+    }
+
+    /**
      * Get the audit logs one-to-many relationship for this user.
      *
      * This admin/internal relationship resolves multiple AuditLog models.

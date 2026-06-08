@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
             'activated_at' => now(),
         ])->assignRole(Role::findByName('admin', 'web'));
 
+        $this->call(MessageTemplateSeeder::class);
+
         User::query()->firstOrCreate([
             'email' => 'test@example.com',
         ], [

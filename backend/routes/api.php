@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Admin\FormTemplateController as AdminFormTemplateCo
 use App\Http\Controllers\Api\Admin\HomeworkSummaryController;
 use App\Http\Controllers\Api\Admin\IssueReportController as AdminIssueReportController;
 use App\Http\Controllers\Api\Admin\LessonCompletionReportController;
+use App\Http\Controllers\Api\Admin\Messages\MessageTemplateController as AdminMessageTemplateController;
 use App\Http\Controllers\Api\Admin\MissedClassReportController;
 use App\Http\Controllers\Api\Admin\PackageUsageReportController;
 use App\Http\Controllers\Api\Admin\PayoutPeriodController;
@@ -48,6 +49,11 @@ use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LessonJoinController;
 use App\Http\Controllers\Api\LessonNoteController;
 use App\Http\Controllers\Api\LessonRecordController;
+use App\Http\Controllers\Api\Messages\ConversationController;
+use App\Http\Controllers\Api\Messages\ConversationEscalationController;
+use App\Http\Controllers\Api\Messages\ConversationMessageController;
+use App\Http\Controllers\Api\Messages\ConversationTypingController;
+use App\Http\Controllers\Api\Messages\MessageTemplateController;
 use App\Http\Controllers\Api\Messages\MessageThreadController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\PortalMetadataController;
@@ -119,6 +125,37 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/{notification:public_id}/read', [NotificationController::class, 'markRead'])
             ->middleware('throttle:api-action');
         Route::get('/message-threads/unread-count', [MessageThreadController::class, 'unreadCount']);
+        Route::get('/message-templates', [MessageTemplateController::class, 'index']);
+        Route::get('/message-templates/{messageTemplate:public_id}', [MessageTemplateController::class, 'show']);
+        Route::get('/conversations/unread-count', [ConversationMessageController::class, 'unreadCount']);
+        Route::get('/conversations', [ConversationController::class, 'index']);
+        Route::post('/conversations', [ConversationController::class, 'store'])
+            ->middleware('throttle:api-action');
+        Route::get('/conversations/{conversation:public_id}', [ConversationController::class, 'show']);
+        Route::get('/conversations/{conversation:public_id}/pinned-messages', [ConversationMessageController::class, 'pinned']);
+        Route::get('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'index']);
+        Route::get('/conversations/{conversation:public_id}/messages/{message:public_id}/attachments/{conversationAttachment:public_id}/download', [ConversationMessageController::class, 'download'])
+            ->middleware('throttle:api-download');
+        Route::get('/conversations/{conversation:public_id}/messages/{message:public_id}/attachments/{conversationAttachment:public_id}/preview', [ConversationMessageController::class, 'preview'])
+            ->middleware('throttle:api-download');
+        Route::post('/conversations/{conversation:public_id}/escalations', [ConversationEscalationController::class, 'store'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/messages/{message:public_id}/escalations', [ConversationEscalationController::class, 'storeMessage'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/read', [ConversationMessageController::class, 'markRead'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/typing/start', [ConversationTypingController::class, 'start'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/typing/stop', [ConversationTypingController::class, 'stop'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/messages/read', [ConversationMessageController::class, 'markMessagesRead'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/messages/{message:public_id}/pin', [ConversationMessageController::class, 'pin'])
+            ->middleware('throttle:api-action');
+        Route::delete('/conversations/{conversation:public_id}/messages/{message:public_id}/pin', [ConversationMessageController::class, 'unpin'])
+            ->middleware('throttle:api-action');
+        Route::post('/conversations/{conversation:public_id}/messages', [ConversationMessageController::class, 'store'])
+            ->middleware('throttle:api-action');
         Route::get('/message-threads', [MessageThreadController::class, 'index']);
         Route::post('/message-threads', [MessageThreadController::class, 'store'])
             ->middleware('throttle:api-action');
@@ -284,6 +321,22 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:form_templates.manage');
             Route::post('/form-templates/{formTemplate:public_id}/archive', [AdminFormTemplateController::class, 'archive'])
                 ->middleware('permission:form_templates.manage');
+            Route::get('/message-templates', [AdminMessageTemplateController::class, 'index'])
+                ->middleware('permission:message_templates.view');
+            Route::post('/message-templates', [AdminMessageTemplateController::class, 'store'])
+                ->middleware('permission:message_templates.manage');
+            Route::get('/message-templates/{messageTemplate:public_id}', [AdminMessageTemplateController::class, 'show'])
+                ->middleware('permission:message_templates.view');
+            Route::match(['put', 'patch'], '/message-templates/{messageTemplate:public_id}', [AdminMessageTemplateController::class, 'update'])
+                ->middleware('permission:message_templates.manage');
+            Route::delete('/message-templates/{messageTemplate:public_id}', [AdminMessageTemplateController::class, 'destroy'])
+                ->middleware('permission:message_templates.manage');
+            Route::get('/chat-escalations', [ConversationEscalationController::class, 'index'])
+                ->middleware('permission:chat_escalations.view');
+            Route::get('/chat-escalations/{conversationEscalation:public_id}', [ConversationEscalationController::class, 'show'])
+                ->middleware('permission:chat_escalations.view');
+            Route::patch('/chat-escalations/{conversationEscalation:public_id}/status', [ConversationEscalationController::class, 'updateStatus'])
+                ->middleware('permission:chat_escalations.manage');
             Route::get('/issue-reports', [AdminIssueReportController::class, 'index'])
                 ->middleware('permission:issue_reports.view');
             Route::get('/issue-reports/{issueReport:public_id}', [AdminIssueReportController::class, 'show'])
